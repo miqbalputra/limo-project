@@ -1,0 +1,55 @@
+{
+  "name": "limo-system",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types tests/run-unit.mjs",
+    "test:e2e": "playwright test",
+    "test:week1": "node tests/run-week1-integration.mjs",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "prisma db seed",
+    "sqlite:prepare": "node scripts/prepare-sqlite-schema.mjs",
+    "sqlite:setup": "node scripts/setup-sqlite.mjs",
+    "billing:generate": "node --experimental-strip-types scripts/generate-monthly-invoices.ts",
+    "billing:mark-overdue": "node --experimental-strip-types scripts/mark-overdue-invoices.ts",
+    "sessions:cleanup": "node --experimental-strip-types scripts/cleanup-expired-sessions.ts",
+    "notifications:retry": "node --experimental-strip-types scripts/retry-notifications.ts"
+  },
+  "prisma": {
+    "seed": "node --experimental-strip-types prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.13.0",
+    "argon2": "^0.45.0",
+    "next": "^16.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.31.0",
+    "@playwright/test": "^1.54.1",
+    "@tailwindcss/postcss": "^4.1.11",
+    "@types/node": "^22.16.5",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "eslint": "^9.31.0",
+    "eslint-config-next": "^16.0.0",
+    "prisma": "^6.13.0",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

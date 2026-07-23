@@ -1,0 +1,230 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap") layer(base);
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-outfit: Outfit, sans-serif;
+  --breakpoint-2xsm: 375px;
+  --breakpoint-xsm: 425px;
+  --breakpoint-3xl: 2000px;
+  --text-theme-xs: 12px;
+  --text-theme-xs--line-height: 18px;
+  --text-theme-sm: 14px;
+  --text-theme-sm--line-height: 20px;
+  --text-theme-xl: 20px;
+  --text-theme-xl--line-height: 30px;
+  --text-title-sm: 24px;
+  --text-title-sm--line-height: 32px;
+  --color-brand-25: #f2f7ff;
+  --color-brand-50: #ecf3ff;
+  --color-brand-100: #dde9ff;
+  --color-brand-300: #9cb9ff;
+  --color-brand-400: #7592ff;
+  --color-brand-500: #465fff;
+  --color-brand-600: #3641f5;
+  --color-brand-700: #2a31d8;
+  --color-brand-800: #252dae;
+  --color-brand-900: #262e89;
+  --color-gray-25: #fcfcfd;
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f2f4f7;
+  --color-gray-200: #e4e7ec;
+  --color-gray-300: #d0d5dd;
+  --color-gray-400: #98a2b3;
+  --color-gray-500: #667085;
+  --color-gray-600: #475467;
+  --color-gray-700: #344054;
+  --color-gray-800: #1d2939;
+  --color-gray-900: #101828;
+  --color-gray-950: #0c111d;
+  --color-success-50: #ecfdf3;
+  --color-success-500: #12b76a;
+  --color-success-700: #027a48;
+  --color-error-50: #fef3f2;
+  --color-error-500: #f04438;
+  --color-error-700: #b42318;
+  --color-warning-50: #fffaeb;
+  --color-warning-500: #f79009;
+  --color-warning-700: #b54708;
+  --shadow-theme-xs: 0px 1px 2px 0px rgba(16, 24, 40, 0.05);
+  --shadow-theme-sm: 0px 1px 3px 0px rgba(16, 24, 40, 0.1), 0px 1px 2px 0px rgba(16, 24, 40, 0.06);
+  --shadow-theme-md: 0px 4px 8px -2px rgba(16, 24, 40, 0.1), 0px 2px 4px -2px rgba(16, 24, 40, 0.06);
+  --shadow-focus-ring: 0px 0px 0px 4px rgba(70, 95, 255, 0.12);
+}
+
+:root {
+  --color-limo-blue: #2372b8;
+  --color-limo-sky: #94d3f2;
+  --color-limo-red: #f73f3d;
+  --color-limo-yellow: #f9e06c;
+  --color-limo-green: #09c467;
+  --color-limo-neutral: #f3f3f3;
+  --color-foreground: #162033;
+  --color-background: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
+body {
+  margin: 0;
+  font-family:
+    Outfit,
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  background: var(--color-gray-50);
+}
+
+[dir="rtl"] {
+  font-family:
+    "Noto Naskh Arabic",
+    "Amiri",
+    serif;
+}
+
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply text-theme-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:ring-brand-500/10 focus:border-brand-300;
+  }
+}
+
+@utility menu-item {
+  @apply relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-theme-sm font-medium transition-colors;
+}
+
+@utility menu-item-active {
+  @apply bg-brand-50 text-brand-500;
+}
+
+@utility menu-item-inactive {
+  @apply text-gray-700 hover:bg-gray-100 hover:text-gray-700;
+}
+
+@utility menu-item-icon {
+  @apply text-gray-500 group-hover:text-gray-700;
+}
+
+@utility menu-item-icon-active {
+  @apply text-brand-500;
+}
+
+@utility tailadmin-card {
+  @apply rounded-2xl border border-gray-200 bg-white shadow-theme-xs;
+}
+
+@utility tailadmin-page-title {
+  @apply text-title-sm font-semibold text-gray-800;
+}
+
+@utility tailadmin-muted {
+  @apply text-theme-sm text-gray-500;
+}
+
+@utility tailadmin-button-primary {
+  @apply inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-300;
+}
+
+@utility tailadmin-button-outline {
+  @apply inline-flex items-center justify-center rounded-lg bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+@utility tailadmin-input {
+  @apply w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-theme-sm text-gray-800 shadow-theme-xs outline-none transition placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10;
+}
+
+@utility tailadmin-alert-error {
+  @apply rounded-lg border border-error-500/20 bg-error-50 px-4 py-3 text-theme-sm text-error-700;
+}
+
+@utility tailadmin-alert-success {
+  @apply rounded-lg border border-success-500/20 bg-success-50 px-4 py-3 text-theme-sm text-success-700;
+}
+
+@utility tailadmin-alert-warning {
+  @apply rounded-lg border border-warning-500/20 bg-warning-50 px-4 py-3 text-theme-sm text-warning-700;
+}
+
+/* ── LIMO Landing Page Animations ── */
+
+@theme {
+  --color-brand-200: #bdd0ff;
+  --color-success-100: #d1fadf;
+  --color-success-800: #05603a;
+  --color-warning-100: #feefcd;
+  --color-warning-200: #fedf89;
+  --color-warning-300: #fec84b;
+  --color-warning-400: #fdb022;
+  --color-warning-800: #93370d;
+  --color-error-100: #fee4e2;
+  --shadow-theme-lg: 0px 12px 16px -4px rgba(16, 24, 40, 0.08), 0px 4px 6px -2px rgba(16, 24, 40, 0.03);
+  --shadow-theme-xl: 0px 20px 24px -4px rgba(16, 24, 40, 0.08), 0px 8px 8px -4px rgba(16, 24, 40, 0.03);
+}
+
+@keyframes limo-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
+}
+
+@keyframes limo-fade-in-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes limo-pulse-soft {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+@keyframes limo-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@utility animate-float {
+  animation: limo-float 4s ease-in-out infinite;
+}
+
+@utility animate-fade-in-up {
+  animation: limo-fade-in-up 0.7s ease-out both;
+}
+
+@utility animate-pulse-soft {
+  animation: limo-pulse-soft 3s ease-in-out infinite;
+}
+
+@utility glass-card {
+  @apply bg-white/80 backdrop-blur-xl border border-white/40;
+}

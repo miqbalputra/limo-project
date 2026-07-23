@@ -1,0 +1,687 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  GURU
+  WALI
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ProgramKind {
+  ENGLISH
+  ARABIC
+}
+
+enum PendaftaranStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum SiswaStatus {
+  ACTIVE
+  INACTIVE
+  GRADUATED
+  ARCHIVED
+}
+
+enum KelasStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  TRANSFERRED
+  COMPLETED
+  CANCELLED
+}
+
+enum SesiStatus {
+  DRAFT
+  FINAL
+  CANCELLED
+}
+
+enum FileVisibility {
+  PRIVATE
+  INTERNAL
+}
+
+enum FileOwnerType {
+  PENDAFTARAN
+  MATERI
+  USER
+  SISWA
+}
+
+enum MateriType {
+  TEXT
+  PDF
+  IMAGE
+  VIDEO_LINK
+}
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PresensiStatus {
+  HADIR
+  IZIN
+  SAKIT
+  ALPA
+  TERLAMBAT
+}
+
+enum SoalType {
+  PILIHAN_GANDA
+  ESAI
+}
+
+enum HasilUjianStatus {
+  DRAFT
+  NEEDS_REVIEW
+  FINAL
+  CORRECTED
+}
+
+enum TagihanStatus {
+  DRAFT
+  UNPAID
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+enum PembayaranStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  CANCELLED
+  REFUNDED
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum JobStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+model User {
+  id                String               @id @default(cuid())
+  email             String               @unique
+  name              String
+  passwordHash      String
+  role              UserRole
+  status            UserStatus           @default(ACTIVE)
+  lastLoginAt       DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  deletedAt         DateTime?
+  sessions          Session[]
+  resetTokens       PasswordResetToken[]
+  guruProfile       GuruProfile?
+  waliProfile       WaliProfile?
+  auditLogs         AuditLog[]           @relation("AuditActor")
+  pendaftaranReview Pendaftaran[]        @relation("PendaftaranReviewer")
+}
+
+model Session {
+  id          String    @id @default(cuid())
+  tokenHash   String    @unique
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent   String?   @db.VarChar(255)
+  ipAddress   String?   @db.VarChar(64)
+  createdAt   DateTime  @default(now())
+  lastSeenAt  DateTime?
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  revokedById String?
+
+  @@index([userId, expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  @@index([userId, expiresAt])
+}
+
+model GuruProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone     String?
+  address   String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  kelas     Kelas[]
+}
+
+model WaliProfile {
+  id             String        @id @default(cuid())
+  userId         String        @unique
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone          String?
+  address        String?       @db.Text
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  siswaRelations WaliSiswa[]
+  pendaftaran    Pendaftaran[]
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String?
+  reason     String?  @db.Text
+  metadata   Json?
+  ipAddress  String?  @db.VarChar(64)
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+}
+
+model Program {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  kind        ProgramKind
+  description String?       @db.Text
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  levels      Level[]
+  pendaftaran Pendaftaran[]
+  siswa       Siswa[]
+  kelas       Kelas[]
+  tarif       Tarif[]
+}
+
+model Level {
+  id          String   @id @default(cuid())
+  programId   String
+  program     Program  @relation(fields: [programId], references: [id], onDelete: Restrict)
+  name        String
+  order       Int      @default(0)
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  kelas       Kelas[]
+
+  @@unique([programId, name])
+}
+
+model Pendaftaran {
+  id              String                     @id @default(cuid())
+  kode            String                     @unique
+  status          PendaftaranStatus          @default(DRAFT)
+  programId       String
+  program         Program                    @relation(fields: [programId], references: [id], onDelete: Restrict)
+  studentName     String
+  studentBirthAt  DateTime?
+  waliName        String
+  waliEmail       String
+  waliPhone       String?
+  waliProfileId   String?
+  waliProfile     WaliProfile?               @relation(fields: [waliProfileId], references: [id], onDelete: SetNull)
+  submittedAt     DateTime?
+  reviewedAt      DateTime?
+  reviewedById    String?
+  reviewedBy      User?                      @relation("PendaftaranReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  rejectionReason String?                    @db.Text
+  approvedSiswaId String?                    @unique
+  approvedSiswa   Siswa?                     @relation("ApprovedPendaftaran", fields: [approvedSiswaId], references: [id], onDelete: SetNull)
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  histories       RiwayatStatusPendaftaran[]
+  files           FileAsset[]
+
+  @@index([status, createdAt])
+  @@index([waliEmail])
+}
+
+model RiwayatStatusPendaftaran {
+  id            String             @id @default(cuid())
+  pendaftaranId String
+  pendaftaran   Pendaftaran        @relation(fields: [pendaftaranId], references: [id], onDelete: Cascade)
+  fromStatus    PendaftaranStatus?
+  toStatus      PendaftaranStatus
+  actorId       String?
+  reason        String?            @db.Text
+  createdAt     DateTime           @default(now())
+
+  @@index([pendaftaranId, createdAt])
+}
+
+model Siswa {
+  id                  String           @id @default(cuid())
+  nomorInduk          String           @unique
+  name                String
+  birthAt             DateTime?
+  status              SiswaStatus      @default(ACTIVE)
+  programId           String
+  program             Program          @relation(fields: [programId], references: [id], onDelete: Restrict)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  deletedAt           DateTime?
+  approvedPendaftaran Pendaftaran?     @relation("ApprovedPendaftaran")
+  waliRelations       WaliSiswa[]
+  enrollments         KelasSiswa[]
+  presensi            Presensi[]
+  progresBelajar      ProgresBelajar[]
+  hasilUjian          HasilUjian[]
+  tagihan             Tagihan[]
+}
+
+model WaliSiswa {
+  id            String      @id @default(cuid())
+  waliProfileId String
+  waliProfile   WaliProfile @relation(fields: [waliProfileId], references: [id], onDelete: Cascade)
+  siswaId       String
+  siswa         Siswa       @relation(fields: [siswaId], references: [id], onDelete: Cascade)
+  relationship  String?
+  isPrimary     Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  endedAt       DateTime?
+
+  @@unique([waliProfileId, siswaId])
+  @@index([siswaId])
+}
+
+model Kelas {
+  id            String       @id @default(cuid())
+  name          String
+  programId     String
+  program       Program      @relation(fields: [programId], references: [id], onDelete: Restrict)
+  levelId       String
+  level         Level        @relation(fields: [levelId], references: [id], onDelete: Restrict)
+  guruProfileId String?
+  guruProfile   GuruProfile? @relation(fields: [guruProfileId], references: [id], onDelete: SetNull)
+  status        KelasStatus  @default(ACTIVE)
+  scheduleNote  String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  enrollments   KelasSiswa[]
+  sessions      SesiKelas[]
+  materi        Materi[]
+  bankSoal      BankSoal[]
+  ujian         Ujian[]
+  tarif         Tarif[]
+
+  @@unique([programId, levelId, name])
+  @@index([guruProfileId])
+}
+
+model KelasSiswa {
+  id        String           @id @default(cuid())
+  kelasId   String
+  kelas     Kelas            @relation(fields: [kelasId], references: [id], onDelete: Restrict)
+  siswaId   String
+  siswa     Siswa            @relation(fields: [siswaId], references: [id], onDelete: Restrict)
+  status    EnrollmentStatus @default(ACTIVE)
+  startDate DateTime
+  endDate   DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([kelasId, siswaId, startDate])
+  @@index([siswaId, status])
+  @@index([kelasId, status])
+}
+
+model SesiKelas {
+  id             String           @id @default(cuid())
+  kelasId        String
+  kelas          Kelas            @relation(fields: [kelasId], references: [id], onDelete: Restrict)
+  meetingNumber  Int
+  topic          String
+  sessionDate    DateTime
+  status         SesiStatus       @default(DRAFT)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  materi         Materi[]
+  presensi       Presensi[]
+  progresBelajar ProgresBelajar[]
+
+  @@unique([kelasId, meetingNumber])
+  @@index([kelasId, sessionDate])
+}
+
+model FileAsset {
+  id             String         @id @default(cuid())
+  ownerType      FileOwnerType
+  ownerId        String
+  pendaftaranId  String?
+  pendaftaran    Pendaftaran?   @relation(fields: [pendaftaranId], references: [id], onDelete: Cascade)
+  materiId       String?
+  materi         Materi?        @relation(fields: [materiId], references: [id], onDelete: Cascade)
+  originalName   String
+  storedName     String         @unique
+  storagePath    String
+  mimeType       String
+  sizeBytes      BigInt
+  checksumSha256 String?
+  visibility     FileVisibility @default(PRIVATE)
+  uploadedById   String?
+  createdAt      DateTime       @default(now())
+  deletedAt      DateTime?
+
+  @@index([ownerType, ownerId])
+  @@index([pendaftaranId])
+  @@index([materiId])
+}
+
+model Materi {
+  id          String        @id @default(cuid())
+  kelasId     String
+  kelas       Kelas         @relation(fields: [kelasId], references: [id], onDelete: Restrict)
+  sesiKelasId String?
+  sesiKelas   SesiKelas?    @relation(fields: [sesiKelasId], references: [id], onDelete: SetNull)
+  type        MateriType
+  status      PublishStatus @default(DRAFT)
+  title       String
+  content     String?       @db.Text
+  videoUrl    String?
+  language    String?       @db.VarChar(16)
+  direction   String?       @db.VarChar(8)
+  order       Int           @default(0)
+  createdById String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  files       FileAsset[]
+
+  @@index([kelasId, status])
+  @@index([sesiKelasId])
+}
+
+model Presensi {
+  id          String         @id @default(cuid())
+  sesiKelasId String
+  sesiKelas   SesiKelas      @relation(fields: [sesiKelasId], references: [id], onDelete: Cascade)
+  siswaId     String
+  siswa       Siswa          @relation(fields: [siswaId], references: [id], onDelete: Restrict)
+  status      PresensiStatus
+  note        String?        @db.Text
+  finalizedAt DateTime?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([siswaId, sesiKelasId])
+  @@index([sesiKelasId, status])
+}
+
+model ProgresBelajar {
+  id                 String    @id @default(cuid())
+  sesiKelasId        String
+  sesiKelas          SesiKelas @relation(fields: [sesiKelasId], references: [id], onDelete: Cascade)
+  siswaId            String
+  siswa              Siswa     @relation(fields: [siswaId], references: [id], onDelete: Restrict)
+  category           String?   @db.VarChar(64)
+  understandingScore Int
+  publicNote         String?   @db.Text
+  internalNote       String?   @db.Text
+  createdById        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([siswaId, sesiKelasId, category])
+  @@index([sesiKelasId])
+}
+
+model BankSoal {
+  id          String         @id @default(cuid())
+  kelasId     String?
+  kelas       Kelas?         @relation(fields: [kelasId], references: [id], onDelete: SetNull)
+  type        SoalType
+  question    String         @db.Text
+  language    String?        @db.VarChar(16)
+  direction   String?        @db.VarChar(8)
+  explanation String?        @db.Text
+  createdById String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  options     OpsiSoal[]
+  ujianSoal   UjianSoal[]
+  answers     JawabanUjian[]
+
+  @@index([kelasId, type])
+}
+
+model OpsiSoal {
+  id         String   @id @default(cuid())
+  bankSoalId String
+  bankSoal   BankSoal @relation(fields: [bankSoalId], references: [id], onDelete: Cascade)
+  label      String   @db.VarChar(8)
+  content    String   @db.Text
+  isCorrect  Boolean  @default(false)
+  order      Int      @default(0)
+
+  @@unique([bankSoalId, label])
+}
+
+model Ujian {
+  id          String        @id @default(cuid())
+  kelasId     String
+  kelas       Kelas         @relation(fields: [kelasId], references: [id], onDelete: Restrict)
+  title       String
+  description String?       @db.Text
+  status      PublishStatus @default(DRAFT)
+  examDate    DateTime?
+  createdById String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  questions   UjianSoal[]
+  results     HasilUjian[]
+
+  @@index([kelasId, status])
+}
+
+model UjianSoal {
+  id         String         @id @default(cuid())
+  ujianId    String
+  ujian      Ujian          @relation(fields: [ujianId], references: [id], onDelete: Cascade)
+  bankSoalId String
+  bankSoal   BankSoal       @relation(fields: [bankSoalId], references: [id], onDelete: Restrict)
+  order      Int            @default(0)
+  weight     Decimal        @db.Decimal(10, 2)
+  answers    JawabanUjian[]
+
+  @@unique([ujianId, bankSoalId])
+  @@index([bankSoalId])
+}
+
+model HasilUjian {
+  id          String           @id @default(cuid())
+  ujianId     String
+  ujian       Ujian            @relation(fields: [ujianId], references: [id], onDelete: Restrict)
+  siswaId     String
+  siswa       Siswa            @relation(fields: [siswaId], references: [id], onDelete: Restrict)
+  status      HasilUjianStatus @default(DRAFT)
+  totalScore  Decimal?         @db.Decimal(10, 2)
+  finalizedAt DateTime?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  answers     JawabanUjian[]
+
+  @@unique([ujianId, siswaId])
+  @@index([siswaId, status])
+}
+
+model JawabanUjian {
+  id             String     @id @default(cuid())
+  hasilUjianId   String
+  hasilUjian     HasilUjian @relation(fields: [hasilUjianId], references: [id], onDelete: Cascade)
+  ujianSoalId    String
+  ujianSoal      UjianSoal  @relation(fields: [ujianSoalId], references: [id], onDelete: Restrict)
+  bankSoalId     String
+  bankSoal       BankSoal   @relation(fields: [bankSoalId], references: [id], onDelete: Restrict)
+  selectedOption String?    @db.VarChar(8)
+  essayAnswer    String?    @db.Text
+  score          Decimal?   @db.Decimal(10, 2)
+  needsReview    Boolean    @default(false)
+  reviewedById   String?
+  reviewedAt     DateTime?
+
+  @@unique([hasilUjianId, ujianSoalId])
+  @@index([bankSoalId])
+}
+
+model Tarif {
+  id            String    @id @default(cuid())
+  name          String
+  programId     String?
+  program       Program?  @relation(fields: [programId], references: [id], onDelete: Restrict)
+  kelasId       String?
+  kelas         Kelas?    @relation(fields: [kelasId], references: [id], onDelete: Restrict)
+  amount        Decimal   @db.Decimal(14, 2)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  tagihan       Tagihan[]
+
+  @@index([programId, effectiveFrom])
+  @@index([kelasId, effectiveFrom])
+}
+
+model Tagihan {
+  id          String        @id @default(cuid())
+  siswaId     String
+  siswa       Siswa         @relation(fields: [siswaId], references: [id], onDelete: Restrict)
+  tarifId     String?
+  tarif       Tarif?        @relation(fields: [tarifId], references: [id], onDelete: SetNull)
+  periode     DateTime
+  jenis       String        @db.VarChar(64)
+  description String?
+  amount      Decimal       @db.Decimal(14, 2)
+  status      TagihanStatus @default(DRAFT)
+  dueDate     DateTime
+  paidAt      DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  pembayaran  Pembayaran[]
+
+  @@unique([siswaId, periode, jenis])
+  @@index([status, dueDate])
+}
+
+model Pembayaran {
+  id                String           @id @default(cuid())
+  tagihanId         String
+  tagihan           Tagihan          @relation(fields: [tagihanId], references: [id], onDelete: Restrict)
+  provider          String
+  providerReference String           @unique
+  amount            Decimal          @db.Decimal(14, 2)
+  status            PembayaranStatus
+  paymentMethod     String?
+  paidAt            DateTime?
+  rawPayload        Json?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([tagihanId, status])
+}
+
+model WebhookEvent {
+  id              String    @id @default(cuid())
+  provider        String
+  providerEventId String
+  payloadHash     String    @unique
+  payload         Json
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@unique([provider, providerEventId])
+  @@index([provider, createdAt])
+}
+
+model Notifikasi {
+  id         String                 @id @default(cuid())
+  channel    String
+  template   String
+  recipient  String
+  subject    String?
+  body       String                 @db.Text
+  status     NotificationStatus     @default(PENDING)
+  metadata   Json?
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+  deliveries NotificationDelivery[]
+}
+
+model NotificationDelivery {
+  id             String             @id @default(cuid())
+  notificationId String
+  notification   Notifikasi         @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  provider       String
+  status         NotificationStatus @default(PENDING)
+  attempt        Int                @default(0)
+  response       Json?
+  errorMessage   String?            @db.Text
+  sentAt         DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([notificationId, status])
+}
+
+model JobRun {
+  id           String    @id @default(cuid())
+  name         String
+  status       JobStatus @default(RUNNING)
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  successCount Int       @default(0)
+  skippedCount Int       @default(0)
+  failedCount  Int       @default(0)
+  metadata     Json?
+  errorMessage String?   @db.Text
+
+  @@index([name, startedAt])
+}

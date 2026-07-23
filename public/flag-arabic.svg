@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 36" role="img" aria-label="Bendera Arab Saudi">
+  <rect width="60" height="36" rx="3" fill="#006C35"/>
+  <text x="30" y="16" fill="#fff" font-family="serif" font-size="6" font-weight="700" text-anchor="middle" direction="rtl">لا إله إلا الله محمد رسول الله</text>
+  <path d="M18 24h25c-2.2 2.1-5.1 3-8.5 3H20z" fill="#fff"/>
+  <rect x="17" y="22.8" width="26" height="1.5" rx=".75" fill="#fff"/>
+</svg>

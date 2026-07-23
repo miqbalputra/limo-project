@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="LIMO">
+  <rect width="512" height="512" rx="112" fill="#2372B8"/>
+  <circle cx="382" cy="130" r="56" fill="#F9E06C"/>
+  <path d="M116 352V136h58v166h112v50H116Z" fill="#fff"/>
+  <path d="M303 352V186h58v166h-58Z" fill="#94D3F2"/>
+</svg>

@@ -1,0 +1,202 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
+import type { NavigationItem } from "@/components/dashboard/navigation";
+import { LogoutButton } from "@/components/dashboard/logout-button";
+
+type DashboardShellProps = {
+  actor: {
+    name: string;
+    email: string;
+    role: string;
+  };
+  navigation: NavigationItem[];
+  children: ReactNode;
+};
+
+function MenuIcon({ open }: { open: boolean }) {
+  return open ? (
+    <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+  ) : (
+    <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h16" /></svg>
+  );
+}
+
+function SearchIcon() {
+  return <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>;
+}
+
+function BellIcon() {
+  return <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>;
+}
+
+export function DashboardShell({ actor, navigation, children }: DashboardShellProps) {
+  const pathname = usePathname();
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const homeHref = navigation[0]?.href || "/admin";
+  const activeItem = [...navigation]
+    .sort((a, b) => b.href.length - a.href.length)
+    .find((item) => pathname === item.href || (item.href !== homeHref && pathname.startsWith(`${item.href}/`))) ?? navigation[0];
+  const sections = navigation.reduce<Record<string, NavigationItem[]>>((result, item) => {
+    (result[item.section] ||= []).push(item);
+    return result;
+  }, {});
+  const searchResults = search.trim()
+    ? navigation.filter((item) => item.label.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 6)
+    : [];
+
+  useEffect(() => {
+    function handleShortcut(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleShortcut);
+    return () => document.removeEventListener("keydown", handleShortcut);
+  }, []);
+
+  function toggleSidebar() {
+    if (window.innerWidth >= 1024) {
+      setIsSidebarCollapsed((collapsed) => !collapsed);
+    } else {
+      setIsSidebarOpen((open) => !open);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+      {isSidebarOpen ? (
+        <button type="button" aria-label="Tutup navigasi" className="fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-[1px] lg:hidden" onClick={() => setIsSidebarOpen(false)} />
+      ) : null}
+
+      <aside
+        className={`fixed left-0 top-0 z-50 flex h-screen w-[290px] flex-col border-r border-gray-200 bg-white transition-all duration-300 ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        } ${isSidebarCollapsed ? "lg:w-[90px]" : "lg:w-[290px]"}`}
+      >
+        <div className={`flex h-20 shrink-0 items-center border-b border-gray-100 ${isSidebarCollapsed ? "justify-center px-3" : "justify-between px-5"}`}>
+          <Link href={homeHref} className="flex min-w-0 items-center gap-3" onClick={() => setIsSidebarOpen(false)}>
+            <Image src="/logo.jpg" width={42} height={42} alt="LIMO" className="size-10 shrink-0 rounded-xl border border-gray-200 bg-white object-contain shadow-theme-xs" priority />
+            {!isSidebarCollapsed ? (
+              <span className="min-w-0">
+                <span className="block text-lg font-bold leading-5 text-gray-900">LIMO</span>
+                <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400">Language Club</span>
+              </span>
+            ) : null}
+          </Link>
+          {!isSidebarCollapsed ? (
+            <button type="button" aria-label="Tutup menu" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden" onClick={() => setIsSidebarOpen(false)}><MenuIcon open /></button>
+          ) : null}
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 py-5">
+          <nav className="space-y-6" aria-label="Navigasi dashboard">
+            {Object.entries(sections).map(([section, items]) => (
+              <div key={section}>
+                <p className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400 ${isSidebarCollapsed ? "lg:text-center lg:text-[0]" : ""}`}>
+                  {isSidebarCollapsed ? <span className="inline-block text-base leading-none text-gray-300">...</span> : section}
+                </p>
+                <ul className="space-y-1">
+                  {items.map((item) => {
+                    const isActive = activeItem?.href === item.href;
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          title={isSidebarCollapsed ? item.label : undefined}
+                          aria-current={isActive ? "page" : undefined}
+                          onClick={() => setIsSidebarOpen(false)}
+                          className={`group flex min-h-11 items-center gap-3 rounded-lg px-3 text-theme-sm font-medium transition-colors ${
+                            isSidebarCollapsed ? "lg:justify-center" : ""
+                          } ${isActive ? "bg-brand-50 text-brand-600" : "text-gray-700 hover:bg-gray-100"}`}
+                        >
+                          <DashboardIcon name={item.icon} className={`size-5 shrink-0 ${isActive ? "text-brand-500" : "text-gray-500 group-hover:text-gray-700"}`} />
+                          {!isSidebarCollapsed ? <span className="truncate">{item.label}</span> : <span className="lg:hidden">{item.label}</span>}
+                          {isActive && !isSidebarCollapsed ? <span className="ml-auto size-1.5 rounded-full bg-brand-500" /> : null}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </nav>
+        </div>
+
+        {!isSidebarCollapsed ? (
+          <div className="m-4 rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-100">
+            <p className="text-theme-xs font-semibold text-gray-700">LIMO System</p>
+            <p className="mt-1 text-[11px] leading-4 text-gray-500">English & Arabic learning management.</p>
+            <span className="mt-3 inline-flex rounded-full bg-success-50 px-2.5 py-1 text-[10px] font-semibold text-success-700">System online</span>
+          </div>
+        ) : null}
+      </aside>
+
+      <div className={`transition-[padding] duration-300 ${isSidebarCollapsed ? "lg:pl-[90px]" : "lg:pl-[290px]"}`}>
+        <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur-xl">
+          <div className="flex min-h-16 items-center gap-3 px-4 sm:px-6 lg:min-h-[72px] lg:px-8">
+            <button type="button" aria-label="Toggle sidebar" className="grid size-11 shrink-0 place-items-center rounded-lg border border-gray-200 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50" onClick={toggleSidebar}>
+              <MenuIcon open={isSidebarOpen} />
+            </button>
+
+            <div className="relative hidden w-full max-w-[430px] lg:block">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"><SearchIcon /></span>
+              <input
+                ref={searchRef}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Cari menu atau halaman..."
+                className="h-11 w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-12 pr-16 text-theme-sm text-gray-800 shadow-theme-xs outline-none placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10"
+              />
+              <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[10px] font-medium text-gray-400">Ctrl K</span>
+              {searchResults.length > 0 ? (
+                <div className="absolute left-0 right-0 top-12 rounded-xl border border-gray-200 bg-white p-2 shadow-theme-lg">
+                  {searchResults.map((item) => (
+                    <Link key={item.href} href={item.href} onClick={() => setSearch("")} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-theme-sm text-gray-700 hover:bg-gray-50">
+                      <DashboardIcon name={item.icon} className="size-5 text-gray-400" />{item.label}
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="ml-auto flex items-center gap-2 sm:gap-3">
+              <button type="button" title="Notifikasi akan tampil di sini" aria-label="Notifikasi" className="grid size-10 place-items-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-theme-xs hover:bg-gray-50 sm:size-11"><BellIcon /></button>
+              <div className="relative">
+                <button type="button" aria-expanded={isProfileOpen} onClick={() => setIsProfileOpen((open) => !open)} className="flex items-center gap-3 rounded-lg p-1.5 text-left hover:bg-gray-50">
+                  <span className="grid size-9 place-items-center rounded-full bg-brand-50 text-theme-sm font-bold text-brand-600 ring-1 ring-brand-100 sm:size-10">{actor.name.slice(0, 1).toUpperCase()}</span>
+                  <span className="hidden max-w-40 sm:block"><span className="block truncate text-theme-sm font-semibold text-gray-800">{actor.name}</span><span className="block text-theme-xs text-gray-500">{actor.role}</span></span>
+                  <svg viewBox="0 0 20 20" className={`hidden size-4 text-gray-400 transition sm:block ${isProfileOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+                </button>
+                {isProfileOpen ? (
+                  <div className="absolute right-0 top-13 w-64 rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg">
+                    <div className="border-b border-gray-100 px-2 pb-3"><p className="truncate text-theme-sm font-semibold text-gray-800">{actor.name}</p><p className="truncate text-theme-xs text-gray-500">{actor.email}</p></div>
+                    <Link href="/ubah-password" onClick={() => setIsProfileOpen(false)} className="mt-2 flex items-center gap-3 rounded-lg px-3 py-2.5 text-theme-sm font-medium text-gray-700 hover:bg-gray-50"><DashboardIcon name="lock" className="size-5 text-gray-400" />Ubah Password</Link>
+                    <div className="mt-1 px-1"><LogoutButton /></div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div className="border-b border-gray-100 bg-white px-4 py-3 sm:px-6 lg:px-8">
+          <div className="mx-auto flex w-full max-w-[1600px] items-center gap-2 text-theme-xs text-gray-500"><Link href={homeHref} className="hover:text-brand-500">Dashboard</Link><span>/</span><span className="font-medium text-gray-700">{activeItem?.label || "Halaman"}</span></div>
+        </div>
+
+        <main className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+      </div>
+    </div>
+  );
+}

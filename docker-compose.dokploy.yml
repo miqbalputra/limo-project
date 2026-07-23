@@ -1,0 +1,54 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      APP_URL: ${APP_URL}
+      DATABASE_URL: mysql://${MARIADB_USER}:${MARIADB_PASSWORD}@mariadb:3306/${MARIADB_DATABASE}
+      SESSION_SECRET: ${SESSION_SECRET}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-limo_session}
+      SESSION_ABSOLUTE_DAYS: ${SESSION_ABSOLUTE_DAYS:-30}
+      SESSION_IDLE_MINUTES: ${SESSION_IDLE_MINUTES:-10080}
+      PRIVATE_STORAGE_PATH: /app/storage/private
+      MAX_REGISTRATION_FILE_MB: ${MAX_REGISTRATION_FILE_MB:-10}
+      MAX_MATERIAL_FILE_MB: ${MAX_MATERIAL_FILE_MB:-25}
+      PAKASIR_PROJECT: ${PAKASIR_PROJECT:-}
+      PAKASIR_API_KEY: ${PAKASIR_API_KEY:-}
+      PAKASIR_WEBHOOK_SECRET: ${PAKASIR_WEBHOOK_SECRET:-}
+      NOTIFICATION_PROVIDER: ${NOTIFICATION_PROVIDER:-console}
+      NEXT_PUBLIC_LIMO_CONTACT_EMAIL: ${NEXT_PUBLIC_LIMO_CONTACT_EMAIL:-admin@limo.local}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      DOKPLOY_SEED_ON_START: ${DOKPLOY_SEED_ON_START:-false}
+    ports:
+      - "3000:3000"
+    volumes:
+      - limo-private-storage:/app/storage/private
+
+  mariadb:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+    volumes:
+      - limo-mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  limo-mariadb-data:
+  limo-private-storage:

@@ -1,0 +1,17 @@
+.git
+.next
+node_modules
+coverage
+playwright-report
+test-results
+dist
+build
+storage/private
+*.log
+.env
+.env*.local
+prisma/schema.sqlite.prisma
+prisma/*.db
+prisma/*.db-journal
+free-react-tailwind-admin-dashboard-main/node_modules
+free-react-tailwind-admin-dashboard-main/.git

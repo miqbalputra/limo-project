@@ -1,0 +1,112 @@
+import "server-only";
+import type { Actor } from "@/server/auth/session";
+import { prisma } from "@/server/db/prisma";
+import { ForbiddenError, NotFoundError } from "@/server/errors/application-error";
+import { canAccessStudent, canManageClass } from "@/server/policies/access-policy";
+
+export async function getStudentSummary(actor: Actor, siswaId: string) {
+  const allowed = await canAccessStudent(actor, siswaId);
+
+  if (!allowed) {
+    throw new ForbiddenError("Anda tidak memiliki akses ke siswa ini");
+  }
+
+  const siswa = await prisma.siswa.findUnique({
+    where: { id: siswaId },
+    select: { id: true, name: true, nomorInduk: true, program: { select: { name: true } } },
+  });
+
+  if (!siswa) {
+    throw new NotFoundError("Siswa tidak ditemukan");
+  }
+
+  const [presensi, progres, hasil] = await Promise.all([
+    prisma.presensi.groupBy({
+      by: ["status"],
+      where: { siswaId },
+      _count: { status: true },
+    }),
+    prisma.progresBelajar.findMany({
+      where: { siswaId },
+      orderBy: { sesiKelas: { sessionDate: "desc" } },
+      take: 12,
+      select: {
+        understandingScore: true,
+        publicNote: true,
+        category: true,
+        sesiKelas: { select: { topic: true, sessionDate: true } },
+      },
+    }),
+    prisma.hasilUjian.findMany({
+      where: { siswaId, status: { in: ["FINAL", "CORRECTED"] } },
+      orderBy: { updatedAt: "desc" },
+      take: 10,
+      select: { totalScore: true, ujian: { select: { title: true, examDate: true } } },
+    }),
+  ]);
+
+  const averageProgress = progres.length > 0
+    ? progres.reduce((sum, item) => sum + item.understandingScore, 0) / progres.length
+    : null;
+  const averageScore = hasil.length > 0
+    ? hasil.reduce((sum, item) => sum + Number(item.totalScore || 0), 0) / hasil.length
+    : null;
+
+  return {
+    siswa,
+    attendance: Object.fromEntries(presensi.map((item) => [item.status, item._count.status])),
+    averageProgress,
+    averageScore,
+    progressTimeline: progres,
+    examResults: hasil,
+  };
+}
+
+export async function getClassSummary(actor: Actor, kelasId: string) {
+  const allowed = await canManageClass(actor, kelasId);
+
+  if (!allowed) {
+    throw new ForbiddenError("Anda tidak memiliki akses ke kelas ini");
+  }
+
+  const kelas = await prisma.kelas.findUnique({
+    where: { id: kelasId },
+    select: { id: true, name: true, program: { select: { name: true } }, level: { select: { name: true } } },
+  });
+
+  if (!kelas) {
+    throw new NotFoundError("Kelas tidak ditemukan");
+  }
+
+  const students = await prisma.kelasSiswa.findMany({
+    where: { kelasId, status: "ACTIVE" },
+    orderBy: { siswa: { name: "asc" } },
+    select: {
+      siswa: {
+        select: {
+          id: true,
+          name: true,
+          nomorInduk: true,
+          presensi: { select: { status: true } },
+          progresBelajar: { orderBy: { createdAt: "desc" }, take: 5, select: { understandingScore: true } },
+          hasilUjian: { where: { status: { in: ["FINAL", "CORRECTED"] } }, select: { totalScore: true } },
+        },
+      },
+    },
+  });
+
+  const rows = students.map(({ siswa }) => {
+    const hadir = siswa.presensi.filter((item) => item.status === "HADIR" || item.status === "TERLAMBAT").length;
+    const totalPresensi = siswa.presensi.length;
+    const averageProgress = siswa.progresBelajar.length
+      ? siswa.progresBelajar.reduce((sum, item) => sum + item.understandingScore, 0) / siswa.progresBelajar.length
+      : null;
+    const averageScore = siswa.hasilUjian.length
+      ? siswa.hasilUjian.reduce((sum, item) => sum + Number(item.totalScore || 0), 0) / siswa.hasilUjian.length
+      : null;
+
+    return { id: siswa.id, name: siswa.name, nomorInduk: siswa.nomorInduk, hadir, totalPresensi, averageProgress, averageScore };
+  });
+
+  return { kelas, rows };
+}
