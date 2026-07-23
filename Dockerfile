@@ -26,6 +26,9 @@ FROM base AS runner
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+ENV DOKPLOY_SQLITE_DEMO=true
+ENV SQLITE_DATABASE_URL=file:/app/data/limo-demo.db
+ENV DOKPLOY_SEED_ON_START=true
 
 RUN groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 nextjs
@@ -35,7 +38,8 @@ COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
 
 RUN chmod +x /app/docker-entrypoint.sh \
   && mkdir -p /app/storage/private \
-  && chown -R nextjs:nodejs /app/storage
+  && mkdir -p /app/data \
+  && chown -R nextjs:nodejs /app/storage /app/data
 
 USER nextjs
 
