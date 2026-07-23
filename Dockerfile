@@ -12,6 +12,10 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 FROM base AS builder
+ENV APP_URL=http://localhost:3000
+ENV DATABASE_URL=mysql://limo:limo@localhost:3306/limo_db
+ENV SESSION_SECRET=build-time-placeholder-secret-32-chars
+ENV PRIVATE_STORAGE_PATH=/app/storage/private
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
