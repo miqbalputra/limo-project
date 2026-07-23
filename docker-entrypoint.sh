@@ -11,7 +11,11 @@ case "${DATABASE_URL:-}" in
     ;;
 esac
 
-npx prisma migrate deploy
+if [ "${DOKPLOY_DB_PUSH_ON_START:-false}" = "true" ]; then
+  npx prisma db push --accept-data-loss
+else
+  npx prisma migrate deploy
+fi
 
 if [ "${DOKPLOY_SEED_ON_START:-false}" = "true" ]; then
   npm run prisma:seed

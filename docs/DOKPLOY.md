@@ -29,6 +29,14 @@ DOKPLOY_SEED_ON_START=false
 
 Container menjalankan `prisma migrate deploy` otomatis sebelum `npm run start`.
 
+Untuk demo sementara, jika migration pernah gagal dan database masih memblokir startup dengan `P3009`, gunakan sementara:
+
+```env
+DOKPLOY_DB_PUSH_ON_START=true
+```
+
+Mode ini menjalankan `prisma db push --accept-data-loss`, bukan migration deploy. Gunakan hanya untuk staging/demo disposable, bukan production final.
+
 ## Opsi B: Compose
 
 Gunakan `docker-compose.dokploy.yml` jika ingin app dan MariaDB dikelola bersama oleh Dokploy Compose.
