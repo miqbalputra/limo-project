@@ -37,6 +37,16 @@ DOKPLOY_DB_PUSH_ON_START=true
 
 Mode ini menjalankan `prisma db push --accept-data-loss`, bukan migration deploy. Gunakan hanya untuk staging/demo disposable, bukan production final.
 
+Jika butuh demo paling cepat dan MariaDB masih bermasalah, aktifkan SQLite demo mode:
+
+```env
+DOKPLOY_SQLITE_DEMO=true
+SQLITE_DATABASE_URL=file:/app/data/limo-demo.db
+DOKPLOY_SEED_ON_START=true
+```
+
+Tambahkan persistent volume `/app/data` jika data demo perlu bertahan saat redeploy. Mode ini hanya untuk demo sementara.
+
 ## Opsi B: Compose
 
 Gunakan `docker-compose.dokploy.yml` jika ingin app dan MariaDB dikelola bersama oleh Dokploy Compose.
