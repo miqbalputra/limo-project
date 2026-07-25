@@ -41,7 +41,7 @@ export async function getStudentSummary(actor: Actor, siswaId: string) {
       where: { siswaId, status: { in: ["FINAL", "CORRECTED"] } },
       orderBy: { updatedAt: "desc" },
       take: 10,
-      select: { totalScore: true, ujian: { select: { title: true, examDate: true } } },
+      select: { totalScore: true, status: true, updatedAt: true, ujian: { select: { title: true, examDate: true, durationMinutes: true } } },
     }),
   ]);
 
@@ -60,6 +60,47 @@ export async function getStudentSummary(actor: Actor, siswaId: string) {
     progressTimeline: progres,
     examResults: hasil,
   };
+}
+
+export async function getWaliExamHistory(actor: Actor) {
+  if (actor.role !== "WALI") {
+    throw new ForbiddenError();
+  }
+
+  const children = await prisma.waliSiswa.findMany({
+    where: { endedAt: null, waliProfile: { userId: actor.id } },
+    orderBy: { siswa: { name: "asc" } },
+    select: {
+      siswa: {
+        select: {
+          id: true,
+          name: true,
+          nomorInduk: true,
+          hasilUjian: {
+            where: { status: { in: ["FINAL", "CORRECTED"] } },
+            orderBy: { updatedAt: "desc" },
+            select: {
+              id: true,
+              status: true,
+              totalScore: true,
+              finalizedAt: true,
+              updatedAt: true,
+              ujian: {
+                select: {
+                  title: true,
+                  examDate: true,
+                  durationMinutes: true,
+                  kelas: { select: { name: true, program: { select: { name: true } } } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return { children: children.map((item) => item.siswa) };
 }
 
 export async function getClassSummary(actor: Actor, kelasId: string) {

@@ -30,7 +30,7 @@ export default async function GuruUjianPage() {
           <article key={item.id} className="tailadmin-card p-5">
             <p className="text-theme-sm font-semibold text-brand-500">{item.kelas.program.name} / {item.kelas.name}</p>
             <h2 className="mt-1 text-lg font-semibold text-gray-900">{item.title}</h2>
-            <p className="mt-1 text-theme-sm text-gray-500">{item.status} / {item.questions.length} soal / {item._count.results} hasil</p>
+            <p className="mt-1 text-theme-sm text-gray-500">{item.status} / {item.durationMinutes} menit / {item.questions.length} soal / {item._count.results} hasil</p>
             <Link href={`/guru/ujian/${item.id}/hasil`} className="mt-3 tailadmin-button-primary px-4 py-2">
               Input Hasil
             </Link>

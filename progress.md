@@ -1,6 +1,6 @@
 # Progress Implementasi LIMO
 
-Terakhir diperbarui: 23 Juli 2026
+Terakhir diperbarui: 24 Juli 2026
 
 ## Status Saat Ini
 
@@ -20,6 +20,18 @@ Target teknis Minggu 1 dinyatakan selesai dan telah diverifikasi menggunakan SQL
 
 MariaDB tetap menjadi target production. SQLite hanya digunakan untuk development dan acceptance test sementara.
 
+## Status Minggu 2
+
+Target proposal Minggu 2 telah mulai ditutup untuk kebutuhan demo:
+
+- LMS materi mendukung tipe teks, PDF, gambar, dan link video, dengan kategorisasi melalui program, level, kelas, dan sesi pertemuan.
+- Route `/guru/materi` ditambahkan sebagai pintu masuk kelola materi per kelas.
+- Bank soal mendukung pilihan ganda terstruktur dan esai, dengan scoping kelas/guru.
+- Builder ujian mendukung durasi/timer ujian, status draft/published, tanggal ujian, bobot soal, dan pilihan soal dari bank soal.
+- Input hasil ujian menampilkan timer, auto-skoring pilihan ganda, dan status final/review untuk esai.
+- Route `/wali/nilai` ditambahkan untuk riwayat nilai ujian anak.
+- Acceptance test Pekan 2 tersedia melalui `npm.cmd run test:week2`.
+
 ## Fitur yang Sudah Diimplementasikan
 
 - Autentikasi database session: login, logout, forgot password, dan reset password.
@@ -29,6 +41,7 @@ MariaDB tetap menjadi target production. SQLite hanya digunakan untuk developmen
 - Master data program, level, kelas, guru, wali, siswa, dan enrollment dasar.
 - LMS: sesi kelas, materi teks/video/file, dan upload materi privat.
 - Bank soal, builder ujian, hasil ujian offline, auto-skoring pilihan ganda, dan review esai.
+- Timer ujian dan riwayat nilai wali untuk target Pekan 2.
 - Presensi massal dan pencatatan progres siswa.
 - Tarif, tagihan, overdue job, webhook Pakasir skeleton, dan rekonsiliasi pembayaran manual.
 - PWA dasar, offline fallback, security headers, dan noindex untuk dashboard/auth.
@@ -68,6 +81,7 @@ Landing page di `src/app/(public)/page.tsx` telah disesuaikan dengan identitas L
 - `npm.cmd run typecheck`: lulus.
 - `npm.cmd run lint`: lulus.
 - `npm.cmd test`: lulus.
+- `npm.cmd run test:week2`: 5 acceptance checks lulus untuk materi, bank soal, timer ujian, auto-skoring, dan riwayat nilai wali.
 - `npm.cmd run build`: lulus dengan environment validasi.
 - `npm.cmd run sqlite:setup`: lulus, schema valid, database sinkron, client generated, seed berhasil.
 - `npm.cmd run test:week1`: 17 acceptance checks lulus.

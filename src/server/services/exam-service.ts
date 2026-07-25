@@ -141,6 +141,7 @@ export async function listUjian(actor: Actor) {
       description: true,
       status: true,
       examDate: true,
+      durationMinutes: true,
       kelas: { select: { id: true, name: true, program: { select: { name: true } } } },
       questions: {
         orderBy: { order: "asc" },
@@ -193,6 +194,7 @@ export async function createUjian(actor: Actor, input: unknown) {
         description: parsed.data.description || undefined,
         status: parsed.data.status,
         examDate: parseDate(parsed.data.examDate),
+        durationMinutes: parsed.data.durationMinutes,
         createdById: actor.id,
       },
       select: { id: true, title: true },
@@ -245,6 +247,7 @@ export async function getUjianInputContext(actor: Actor, ujianId: string) {
       id: true,
       title: true,
       kelasId: true,
+      durationMinutes: true,
       kelas: { select: { name: true, program: { select: { name: true } } } },
       questions: {
         orderBy: { order: "asc" },

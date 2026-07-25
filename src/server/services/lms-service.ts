@@ -162,6 +162,10 @@ export async function createMateri(actor: Actor, input: unknown) {
     throw new ValidationError("Konten teks wajib diisi untuk materi teks");
   }
 
+  if ((parsed.data.type === "PDF" || parsed.data.type === "IMAGE") && (parsed.data.content || parsed.data.videoUrl)) {
+    throw new ValidationError("Materi file tidak perlu konten teks atau URL video");
+  }
+
   const item = await prisma.materi.create({
     data: {
       kelasId: parsed.data.kelasId,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 type Student = { id: string; name: string; nomorInduk: string };
 type ExamQuestion = {
@@ -15,7 +15,7 @@ type ExamQuestion = {
   };
 };
 
-export function HasilUjianForm({ ujianId, students, questions }: { ujianId: string; students: Student[]; questions: ExamQuestion[] }) {
+export function HasilUjianForm({ ujianId, students, questions, durationMinutes }: { ujianId: string; students: Student[]; questions: ExamQuestion[]; durationMinutes: number }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,7 +60,10 @@ export function HasilUjianForm({ ujianId, students, questions }: { ujianId: stri
 
   return (
     <form onSubmit={onSubmit} className="tailadmin-card space-y-4 p-5">
-      <h2 className="font-semibold text-gray-900">Input Hasil Offline</h2>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="font-semibold text-gray-900">Input Hasil Offline</h2>
+        <ExamTimer durationMinutes={durationMinutes} />
+      </div>
       {error ? <p className="tailadmin-alert-error">{error}</p> : null}
       <select name="siswaId" required className="tailadmin-input">
         <option value="">Pilih siswa</option>
@@ -93,5 +96,38 @@ export function HasilUjianForm({ ujianId, students, questions }: { ujianId: stri
         {isSubmitting ? "Menyimpan..." : "Simpan Hasil"}
       </button>
     </form>
+  );
+}
+
+function ExamTimer({ durationMinutes }: { durationMinutes: number }) {
+  const initialSeconds = durationMinutes * 60;
+  const [remainingSeconds, setRemainingSeconds] = useState(initialSeconds);
+  const [isRunning, setIsRunning] = useState(false);
+
+  useEffect(() => {
+    if (!isRunning || remainingSeconds <= 0) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setRemainingSeconds((value) => Math.max(value - 1, 0));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [isRunning, remainingSeconds]);
+
+  const minutes = Math.floor(remainingSeconds / 60).toString().padStart(2, "0");
+  const seconds = (remainingSeconds % 60).toString().padStart(2, "0");
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-theme-sm text-gray-700">
+      <span className="mr-3 font-semibold text-gray-900">Timer {minutes}:{seconds}</span>
+      <button type="button" onClick={() => setIsRunning((value) => !value)} className="font-semibold text-brand-500 hover:text-brand-600">
+        {isRunning ? "Pause" : "Mulai"}
+      </button>
+      <button type="button" onClick={() => { setIsRunning(false); setRemainingSeconds(initialSeconds); }} className="ml-3 font-semibold text-gray-500 hover:text-gray-700">
+        Reset
+      </button>
+    </div>
   );
 }

@@ -93,14 +93,16 @@ export function MateriForm({ kelasId, sesiOptions }: { kelasId: string; sesiOpti
       <input name="title" required placeholder="Judul materi" className="tailadmin-input" />
       <select name="type" className="tailadmin-input">
         <option value="TEXT">Teks</option>
+        <option value="PDF">PDF</option>
+        <option value="IMAGE">Gambar</option>
         <option value="VIDEO_LINK">Link Video</option>
       </select>
       <select name="sesiKelasId" className="tailadmin-input">
         <option value="">Tanpa sesi spesifik</option>
         {sesiOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
       </select>
-      <textarea name="content" placeholder="Isi teks materi" className="tailadmin-input min-h-32" />
-      <input name="videoUrl" placeholder="https://youtube.com/..." className="tailadmin-input" />
+      <textarea name="content" placeholder="Isi teks materi, kosongkan untuk PDF/gambar/video" className="tailadmin-input min-h-32" />
+      <input name="videoUrl" placeholder="https://youtube.com/... khusus materi video" className="tailadmin-input" />
       <div className="grid gap-3 sm:grid-cols-3">
         <input name="language" placeholder="id/ar/en" className="tailadmin-input" />
         <select name="direction" className="tailadmin-input">

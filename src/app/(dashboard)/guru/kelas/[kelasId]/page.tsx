@@ -33,7 +33,10 @@ export default async function GuruKelasDetailPage({ params }: { params: Promise<
             {materi.map((item) => (
               <article key={item.id} className="rounded-xl bg-gray-50 p-3" dir={item.direction === "rtl" ? "rtl" : "ltr"}>
                 <p className="font-semibold text-gray-900">{item.title}</p>
-                <p className="text-theme-sm text-gray-500">{item.type} / {item.status}</p>
+                <p className="text-theme-sm text-gray-500">
+                  {item.type} / {item.status}{item.sesiKelas ? ` / Pertemuan ${item.sesiKelas.meetingNumber}: ${item.sesiKelas.topic}` : " / Umum"}
+                </p>
+                {item.videoUrl ? <a href={item.videoUrl} className="mt-2 block text-theme-sm font-semibold text-brand-500 hover:text-brand-600" target="_blank" rel="noreferrer">Buka video</a> : null}
                 {item.files.length > 0 ? (
                   <div className="mt-2 space-y-1">
                     {item.files.map((file) => (

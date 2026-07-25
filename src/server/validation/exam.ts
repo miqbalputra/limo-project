@@ -22,6 +22,7 @@ export const createUjianSchema = z.object({
   description: z.string().trim().max(2000).optional().or(z.literal("")),
   status: z.enum(["DRAFT", "PUBLISHED"]).default("DRAFT"),
   examDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+  durationMinutes: z.coerce.number().int().min(1).max(600).default(60),
   questions: z
     .array(
       z.object({

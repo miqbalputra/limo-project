@@ -10,7 +10,7 @@ export const createSesiKelasSchema = z.object({
 export const createMateriSchema = z.object({
   kelasId: z.string().min(8).max(64),
   sesiKelasId: z.string().min(8).max(64).optional().or(z.literal("")),
-  type: z.enum(["TEXT", "VIDEO_LINK"]),
+  type: z.enum(["TEXT", "PDF", "IMAGE", "VIDEO_LINK"]),
   title: z.string().trim().min(2).max(200),
   content: z.string().trim().max(10000).optional().or(z.literal("")),
   videoUrl: z.string().trim().url().max(500).optional().or(z.literal("")),

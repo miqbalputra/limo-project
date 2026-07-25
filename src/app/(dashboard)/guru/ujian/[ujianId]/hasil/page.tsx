@@ -21,7 +21,7 @@ export default async function GuruInputHasilUjianPage({ params }: { params: Prom
         <h1 className="mt-1 tailadmin-page-title">{ujian.title}</h1>
         <p className="mt-2 tailadmin-muted">Input jawaban dari ujian offline. PG dihitung otomatis; esai tanpa skor masuk review.</p>
       </div>
-      <HasilUjianForm ujianId={ujian.id} students={students} questions={ujian.questions} />
+      <HasilUjianForm ujianId={ujian.id} students={students} questions={ujian.questions} durationMinutes={ujian.durationMinutes} />
       <section className="tailadmin-card p-5">
         <h2 className="font-semibold text-gray-900">Hasil Tersimpan</h2>
         <div className="mt-4 space-y-3">

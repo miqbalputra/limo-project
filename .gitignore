@@ -13,6 +13,7 @@ storage/private/
 *.tsbuildinfo
 opencode.json
 /logo.jpg
+Proposal Penawaran - LIMO.pdf
 prisma/schema.sqlite.prisma
 prisma/*.db
 prisma/*.db-journal

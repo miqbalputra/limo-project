@@ -32,6 +32,7 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
           description: String(data.get("description") || ""),
           status: String(data.get("status") || "DRAFT"),
           examDate: String(data.get("examDate") || ""),
+          durationMinutes: Number(data.get("durationMinutes") || 60),
           questions,
         }),
       });
@@ -67,6 +68,7 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
           <option value="PUBLISHED">Publish</option>
         </select>
       </div>
+      <input name="durationMinutes" type="number" min={1} max={600} defaultValue={60} className="tailadmin-input" placeholder="Durasi ujian dalam menit" />
       <div className="rounded-xl border border-gray-200 p-4">
         <p className="text-theme-sm font-semibold text-gray-700">Pilih Soal</p>
         <div className="mt-3 grid gap-3">

@@ -510,6 +510,7 @@ model Ujian {
   description String?       @db.Text
   status      PublishStatus @default(DRAFT)
   examDate    DateTime?
+  durationMinutes Int       @default(60)
   createdById String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt

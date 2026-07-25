@@ -495,7 +495,9 @@ async function main() {
 
   let exam = await prisma.ujian.findFirst({ where: { kelasId: kelas.id, title: "Quiz Greeting Demo" } });
   if (!exam) {
-    exam = await prisma.ujian.create({ data: { kelasId: kelas.id, title: "Quiz Greeting Demo", status: PublishStatus.PUBLISHED, examDate: new Date("2026-07-25T01:00:00.000Z") } });
+    exam = await prisma.ujian.create({ data: { kelasId: kelas.id, title: "Quiz Greeting Demo", status: PublishStatus.PUBLISHED, examDate: new Date("2026-07-25T01:00:00.000Z"), durationMinutes: 45 } });
+  } else {
+    exam = await prisma.ujian.update({ where: { id: exam.id }, data: { durationMinutes: 45 } });
   }
 
   const examQuestion = await prisma.ujianSoal.upsert({
