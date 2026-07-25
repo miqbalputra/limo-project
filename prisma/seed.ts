@@ -441,9 +441,9 @@ async function main() {
   }
 
   for (const input of [
-    { sesiKelasId: sesiBeginner.id, siswaId: siswaA.id, understandingScore: 85, publicNote: "Aktif menyapa dan berani mencoba dialog." },
-    { sesiKelasId: sesiBeginner.id, siswaId: siswaB.id, understandingScore: 76, publicNote: "Perlu latihan pronunciation tambahan." },
-    { sesiKelasId: sesiArabic.id, siswaId: siswaC.id, understandingScore: 88, publicNote: "Mengenal huruf dasar dengan baik." },
+    { sesiKelasId: sesiBeginner.id, siswaId: siswaA.id, understandingScore: 4, publicNote: "Aktif menyapa dan berani mencoba dialog." },
+    { sesiKelasId: sesiBeginner.id, siswaId: siswaB.id, understandingScore: 3, publicNote: "Perlu latihan pronunciation tambahan." },
+    { sesiKelasId: sesiArabic.id, siswaId: siswaC.id, understandingScore: 5, publicNote: "Mengenal huruf dasar dengan baik." },
   ]) {
     await prisma.progresBelajar.upsert({
       where: { siswaId_sesiKelasId_category: { siswaId: input.siswaId, sesiKelasId: input.sesiKelasId, category: "demo" } },

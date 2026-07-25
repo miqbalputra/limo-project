@@ -22,12 +22,23 @@ export default async function GuruKelasRingkasanPage({ params }: { params: Promi
         {summary.rows.map((row) => (
           <article key={row.id} className="grid gap-2 border-b border-gray-200 px-5 py-4 last:border-b-0 md:grid-cols-[1fr_120px_160px_120px]">
             <div><p className="font-semibold text-gray-900">{row.name}</p><p className="text-theme-sm text-gray-500">{row.nomorInduk}</p></div>
-            <p className="text-theme-sm text-gray-700">{row.hadir}/{row.totalPresensi}</p>
-            <p className="text-theme-sm text-gray-700">{row.averageProgress === null ? "-" : row.averageProgress.toFixed(1)}</p>
-            <p className="text-theme-sm text-gray-700">{row.averageScore === null ? "-" : row.averageScore.toFixed(1)}</p>
+            <BarValue value={row.attendanceRate} label={`${row.hadir}/${row.totalPresensi}`} max={100} />
+            <BarValue value={row.averageProgress} label={row.averageProgress === null ? "-" : row.averageProgress.toFixed(1)} max={5} />
+            <BarValue value={row.averageScore} label={row.averageScore === null ? "-" : row.averageScore.toFixed(1)} max={100} />
           </article>
         ))}
       </section>
     </main>
+  );
+}
+
+function BarValue({ value, label, max }: { value: number | null; label: string; max: number }) {
+  const percent = value === null || max <= 0 ? 0 : Math.min(100, Math.round((value / max) * 100));
+
+  return (
+    <div>
+      <p className="mb-1 text-theme-sm font-semibold text-gray-700">{label}</p>
+      <div className="h-2 rounded-full bg-gray-100"><div className="h-2 rounded-full bg-brand-500" style={{ width: `${percent}%` }} /></div>
+    </div>
   );
 }

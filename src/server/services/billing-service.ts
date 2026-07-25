@@ -3,6 +3,7 @@ import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canAccessInvoice } from "@/server/policies/access-policy";
+import { createPakasirPaymentUrl } from "@/server/providers/payment/pakasir";
 import { createTarifSchema, generateInvoiceSchema } from "@/server/validation/billing";
 
 function requireAdmin(actor: Actor) {
@@ -94,7 +95,12 @@ export async function listTagihan(actor: Actor) {
     },
   });
 
-  return { items };
+  return {
+    items: items.map((item) => ({
+      ...item,
+      paymentUrl: createPakasirPaymentUrl({ tagihanId: item.id, amount: item.amount.toString() }),
+    })),
+  };
 }
 
 export async function getTagihan(actor: Actor, id: string) {

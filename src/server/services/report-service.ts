@@ -20,11 +20,16 @@ export async function getStudentSummary(actor: Actor, siswaId: string) {
     throw new NotFoundError("Siswa tidak ditemukan");
   }
 
-  const [presensi, progres, hasil] = await Promise.all([
+  const [presensi, presensiRows, progres, hasil] = await Promise.all([
     prisma.presensi.groupBy({
       by: ["status"],
       where: { siswaId },
       _count: { status: true },
+    }),
+    prisma.presensi.findMany({
+      where: { siswaId },
+      orderBy: { sesiKelas: { sessionDate: "asc" } },
+      select: { status: true, sesiKelas: { select: { sessionDate: true } } },
     }),
     prisma.progresBelajar.findMany({
       where: { siswaId },
@@ -51,12 +56,22 @@ export async function getStudentSummary(actor: Actor, siswaId: string) {
   const averageScore = hasil.length > 0
     ? hasil.reduce((sum, item) => sum + Number(item.totalScore || 0), 0) / hasil.length
     : null;
+  const monthlyAttendance = Object.values(presensiRows.reduce<Record<string, { month: string; hadir: number; total: number }>>((result, item) => {
+    const month = item.sesiKelas.sessionDate.toISOString().slice(0, 7);
+    const row = result[month] ||= { month, hadir: 0, total: 0 };
+    row.total += 1;
+    if (item.status === "HADIR" || item.status === "TERLAMBAT") {
+      row.hadir += 1;
+    }
+    return result;
+  }, {}));
 
   return {
     siswa,
     attendance: Object.fromEntries(presensi.map((item) => [item.status, item._count.status])),
     averageProgress,
     averageScore,
+    monthlyAttendance,
     progressTimeline: progres,
     examResults: hasil,
   };
@@ -146,7 +161,9 @@ export async function getClassSummary(actor: Actor, kelasId: string) {
       ? siswa.hasilUjian.reduce((sum, item) => sum + Number(item.totalScore || 0), 0) / siswa.hasilUjian.length
       : null;
 
-    return { id: siswa.id, name: siswa.name, nomorInduk: siswa.nomorInduk, hadir, totalPresensi, averageProgress, averageScore };
+    const attendanceRate = totalPresensi ? (hadir / totalPresensi) * 100 : null;
+
+    return { id: siswa.id, name: siswa.name, nomorInduk: siswa.nomorInduk, hadir, totalPresensi, attendanceRate, averageProgress, averageScore };
   });
 
   return { kelas, rows };

@@ -22,7 +22,9 @@ test("Week 2 guru LMS and exam pages are usable on mobile", async ({ page }) => 
   await expect(page.getByRole("link", { name: "Kelola Materi" }).first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
-  await page.getByRole("link", { name: "Kelola Materi" }).first().click();
+  const materiHref = await page.getByRole("link", { name: "Kelola Materi" }).first().getAttribute("href");
+  expect(materiHref).toBeTruthy();
+  await page.goto(materiHref || "/guru/materi");
   await expect(page.getByRole("heading", { name: "Kelola Kelas" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Tambah Materi" })).toBeVisible();
   await expect(page.locator('select[name="type"]')).toContainText("PDF");

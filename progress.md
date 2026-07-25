@@ -33,6 +33,18 @@ Target proposal Minggu 2 telah mulai ditutup untuk kebutuhan demo:
 - Acceptance test Pekan 2 tersedia melalui `npm.cmd run test:week2`.
 - Browser smoke test Pekan 2 tersedia di `tests/e2e/week2.spec.ts` untuk memastikan halaman Materi, Bank Soal, Ujian, Input Hasil, dan Riwayat Nilai Wali usable di viewport mobile tanpa horizontal overflow.
 
+## Status Minggu 3
+
+Target proposal Minggu 3 telah siap untuk demo:
+
+- Presensi per sesi dapat diinput guru dan ditampilkan ke wali sebagai rekap kehadiran bulanan.
+- Catatan progres belajar per sesi memakai skor pemahaman 1-5, catatan wali, dan catatan internal guru.
+- Grafik progress tersedia tanpa dependency tambahan melalui bar chart CSS responsif: pemahaman, nilai ujian, dan kehadiran bulanan di halaman wali; ringkasan kelas guru juga memakai indikator grafik.
+- Route `/wali/presensi` ditambahkan agar menu presensi wali tidak 404 dan menampilkan rate kehadiran per anak.
+- Halaman tagihan wali menampilkan status, nominal, jatuh tempo, CTA QRIS/Virtual Account Pakasir jika project dikonfigurasi, atau instruksi demo/rekonsiliasi manual jika belum dikonfigurasi.
+- Integrasi Pakasir disesuaikan dengan dokumentasi resmi URL `https://app.pakasir.com/pay/{slug}/{amount}?order_id={order_id}` dan webhook `order_id`/`completed_at`.
+- Acceptance test Minggu 3 tersedia melalui `npm.cmd run test:week3` dan browser smoke test mobile tersedia di `tests/e2e/week3.spec.ts`.
+
 ## Fitur yang Sudah Diimplementasikan
 
 - Autentikasi database session: login, logout, forgot password, dan reset password.
@@ -44,6 +56,7 @@ Target proposal Minggu 2 telah mulai ditutup untuk kebutuhan demo:
 - Bank soal, builder ujian, hasil ujian offline, auto-skoring pilihan ganda, dan review esai.
 - Timer ujian dan riwayat nilai wali untuk target Pekan 2.
 - Presensi massal dan pencatatan progres siswa.
+- Grafik progress wali/guru, rekap presensi bulanan, dan payment link Pakasir untuk target Minggu 3.
 - Tarif, tagihan, overdue job, webhook Pakasir skeleton, dan rekonsiliasi pembayaran manual.
 - PWA dasar, offline fallback, security headers, dan noindex untuk dashboard/auth.
 - Script job eksternal untuk tagihan, overdue, session cleanup, dan retry notification.
@@ -83,10 +96,11 @@ Landing page di `src/app/(public)/page.tsx` telah disesuaikan dengan identitas L
 - `npm.cmd run lint`: lulus.
 - `npm.cmd test`: lulus.
 - `npm.cmd run test:week2`: 5 acceptance checks lulus untuk materi, bank soal, timer ujian, auto-skoring, dan riwayat nilai wali.
+- `npm.cmd run test:week3`: 6 acceptance checks lulus untuk presensi, progres, grafik, rekap presensi wali, ringkasan kelas, dan instruksi payment gateway.
 - `npm.cmd run build`: lulus dengan environment validasi.
 - `npm.cmd run sqlite:setup`: lulus, schema valid, database sinkron, client generated, seed berhasil.
 - `npm.cmd run test:week1`: 17 acceptance checks lulus.
-- `npm.cmd run test:e2e`: 6 browser tests lulus, termasuk shell dashboard desktop/mobile dan halaman Pekan 2 mobile.
+- `npm.cmd run test:e2e`: 8 browser tests lulus, termasuk shell dashboard desktop/mobile, halaman Pekan 2 mobile, dan halaman Pekan 3 mobile.
 - `GET /`: HTTP 200.
 - `GET /login`: HTTP 200.
 - `GET /api/health`: HTTP 200.
@@ -111,6 +125,6 @@ PID dapat berubah jika server dijalankan ulang.
 ## Langkah Berikutnya
 
 1. Finalisasi konten resmi landing page: kontak, jadwal, testimoni, dan informasi program.
-2. Lanjutkan target Minggu 2: materi LMS, bank soal, ujian, dan hardening workflow yang sudah memiliki baseline.
+2. Lanjutkan target Minggu 4: integrasi final, pengujian, deployment production, dan pelatihan.
 3. Siapkan MariaDB, buat migration production dari `prisma/schema.prisma`, seed, dan jalankan parity test.
 4. Selesaikan provider notifikasi dan konfigurasi payment production.

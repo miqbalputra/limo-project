@@ -17,6 +17,7 @@
     "test:e2e": "playwright test",
     "test:week1": "node tests/run-week1-integration.mjs",
     "test:week2": "node tests/run-week2-integration.mjs",
+    "test:week3": "node tests/run-week3-integration.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
