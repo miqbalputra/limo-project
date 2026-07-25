@@ -1,5 +1,6 @@
 import { requireActor, requireRole } from "@/server/auth/session";
 import { listTagihan } from "@/server/services/billing-service";
+import { PaymentButton } from "@/components/dashboard/payment-button";
 
 export const metadata = { title: "Tagihan" };
 
@@ -28,9 +29,7 @@ export default async function WaliTagihanPage() {
             {item.status === "PAID" ? (
               <p className="mt-4 tailadmin-alert-success">Pembayaran diterima pada {item.paidAt?.toISOString().slice(0, 10) ?? "tanggal tercatat"}.</p>
             ) : item.paymentUrl ? (
-              <a href={item.paymentUrl} target="_blank" rel="noreferrer" className="mt-4 tailadmin-button-primary w-full justify-center px-4 py-2">
-                Bayar QRIS / Virtual Account
-              </a>
+              <PaymentButton tagihanId={item.id} disabled={false} />
             ) : (
               <p className="mt-4 tailadmin-alert-warning">Link Pakasir belum dikonfigurasi. Admin tetap dapat melakukan rekonsiliasi manual untuk demo.</p>
             )}

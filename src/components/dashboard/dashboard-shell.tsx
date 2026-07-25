@@ -16,6 +16,17 @@ type DashboardShellProps = {
     role: string;
   };
   navigation: NavigationItem[];
+  notifications: {
+    pendingCount: number;
+    items: {
+      id: string;
+      subject: string | null;
+      body: string;
+      status: string;
+      template: string;
+      createdAt: string;
+    }[];
+  };
   children: ReactNode;
 };
 
@@ -35,12 +46,13 @@ function BellIcon() {
   return <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>;
 }
 
-export function DashboardShell({ actor, navigation, children }: DashboardShellProps) {
+export function DashboardShell({ actor, navigation, notifications, children }: DashboardShellProps) {
   const pathname = usePathname();
   const searchRef = useRef<HTMLInputElement>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [search, setSearch] = useState("");
   const homeHref = navigation[0]?.href || "/admin";
   const activeItem = [...navigation]
@@ -172,7 +184,34 @@ export function DashboardShell({ actor, navigation, children }: DashboardShellPr
             </div>
 
             <div className="ml-auto flex items-center gap-2 sm:gap-3">
-              <button type="button" title="Notifikasi akan tampil di sini" aria-label="Notifikasi" className="grid size-10 place-items-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-theme-xs hover:bg-gray-50 sm:size-11"><BellIcon /></button>
+              <div className="relative">
+                <button type="button" aria-label="Notifikasi" aria-expanded={isNotificationOpen} onClick={() => setIsNotificationOpen((open) => !open)} className="relative grid size-10 place-items-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-theme-xs hover:bg-gray-50 sm:size-11">
+                  <BellIcon />
+                  {notifications.pendingCount > 0 ? <span className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-error-500 px-1 text-[10px] font-bold leading-4 text-white">{notifications.pendingCount}</span> : null}
+                </button>
+                {isNotificationOpen ? (
+                  <div className="absolute right-0 top-[52px] z-20 w-[calc(100vw-2rem)] max-w-sm rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg sm:w-96">
+                    <div className="flex items-center justify-between border-b border-gray-100 px-2 pb-3">
+                      <div><p className="text-theme-sm font-semibold text-gray-800">Notifikasi</p><p className="text-theme-xs text-gray-500">{notifications.items.length} aktivitas terbaru</p></div>
+                      <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-semibold text-brand-600">{notifications.pendingCount} pending</span>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto py-2">
+                      {notifications.items.length > 0 ? notifications.items.map((item) => (
+                        <article key={item.id} className="rounded-xl px-3 py-2.5 hover:bg-gray-50">
+                          <div className="flex items-start gap-3">
+                            <span className={`mt-1 size-2 shrink-0 rounded-full ${item.status === "PENDING" ? "bg-warning-500" : "bg-success-500"}`} />
+                            <div className="min-w-0">
+                              <p className="truncate text-theme-sm font-semibold text-gray-800">{item.subject || item.template}</p>
+                              <p className="mt-1 line-clamp-2 text-theme-xs leading-5 text-gray-500">{item.body}</p>
+                              <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">{formatNotificationDate(item.createdAt)} / {item.status}</p>
+                            </div>
+                          </div>
+                        </article>
+                      )) : <p className="px-3 py-6 text-center text-theme-sm text-gray-500">Belum ada notifikasi.</p>}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
               <div className="relative">
                 <button type="button" aria-expanded={isProfileOpen} onClick={() => setIsProfileOpen((open) => !open)} className="flex items-center gap-3 rounded-lg p-1.5 text-left hover:bg-gray-50">
                   <span className="grid size-9 place-items-center rounded-full bg-brand-50 text-theme-sm font-bold text-brand-600 ring-1 ring-brand-100 sm:size-10">{actor.name.slice(0, 1).toUpperCase()}</span>
@@ -180,7 +219,7 @@ export function DashboardShell({ actor, navigation, children }: DashboardShellPr
                   <svg viewBox="0 0 20 20" className={`hidden size-4 text-gray-400 transition sm:block ${isProfileOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
                 </button>
                 {isProfileOpen ? (
-                  <div className="absolute right-0 top-13 w-64 rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg">
+                  <div className="absolute right-0 top-[52px] w-64 rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg">
                     <div className="border-b border-gray-100 px-2 pb-3"><p className="truncate text-theme-sm font-semibold text-gray-800">{actor.name}</p><p className="truncate text-theme-xs text-gray-500">{actor.email}</p></div>
                     <Link href="/ubah-password" onClick={() => setIsProfileOpen(false)} className="mt-2 flex items-center gap-3 rounded-lg px-3 py-2.5 text-theme-sm font-medium text-gray-700 hover:bg-gray-50"><DashboardIcon name="lock" className="size-5 text-gray-400" />Ubah Password</Link>
                     <div className="mt-1 px-1"><LogoutButton /></div>
@@ -199,4 +238,8 @@ export function DashboardShell({ actor, navigation, children }: DashboardShellPr
       </div>
     </div>
   );
+}
+
+function formatNotificationDate(value: string) {
+  return new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }

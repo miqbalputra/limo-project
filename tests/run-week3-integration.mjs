@@ -83,8 +83,45 @@ try {
 
   const waliTagihan = await request("/wali/tagihan", { cookie: wali.cookie });
   assert.equal(waliTagihan.response.status, 200);
-  assert.match(String(waliTagihan.payload), /QRIS|Pakasir|Virtual Account/);
+  assert.match(String(waliTagihan.payload), /QRIS|Pakasir|Virtual Account|Buat Instruksi Bayar/);
   ok("Wali billing page shows payment gateway instructions");
+
+  if (String(waliTagihan.payload).includes("Buat Instruksi Bayar")) {
+    const tagihan = await prisma.tagihan.findFirstOrThrow({
+      where: { siswa: { waliRelations: { some: { waliProfile: { user: { email: "wali@limo.local" } } } } } },
+      orderBy: { dueDate: "desc" },
+      select: { id: true },
+    });
+    await prisma.tagihan.update({ where: { id: tagihan.id }, data: { status: "UNPAID", paidAt: null } });
+    await prisma.pembayaran.deleteMany({ where: { tagihanId: tagihan.id } });
+
+    const payment = await request(`/api/v1/tagihan/${tagihan.id}/payment`, {
+      method: "POST",
+      cookie: wali.cookie,
+      body: { method: "qris" },
+    });
+    assert.equal(payment.response.status, 201, JSON.stringify(payment.payload));
+    assert.match(payment.payload.data.paymentUrl, /app\.pakasir\.com\/pay/);
+    ok("Wali can create Pakasir payment instructions");
+  } else {
+    ok("Pakasir payment creation skipped because PAKASIR_PROJECT is not configured");
+  }
+
+  await prisma.notifikasi.create({
+    data: {
+      channel: "email",
+      template: "week3-dashboard-test",
+      recipient: "wali@limo.local",
+      subject: "Instruksi Pembayaran LIMO",
+      body: "Acceptance notification for dashboard dropdown.",
+    },
+  });
+
+  const dashboardAfterPayment = await request("/wali", { cookie: wali.cookie });
+  assert.equal(dashboardAfterPayment.response.status, 200);
+  assert.match(String(dashboardAfterPayment.payload), /Notifikasi/);
+  assert.match(String(dashboardAfterPayment.payload), /Instruksi Pembayaran LIMO/);
+  ok("Dashboard notification dropdown is backed by notification records");
 } finally {
   await prisma.$disconnect();
 }

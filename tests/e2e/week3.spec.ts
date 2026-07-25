@@ -50,6 +50,10 @@ test("Week 3 wali graphs, attendance recap, and billing are mobile friendly", as
 
   await page.goto("/wali/tagihan");
   await expect(page.getByRole("heading", { name: "Tagihan" })).toBeVisible();
-  await expect(page.getByText(/QRIS|Pakasir|Virtual Account/).first()).toBeVisible();
+  await expect(page.getByText(/QRIS|Pakasir|Virtual Account|Buat Instruksi Bayar/).first()).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await page.getByRole("button", { name: "Notifikasi" }).click();
+  await expect(page.getByText("Notifikasi").first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
