@@ -4,7 +4,7 @@ async function login(page: import("@playwright/test").Page, email: string) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("password-dev-only");
-  await page.getByRole("button", { name: "Login" }).click();
+  await page.getByRole("button", { name: "Sign in" }).click();
 }
 
 async function expectNoHorizontalOverflow(page: import("@playwright/test").Page) {
