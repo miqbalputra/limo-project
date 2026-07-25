@@ -31,6 +31,7 @@ Target proposal Minggu 2 telah mulai ditutup untuk kebutuhan demo:
 - Input hasil ujian menampilkan timer, auto-skoring pilihan ganda, dan status final/review untuk esai.
 - Route `/wali/nilai` ditambahkan untuk riwayat nilai ujian anak.
 - Acceptance test Pekan 2 tersedia melalui `npm.cmd run test:week2`.
+- Browser smoke test Pekan 2 tersedia di `tests/e2e/week2.spec.ts` untuk memastikan halaman Materi, Bank Soal, Ujian, Input Hasil, dan Riwayat Nilai Wali usable di viewport mobile tanpa horizontal overflow.
 
 ## Fitur yang Sudah Diimplementasikan
 
@@ -85,7 +86,7 @@ Landing page di `src/app/(public)/page.tsx` telah disesuaikan dengan identitas L
 - `npm.cmd run build`: lulus dengan environment validasi.
 - `npm.cmd run sqlite:setup`: lulus, schema valid, database sinkron, client generated, seed berhasil.
 - `npm.cmd run test:week1`: 17 acceptance checks lulus.
-- `npm.cmd run test:e2e`: 4 browser tests lulus, termasuk shell dashboard desktop/mobile.
+- `npm.cmd run test:e2e`: 6 browser tests lulus, termasuk shell dashboard desktop/mobile dan halaman Pekan 2 mobile.
 - `GET /`: HTTP 200.
 - `GET /login`: HTTP 200.
 - `GET /api/health`: HTTP 200.
