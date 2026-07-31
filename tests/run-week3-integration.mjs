@@ -38,6 +38,26 @@ function ok(label) {
 try {
   const guru = await login("guru@limo.local");
   const wali = await login("wali@limo.local");
+  const admin = await login("admin@limo.local");
+
+  const adminReport = await request("/admin/laporan?from=2026-08-01&to=2026-08-31", { cookie: admin.cookie });
+  assert.equal(adminReport.response.status, 200);
+  assert.match(String(adminReport.payload), /Laporan Operasional/);
+  assert.match(String(adminReport.payload), /2026-08-01/);
+  assert.match(String(adminReport.payload), /2026-08-31/);
+  ok("Admin report page accepts a filtered reporting period");
+
+  const reportCsv = await request("/api/v1/admin/laporan/export?from=2026-08-01&to=2026-08-31", { cookie: admin.cookie });
+  assert.equal(reportCsv.response.status, 200);
+  assert.match(reportCsv.response.headers.get("content-type") || "", /text\/csv/);
+  assert.match(reportCsv.response.headers.get("content-disposition") || "", /limo-laporan-2026-08-01-2026-08-31\.csv/);
+  assert.match(String(reportCsv.payload), /Laporan Operasional LIMO/);
+  assert.match(String(reportCsv.payload), /"Siswa","Nomor Induk","Program"/);
+  ok("Admin report CSV contains period and student columns");
+
+  const forbiddenReportCsv = await request("/api/v1/admin/laporan/export?from=2026-08-01&to=2026-08-31", { cookie: wali.cookie });
+  assert.equal(forbiddenReportCsv.response.status, 403);
+  ok("Wali cannot access Admin report CSV");
 
   const sesi = await prisma.sesiKelas.findFirstOrThrow({
     where: { kelas: { guruProfile: { user: { email: "guru@limo.local" } } } },
