@@ -1,3 +1,4 @@
+import "./load-env.ts";
 import { cleanupExpiredSessions } from "../src/server/services/job-service.ts";
 
 async function main() {

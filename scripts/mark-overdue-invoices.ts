@@ -1,3 +1,4 @@
+import "./load-env.ts";
 import { markOverdueInvoices } from "../src/server/services/job-service.ts";
 
 async function main() {

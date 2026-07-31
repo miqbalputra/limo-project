@@ -31,8 +31,13 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
           title: String(data.get("title") || ""),
           description: String(data.get("description") || ""),
           status: String(data.get("status") || "DRAFT"),
+          deliveryMode: String(data.get("deliveryMode") || "TEACHER_ENTRY"),
           examDate: String(data.get("examDate") || ""),
+          availableFrom: String(data.get("availableFrom") || ""),
+          availableUntil: String(data.get("availableUntil") || ""),
           durationMinutes: Number(data.get("durationMinutes") || 60),
+          maxAttempts: Number(data.get("maxAttempts") || 1),
+          showResultToWali: data.get("showResultToWali") === "on",
           questions,
         }),
       });
@@ -68,6 +73,22 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
           <option value="PUBLISHED">Publish</option>
         </select>
       </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <select name="deliveryMode" defaultValue="TEACHER_ENTRY" className="tailadmin-input">
+          <option value="TEACHER_ENTRY">Offline teacher-entry</option>
+          <option value="ONLINE_VIA_WALI">Online via akun wali</option>
+          <option value="BOTH">Offline dan online</option>
+        </select>
+        <input name="maxAttempts" type="number" min={1} max={5} defaultValue={1} className="tailadmin-input" placeholder="Maksimal attempt" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <input name="availableFrom" type="date" className="tailadmin-input" aria-label="Tersedia mulai" />
+        <input name="availableUntil" type="date" className="tailadmin-input" aria-label="Tersedia sampai" />
+      </div>
+      <label className="flex items-center gap-2 rounded-xl bg-gray-50 p-3 text-theme-sm text-gray-700">
+        <input name="showResultToWali" type="checkbox" defaultChecked className="accent-brand-500" />
+        Tampilkan hasil ke wali setelah final
+      </label>
       <input name="durationMinutes" type="number" min={1} max={600} defaultValue={60} className="tailadmin-input" placeholder="Durasi ujian dalam menit" />
       <div className="rounded-xl border border-gray-200 p-4">
         <p className="text-theme-sm font-semibold text-gray-700">Pilih Soal</p>

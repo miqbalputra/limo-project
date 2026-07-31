@@ -7,10 +7,10 @@ import Link from "next/link";
 /* ── Data ────────────────────────────────────────────────────── */
 
 const stats = [
-  { value: "250+", label: "Santri Aktif", color: "bg-brand-500" },
-  { value: "15+", label: "Pengajar Berpengalaman", color: "bg-warning-500" },
-  { value: "2", label: "Program Bahasa", color: "bg-success-500" },
-  { value: "98%", label: "Tingkat Kehadiran", color: "bg-error-500" },
+  { value: "2", label: "Program Bahasa", color: "bg-brand-500" },
+  { value: "3", label: "Role Pengguna", color: "bg-warning-500" },
+  { value: "1", label: "Dashboard Terpadu", color: "bg-success-500" },
+  { value: "100%", label: "Fokus pada Anak", color: "bg-error-500" },
 ];
 
 const benefits = [
@@ -77,23 +77,23 @@ const programs = [
 
 const testimonials = [
   {
-    name: "Bunda Aisyah Rahmawati",
-    role: "Wali dari Muhammad Rayyan (7 tahun)",
-    initial: "A",
+    name: "Contoh Wali 1",
+    role: "Contoh pengalaman wali",
+    initial: "1",
     color: "bg-brand-100 text-brand-700",
     text: "Alhamdulillah, sejak ikut LIMO Rayyan jadi suka bercakap bahasa Inggris di rumah dan rajin hafal kosakata Arab. Dashboard Wali sangat membantu — saya bisa lihat presensi dan catatan ustazah tiap minggu!",
   },
   {
-    name: "Ayah Hendra Kurniawan",
-    role: "Wali dari Khadijah (9 tahun)",
-    initial: "H",
+    name: "Contoh Wali 2",
+    role: "Contoh pengalaman wali",
+    initial: "2",
     color: "bg-warning-100 text-warning-800",
     text: "Metode pengajarannya ramah anak. Khadijah tidak merasa terbebani seperti les biasa, justru antusias menunggu jadwal kelas LIMO. Sangat direkomendasikan untuk keluarga muslim!",
   },
   {
-    name: "Bunda Rina Wardhani",
-    role: "Wali dari Umar & Hana (6 & 8 tahun)",
-    initial: "R",
+    name: "Contoh Wali 3",
+    role: "Contoh pengalaman wali",
+    initial: "3",
     color: "bg-success-100 text-success-700",
     text: "Dua anak saya belajar di LIMO. Guru-gurunya sangat bersahabat dan adabnya terjaga. Laporan progresnya sangat rinci sehingga kami tahu persis perkembangan bahasa anak.",
   },
@@ -117,7 +117,7 @@ const faqs = [
   },
   {
     q: "Bagaimana orang tua bisa memantau perkembangan anak?",
-    a: "Setelah pendaftaran disetujui, wali mendapatkan akun Dashboard Wali. Di sana Anda bisa melihat kehadiran, materi, nilai evaluasi, serta catatan perkembangan dari guru — real-time dari HP.",
+    a: "Setelah pendaftaran disetujui, wali mendapatkan akun Dashboard Wali. Di sana Anda bisa melihat kehadiran, materi, nilai evaluasi, serta catatan perkembangan dari guru setelah data disimpan.",
   },
   {
     q: "Bagaimana jika anak belum pernah belajar bahasa asing?",
@@ -125,7 +125,7 @@ const faqs = [
   },
   {
     q: "Bagaimana skema pembayaran dan transparansi biaya?",
-    a: "Biaya SPP bulanan terjangkau tanpa biaya tersembunyi. Tagihan otomatis masuk ke Dashboard Wali dan bisa dibayar melalui berbagai metode pembayaran digital.",
+    a: "Rincian tagihan ditampilkan di Dashboard Wali berdasarkan periode bulanan. Wali dapat melihat nominal, jatuh tempo, status, dan instruksi pembayaran sebelum membayar.",
   },
 ];
 
@@ -136,7 +136,7 @@ const navigationItems = ["Keunggulan", "Program", "Testimoni", "Cara Daftar", "K
 export default function HomePage() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const contactEmail = process.env.NEXT_PUBLIC_LIMO_CONTACT_EMAIL || "admin@limo.local";
+  const contactEmail = process.env.NEXT_PUBLIC_LIMO_CONTACT_EMAIL;
 
   return (
     <main className="min-h-screen bg-white text-gray-900">
@@ -147,7 +147,7 @@ export default function HomePage() {
             <span className="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase" style={{ background: "var(--color-limo-yellow)", color: "#1a1a1a" }}>
               Pendaftaran Dibuka
             </span>
-            <span className="font-medium">Periode 2026/2027 — Kuota Terbatas!</span>
+            <span className="font-medium">Periode 2026/2027 — Hubungi admin untuk jadwal dan ketersediaan kelas</span>
             <Link href="/daftar" className="rounded-sm font-semibold text-warning-300 underline underline-offset-2 transition hover:text-warning-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning-300">
               Daftar Sekarang &rarr;
             </Link>
@@ -244,7 +244,7 @@ export default function HomePage() {
               </h1>
 
               <p className="mt-5 max-w-xl text-lg leading-relaxed text-gray-600">
-                LIMO — <strong className="font-semibold text-gray-800">Little Moslems Language Club</strong> — memadukan kurikulum bahasa modern dengan nilai-nilai akhlak mulia. Setiap perkembangan anak tercatat dan dapat dipantau orang tua secara real-time.
+                 LIMO — <strong className="font-semibold text-gray-800">Little Moslems Language Club</strong> — memadukan kurikulum bahasa modern dengan nilai-nilai akhlak mulia. Perkembangan anak dicatat dalam dashboard agar wali dapat memantaunya dengan jelas.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -259,9 +259,9 @@ export default function HomePage() {
               {/* Trust Metrics */}
               <div className="mt-10 flex flex-wrap items-center gap-6 border-t border-gray-200 pt-7">
                 {[
-                  { val: "250+", label: "Santri Aktif", bg: "bg-brand-50", fg: "text-brand-700" },
-                  { val: "4.9/5", label: "Rating Wali", bg: "bg-warning-50", fg: "text-warning-700" },
-                  { val: "Real-time", label: "Pantauan Wali", bg: "bg-success-50", fg: "text-success-700" },
+                   { val: "2", label: "Program Bahasa", bg: "bg-brand-50", fg: "text-brand-700" },
+                   { val: "3", label: "Role Terintegrasi", bg: "bg-warning-50", fg: "text-warning-700" },
+                   { val: "Aman", label: "Data Terarah", bg: "bg-success-50", fg: "text-success-700" },
                 ].map((m) => (
                   <div key={m.label} className="flex items-center gap-2.5">
                     <span className={`grid size-10 place-items-center rounded-xl text-theme-xs font-extrabold ${m.bg} ${m.fg}`}>{m.val}</span>
@@ -450,10 +450,10 @@ export default function HomePage() {
 
               <div className="mt-5 grid grid-cols-2 gap-3">
                 {[
-                  { label: "Kehadiran", val: "98%", sub: "12/12 pertemuan", bg: "bg-brand-50" },
-                  { label: "Pemahaman", val: "4.8/5", sub: "Sangat Baik", bg: "bg-warning-50" },
-                  { label: "Materi Selesai", val: "18", sub: "modul & lembar kerja", bg: "bg-success-50" },
-                  { label: "Nilai Terakhir", val: "92", sub: "Ujian English Bab 3", bg: "bg-error-50" },
+                   { label: "Kehadiran", val: "-", sub: "Contoh tampilan laporan", bg: "bg-brand-50" },
+                   { label: "Pemahaman", val: "-", sub: "Skor progres 1-5", bg: "bg-warning-50" },
+                   { label: "Materi Selesai", val: "-", sub: "Sesuai aktivitas anak", bg: "bg-success-50" },
+                   { label: "Nilai Terakhir", val: "-", sub: "Setelah ujian difinalkan", bg: "bg-error-50" },
                 ].map((d) => (
                   <div key={d.label} className={`rounded-2xl p-3.5 ${d.bg}`}>
                     <p className="text-theme-xs text-gray-500">{d.label}</p>
@@ -473,7 +473,7 @@ export default function HomePage() {
                 </p>
                 <div className="mt-2.5 flex items-center justify-between border-t border-gray-800 pt-2 text-[11px] text-gray-400">
                   <span>Ustazah Khadijah, S.Pd.</span>
-                  <span className="font-bold text-success-500">Verified</span>
+                   <span className="font-bold text-success-500">Contoh tampilan</span>
                 </div>
               </div>
             </div>
@@ -485,9 +485,9 @@ export default function HomePage() {
       <section id="testimoni" className="bg-gray-25 py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="text-theme-sm font-bold uppercase tracking-widest text-brand-600">Kata Orang Tua</p>
-            <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
-              Dipercaya Ratusan Keluarga Muslim
+            <p className="text-theme-sm font-bold uppercase tracking-widest text-brand-600">Contoh Pengalaman</p>
+               <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
+               Dirancang untuk Keluarga Muslim
             </h2>
           </div>
 
@@ -561,7 +561,7 @@ export default function HomePage() {
           </div>
           <div className="tailadmin-card p-6">
             <p className="text-theme-xs font-semibold uppercase tracking-wider text-gray-400">Email Admin</p>
-            <a href={`mailto:${contactEmail}`} className="mt-2 block break-all text-xl font-semibold text-brand-600 hover:text-brand-700">{contactEmail}</a>
+             {contactEmail ? <a href={`mailto:${contactEmail}`} className="mt-2 block break-all text-xl font-semibold text-brand-600 hover:text-brand-700">{contactEmail}</a> : <p className="mt-2 text-theme-sm font-semibold text-gray-700">Kanal kontak sedang dikonfigurasi</p>}
             <p className="mt-3 text-theme-sm text-gray-500">Jadwal layanan dan kelas dikonfirmasi oleh Admin setelah data pendaftaran ditinjau.</p>
             <Link href="/daftar" className="mt-5 inline-flex items-center justify-center rounded-lg bg-brand-600 px-5 py-3 text-theme-sm font-semibold text-white hover:bg-brand-700">Ajukan Pendaftaran</Link>
           </div>

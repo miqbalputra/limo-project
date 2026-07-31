@@ -13,15 +13,19 @@ export default async function GuruInputHasilUjianPage({ params }: { params: Prom
     listHasilUjian(actor),
   ]);
   const filteredHasil = hasil.filter((item) => item.ujian.id === ujianId);
+  const questions = ujian.questions.map((question) => ({
+    ...question,
+    weight: question.weight.toString(),
+  }));
 
   return (
     <main className="space-y-6">
       <div>
         <p className="text-theme-sm font-semibold text-brand-500">{ujian.kelas.program.name} / {ujian.kelas.name}</p>
         <h1 className="mt-1 tailadmin-page-title">{ujian.title}</h1>
-        <p className="mt-2 tailadmin-muted">Input jawaban dari ujian offline. PG dihitung otomatis; esai tanpa skor masuk review.</p>
+        <p className="mt-2 tailadmin-muted">Input jawaban dari ujian offline. Soal objektif dihitung otomatis; speaking, writing, roleplay, dan esai tanpa skor masuk review.</p>
       </div>
-      <HasilUjianForm ujianId={ujian.id} students={students} questions={ujian.questions} durationMinutes={ujian.durationMinutes} />
+      <HasilUjianForm ujianId={ujian.id} students={students} questions={questions} durationMinutes={ujian.durationMinutes} />
       <section className="tailadmin-card p-5">
         <h2 className="font-semibold text-gray-900">Hasil Tersimpan</h2>
         <div className="mt-4 space-y-3">

@@ -9,7 +9,9 @@ Gunakan checklist ini sebelum production/UAT staging.
 - [ ] `DATABASE_URL` mengarah MariaDB private/local.
 - [ ] `SESSION_SECRET` acak minimal 32 karakter.
 - [ ] `PRIVATE_STORAGE_PATH` di luar repository dan di luar `public/`.
-- [ ] `PAKASIR_PROJECT` dan `PAKASIR_WEBHOOK_SECRET` sesuai sandbox/production.
+- [ ] `PAKASIR_PROJECT`, `PAKASIR_API_KEY`, dan optional `PAKASIR_WEBHOOK_SECRET` sesuai sandbox/production.
+- [ ] `NOTIFICATION_PROVIDER=email` untuk production.
+- [ ] `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_FROM`/`SMTP_USER`, dan `SMTP_PASSWORD` valid.
 - [ ] Tidak ada secret dengan prefix `NEXT_PUBLIC_`.
 
 ## Database
@@ -46,6 +48,8 @@ Gunakan checklist ini sebelum production/UAT staging.
 - [ ] Wali hanya melihat anak sendiri.
 - [ ] Generate tagihan dry-run berhasil.
 - [ ] Webhook fixture valid berhasil di staging.
+- [ ] `npm run notifications:retry -- --dry-run` berhasil.
+- [ ] Email test staging benar-benar diterima inbox tujuan.
 
 ## Backup
 

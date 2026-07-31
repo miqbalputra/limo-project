@@ -3,7 +3,7 @@ import next from "eslint-config-next";
 
 const eslintConfig = [
   {
-    ignores: [".next/**", "node_modules/**", "coverage/**", "playwright-report/**", "free-react-tailwind-admin-dashboard-main/**"],
+    ignores: [".next/**", "node_modules/**", "coverage/**", "playwright-report/**", "test-results/**", "free-react-tailwind-admin-dashboard-main/**"],
   },
   js.configs.recommended,
   ...next,

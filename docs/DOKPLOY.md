@@ -22,8 +22,14 @@ SESSION_IDLE_MINUTES=10080
 PRIVATE_STORAGE_PATH=/app/storage/private
 MAX_REGISTRATION_FILE_MB=10
 MAX_MATERIAL_FILE_MB=25
-NOTIFICATION_PROVIDER=console
+NOTIFICATION_PROVIDER=email
 NEXT_PUBLIC_LIMO_CONTACT_EMAIL=admin@limo.local
+SMTP_HOST=smtp.example.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_FROM=no-reply@limo.example.com
+SMTP_USER=no-reply@limo.example.com
+SMTP_PASSWORD=replace-with-smtp-password
 DOKPLOY_SEED_ON_START=false
 ```
 

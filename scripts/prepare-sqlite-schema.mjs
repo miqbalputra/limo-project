@@ -15,8 +15,8 @@ export async function prepareSqliteSchema() {
     throw new Error(`Expected exactly one MySQL provider, found ${providerMatches.length}`);
   }
 
-  if (nativeTypeMatches.length !== 36) {
-    throw new Error(`Expected exactly 36 MySQL native type attributes, found ${nativeTypeMatches.length}`);
+  if (nativeTypeMatches.length !== 47) {
+    throw new Error(`Expected exactly 47 MySQL native type attributes, found ${nativeTypeMatches.length}`);
   }
 
   const sqliteSchema = source

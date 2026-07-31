@@ -17,10 +17,12 @@ Dokumen ini menjelaskan variable yang dibutuhkan aplikasi LIMO. Jangan menaruh s
 | `PAKASIR_PROJECT` | Untuk payment | Project/merchant identifier Pakasir |
 | `PAKASIR_API_KEY` | Untuk payment | API key Pakasir, tidak boleh `NEXT_PUBLIC_` |
 | `PAKASIR_WEBHOOK_SECRET` | Untuk webhook | Secret HMAC webhook Pakasir |
-| `NOTIFICATION_PROVIDER` | Ya | Saat ini `console`; email/whatsapp menyusul |
+| `NOTIFICATION_PROVIDER` | Ya | `console` untuk development, `email` untuk production awal. Production tidak boleh memakai `console` |
 | `NEXT_PUBLIC_LIMO_CONTACT_EMAIL` | Ya | Email kontak publik landing page; bukan secret |
 | `SMTP_HOST` | Jika email | Host SMTP |
 | `SMTP_PORT` | Jika email | Port SMTP |
+| `SMTP_SECURE` | Jika email | `true` untuk SMTPS 465, `false` untuk STARTTLS/587 |
+| `SMTP_FROM` | Jika email | Alamat pengirim email. Jika kosong memakai `SMTP_USER` |
 | `SMTP_USER` | Jika email | Username SMTP |
 | `SMTP_PASSWORD` | Jika email | Password SMTP |
 
@@ -33,6 +35,8 @@ Seed development membuat akun:
 - `admin@limo.local`
 - `guru@limo.local`
 - `wali@limo.local`
+- `guru.arab@limo.local`
+- `wali.demo@limo.local`
 
 Password development: `password-dev-only`.
 

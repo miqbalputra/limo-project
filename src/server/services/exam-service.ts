@@ -1,9 +1,37 @@
 import "server-only";
+import type { Prisma } from "@prisma/client";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ForbiddenError, ValidationError } from "@/server/errors/application-error";
 import { canManageClass } from "@/server/policies/access-policy";
 import { createBankSoalSchema, createUjianSchema, submitHasilUjianSchema } from "@/server/validation/exam";
+
+const optionBasedTypes = new Set(["PILIHAN_GANDA", "MULTI_SELECT"]);
+const manualReviewTypes = new Set(["SPEAKING", "WRITING", "ROLEPLAY", "ESAI"]);
+
+function normalizeText(value: string | undefined) {
+  return (value || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function sortedLabels(values: string[] | undefined) {
+  return [...new Set((values || []).map((value) => value.trim().toUpperCase()).filter(Boolean))].sort();
+}
+
+function jsonEquals(left: unknown, right: unknown) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function getStructuredAnswerKey(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return undefined;
+  }
+
+  return (payload as { answerKey?: unknown }).answerKey;
+}
+
+function toInputJson(value: unknown) {
+  return value === undefined ? undefined : value as Prisma.InputJsonValue;
+}
 
 async function assertQuestionScope(actor: Actor, kelasId?: string | null) {
   if (actor.role === "ADMIN") {
@@ -47,8 +75,18 @@ export async function listBankSoal(actor: Actor) {
       id: true,
       type: true,
       question: true,
+      stimulusText: true,
+      mediaUrl: true,
+      expectedAnswer: true,
+      structuredPayload: true,
+      rubric: true,
       language: true,
       direction: true,
+      cognitiveLevel: true,
+      skill: true,
+      difficulty: true,
+      standard: true,
+      assessmentType: true,
       createdAt: true,
       kelas: { select: { id: true, name: true, program: { select: { name: true } } } },
       options: { orderBy: { order: "asc" }, select: { id: true, label: true, content: true, isCorrect: true } },
@@ -78,8 +116,26 @@ export async function createBankSoal(actor: Actor, input: unknown) {
     }
   }
 
-  if (parsed.data.type === "ESAI" && parsed.data.options.length > 0) {
-    throw new ValidationError("Soal esai tidak boleh memiliki opsi jawaban");
+  if (parsed.data.type === "MULTI_SELECT") {
+    if (parsed.data.options.length < 2) {
+      throw new ValidationError("Soal multi-select minimal memiliki dua opsi");
+    }
+
+    if (parsed.data.options.filter((option) => option.isCorrect).length < 1) {
+      throw new ValidationError("Soal multi-select minimal memiliki satu opsi benar");
+    }
+  }
+
+  if (parsed.data.type === "BENAR_SALAH") {
+    const expectedAnswer = normalizeText(parsed.data.expectedAnswer);
+
+    if (!["true", "false", "benar", "salah"].includes(expectedAnswer)) {
+      throw new ValidationError("Soal benar/salah harus memiliki kunci: benar atau salah");
+    }
+  }
+
+  if (manualReviewTypes.has(parsed.data.type) && parsed.data.options.length > 0) {
+    throw new ValidationError("Soal performa/esai tidak boleh memiliki opsi jawaban");
   }
 
   const item = await prisma.$transaction(async (tx) => {
@@ -88,15 +144,25 @@ export async function createBankSoal(actor: Actor, input: unknown) {
         kelasId,
         type: parsed.data.type,
         question: parsed.data.question,
+        stimulusText: parsed.data.stimulusText || undefined,
+        mediaUrl: parsed.data.mediaUrl || undefined,
+        expectedAnswer: parsed.data.expectedAnswer || undefined,
+        structuredPayload: toInputJson(parsed.data.structuredPayload),
+        rubric: toInputJson(parsed.data.rubric),
         language: parsed.data.language || undefined,
         direction: parsed.data.direction || undefined,
+        cognitiveLevel: parsed.data.cognitiveLevel,
+        skill: parsed.data.skill,
+        difficulty: parsed.data.difficulty,
+        standard: parsed.data.standard || undefined,
+        assessmentType: parsed.data.assessmentType,
         explanation: parsed.data.explanation || undefined,
         createdById: actor.id,
       },
       select: { id: true, type: true },
     });
 
-    if (parsed.data.type === "PILIHAN_GANDA") {
+    if (optionBasedTypes.has(parsed.data.type)) {
       await tx.opsiSoal.createMany({
         data: parsed.data.options.map((option, index) => ({
           bankSoalId: soal.id,
@@ -140,8 +206,13 @@ export async function listUjian(actor: Actor) {
       title: true,
       description: true,
       status: true,
+      deliveryMode: true,
       examDate: true,
+      availableFrom: true,
+      availableUntil: true,
       durationMinutes: true,
+      maxAttempts: true,
+      showResultToWali: true,
       kelas: { select: { id: true, name: true, program: { select: { name: true } } } },
       questions: {
         orderBy: { order: "asc" },
@@ -152,7 +223,7 @@ export async function listUjian(actor: Actor) {
           bankSoal: { select: { id: true, type: true, question: true } },
         },
       },
-      _count: { select: { results: true } },
+      _count: { select: { results: true, attempts: true } },
     },
   });
 
@@ -194,7 +265,12 @@ export async function createUjian(actor: Actor, input: unknown) {
         description: parsed.data.description || undefined,
         status: parsed.data.status,
         examDate: parseDate(parsed.data.examDate),
+        deliveryMode: parsed.data.deliveryMode,
+        availableFrom: parseDate(parsed.data.availableFrom),
+        availableUntil: parseDate(parsed.data.availableUntil),
         durationMinutes: parsed.data.durationMinutes,
+        maxAttempts: parsed.data.maxAttempts,
+        showResultToWali: parsed.data.showResultToWali,
         createdById: actor.id,
       },
       select: { id: true, title: true },
@@ -259,8 +335,13 @@ export async function getUjianInputContext(actor: Actor, ujianId: string) {
               id: true,
               type: true,
               question: true,
+              stimulusText: true,
+              mediaUrl: true,
+              expectedAnswer: true,
+              structuredPayload: true,
+              rubric: true,
               direction: true,
-              options: { orderBy: { order: "asc" }, select: { label: true, content: true } },
+              options: { orderBy: { order: "asc" }, select: { label: true, content: true, isCorrect: true } },
             },
           },
         },
@@ -356,39 +437,116 @@ export async function submitHasilUjian(actor: Actor, input: unknown) {
 
   const answerRows = ujian.questions.map((question) => {
     const answer = answersByQuestion.get(question.id);
-    const isMultipleChoice = question.bankSoal.type === "PILIHAN_GANDA";
+    const correctOptions = sortedLabels(question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label));
+    const manualScore = answer?.essayScore === "" || answer?.essayScore === undefined ? undefined : Number(answer.essayScore);
 
-    if (isMultipleChoice) {
+    if (question.bankSoal.type === "PILIHAN_GANDA") {
       const selectedOption = answer?.selectedOption?.toUpperCase() || "";
-      const correctOption = question.bankSoal.options.find((option) => option.isCorrect);
-      const score = selectedOption && correctOption?.label === selectedOption ? Number(question.weight) : 0;
+      const score = selectedOption && correctOptions[0] === selectedOption ? Number(question.weight) : 0;
       totalScore += score;
 
       return {
         ujianSoalId: question.id,
         bankSoalId: question.bankSoalId,
         selectedOption,
+        selectedOptions: undefined,
+        shortAnswer: undefined,
+        structuredAnswer: undefined,
         essayAnswer: undefined,
         score,
         needsReview: false,
       };
     }
 
-    const essayScore = answer?.essayScore === "" || answer?.essayScore === undefined ? undefined : Number(answer.essayScore);
+    if (question.bankSoal.type === "MULTI_SELECT") {
+      const selectedOptions = sortedLabels(answer?.selectedOptions);
+      const score = selectedOptions.length > 0 && jsonEquals(selectedOptions, correctOptions) ? Number(question.weight) : 0;
+      totalScore += score;
 
-    if (essayScore === undefined) {
+      return {
+        ujianSoalId: question.id,
+        bankSoalId: question.bankSoalId,
+        selectedOption: undefined,
+        selectedOptions,
+        shortAnswer: undefined,
+        structuredAnswer: undefined,
+        essayAnswer: undefined,
+        score,
+        needsReview: false,
+      };
+    }
+
+    if (question.bankSoal.type === "BENAR_SALAH") {
+      const selectedOption = answer?.selectedOption || "";
+      const score = normalizeText(selectedOption) === normalizeText(question.bankSoal.expectedAnswer || undefined) ? Number(question.weight) : 0;
+      totalScore += score;
+
+      return {
+        ujianSoalId: question.id,
+        bankSoalId: question.bankSoalId,
+        selectedOption,
+        selectedOptions: undefined,
+        shortAnswer: undefined,
+        structuredAnswer: undefined,
+        essayAnswer: undefined,
+        score,
+        needsReview: false,
+      };
+    }
+
+    if (["ISIAN_SINGKAT", "CLOZE"].includes(question.bankSoal.type) && question.bankSoal.expectedAnswer) {
+      const shortAnswer = answer?.shortAnswer || "";
+      const score = normalizeText(shortAnswer) === normalizeText(question.bankSoal.expectedAnswer) ? Number(question.weight) : 0;
+      totalScore += score;
+
+      return {
+        ujianSoalId: question.id,
+        bankSoalId: question.bankSoalId,
+        selectedOption: undefined,
+        selectedOptions: undefined,
+        shortAnswer,
+        structuredAnswer: undefined,
+        essayAnswer: undefined,
+        score,
+        needsReview: false,
+      };
+    }
+
+    const structuredAnswerKey = getStructuredAnswerKey(question.bankSoal.structuredPayload);
+
+    if (["MENJODOHKAN", "URUTAN"].includes(question.bankSoal.type) && structuredAnswerKey !== undefined && answer?.structuredAnswer !== undefined) {
+      const score = jsonEquals(answer.structuredAnswer, structuredAnswerKey) ? Number(question.weight) : 0;
+      totalScore += score;
+
+      return {
+        ujianSoalId: question.id,
+        bankSoalId: question.bankSoalId,
+        selectedOption: undefined,
+        selectedOptions: undefined,
+        shortAnswer: undefined,
+        structuredAnswer: answer.structuredAnswer,
+        essayAnswer: undefined,
+        score,
+        needsReview: false,
+      };
+    }
+
+    if (manualScore === undefined) {
       needsReview = true;
     } else {
-      totalScore += essayScore;
+      totalScore += manualScore;
     }
 
     return {
       ujianSoalId: question.id,
       bankSoalId: question.bankSoalId,
       selectedOption: undefined,
+      selectedOptions: undefined,
+      shortAnswer: answer?.shortAnswer || undefined,
+      structuredAnswer: answer?.structuredAnswer,
       essayAnswer: answer?.essayAnswer || undefined,
-      score: essayScore,
-      needsReview: essayScore === undefined,
+      score: manualScore,
+      needsReview: manualScore === undefined,
     };
   });
 
@@ -432,6 +590,9 @@ export async function submitHasilUjian(actor: Actor, input: unknown) {
         ujianSoalId: answer.ujianSoalId,
         bankSoalId: answer.bankSoalId,
         selectedOption: answer.selectedOption,
+        selectedOptions: toInputJson(answer.selectedOptions),
+        shortAnswer: answer.shortAnswer,
+        structuredAnswer: toInputJson(answer.structuredAnswer),
         essayAnswer: answer.essayAnswer,
         score: answer.score,
         needsReview: answer.needsReview,

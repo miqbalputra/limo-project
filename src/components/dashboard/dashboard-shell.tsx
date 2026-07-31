@@ -65,12 +65,19 @@ export function DashboardShell({ actor, navigation, notifications, children }: D
   const searchResults = search.trim()
     ? navigation.filter((item) => item.label.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 6)
     : [];
+  const profileHref = navigation.find((item) => item.label === "Profil")?.href;
 
   useEffect(() => {
     function handleShortcut(event: KeyboardEvent) {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         searchRef.current?.focus();
+      }
+
+      if (event.key === "Escape") {
+        setIsNotificationOpen(false);
+        setIsProfileOpen(false);
+        setSearch("");
       }
     }
 
@@ -88,11 +95,13 @@ export function DashboardShell({ actor, navigation, notifications, children }: D
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
+      <a href="#dashboard-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-gray-900 focus:px-4 focus:py-3 focus:text-sm focus:font-semibold focus:text-white">Lewati ke konten utama</a>
       {isSidebarOpen ? (
         <button type="button" aria-label="Tutup navigasi" className="fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-[1px] lg:hidden" onClick={() => setIsSidebarOpen(false)} />
       ) : null}
 
       <aside
+        id="dashboard-sidebar"
         className={`fixed left-0 top-0 z-50 flex h-screen w-[290px] flex-col border-r border-gray-200 bg-white transition-all duration-300 ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         } ${isSidebarCollapsed ? "lg:w-[90px]" : "lg:w-[290px]"}`}
@@ -150,7 +159,7 @@ export function DashboardShell({ actor, navigation, notifications, children }: D
           <div className="m-4 rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-100">
             <p className="text-theme-xs font-semibold text-gray-700">LIMO System</p>
             <p className="mt-1 text-[11px] leading-4 text-gray-500">English & Arabic learning management.</p>
-            <span className="mt-3 inline-flex rounded-full bg-success-50 px-2.5 py-1 text-[10px] font-semibold text-success-700">System online</span>
+            <span className="mt-3 inline-flex rounded-full bg-success-50 px-2.5 py-1 text-[10px] font-semibold text-success-700">Data aman & tersimpan</span>
           </div>
         ) : null}
       </aside>
@@ -158,7 +167,7 @@ export function DashboardShell({ actor, navigation, notifications, children }: D
       <div className={`transition-[padding] duration-300 ${isSidebarCollapsed ? "lg:pl-[90px]" : "lg:pl-[290px]"}`}>
         <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur-xl">
           <div className="flex min-h-16 items-center gap-3 px-4 sm:px-6 lg:min-h-[72px] lg:px-8">
-            <button type="button" aria-label="Toggle sidebar" className="grid size-11 shrink-0 place-items-center rounded-lg border border-gray-200 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50" onClick={toggleSidebar}>
+            <button type="button" aria-label="Toggle sidebar" aria-expanded={isSidebarOpen || isSidebarCollapsed} aria-controls="dashboard-sidebar" className="grid size-11 shrink-0 place-items-center rounded-lg border border-gray-200 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50" onClick={toggleSidebar}>
               <MenuIcon open={isSidebarOpen} />
             </button>
 
@@ -185,12 +194,12 @@ export function DashboardShell({ actor, navigation, notifications, children }: D
 
             <div className="ml-auto flex items-center gap-2 sm:gap-3">
               <div className="relative">
-                <button type="button" aria-label="Notifikasi" aria-expanded={isNotificationOpen} onClick={() => setIsNotificationOpen((open) => !open)} className="relative grid size-10 place-items-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-theme-xs hover:bg-gray-50 sm:size-11">
+                <button type="button" aria-label="Notifikasi" aria-expanded={isNotificationOpen} aria-controls="notification-panel" onClick={() => setIsNotificationOpen((open) => !open)} className="relative grid size-10 place-items-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-theme-xs hover:bg-gray-50 sm:size-11">
                   <BellIcon />
                   {notifications.pendingCount > 0 ? <span className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-error-500 px-1 text-[10px] font-bold leading-4 text-white">{notifications.pendingCount}</span> : null}
                 </button>
                 {isNotificationOpen ? (
-                  <div className="absolute right-0 top-[52px] z-20 w-[calc(100vw-2rem)] max-w-sm rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg sm:w-96">
+                  <div id="notification-panel" role="region" aria-label="Daftar notifikasi" className="absolute right-0 top-[52px] z-20 w-[calc(100vw-2rem)] max-w-sm rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg sm:w-96">
                     <div className="flex items-center justify-between border-b border-gray-100 px-2 pb-3">
                       <div><p className="text-theme-sm font-semibold text-gray-800">Notifikasi</p><p className="text-theme-xs text-gray-500">{notifications.items.length} aktivitas terbaru</p></div>
                       <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-semibold text-brand-600">{notifications.pendingCount} pending</span>
@@ -213,14 +222,15 @@ export function DashboardShell({ actor, navigation, notifications, children }: D
                 ) : null}
               </div>
               <div className="relative">
-                <button type="button" aria-expanded={isProfileOpen} onClick={() => setIsProfileOpen((open) => !open)} className="flex items-center gap-3 rounded-lg p-1.5 text-left hover:bg-gray-50">
+                <button type="button" aria-label="Buka menu akun" aria-expanded={isProfileOpen} aria-controls="profile-panel" onClick={() => setIsProfileOpen((open) => !open)} className="flex items-center gap-3 rounded-lg p-1.5 text-left hover:bg-gray-50">
                   <span className="grid size-9 place-items-center rounded-full bg-brand-50 text-theme-sm font-bold text-brand-600 ring-1 ring-brand-100 sm:size-10">{actor.name.slice(0, 1).toUpperCase()}</span>
                   <span className="hidden max-w-40 sm:block"><span className="block truncate text-theme-sm font-semibold text-gray-800">{actor.name}</span><span className="block text-theme-xs text-gray-500">{actor.role}</span></span>
                   <svg viewBox="0 0 20 20" className={`hidden size-4 text-gray-400 transition sm:block ${isProfileOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
                 </button>
                 {isProfileOpen ? (
-                  <div className="absolute right-0 top-[52px] w-64 rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg">
+                  <div id="profile-panel" role="region" aria-label="Menu akun" className="absolute right-0 top-[52px] w-64 rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg">
                     <div className="border-b border-gray-100 px-2 pb-3"><p className="truncate text-theme-sm font-semibold text-gray-800">{actor.name}</p><p className="truncate text-theme-xs text-gray-500">{actor.email}</p></div>
+                    {profileHref ? <Link href={profileHref} onClick={() => setIsProfileOpen(false)} className="mt-2 flex items-center gap-3 rounded-lg px-3 py-2.5 text-theme-sm font-medium text-gray-700 hover:bg-gray-50"><DashboardIcon name="profile" className="size-5 text-gray-400" />Profil</Link> : null}
                     <Link href="/ubah-password" onClick={() => setIsProfileOpen(false)} className="mt-2 flex items-center gap-3 rounded-lg px-3 py-2.5 text-theme-sm font-medium text-gray-700 hover:bg-gray-50"><DashboardIcon name="lock" className="size-5 text-gray-400" />Ubah Password</Link>
                     <div className="mt-1 px-1"><LogoutButton /></div>
                   </div>
@@ -234,7 +244,7 @@ export function DashboardShell({ actor, navigation, notifications, children }: D
           <div className="mx-auto flex w-full max-w-[1600px] items-center gap-2 text-theme-xs text-gray-500"><Link href={homeHref} className="hover:text-brand-500">Dashboard</Link><span>/</span><span className="font-medium text-gray-700">{activeItem?.label || "Halaman"}</span></div>
         </div>
 
-        <main className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+        <main id="dashboard-content" tabIndex={-1} className="mx-auto w-full max-w-[1600px] px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">{children}</main>
       </div>
     </div>
   );

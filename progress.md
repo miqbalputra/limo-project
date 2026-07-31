@@ -1,6 +1,6 @@
 # Progress Implementasi LIMO
 
-Terakhir diperbarui: 25 Juli 2026
+Terakhir diperbarui: 29 Juli 2026
 
 ## Status Saat Ini
 
@@ -53,7 +53,8 @@ Target proposal Minggu 3 telah siap untuk demo:
 - Pendaftaran publik, upload dokumen privat, pengecekan status, approval, dan rejection.
 - Master data program, level, kelas, guru, wali, siswa, dan enrollment dasar.
 - LMS: sesi kelas, materi teks/video/file, dan upload materi privat.
-- Bank soal, builder ujian, hasil ujian offline, auto-skoring pilihan ganda, dan review esai.
+- Assessment Bank SD English/Arabic dengan tipe PG, multi-select, benar/salah, isian, cloze, matching, sequencing, picture, listening, speaking, writing, reading, roleplay, esai, metadata CEFR/AKM, auto-scoring objektif, dan review rubric/manual.
+- Ujian online MVP via akun wali tersedia melalui menu Tugas Anak, dengan attempt, timer server-authoritative, auto-scoring objektif, dan status review untuk jawaban manual.
 - Timer ujian dan riwayat nilai wali untuk target Pekan 2.
 - Presensi massal dan pencatatan progres siswa.
 - Grafik progress wali/guru, rekap presensi bulanan, create payment Pakasir, dan webhook payment untuk target Minggu 3.
@@ -69,6 +70,7 @@ Target proposal Minggu 3 telah siap untuk demo:
 - Token warna, tipografi Outfit, shadow, button, card, dan form TailAdmin telah diadaptasi ke `src/app/globals.css`.
 - Dashboard menggunakan sidebar, header, active navigation, dan mobile drawer bergaya TailAdmin.
 - Shell dashboard telah diselaraskan dengan demo TailAdmin: sidebar 290/90 yang dapat collapse, ikon SVG, menu grouping, command search `Ctrl+K`, profile dropdown, dropdown notifikasi berbasis data, dan breadcrumb.
+- Halaman auth sudah memakai pola TailAdmin signin/reset-password.
 - Dashboard Admin memakai metric cards, recent registration table, komposisi pengguna, recent students, dan quick actions.
 - Halaman Minggu 1 Pendaftaran, Siswa, dan Pengguna memakai responsive TailAdmin data tables, status badges, summary cards, filter, dan pagination.
 - Seluruh route dashboard Admin, Guru, dan Wali telah memakai token serta utilitas visual TailAdmin.
@@ -120,7 +122,7 @@ PID dapat berubah jika server dijalankan ulang.
 - Build masih menampilkan warning Turbopack non-fatal terkait filesystem tracing pada private storage.
 - Data kontak production, jadwal resmi, testimoni terverifikasi, materi, dan konten final perlu dikonfirmasi oleh LIMO.
 - Landing page memiliki kebebasan visual LIMO sendiri; dashboard, auth, dan form operasional tetap mengikuti TailAdmin.
-- Provider email/WhatsApp nyata, kredensial production Pakasir, dan UAT payment end-to-end di environment production masih perlu diselesaikan.
+- Provider email SMTP sudah tersedia untuk production awal; provider WhatsApp nyata, kredensial production Pakasir, dan UAT payment end-to-end di environment production masih perlu diselesaikan.
 
 ## Langkah Berikutnya
 

@@ -49,8 +49,7 @@ export function PresensiProgresForm({ sesiKelasId, students }: { sesiKelasId: st
     }));
 
     try {
-      await postJson("/api/v1/presensi", { sesiKelasId, items: presensiItems });
-      await postJson("/api/v1/progres", { sesiKelasId, items: progresItems });
+      await postJson("/api/v1/presensi-progres", { sesiKelasId, presensiItems, progresItems });
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Data gagal disimpan");
@@ -60,7 +59,7 @@ export function PresensiProgresForm({ sesiKelasId, students }: { sesiKelasId: st
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form id="presensi-progres-form" onSubmit={onSubmit} className="space-y-4">
       {error ? <p className="tailadmin-alert-error">{error}</p> : null}
       {students.map((student) => {
         const presensi = student.presensi?.[0];
@@ -68,10 +67,16 @@ export function PresensiProgresForm({ sesiKelasId, students }: { sesiKelasId: st
 
         return (
           <section key={student.id} className="tailadmin-card p-5">
-            <h2 className="font-semibold text-gray-900">{student.name}</h2>
-            <p className="text-theme-sm text-gray-500">{student.nomorInduk}</p>
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-theme-sm font-semibold text-brand-600">{student.name.slice(0, 1).toUpperCase()}</span>
+              <div className="min-w-0">
+                <h2 className="truncate font-semibold text-gray-900" title={student.name}>{student.name}</h2>
+                <p className="text-theme-sm text-gray-500">{student.nomorInduk}</p>
+              </div>
+            </div>
             <div className="mt-4 grid gap-3 lg:grid-cols-2">
               <div className="grid gap-3">
+                <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-400">Presensi</p>
                 <select name={`presence-${student.id}`} defaultValue={presensi?.status ?? "HADIR"} className="tailadmin-input">
                   <option value="HADIR">Hadir</option>
                   <option value="IZIN">Izin</option>
@@ -82,6 +87,7 @@ export function PresensiProgresForm({ sesiKelasId, students }: { sesiKelasId: st
                 <input name={`presenceNote-${student.id}`} defaultValue={presensi?.note ?? ""} placeholder="Catatan presensi" className="tailadmin-input" />
               </div>
               <div className="grid gap-3">
+                <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-400">Progres Belajar</p>
                 <select name={`score-${student.id}`} defaultValue={String(progress?.understandingScore ?? 3)} className="tailadmin-input">
                   <option value="1">Pemahaman 1</option>
                   <option value="2">Pemahaman 2</option>

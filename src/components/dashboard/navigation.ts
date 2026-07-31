@@ -35,6 +35,7 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
   ],
   WALI: [
     { label: "Dashboard", href: "/wali", icon: "dashboard", section: "Overview" },
+    { label: "Tugas Anak", href: "/wali/tugas", icon: "exam", section: "Perkembangan Anak" },
     { label: "Progres", href: "/wali/progres", icon: "progress", section: "Perkembangan Anak" },
     { label: "Presensi", href: "/wali/presensi", icon: "presensi", section: "Perkembangan Anak" },
     { label: "Nilai", href: "/wali/nilai", icon: "exam", section: "Perkembangan Anak" },

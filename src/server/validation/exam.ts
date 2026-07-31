@@ -6,12 +6,41 @@ const optionSchema = z.object({
   isCorrect: z.boolean().default(false),
 });
 
+const soalTypeSchema = z.enum([
+  "PILIHAN_GANDA",
+  "MULTI_SELECT",
+  "BENAR_SALAH",
+  "ISIAN_SINGKAT",
+  "MENJODOHKAN",
+  "URUTAN",
+  "CLOZE",
+  "GAMBAR",
+  "LISTENING",
+  "SPEAKING",
+  "WRITING",
+  "READING",
+  "ROLEPLAY",
+  "ESAI",
+]);
+
+const jsonPayloadSchema = z.union([z.record(z.string(), z.unknown()), z.array(z.unknown())]).optional();
+
 export const createBankSoalSchema = z.object({
   kelasId: z.string().min(8).max(64).optional().or(z.literal("")),
-  type: z.enum(["PILIHAN_GANDA", "ESAI"]),
+  type: soalTypeSchema,
   question: z.string().trim().min(3).max(10000),
+  stimulusText: z.string().trim().max(10000).optional().or(z.literal("")),
+  mediaUrl: z.string().trim().max(500).optional().or(z.literal("")),
+  expectedAnswer: z.string().trim().max(10000).optional().or(z.literal("")),
+  structuredPayload: jsonPayloadSchema,
+  rubric: jsonPayloadSchema,
   language: z.string().trim().max(16).optional().or(z.literal("")),
   direction: z.enum(["ltr", "rtl"]).optional().or(z.literal("")),
+  cognitiveLevel: z.enum(["LOTS", "MOTS", "HOTS"]).default("LOTS"),
+  skill: z.enum(["LISTENING", "READING", "SPEAKING", "WRITING", "VOCABULARY", "GRAMMAR", "PRONUNCIATION", "NUMERACY", "LITERACY"]).default("VOCABULARY"),
+  difficulty: z.enum(["EASY", "MEDIUM", "HARD"]).default("EASY"),
+  standard: z.string().trim().max(64).optional().or(z.literal("")),
+  assessmentType: z.enum(["FORMATIVE", "SUMMATIVE", "PLACEMENT", "DIAGNOSTIC"]).default("FORMATIVE"),
   explanation: z.string().trim().max(5000).optional().or(z.literal("")),
   options: z.array(optionSchema).max(8).default([]),
 });
@@ -21,8 +50,13 @@ export const createUjianSchema = z.object({
   title: z.string().trim().min(2).max(200),
   description: z.string().trim().max(2000).optional().or(z.literal("")),
   status: z.enum(["DRAFT", "PUBLISHED"]).default("DRAFT"),
+  deliveryMode: z.enum(["TEACHER_ENTRY", "ONLINE_VIA_WALI", "BOTH"]).default("TEACHER_ENTRY"),
   examDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+  availableFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+  availableUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
   durationMinutes: z.coerce.number().int().min(1).max(600).default(60),
+  maxAttempts: z.coerce.number().int().min(1).max(5).default(1),
+  showResultToWali: z.boolean().default(true),
   questions: z
     .array(
       z.object({
@@ -42,6 +76,9 @@ export const submitHasilUjianSchema = z.object({
       z.object({
         ujianSoalId: z.string().min(8).max(64),
         selectedOption: z.string().trim().max(8).optional().or(z.literal("")),
+        selectedOptions: z.array(z.string().trim().max(8)).max(16).optional(),
+        shortAnswer: z.string().trim().max(10000).optional().or(z.literal("")),
+        structuredAnswer: jsonPayloadSchema,
         essayAnswer: z.string().trim().max(10000).optional().or(z.literal("")),
         essayScore: z.coerce.number().min(0).max(1000).optional().or(z.literal("")),
       }),

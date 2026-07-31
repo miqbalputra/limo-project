@@ -30,9 +30,15 @@ export async function getActorDashboardContext(actor: Actor) {
           select: {
             id: true,
             name: true,
+            scheduleNote: true,
+            program: { select: { name: true } },
+            level: { select: { name: true } },
             _count: {
               select: {
                 enrollments: { where: { status: "ACTIVE" } },
+                sessions: true,
+                materi: true,
+                ujian: true,
               },
             },
           },
@@ -59,6 +65,11 @@ export async function getActorDashboardContext(actor: Actor) {
               name: true,
               nomorInduk: true,
               status: true,
+              program: { select: { name: true } },
+              presensi: { select: { status: true } },
+              progresBelajar: { orderBy: { createdAt: "desc" }, take: 5, select: { understandingScore: true, publicNote: true } },
+              hasilUjian: { where: { status: { in: ["FINAL", "CORRECTED"] } }, orderBy: { updatedAt: "desc" }, take: 3, select: { totalScore: true, ujian: { select: { title: true } } } },
+              tagihan: { where: { status: { in: ["UNPAID", "PENDING", "OVERDUE"] } }, orderBy: { dueDate: "asc" }, take: 3, select: { id: true, status: true, amount: true, dueDate: true } },
             },
           },
         },

@@ -44,10 +44,6 @@ function EyeIcon() {
   return <svg viewBox="0 0 20 20" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M2.5 10s2.6-4.5 7.5-4.5S17.5 10 17.5 10 14.9 14.5 10 14.5 2.5 10 2.5 10Z" /><circle cx="10" cy="10" r="2" /></svg>;
 }
 
-function GoogleIcon() {
-  return <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.23c0-.78-.07-1.53-.2-2.23H12v4.22h5.38a4.6 4.6 0 0 1-2 3.02v2.51h3.24c1.9-1.75 2.98-4.33 2.98-7.52Z" /><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.44l-3.24-2.51c-.9.6-2.04.95-3.38.95-2.6 0-4.8-1.76-5.59-4.12H3.07v2.59A10 10 0 0 0 12 22Z" /><path fill="#FBBC05" d="M6.41 13.88A6 6 0 0 1 6.1 12c0-.65.11-1.29.31-1.88V7.53H3.07A10 10 0 0 0 2 12c0 1.61.39 3.14 1.07 4.47l3.34-2.59Z" /><path fill="#EA4335" d="M12 6c1.47 0 2.8.51 3.84 1.5l2.86-2.86A9.6 9.6 0 0 0 12 2a10 10 0 0 0-8.93 5.53l3.34 2.59C7.2 7.76 9.4 6 12 6Z" /></svg>;
-}
-
 function AuthShell({ children, variant = "signin" }: { children: React.ReactNode; variant?: "signin" | "reset" }) {
   return (
     <main className="min-h-screen bg-white text-gray-800 lg:grid lg:grid-cols-[1.05fr_0.95fr]">
@@ -86,7 +82,7 @@ function AuthShell({ children, variant = "signin" }: { children: React.ReactNode
 function Feedback({ error, success }: { error: string; success: string }) {
   if (error) {
     return (
-      <p className="tailadmin-alert-error">
+      <p role="alert" className="tailadmin-alert-error">
         {error}
       </p>
     );
@@ -94,7 +90,7 @@ function Feedback({ error, success }: { error: string; success: string }) {
 
   if (success) {
     return (
-      <p className="tailadmin-alert-success">
+      <p role="status" aria-live="polite" className="tailadmin-alert-success">
         {success}
       </p>
     );
@@ -108,6 +104,7 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -144,13 +141,7 @@ export function LoginForm() {
       <h1 className="text-title-sm font-semibold text-gray-800 sm:text-title-md">Sign In</h1>
       <p className="mt-2 tailadmin-muted">Masukkan email dan password untuk masuk ke dashboard LIMO.</p>
 
-      <div className="mt-8">
-        <button type="button" disabled className="tailadmin-button-outline h-11 w-full gap-3 text-gray-500 disabled:opacity-70"><GoogleIcon /> Google</button>
-      </div>
-
-      <div className="my-7 flex items-center gap-3 text-theme-xs font-medium uppercase tracking-wide text-gray-400"><span className="h-px flex-1 bg-gray-200" />Or<span className="h-px flex-1 bg-gray-200" /></div>
-
-      <form className="space-y-5" onSubmit={onSubmit}>
+      <form className="mt-8 space-y-5" onSubmit={onSubmit}>
         <Feedback error={error} success="" />
         <label className="block text-theme-sm font-medium text-gray-700">
           Email <span className="text-error-500">*</span>
@@ -159,7 +150,7 @@ export function LoginForm() {
             type="email"
             autoComplete="email"
             required
-            placeholder="admin@limo.local"
+               placeholder="nama@domain.com"
             className="mt-2 tailadmin-input"
           />
         </label>
@@ -168,23 +159,19 @@ export function LoginForm() {
           <span className="relative mt-2 block">
             <input
               name="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               required
               minLength={8}
               placeholder="Masukkan password"
               className="tailadmin-input pr-12"
             />
-            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"><EyeIcon /></span>
+            <button type="button" aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"} aria-pressed={showPassword} onClick={() => setShowPassword((visible) => !visible)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"><EyeIcon /></button>
           </span>
         </label>
 
-        <div className="flex items-center justify-between gap-4">
-          <label className="flex items-center gap-3 text-theme-sm text-gray-700">
-            <input type="checkbox" className="size-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500" />
-            Keep me logged in
-          </label>
-          <Link href="/lupa-password" className="text-theme-sm font-medium text-brand-500 hover:text-brand-600">Forgot password?</Link>
+        <div className="flex justify-end">
+          <Link href="/lupa-password" className="text-theme-sm font-medium text-brand-500 hover:text-brand-600">Lupa password?</Link>
         </div>
 
         <button
@@ -192,11 +179,11 @@ export function LoginForm() {
           disabled={isSubmitting}
           className="tailadmin-button-primary h-11 w-full"
         >
-          {isSubmitting ? "Memproses..." : "Sign in"}
+          {isSubmitting ? "Memproses..." : "Masuk"}
         </button>
       </form>
 
-      <p className="mt-6 text-center text-theme-sm text-gray-500">Belum punya akun? <Link href="/daftar" className="font-medium text-brand-500 hover:text-brand-600">Daftar siswa baru</Link></p>
+       <p className="mt-6 text-center text-theme-sm text-gray-500">Belum punya akun? <Link href="/daftar" className="font-medium text-brand-500 hover:text-brand-600">Daftar siswa baru</Link></p>
     </AuthShell>
   );
 }
@@ -228,7 +215,7 @@ export function ForgotPasswordForm() {
 
   return (
     <AuthShell variant="reset">
-      <h1 className="text-title-sm font-semibold text-gray-800 sm:text-title-md">Forgot Your Password?</h1>
+       <h1 className="text-title-sm font-semibold text-gray-800 sm:text-title-md">Lupa Password?</h1>
       <p className="mt-2 tailadmin-muted">Masukkan email akun. Jika terdaftar, instruksi reset akan dikirim melalui kanal resmi.</p>
       <form className="mt-8 space-y-5" onSubmit={onSubmit}>
         <Feedback error={error} success={success} />
@@ -239,7 +226,7 @@ export function ForgotPasswordForm() {
             type="email"
             autoComplete="email"
             required
-            placeholder="email@limo.local"
+             placeholder="nama@domain.com"
             className="mt-2 tailadmin-input"
           />
         </label>
@@ -248,10 +235,10 @@ export function ForgotPasswordForm() {
           disabled={isSubmitting}
           className="tailadmin-button-primary h-11 w-full"
         >
-          {isSubmitting ? "Memproses..." : "Send Reset Link"}
+           {isSubmitting ? "Memproses..." : "Kirim Instruksi Reset"}
         </button>
       </form>
-      <p className="mt-6 text-center text-theme-sm text-gray-500">Wait, I remember my password... <Link href="/login" className="font-medium text-brand-500 hover:text-brand-600">Click here</Link></p>
+       <p className="mt-6 text-center text-theme-sm text-gray-500">Ingat password? <Link href="/login" className="font-medium text-brand-500 hover:text-brand-600">Kembali ke login</Link></p>
     </AuthShell>
   );
 }
@@ -262,6 +249,7 @@ function ResetPasswordInner() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -306,14 +294,14 @@ function ResetPasswordInner() {
           <span className="relative mt-2 block">
             <input
               name="password"
-              type="password"
+               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
               required
               minLength={8}
               placeholder="Minimal 8 karakter"
               className="tailadmin-input pr-12"
             />
-            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"><EyeIcon /></span>
+             <button type="button" aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"} aria-pressed={showPassword} onClick={() => setShowPassword((visible) => !visible)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"><EyeIcon /></button>
           </span>
         </label>
         <button
@@ -324,7 +312,7 @@ function ResetPasswordInner() {
           {isSubmitting ? "Memproses..." : "Reset Password"}
         </button>
       </form>
-      <p className="mt-6 text-center text-theme-sm text-gray-500">Wait, I remember my password... <Link href="/login" className="font-medium text-brand-500 hover:text-brand-600">Click here</Link></p>
+       <p className="mt-6 text-center text-theme-sm text-gray-500">Ingat password? <Link href="/login" className="font-medium text-brand-500 hover:text-brand-600">Kembali ke login</Link></p>
     </AuthShell>
   );
 }

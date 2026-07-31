@@ -1,6 +1,6 @@
 import Link from "next/link";
-import type { DashboardIconName } from "@/components/dashboard/dashboard-icon";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
+import { DashboardHero, MetricCard, QuickActionCard, SectionHeader } from "@/components/dashboard/dashboard-widgets";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { getActorDashboardContext } from "@/server/dal/actor-dal";
 import { listPendaftaran } from "@/server/services/pendaftaran-service";
@@ -26,40 +26,24 @@ export default async function AdminDashboardPage() {
 
   if (context.role !== "ADMIN") return null;
 
-  const metrics: { label: string; value: number; description: string; icon: DashboardIconName; tone: string }[] = [
-    { label: "Total Siswa", value: context.studentCount, description: "Siswa aktif terdaftar", icon: "student", tone: "bg-brand-50 text-brand-600" },
-    { label: "Total Guru", value: context.teacherCount, description: "Pengajar tercatat", icon: "teacher", tone: "bg-success-50 text-success-700" },
-    { label: "Total Wali", value: context.guardianCount, description: "Akun wali murid", icon: "guardian", tone: "bg-warning-50 text-warning-700" },
-    { label: "Perlu Review", value: context.pendingRegistrations, description: "Pendaftaran menunggu", icon: "registration", tone: "bg-error-50 text-error-700" },
-  ];
   const latestRegistrations = registrations.items.slice(0, 5);
   const maxUserCount = Math.max(context.studentCount, context.teacherCount, context.guardianCount, 1);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-theme-sm font-medium text-gray-500">Overview</p>
-          <h1 className="mt-1 text-2xl font-semibold text-gray-900 sm:text-3xl">Selamat datang, {actor.name}</h1>
-          <p className="mt-2 text-theme-sm text-gray-500">Pantau aktivitas operasional LIMO dari satu tempat.</p>
-        </div>
-        <Link href="/admin/pendaftaran" className="tailadmin-button-primary gap-2">
-          <DashboardIcon name="registration" className="size-4" />Review Pendaftaran
-        </Link>
-      </div>
+      <DashboardHero
+        eyebrow="Admin Command Center"
+        title={`Selamat datang, ${actor.name}`}
+        description="Pantau pendaftaran, siswa, kelas, pembayaran, dan operasional LIMO dari satu dashboard yang ringkas dan siap ditindaklanjuti."
+        actions={<><Link href="/admin/pendaftaran" className="tailadmin-button-primary gap-2"><DashboardIcon name="registration" className="size-4" />Review Pendaftaran</Link><Link href="/admin/siswa" className="tailadmin-button-outline gap-2"><DashboardIcon name="student" className="size-4" />Kelola Siswa</Link></>}
+        aside={<div className="rounded-2xl bg-gray-900 px-5 py-4 text-left text-white shadow-theme-lg"><p className="text-theme-xs text-white/60">Tugas prioritas</p><p className="mt-1 text-3xl font-semibold">{context.pendingRegistrations}</p><p className="mt-1 text-theme-xs text-white/70">pendaftaran perlu review</p></div>}
+      />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.map((metric) => (
-          <article key={metric.label} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs">
-            <div className="flex items-start justify-between gap-4">
-              <span className={`grid size-12 place-items-center rounded-xl ${metric.tone}`}><DashboardIcon name={metric.icon} className="size-6" /></span>
-              <span className="rounded-full bg-gray-50 px-2.5 py-1 text-[10px] font-semibold text-gray-500">LIVE</span>
-            </div>
-            <p className="mt-5 text-3xl font-semibold tracking-tight text-gray-900">{metric.value}</p>
-            <p className="mt-1 text-theme-sm font-medium text-gray-700">{metric.label}</p>
-            <p className="mt-1 text-theme-xs text-gray-500">{metric.description}</p>
-          </article>
-        ))}
+        <MetricCard label="Total Siswa" value={context.studentCount} description="Siswa aktif terdaftar" icon="student" />
+        <MetricCard label="Total Guru" value={context.teacherCount} description="Pengajar tercatat" icon="teacher" tone="success" />
+        <MetricCard label="Total Wali" value={context.guardianCount} description="Akun wali murid" icon="guardian" tone="warning" />
+        <MetricCard label="Perlu Review" value={context.pendingRegistrations} description="Pendaftaran menunggu" icon="registration" tone={context.pendingRegistrations > 0 ? "error" : "gray"} />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.45fr_0.75fr]">
@@ -112,13 +96,10 @@ export default async function AdminDashboardPage() {
       </section>
 
       <section>
-        <div className="mb-4"><h2 className="font-semibold text-gray-900">Akses Cepat</h2><p className="mt-1 text-theme-xs text-gray-500">Tugas operasional yang sering digunakan</p></div>
+        <SectionHeader title="Akses Cepat" description="Tugas operasional yang sering digunakan" />
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {quickActions.map((action) => (
-            <Link key={action.href} href={action.href} className="group flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-theme-xs transition hover:border-brand-200 hover:shadow-theme-sm">
-              <span className="grid size-11 place-items-center rounded-xl bg-gray-50 text-gray-500 transition group-hover:bg-brand-50 group-hover:text-brand-500"><DashboardIcon name={action.icon} className="size-5" /></span>
-              <span className="min-w-0"><span className="block text-theme-sm font-semibold text-gray-800">{action.label}</span><span className="block truncate text-theme-xs text-gray-500">{action.text}</span></span>
-            </Link>
+            <QuickActionCard key={action.href} href={action.href} icon={action.icon} label={action.label} description={action.text} />
           ))}
         </div>
       </section>

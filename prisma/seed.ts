@@ -1,4 +1,4 @@
-import { HasilUjianStatus, JobStatus, MateriType, NotificationStatus, PembayaranStatus, PendaftaranStatus, PresensiStatus, PrismaClient, ProgramKind, PublishStatus, SesiStatus, SoalType, TagihanStatus, UserRole, UserStatus } from "@prisma/client";
+import { HasilUjianStatus, JobStatus, MateriType, NotificationStatus, PembayaranStatus, PendaftaranStatus, PresensiStatus, Prisma, PrismaClient, ProgramKind, PublishStatus, SesiStatus, SoalType, TagihanStatus, UserRole, UserStatus } from "@prisma/client";
 import argon2 from "argon2";
 
 const prisma = new PrismaClient();
@@ -50,8 +50,18 @@ async function upsertQuestion(input: {
   kelasId?: string;
   type: SoalType;
   question: string;
+  stimulusText?: string;
+  mediaUrl?: string;
+  expectedAnswer?: string;
+  structuredPayload?: Prisma.InputJsonValue;
+  rubric?: Prisma.InputJsonValue;
   language?: string;
   direction?: string;
+  cognitiveLevel?: string;
+  skill?: string;
+  difficulty?: string;
+  standard?: string;
+  assessmentType?: string;
   explanation?: string;
   createdById?: string;
   options?: { label: string; content: string; isCorrect: boolean; order: number }[];
@@ -61,8 +71,18 @@ async function upsertQuestion(input: {
     kelasId: input.kelasId,
     type: input.type,
     question: input.question,
+    stimulusText: input.stimulusText,
+    mediaUrl: input.mediaUrl,
+    expectedAnswer: input.expectedAnswer,
+    structuredPayload: input.structuredPayload,
+    rubric: input.rubric,
     language: input.language,
     direction: input.direction,
+    cognitiveLevel: input.cognitiveLevel ?? "LOTS",
+    skill: input.skill ?? "VOCABULARY",
+    difficulty: input.difficulty ?? "EASY",
+    standard: input.standard,
+    assessmentType: input.assessmentType ?? "FORMATIVE",
     explanation: input.explanation,
     createdById: input.createdById,
   };
@@ -88,6 +108,11 @@ async function upsertUjian(input: {
   status: PublishStatus;
   examDate?: Date;
   durationMinutes: number;
+  deliveryMode?: string;
+  availableFrom?: Date;
+  availableUntil?: Date;
+  maxAttempts?: number;
+  showResultToWali?: boolean;
   createdById?: string;
 }) {
   const existing = await prisma.ujian.findFirst({ where: { kelasId: input.kelasId, title: input.title }, select: { id: true } });
@@ -96,6 +121,11 @@ async function upsertUjian(input: {
     status: input.status,
     examDate: input.examDate,
     durationMinutes: input.durationMinutes,
+    deliveryMode: input.deliveryMode ?? "TEACHER_ENTRY",
+    availableFrom: input.availableFrom,
+    availableUntil: input.availableUntil,
+    maxAttempts: input.maxAttempts ?? 1,
+    showResultToWali: input.showResultToWali ?? true,
     createdById: input.createdById,
   };
 
@@ -699,6 +729,11 @@ async function main() {
     question: "Which word means warna merah?",
     language: "en",
     direction: "ltr",
+    cognitiveLevel: "LOTS",
+    skill: "VOCABULARY",
+    difficulty: "EASY",
+    standard: "CEFR Pre-A1",
+    assessmentType: "FORMATIVE",
     explanation: "Red berarti merah.",
     createdById: guruUser.id,
     options: [
@@ -715,7 +750,207 @@ async function main() {
     question: "Write two sentences introducing your family.",
     language: "en",
     direction: "ltr",
+    cognitiveLevel: "MOTS",
+    skill: "WRITING",
+    difficulty: "MEDIUM",
+    standard: "CEFR A1",
+    assessmentType: "SUMMATIVE",
     explanation: "Jawaban dinilai dari vocabulary family member dan struktur sederhana.",
+    createdById: guruUser.id,
+  });
+
+  const trueFalseQuestion = await upsertQuestion({
+    kelasId: kelas.id,
+    type: SoalType.BENAR_SALAH,
+    question: "True or false: We say 'Good night' when we meet someone in the morning.",
+    expectedAnswer: "salah",
+    language: "en",
+    direction: "ltr",
+    cognitiveLevel: "LOTS",
+    skill: "VOCABULARY",
+    difficulty: "EASY",
+    standard: "CEFR Pre-A1",
+    assessmentType: "FORMATIVE",
+    explanation: "Sapaan pagi yang benar adalah Good morning.",
+    createdById: guruUser.id,
+  });
+
+  const clozeQuestion = await upsertQuestion({
+    kelasId: kelas.id,
+    type: SoalType.CLOZE,
+    stimulusText: "My name ___ Ali.",
+    question: "Fill in the blank with the correct word.",
+    expectedAnswer: "is",
+    language: "en",
+    direction: "ltr",
+    cognitiveLevel: "LOTS",
+    skill: "GRAMMAR",
+    difficulty: "EASY",
+    standard: "CEFR Pre-A1",
+    assessmentType: "FORMATIVE",
+    explanation: "Subject 'my name' menggunakan to be 'is'.",
+    createdById: guruUser.id,
+  });
+
+  const multiSelectQuestion = await upsertQuestion({
+    kelasId: kelas.id,
+    type: SoalType.MULTI_SELECT,
+    question: "Choose the words that are family members.",
+    language: "en",
+    direction: "ltr",
+    cognitiveLevel: "MOTS",
+    skill: "VOCABULARY",
+    difficulty: "MEDIUM",
+    standard: "CEFR A1",
+    assessmentType: "FORMATIVE",
+    explanation: "Mother dan brother adalah anggota keluarga.",
+    createdById: guruUser.id,
+    options: [
+      { label: "A", content: "Mother", isCorrect: true, order: 1 },
+      { label: "B", content: "Table", isCorrect: false, order: 2 },
+      { label: "C", content: "Brother", isCorrect: true, order: 3 },
+      { label: "D", content: "Pencil", isCorrect: false, order: 4 },
+    ],
+  });
+
+  const pictureQuestion = await upsertQuestion({
+    kelasId: kelas.id,
+    type: SoalType.GAMBAR,
+    mediaUrl: "/demo-assets/picture-red-apple.png",
+    question: "Look at the picture. What color is the apple?",
+    expectedAnswer: "red",
+    language: "en",
+    direction: "ltr",
+    cognitiveLevel: "LOTS",
+    skill: "VOCABULARY",
+    difficulty: "EASY",
+    standard: "CEFR Pre-A1",
+    assessmentType: "FORMATIVE",
+    explanation: "Picture-based question untuk vocabulary warna.",
+    createdById: guruUser.id,
+  });
+
+  const matchingQuestion = await upsertQuestion({
+    kelasId: kelas.id,
+    type: SoalType.MENJODOHKAN,
+    question: "Match the English words with the Indonesian meanings.",
+    structuredPayload: {
+      left: ["one", "two", "three"],
+      right: ["satu", "dua", "tiga"],
+      answerKey: { one: "satu", two: "dua", three: "tiga" },
+    },
+    language: "en",
+    direction: "ltr",
+    cognitiveLevel: "MOTS",
+    skill: "VOCABULARY",
+    difficulty: "MEDIUM",
+    standard: "CEFR Pre-A1",
+    assessmentType: "FORMATIVE",
+    explanation: "Matching membantu menguji asosiasi kosakata.",
+    createdById: guruUser.id,
+  });
+
+  const sequencingQuestion = await upsertQuestion({
+    kelasId: kelas.id,
+    type: SoalType.URUTAN,
+    question: "Put the daily routine in the correct order.",
+    structuredPayload: {
+      items: ["wake up", "go to school", "sleep"],
+      answerKey: ["wake up", "go to school", "sleep"],
+    },
+    language: "en",
+    direction: "ltr",
+    cognitiveLevel: "MOTS",
+    skill: "LITERACY",
+    difficulty: "MEDIUM",
+    standard: "CEFR A1",
+    assessmentType: "FORMATIVE",
+    explanation: "Sequencing menguji pemahaman urutan aktivitas sederhana.",
+    createdById: guruUser.id,
+  });
+
+  const listeningQuestion = await upsertQuestion({
+    kelasId: kelas.id,
+    type: SoalType.LISTENING,
+    stimulusText: "Play the audio twice, then ask the student to answer.",
+    mediaUrl: "/demo-assets/listening-greeting.mp3",
+    question: "What greeting did you hear?",
+    expectedAnswer: "good morning",
+    language: "en",
+    direction: "ltr",
+    cognitiveLevel: "LOTS",
+    skill: "LISTENING",
+    difficulty: "EASY",
+    standard: "CEFR Pre-A1",
+    assessmentType: "FORMATIVE",
+    explanation: "Listening comprehension untuk greeting.",
+    createdById: guruUser.id,
+  });
+
+  const readingQuestion = await upsertQuestion({
+    kelasId: kelas.id,
+    type: SoalType.READING,
+    stimulusText: "Ali has a cat. The cat is white. Ali likes the cat.",
+    question: "What animal does Ali have?",
+    expectedAnswer: "cat",
+    language: "en",
+    direction: "ltr",
+    cognitiveLevel: "MOTS",
+    skill: "READING",
+    difficulty: "EASY",
+    standard: "CEFR A1",
+    assessmentType: "FORMATIVE",
+    explanation: "Reading comprehension sederhana untuk informasi eksplisit.",
+    createdById: guruUser.id,
+  });
+
+  const speakingQuestion = await upsertQuestion({
+    kelasId: kelas.id,
+    type: SoalType.SPEAKING,
+    question: "Introduce yourself in three simple sentences.",
+    language: "en",
+    direction: "ltr",
+    cognitiveLevel: "MOTS",
+    skill: "SPEAKING",
+    difficulty: "MEDIUM",
+    standard: "CEFR A1",
+    assessmentType: "SUMMATIVE",
+    rubric: { criteria: [{ name: "Fluency", max: 5 }, { name: "Accuracy", max: 5 }, { name: "Confidence", max: 5 }] },
+    explanation: "Speaking prompt dinilai manual dengan rubric.",
+    createdById: guruUser.id,
+  });
+
+  const writingQuestion = await upsertQuestion({
+    kelasId: kelas.id,
+    type: SoalType.WRITING,
+    stimulusText: "Use at least three words from this list: mother, father, brother, sister.",
+    question: "Write a short paragraph about your family.",
+    language: "en",
+    direction: "ltr",
+    cognitiveLevel: "MOTS",
+    skill: "WRITING",
+    difficulty: "MEDIUM",
+    standard: "CEFR A1",
+    assessmentType: "SUMMATIVE",
+    rubric: { criteria: [{ name: "Content", max: 5 }, { name: "Vocabulary", max: 5 }, { name: "Grammar", max: 5 }] },
+    explanation: "Simple writing task dinilai manual dengan rubric.",
+    createdById: guruUser.id,
+  });
+
+  const roleplayQuestion = await upsertQuestion({
+    kelasId: kelas.id,
+    type: SoalType.ROLEPLAY,
+    stimulusText: "Student A is a shopkeeper. Student B wants to buy a pencil.",
+    question: "Perform a short buying-and-selling roleplay.",
+    language: "en",
+    direction: "ltr",
+    cognitiveLevel: "HOTS",
+    skill: "SPEAKING",
+    difficulty: "HARD",
+    standard: "CEFR A1",
+    assessmentType: "SUMMATIVE",
+    rubric: { criteria: [{ name: "Interaction", max: 5 }, { name: "Vocabulary", max: 5 }, { name: "Pronunciation", max: 5 }] },
+    explanation: "Performance task untuk keberanian komunikasi.",
     createdById: guruUser.id,
   });
 
@@ -725,6 +960,11 @@ async function main() {
     question: "ما معنى واحد؟",
     language: "ar",
     direction: "rtl",
+    cognitiveLevel: "LOTS",
+    skill: "VOCABULARY",
+    difficulty: "EASY",
+    standard: "Internal Arabic Pemula",
+    assessmentType: "FORMATIVE",
     explanation: "واحد berarti satu.",
     createdById: guruArabicUser.id,
     options: [
@@ -753,6 +993,44 @@ async function main() {
     durationMinutes: 30,
     createdById: guruUser.id,
   });
+
+  const fullAssessmentExam = await upsertUjian({
+    kelasId: kelas.id,
+    title: "LIMO SD Assessment Types Demo",
+    description: "Bank demo lengkap: MCQ, multi-select, true/false, cloze, picture, matching, sequencing, listening, reading, speaking, writing, dan roleplay.",
+    status: PublishStatus.PUBLISHED,
+    examDate: new Date("2026-08-19T08:00:00.000Z"),
+    durationMinutes: 90,
+    deliveryMode: "ONLINE_VIA_WALI",
+    availableFrom: new Date("2026-07-01T00:00:00.000Z"),
+    availableUntil: new Date("2026-12-31T23:59:59.000Z"),
+    maxAttempts: 2,
+    createdById: guruUser.id,
+  });
+
+  const fullAssessmentQuestions = [
+    colorQuestion,
+    multiSelectQuestion,
+    trueFalseQuestion,
+    clozeQuestion,
+    pictureQuestion,
+    matchingQuestion,
+    sequencingQuestion,
+    listeningQuestion,
+    readingQuestion,
+    speakingQuestion,
+    writingQuestion,
+    essayQuestion,
+    roleplayQuestion,
+  ];
+
+  for (const [index, item] of fullAssessmentQuestions.entries()) {
+    await prisma.ujianSoal.upsert({
+      where: { ujianId_bankSoalId: { ujianId: fullAssessmentExam.id, bankSoalId: item.id } },
+      update: { order: index + 1, weight: "10" },
+      create: { ujianId: fullAssessmentExam.id, bankSoalId: item.id, order: index + 1, weight: "10" },
+    });
+  }
 
   await prisma.ujianSoal.upsert({ where: { ujianId_bankSoalId: { ujianId: mixedExam.id, bankSoalId: colorQuestion.id } }, update: { order: 1, weight: "50" }, create: { ujianId: mixedExam.id, bankSoalId: colorQuestion.id, order: 1, weight: "50" } });
   const mixedEssay = await prisma.ujianSoal.upsert({ where: { ujianId_bankSoalId: { ujianId: mixedExam.id, bankSoalId: essayQuestion.id } }, update: { order: 2, weight: "50" }, create: { ujianId: mixedExam.id, bankSoalId: essayQuestion.id, order: 2, weight: "50" } });

@@ -93,6 +93,18 @@ enum PresensiStatus {
 
 enum SoalType {
   PILIHAN_GANDA
+  MULTI_SELECT
+  BENAR_SALAH
+  ISIAN_SINGKAT
+  MENJODOHKAN
+  URUTAN
+  CLOZE
+  GAMBAR
+  LISTENING
+  SPEAKING
+  WRITING
+  READING
+  ROLEPLAY
   ESAI
 }
 
@@ -204,6 +216,7 @@ model WaliProfile {
   updatedAt      DateTime      @updatedAt
   siswaRelations WaliSiswa[]
   pendaftaran    Pendaftaran[]
+  ujianAttempts  UjianAttempt[]
 }
 
 model AuditLog {
@@ -312,6 +325,7 @@ model Siswa {
   progresBelajar      ProgresBelajar[]
   hasilUjian          HasilUjian[]
   tagihan             Tagihan[]
+  ujianAttempts       UjianAttempt[]
 }
 
 model WaliSiswa {
@@ -477,8 +491,18 @@ model BankSoal {
   kelas       Kelas?         @relation(fields: [kelasId], references: [id], onDelete: SetNull)
   type        SoalType
   question    String         @db.Text
+  stimulusText String?       @db.Text
+  mediaUrl    String?        @db.VarChar(500)
+  expectedAnswer String?     @db.Text
+  structuredPayload Json?
+  rubric      Json?
   language    String?        @db.VarChar(16)
   direction   String?        @db.VarChar(8)
+  cognitiveLevel String      @default("LOTS") @db.VarChar(16)
+  skill       String         @default("VOCABULARY") @db.VarChar(32)
+  difficulty  String         @default("EASY") @db.VarChar(16)
+  standard    String?        @db.VarChar(64)
+  assessmentType String      @default("FORMATIVE") @db.VarChar(24)
   explanation String?        @db.Text
   createdById String?
   createdAt   DateTime       @default(now())
@@ -511,13 +535,39 @@ model Ujian {
   status      PublishStatus @default(DRAFT)
   examDate    DateTime?
   durationMinutes Int       @default(60)
+  deliveryMode String       @default("TEACHER_ENTRY") @db.VarChar(32)
+  availableFrom DateTime?
+  availableUntil DateTime?
+  maxAttempts Int           @default(1)
+  showResultToWali Boolean  @default(true)
   createdById String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   questions   UjianSoal[]
   results     HasilUjian[]
+  attempts    UjianAttempt[]
 
   @@index([kelasId, status])
+}
+
+model UjianAttempt {
+  id            String       @id @default(cuid())
+  ujianId       String
+  ujian         Ujian        @relation(fields: [ujianId], references: [id], onDelete: Cascade)
+  siswaId       String
+  siswa         Siswa        @relation(fields: [siswaId], references: [id], onDelete: Restrict)
+  waliProfileId String
+  waliProfile   WaliProfile  @relation(fields: [waliProfileId], references: [id], onDelete: Restrict)
+  hasilUjianId  String?
+  status        String       @default("IN_PROGRESS") @db.VarChar(32)
+  startedAt     DateTime     @default(now())
+  submittedAt   DateTime?
+  expiresAt      DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([ujianId, siswaId])
+  @@index([waliProfileId, status])
 }
 
 model UjianSoal {
@@ -562,6 +612,9 @@ model JawabanUjian {
   bankSoalId     String
   bankSoal       BankSoal   @relation(fields: [bankSoalId], references: [id], onDelete: Restrict)
   selectedOption String?    @db.VarChar(8)
+  selectedOptions Json?
+  shortAnswer    String?    @db.Text
+  structuredAnswer Json?
   essayAnswer    String?    @db.Text
   score          Decimal?   @db.Decimal(10, 2)
   needsReview    Boolean    @default(false)

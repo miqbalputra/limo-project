@@ -18,8 +18,8 @@ Dokumen ini mencatat gap MVP saat ini agar tidak dianggap selesai diam-diam.
 
 ## Notifikasi
 
-- Provider nyata email/WhatsApp belum diimplementasikan.
-- Retry notification saat ini provider `console` dan menandai `SENT` untuk skeleton operasional.
+- Provider email SMTP sudah tersedia untuk production awal melalui `NOTIFICATION_PROVIDER=email` dan script `npm run notifications:retry`.
+- Provider WhatsApp nyata belum diimplementasikan; gunakan email sebagai kanal production awal sampai vendor WhatsApp dipilih.
 
 ## UI/UX
 
@@ -29,7 +29,7 @@ Dokumen ini mencatat gap MVP saat ini agar tidak dianggap selesai diam-diam.
 
 ## Akademik
 
-- Online exam tidak dibuat karena PRD default adalah offline teacher-entry.
+- Online exam MVP via akun wali sudah tersedia untuk tipe soal dasar; autosave draft, recording speaking, matching/sequencing interaktif, dan akun siswa mandiri masih menjadi fase berikutnya.
 - Koreksi nilai setelah final belum memiliki UI khusus.
 - Halaman materi untuk Wali belum expose penuh.
 

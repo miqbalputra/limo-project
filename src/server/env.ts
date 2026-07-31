@@ -17,6 +17,18 @@ const optionalNumberFromString = z
     return parsed;
   });
 
+const optionalBooleanFromString = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => {
+    if (!value) {
+      return false;
+    }
+
+    return ["1", "true", "yes", "on"].includes(value.toLowerCase());
+  });
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   APP_URL: z.string().url(),
@@ -34,8 +46,28 @@ const envSchema = z.object({
   NOTIFICATION_PROVIDER: z.enum(["console", "email", "whatsapp"]).default("console"),
   SMTP_HOST: z.string().optional().default(""),
   SMTP_PORT: optionalNumberFromString,
+  SMTP_SECURE: optionalBooleanFromString,
+  SMTP_FROM: z.string().email().optional().or(z.literal("")).default(""),
   SMTP_USER: z.string().optional().default(""),
   SMTP_PASSWORD: z.string().optional().default(""),
+}).superRefine((env, ctx) => {
+  if (env.NODE_ENV === "production" && env.NOTIFICATION_PROVIDER === "console") {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["NOTIFICATION_PROVIDER"], message: "Production wajib memakai provider notifikasi nyata, bukan console" });
+  }
+
+  if (env.NOTIFICATION_PROVIDER === "email") {
+    if (!env.SMTP_HOST) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["SMTP_HOST"], message: "SMTP_HOST wajib diisi saat NOTIFICATION_PROVIDER=email" });
+    }
+
+    if (!env.SMTP_PORT) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["SMTP_PORT"], message: "SMTP_PORT wajib diisi saat NOTIFICATION_PROVIDER=email" });
+    }
+
+    if (!env.SMTP_FROM && !env.SMTP_USER) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["SMTP_FROM"], message: "SMTP_FROM atau SMTP_USER wajib diisi saat NOTIFICATION_PROVIDER=email" });
+    }
+  }
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

@@ -6,14 +6,51 @@ import { FormEvent, useEffect, useState } from "react";
 type Student = { id: string; name: string; nomorInduk: string };
 type ExamQuestion = {
   id: string;
-  weight: { toString(): string };
+  weight: string;
   bankSoal: {
-    type: "PILIHAN_GANDA" | "ESAI";
+    type: string;
     question: string;
+    stimulusText: string | null;
+    mediaUrl: string | null;
+    expectedAnswer: string | null;
+    structuredPayload: unknown;
+    rubric: unknown;
     direction: string | null;
-    options: { label: string; content: string }[];
+    options: { label: string; content: string; isCorrect: boolean }[];
   };
 };
+
+function needsManualScore(type: string) {
+  return ["MENJODOHKAN", "URUTAN", "GAMBAR", "LISTENING", "SPEAKING", "WRITING", "READING", "ROLEPLAY", "ESAI"].includes(type);
+}
+
+function getMatchingPairs(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return [];
+  }
+
+  const pairs = (payload as { pairs?: unknown }).pairs;
+
+  if (!Array.isArray(pairs)) {
+    return [];
+  }
+
+  return pairs
+    .map((item) => item && typeof item === "object" ? item as { left?: unknown; right?: unknown } : undefined)
+    .filter((item): item is { left?: unknown; right?: unknown } => Boolean(item))
+    .map((item) => ({ left: String(item.left || ""), right: String(item.right || "") }))
+    .filter((item) => item.left || item.right);
+}
+
+function getSequenceItems(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return [];
+  }
+
+  const items = (payload as { items?: unknown }).items;
+
+  return Array.isArray(items) ? items.map((item) => String(item || "")).filter(Boolean) : [];
+}
 
 export function HasilUjianForm({ ujianId, students, questions, durationMinutes }: { ujianId: string; students: Student[]; questions: ExamQuestion[]; durationMinutes: number }) {
   const router = useRouter();
@@ -26,14 +63,16 @@ export function HasilUjianForm({ ujianId, students, questions, durationMinutes }
     setIsSubmitting(true);
     const data = new FormData(event.currentTarget);
 
-    const answers = questions.map((question) => ({
-      ujianSoalId: question.id,
-      selectedOption: String(data.get(`selected-${question.id}`) || ""),
-      essayAnswer: String(data.get(`essay-${question.id}`) || ""),
-      essayScore: String(data.get(`score-${question.id}`) || ""),
-    }));
-
     try {
+      const answers = questions.map((question) => ({
+        ujianSoalId: question.id,
+        selectedOption: String(data.get(`selected-${question.id}`) || ""),
+        selectedOptions: data.getAll(`selected-${question.id}`).map(String),
+        shortAnswer: String(data.get(`short-${question.id}`) || ""),
+        essayAnswer: String(data.get(`essay-${question.id}`) || ""),
+        essayScore: String(data.get(`score-${question.id}`) || ""),
+      }));
+
       const response = await fetch("/api/v1/hasil-ujian", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -74,7 +113,9 @@ export function HasilUjianForm({ ujianId, students, questions, durationMinutes }
       <div className="space-y-4">
         {questions.map((question, index) => (
           <section key={question.id} className="rounded-xl bg-gray-50 p-4" dir={question.bankSoal.direction === "rtl" ? "rtl" : "ltr"}>
-            <p className="text-theme-sm font-semibold text-gray-500">Soal {index + 1} / Bobot {question.weight.toString()}</p>
+            <p className="text-theme-sm font-semibold text-gray-500">Soal {index + 1} / {question.bankSoal.type} / Bobot {question.weight}</p>
+            {question.bankSoal.stimulusText ? <p className="mt-2 rounded-lg bg-white p-3 text-theme-sm text-gray-700">{question.bankSoal.stimulusText}</p> : null}
+            {question.bankSoal.mediaUrl ? <p className="mt-2 text-theme-xs font-semibold text-brand-500">Media: {question.bankSoal.mediaUrl}</p> : null}
             <p className="mt-2 font-semibold text-gray-900">{question.bankSoal.question}</p>
             {question.bankSoal.type === "PILIHAN_GANDA" ? (
               <select name={`selected-${question.id}`} className="tailadmin-input mt-3">
@@ -83,10 +124,33 @@ export function HasilUjianForm({ ujianId, students, questions, durationMinutes }
                   <option key={option.label} value={option.label}>{option.label}. {option.content}</option>
                 ))}
               </select>
+            ) : question.bankSoal.type === "MULTI_SELECT" ? (
+              <div className="mt-3 grid gap-2 text-theme-sm text-gray-700 sm:grid-cols-2">
+                {question.bankSoal.options.map((option) => (
+                  <label key={option.label} className="rounded-lg bg-white p-3">
+                    <input name={`selected-${question.id}`} type="checkbox" value={option.label} className="mr-2 accent-brand-500" />
+                    {option.label}. {option.content}
+                  </label>
+                ))}
+              </div>
+            ) : question.bankSoal.type === "BENAR_SALAH" ? (
+              <select name={`selected-${question.id}`} className="tailadmin-input mt-3">
+                <option value="">Tidak dijawab</option>
+                <option value="benar">Benar</option>
+                <option value="salah">Salah</option>
+              </select>
+            ) : ["ISIAN_SINGKAT", "CLOZE"].includes(question.bankSoal.type) ? (
+              <input name={`short-${question.id}`} placeholder="Jawaban singkat siswa" className="tailadmin-input mt-3" />
+            ) : ["MENJODOHKAN", "URUTAN"].includes(question.bankSoal.type) ? (
+              <div className="mt-3 grid gap-3">
+                {question.bankSoal.type === "MENJODOHKAN" ? <MatchingPreview payload={question.bankSoal.structuredPayload} /> : <SequencePreview payload={question.bankSoal.structuredPayload} />}
+                <textarea name={`essay-${question.id}`} placeholder="Catatan jawaban siswa, opsional" className="tailadmin-input min-h-20" />
+                <input name={`score-${question.id}`} type="number" min={0} step={0.1} placeholder="Skor manual, kosongkan jika perlu review" className="tailadmin-input" />
+              </div>
             ) : (
               <div className="mt-3 grid gap-3">
-                <textarea name={`essay-${question.id}`} placeholder="Jawaban esai" className="tailadmin-input min-h-24" />
-                <input name={`score-${question.id}`} type="number" min={0} step={0.1} placeholder="Skor esai, kosongkan jika perlu review" className="tailadmin-input" />
+                <textarea name={`essay-${question.id}`} placeholder="Jawaban, transkrip, catatan performa, atau hasil tulisan siswa" className="tailadmin-input min-h-24" />
+                {needsManualScore(question.bankSoal.type) ? <input name={`score-${question.id}`} type="number" min={0} step={0.1} placeholder="Skor manual, kosongkan jika perlu review" className="tailadmin-input" /> : null}
               </div>
             )}
           </section>
@@ -96,6 +160,40 @@ export function HasilUjianForm({ ujianId, students, questions, durationMinutes }
         {isSubmitting ? "Menyimpan..." : "Simpan Hasil"}
       </button>
     </form>
+  );
+}
+
+function MatchingPreview({ payload }: { payload: unknown }) {
+  const pairs = getMatchingPairs(payload);
+
+  if (pairs.length === 0) {
+    return <p className="rounded-lg bg-white p-3 text-theme-sm text-gray-600">Periksa jawaban menjodohkan di lembar siswa, lalu isi skor manual.</p>;
+  }
+
+  return (
+    <div className="rounded-lg bg-white p-3 text-theme-sm text-gray-700">
+      <p className="font-semibold text-gray-900">Kunci pasangan</p>
+      <ul className="mt-2 grid gap-1">
+        {pairs.map((item, index) => <li key={`${item.left}-${index}`}>{item.left} = {item.right}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+function SequencePreview({ payload }: { payload: unknown }) {
+  const items = getSequenceItems(payload);
+
+  if (items.length === 0) {
+    return <p className="rounded-lg bg-white p-3 text-theme-sm text-gray-600">Periksa urutan jawaban di lembar siswa, lalu isi skor manual.</p>;
+  }
+
+  return (
+    <div className="rounded-lg bg-white p-3 text-theme-sm text-gray-700">
+      <p className="font-semibold text-gray-900">Urutan benar</p>
+      <ol className="mt-2 list-decimal space-y-1 pl-5">
+        {items.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}
+      </ol>
+    </div>
   );
 }
 

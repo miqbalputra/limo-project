@@ -1,3 +1,4 @@
+import "./load-env.ts";
 import { retryPendingNotifications } from "../src/server/services/job-service.ts";
 
 function readArg(name: string) {

@@ -43,7 +43,7 @@ export async function getStudentSummary(actor: Actor, siswaId: string) {
       },
     }),
     prisma.hasilUjian.findMany({
-      where: { siswaId, status: { in: ["FINAL", "CORRECTED"] } },
+      where: { siswaId, status: { in: ["FINAL", "CORRECTED"] }, ujian: { showResultToWali: true } },
       orderBy: { updatedAt: "desc" },
       take: 10,
       select: { totalScore: true, status: true, updatedAt: true, ujian: { select: { title: true, examDate: true, durationMinutes: true } } },
@@ -91,8 +91,10 @@ export async function getWaliExamHistory(actor: Actor) {
           id: true,
           name: true,
           nomorInduk: true,
+          status: true,
+          program: { select: { name: true } },
           hasilUjian: {
-            where: { status: { in: ["FINAL", "CORRECTED"] } },
+            where: { status: { in: ["FINAL", "CORRECTED"] }, ujian: { showResultToWali: true } },
             orderBy: { updatedAt: "desc" },
             select: {
               id: true,

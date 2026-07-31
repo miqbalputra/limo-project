@@ -3,8 +3,8 @@ import { expect, test } from "@playwright/test";
 async function login(page: import("@playwright/test").Page, email: string) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill("password-dev-only");
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.locator('input[name="password"]').fill("password-dev-only");
+  await page.getByRole("button", { name: "Masuk" }).click();
 }
 
 async function expectNoHorizontalOverflow(page: import("@playwright/test").Page) {
@@ -31,9 +31,10 @@ test("Week 2 guru LMS and exam pages are usable on mobile", async ({ page }) => 
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/guru/bank-soal");
-  await expect(page.getByRole("heading", { name: "Bank Soal", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Assessment Bank", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Tambah Bank Soal" })).toBeVisible();
-  await expect(page.getByPlaceholder("Tulis soal")).toBeVisible();
+  await expect(page.getByPlaceholder("Tulis pertanyaan atau prompt untuk siswa")).toBeVisible();
+  await expect(page.locator('select[name="type"]')).toContainText("Roleplay");
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/guru/ujian");
@@ -57,7 +58,7 @@ test("Week 2 wali score history is readable on mobile", async ({ page }) => {
 
   await page.goto("/wali/nilai");
   await expect(page.getByRole("heading", { name: "Riwayat Nilai" })).toBeVisible();
-  await expect(page.getByText("Quiz Greeting Demo")).toBeVisible();
+  await expect(page.getByText("Mid Semester Demo English")).toBeVisible();
   await expect(page.getByText("Skor").first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
