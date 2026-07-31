@@ -63,7 +63,7 @@ Status: **Menunggu environment staging client**
 
 ## Fase 3: Operasional Admin
 
-Status: **Berikutnya**
+Status: **Sebagian selesai di repository**
 
 ### Cakupan
 
@@ -82,6 +82,8 @@ Status: **Berikutnya**
   - nilai
   - tagihan
 - Export CSV/PDF sesuai kebutuhan client.
+
+Implementasi pertama fase ini tersedia melalui `/admin/laporan` dengan filter periode, ringkasan kelas/siswa, indikator perhatian, dan export CSV.
 
 ### Acceptance Criteria
 

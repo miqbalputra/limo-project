@@ -31,6 +31,7 @@ Gunakan data dummy yang menyerupai kondisi LIMO. Catat temuan sebagai `blocker`,
 8. Buat Tarif.
 9. Generate tagihan dry-run, lalu non-dry-run.
 10. Rekonsiliasi manual satu tagihan dengan alasan.
+11. Buka `/admin/laporan`, pilih periode, periksa ringkasan kelas/siswa, lalu unduh CSV.
 
 ## Skenario Guru
 
@@ -63,3 +64,4 @@ Gunakan data dummy yang menyerupai kondisi LIMO. Catat temuan sebagai `blocker`,
 - Upload file `.html`, `.svg`, atau MIME palsu harus ditolak.
 - Mutation tanpa origin valid harus ditolak.
 - Webhook Pakasir signature salah harus ditolak.
+- Laporan Admin hanya dapat dibuka Admin, filter periode mengubah data, dan CSV berisi header serta baris siswa.

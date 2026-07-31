@@ -31,8 +31,8 @@ test("login redirects each role to its own dashboard and blocks external next pa
     await page.context().clearCookies();
     await page.goto(email.startsWith("admin") ? "/login?next=https://example.com" : "/login");
     await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill("password-dev-only");
-    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.locator('input[name="password"]').fill("password-dev-only");
+    await page.getByRole("button", { name: "Masuk" }).click();
     await expect(page).toHaveURL(new RegExp(`${expectedPath}$`), { timeout: 15_000 });
   }
 });
@@ -50,8 +50,8 @@ test("privacy, terms, sitemap, and social metadata are public", async ({ page, r
 test("TailAdmin dashboard shell works on desktop and mobile", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("admin@limo.local");
-  await page.getByLabel("Password").fill("password-dev-only");
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.locator('input[name="password"]').fill("password-dev-only");
+  await page.getByRole("button", { name: "Masuk" }).click();
   await expect(page).toHaveURL(/\/admin$/, { timeout: 15_000 });
 
   await expect(page.getByRole("heading", { name: /Selamat datang/i })).toBeVisible();

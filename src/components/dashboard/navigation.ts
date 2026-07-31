@@ -19,6 +19,7 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
     { label: "Level", href: "/admin/level", icon: "levels", section: "Akademik" },
     { label: "Kelas", href: "/admin/kelas", icon: "classes", section: "Akademik" },
     { label: "Tagihan", href: "/admin/tagihan", icon: "billing", section: "Administrasi" },
+    { label: "Laporan", href: "/admin/laporan", icon: "audit", section: "Administrasi" },
     { label: "Pengguna", href: "/admin/users", icon: "users", section: "Administrasi" },
     { label: "Audit", href: "/admin/audit", icon: "audit", section: "Administrasi" },
     { label: "Ubah Password", href: "/ubah-password", icon: "lock", section: "Akun" },

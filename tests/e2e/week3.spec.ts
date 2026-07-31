@@ -3,8 +3,8 @@ import { expect, test } from "@playwright/test";
 async function login(page: import("@playwright/test").Page, email: string) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill("password-dev-only");
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.locator('input[name="password"]').fill("password-dev-only");
+  await page.getByRole("button", { name: "Masuk" }).click();
 }
 
 async function expectNoHorizontalOverflow(page: import("@playwright/test").Page) {
@@ -36,7 +36,7 @@ test("Week 3 wali graphs, attendance recap, and billing are mobile friendly", as
 
   await page.goto("/wali/progres");
   await expect(page.getByRole("heading", { name: "Progres Anak" })).toBeVisible();
-  const progressHref = await page.getByRole("link", { name: "Lihat Ringkasan" }).first().getAttribute("href");
+  const progressHref = await page.getByRole("link", { name: "Detail" }).first().getAttribute("href");
   expect(progressHref).toBeTruthy();
   await page.goto(progressHref || "/wali/progres");
   await expect(page.getByRole("heading", { name: "Grafik Pemahaman" })).toBeVisible();

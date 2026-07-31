@@ -154,10 +154,13 @@ export function LoginForm() {
             className="mt-2 tailadmin-input"
           />
         </label>
-        <label className="block text-theme-sm font-medium text-gray-700">
-          Password <span className="text-error-500">*</span>
+        <div className="block text-theme-sm font-medium text-gray-700">
+          <label htmlFor="login-password">
+            Password <span className="text-error-500">*</span>
+          </label>
           <span className="relative mt-2 block">
             <input
+              id="login-password"
               name="password"
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
@@ -168,7 +171,7 @@ export function LoginForm() {
             />
             <button type="button" aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"} aria-pressed={showPassword} onClick={() => setShowPassword((visible) => !visible)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"><EyeIcon /></button>
           </span>
-        </label>
+        </div>
 
         <div className="flex justify-end">
           <Link href="/lupa-password" className="text-theme-sm font-medium text-brand-500 hover:text-brand-600">Lupa password?</Link>
@@ -289,10 +292,13 @@ function ResetPasswordInner() {
             className="mt-2 tailadmin-input"
           />
         </label>
-        <label className="block text-theme-sm font-medium text-gray-700">
-          Password Baru <span className="text-error-500">*</span>
+        <div className="block text-theme-sm font-medium text-gray-700">
+          <label htmlFor="reset-password">
+            Password Baru <span className="text-error-500">*</span>
+          </label>
           <span className="relative mt-2 block">
             <input
+              id="reset-password"
               name="password"
                type={showPassword ? "text" : "password"}
               autoComplete="new-password"
@@ -303,7 +309,7 @@ function ResetPasswordInner() {
             />
              <button type="button" aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"} aria-pressed={showPassword} onClick={() => setShowPassword((visible) => !visible)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"><EyeIcon /></button>
           </span>
-        </label>
+        </div>
         <button
           type="submit"
           disabled={isSubmitting}
