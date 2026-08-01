@@ -79,3 +79,16 @@ test("Wali global child selector scopes and restores dashboard data", async ({ p
   await expect(page.locator("main").getByText("Aisyah Dev").first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
+
+test("Wali can read published learning materials", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page, "wali@limo.local");
+  await expect(page).toHaveURL(/\/wali$/, { timeout: 15_000 });
+
+  await page.goto("/wali/materi");
+  await expect(page.getByRole("heading", { name: "Materi Pembelajaran" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Greeting Flashcards" })).toBeVisible();
+  await expect(page.getByText("Video Colors Song")).toBeVisible();
+  await expect(page.getByText("Buka video pembelajaran")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});

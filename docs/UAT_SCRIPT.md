@@ -68,3 +68,4 @@ Gunakan data dummy yang menyerupai kondisi LIMO. Catat temuan sebagai `blocker`,
 - Jawaban ujian online tetap tersedia setelah reload, draft tidak tampil sebagai nilai final, dan attempt expired menolak perubahan.
 - Saat koneksi Wali terputus, peringatan tampil, tombol submit tertahan, lalu draft tersimpan kembali setelah koneksi pulih.
 - Wali dapat memilih satu anak atau `Semua Anak`; data dashboard dan menu utama berubah sesuai pilihan tanpa membuka data anak yang tidak terhubung.
+- Wali hanya melihat materi `PUBLISHED` dari kelas anak terhubung dan file privat menolak akses tanpa relasi Wali yang valid.

@@ -120,6 +120,12 @@ try {
   assert.match(String(waliProgress.payload), /Kehadiran Bulanan/);
   ok("Wali progress page shows progress and attendance graphs");
 
+  const waliMateri = await request("/wali/materi", { cookie: wali.cookie });
+  assert.equal(waliMateri.response.status, 200);
+  assert.match(String(waliMateri.payload), /Greeting Flashcards/);
+  assert.match(String(waliMateri.payload), /Video Colors Song/);
+  ok("Wali can read published learning materials");
+
   const waliPresensi = await request("/wali/presensi", { cookie: wali.cookie });
   assert.equal(waliPresensi.response.status, 200);
   assert.match(String(waliPresensi.payload), /Presensi Anak/);

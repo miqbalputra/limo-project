@@ -173,6 +173,16 @@ Status: **Sedang dikerjakan**
 4. Pertahankan route detail dengan scoping authorization per `siswaId`.
 5. Tambahkan E2E coverage untuk berpindah anak dan kembali ke semua anak.
 
+### Implementation Plan 5.4: Wali Learning Materials
+
+Status: **Sedang dikerjakan**
+
+1. Tampilkan materi berstatus `PUBLISHED` dari kelas anak yang terhubung.
+2. Ikuti pilihan anak global atau tampilkan materi semua anak.
+3. Dukung teks, video link, dan metadata file PDF/gambar.
+4. Sediakan route file privat yang memvalidasi relasi Wali sebelum membaca storage.
+5. Tambahkan E2E coverage untuk materi selected child dan akses file.
+
 ### Acceptance Criteria
 
 - Wali hanya melihat anak yang terhubung.
