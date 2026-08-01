@@ -29,7 +29,7 @@ Dokumen ini mencatat gap MVP saat ini agar tidak dianggap selesai diam-diam.
 
 ## Akademik
 
-- Online exam MVP via akun wali sudah tersedia untuk tipe soal dasar; autosave/resume sedang diimplementasikan, sedangkan recording speaking, matching/sequencing interaktif, dan akun siswa mandiri masih menjadi backlog.
+- Online exam MVP via akun wali sudah tersedia untuk tipe soal dasar; autosave/resume selesai, network-loss warning sedang dikerjakan, sedangkan recording speaking, matching/sequencing interaktif, dan akun siswa mandiri masih menjadi backlog.
 - Koreksi nilai setelah final belum memiliki UI khusus.
 - Halaman materi untuk Wali belum expose penuh.
 

@@ -88,5 +88,10 @@ test("Wali online exam resumes an autosaved answer on mobile", async ({ page }) 
   await expect(page.getByText("Draft tersimpan")).toBeVisible({ timeout: 10_000 });
   await page.reload();
   await expect(firstAnswer).toBeChecked();
+  await page.context().setOffline(true);
+  await expect(page.locator('p[role="alert"]')).toContainText("Koneksi internet terputus");
+  await expect(page.getByRole("button", { name: "Menunggu koneksi" }).first()).toBeDisabled();
+  await page.context().setOffline(false);
+  await expect(page.locator('p[role="alert"]')).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });

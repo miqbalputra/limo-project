@@ -25,7 +25,8 @@ export default async function WaliStudentTasksPage({ params }: { params: Promise
         <section className="grid gap-4 xl:grid-cols-2">
           {tasks.map((task) => {
             const status = getTaskStatus(task.status);
-            const actionHref = task.latestAttempt?.status === "IN_PROGRESS" ? `/wali/tugas/attempt/${task.latestAttempt.id}` : `/wali/tugas/${siswa.id}/ujian/${task.id}`;
+            const canResume = task.latestAttempt?.status === "IN_PROGRESS" && (!task.latestAttempt.expiresAt || task.latestAttempt.expiresAt > new Date());
+            const actionHref = canResume ? `/wali/tugas/attempt/${task.latestAttempt.id}` : `/wali/tugas/${siswa.id}/ujian/${task.id}`;
 
             return (
               <article key={task.id} className="tailadmin-card min-w-0 p-5">
@@ -39,7 +40,7 @@ export default async function WaliStudentTasksPage({ params }: { params: Promise
                 </div>
                 <p className="mt-4 line-clamp-2 rounded-2xl bg-gray-50 p-3 text-theme-sm leading-6 text-gray-500">{task.description || "Tidak ada deskripsi tambahan."}</p>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Link href={actionHref} className="tailadmin-button-primary px-4 py-2">{task.latestAttempt?.status === "IN_PROGRESS" ? "Lanjutkan" : task.status === "FINAL" ? "Lihat Status" : "Buka Instruksi"}</Link>
+                  <Link href={actionHref} className="tailadmin-button-primary px-4 py-2">{canResume ? "Lanjutkan" : task.status === "FINAL" ? "Lihat Status" : "Buka Instruksi"}</Link>
                 </div>
               </article>
             );

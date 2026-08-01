@@ -134,7 +134,7 @@ Status: **Sedang dikerjakan di repository**
 
 ### Implementation Plan 5.1: Online Exam Hardening
 
-Status: **Sedang dikerjakan**
+Status: **Selesai di repository**
 
 Urutan implementasi:
 
@@ -152,6 +152,16 @@ Acceptance awal:
 - Wali lain tidak dapat membaca atau menulis draft attempt.
 - Attempt yang sudah expired tidak dapat menerima autosave atau submit.
 - Submit final tetap menjadi satu-satunya proses yang melakukan scoring.
+
+### Implementation Plan 5.2: Connectivity and Timer Guard
+
+Status: **Sedang dikerjakan**
+
+1. Tampilkan peringatan jelas saat browser kehilangan koneksi.
+2. Tahan submit final selama offline agar status pengguna tidak ambigu.
+3. Simpan ulang draft otomatis saat koneksi kembali.
+4. Pertahankan countdown berbasis `expiresAt` server dan biarkan server menjadi sumber kebenaran expiry.
+5. Tambahkan E2E coverage untuk transisi offline/online dan submit guard.
 
 ### Acceptance Criteria
 

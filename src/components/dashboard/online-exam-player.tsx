@@ -46,6 +46,7 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">(attempt.draftSavedAt ? "saved" : "idle");
+  const [isOnline, setIsOnline] = useState(true);
 
   const draftByQuestion = new Map(normalizeDraft(attempt.draftAnswers).map((answer) => [answer.ujianSoalId, answer]));
 
@@ -83,6 +84,11 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
       return;
     }
 
+    if (!navigator.onLine) {
+      setSaveState("error");
+      return;
+    }
+
     setSaveState("saving");
 
     try {
@@ -101,6 +107,9 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
       setSaveState("saved");
     } catch (caught) {
       setSaveState("error");
+      if (!navigator.onLine) {
+        setError("Koneksi terputus. Draft akan dicoba lagi saat koneksi kembali.");
+      }
       if (caught instanceof Error && caught.message.includes("habis")) {
         setError(caught.message);
       }
@@ -131,12 +140,27 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
       void saveDraftRef.current?.(true);
     };
 
+    const updateConnection = () => {
+      setIsOnline(navigator.onLine);
+    };
+
+    const saveOnReconnect = () => {
+      setIsOnline(true);
+      void saveDraftRef.current?.();
+    };
+
+    updateConnection();
+
     document.addEventListener("visibilitychange", flushDraft);
     window.addEventListener("pagehide", flushDraft);
+    window.addEventListener("online", saveOnReconnect);
+    window.addEventListener("offline", updateConnection);
 
     return () => {
       document.removeEventListener("visibilitychange", flushDraft);
       window.removeEventListener("pagehide", flushDraft);
+      window.removeEventListener("online", saveOnReconnect);
+      window.removeEventListener("offline", updateConnection);
       if (saveTimerRef.current !== null) {
         window.clearTimeout(saveTimerRef.current);
       }
@@ -145,6 +169,11 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!isOnline) {
+      setError("Koneksi internet terputus. Sambungkan kembali sebelum mengumpulkan jawaban.");
+      return;
+    }
 
     if (!window.confirm("Kumpulkan jawaban sekarang? Jawaban tidak bisa diubah setelah submit.")) {
       return;
@@ -176,6 +205,8 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
   }
 
   const expiresAt = attempt.expiresAt ? new Date(attempt.expiresAt) : null;
+  const submitDisabled = isSubmitting || remainingSeconds === 0 || !isOnline;
+  const submitLabel = !isOnline ? "Menunggu koneksi" : isSubmitting ? "Mengumpulkan..." : remainingSeconds === 0 ? "Waktu Habis" : "Kumpulkan Jawaban";
 
   return (
     <form ref={formRef} onSubmit={onSubmit} onChange={scheduleDraftSave} className="space-y-4">
@@ -191,9 +222,10 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
               {saveState !== "idle" ? <span className={`rounded-full px-3 py-1 text-center text-theme-xs font-semibold ${saveState === "error" ? "bg-error-50 text-error-700" : saveState === "saving" ? "bg-warning-50 text-warning-700" : "bg-success-50 text-success-700"}`}>{saveState === "saving" ? "Menyimpan draft..." : saveState === "error" ? "Draft belum tersimpan" : "Draft tersimpan"}</span> : null}
               {remainingSeconds !== null ? <span className={`rounded-full px-3 py-1 text-center text-theme-xs font-semibold ${remainingSeconds <= 60 ? "bg-error-50 text-error-700" : "bg-brand-50 text-brand-600"}`}>Sisa waktu {formatDuration(remainingSeconds)}</span> : null}
             </div>
-            <button disabled={isSubmitting || remainingSeconds === 0} className="tailadmin-button-primary px-4 py-2">{isSubmitting ? "Mengumpulkan..." : remainingSeconds === 0 ? "Waktu Habis" : "Kumpulkan Jawaban"}</button>
+            <button disabled={submitDisabled} className="tailadmin-button-primary px-4 py-2">{submitLabel}</button>
           </div>
         </div>
+        {!isOnline ? <p role="alert" className="mt-3 tailadmin-alert-error">Koneksi internet terputus. Jawaban tetap ada di halaman ini, tetapi draft dan submit akan dilanjutkan setelah koneksi pulih.</p> : null}
         {error ? <p className="mt-3 tailadmin-alert-error">{error}</p> : null}
       </section>
 
@@ -212,7 +244,7 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
 
       <section className="tailadmin-card p-5 text-center">
         <p className="text-theme-sm text-gray-500">Periksa kembali jawaban sebelum dikumpulkan.</p>
-        <button disabled={isSubmitting || remainingSeconds === 0} className="mt-4 tailadmin-button-primary px-6 py-3">{isSubmitting ? "Mengumpulkan..." : remainingSeconds === 0 ? "Waktu Habis" : "Kumpulkan Jawaban"}</button>
+        <button disabled={submitDisabled} className="mt-4 tailadmin-button-primary px-6 py-3">{submitLabel}</button>
       </section>
     </form>
   );
