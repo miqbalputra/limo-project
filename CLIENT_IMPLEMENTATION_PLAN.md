@@ -185,13 +185,22 @@ Status: **Sedang dikerjakan**
 
 ### Implementation Plan 5.5: Operational Notifications
 
-Status: **Sedang dikerjakan**
+Status: **Selesai di repository**
 
 1. Buat helper notifikasi berdasarkan relasi aktif Wali-Siswa.
 2. Kirim event saat ujian online dipublikasikan atau hasil nilai tersedia.
 3. Kirim event saat guru menyimpan progres yang terlihat Wali.
 4. Kirim event saat invoice baru dibuat atau instruksi pembayaran tersedia.
 5. Pastikan event idempotent pada operasi yang dapat diulang dan tetap masuk retry queue provider.
+
+### Implementation Plan 5.6: FAQ and Help Center
+
+Status: **Selesai di repository**
+
+1. Sediakan FAQ Wali dengan jawaban singkat untuk tugas, nilai, progres, materi, dan tagihan.
+2. Jelaskan status `Belum`, `Sedang Dikerjakan`, `Menunggu Review`, dan `Selesai`.
+3. Sediakan kanal kontak Admin tanpa klaim SLA yang belum disepakati.
+4. Gunakan accordion native yang accessible dan mobile-friendly.
 
 ### Acceptance Criteria
 

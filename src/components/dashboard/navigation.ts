@@ -43,6 +43,7 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
     { label: "Nilai", href: "/wali/nilai", icon: "exam", section: "Perkembangan Anak" },
     { label: "Tagihan", href: "/wali/tagihan", icon: "billing", section: "Administrasi" },
     { label: "Profil", href: "/wali/profil", icon: "profile", section: "Akun" },
+    { label: "Bantuan", href: "/wali/bantuan", icon: "help", section: "Akun" },
     { label: "Ubah Password", href: "/ubah-password", icon: "lock", section: "Akun" },
   ],
 };

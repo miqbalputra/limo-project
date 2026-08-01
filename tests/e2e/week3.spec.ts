@@ -92,3 +92,18 @@ test("Wali can read published learning materials", async ({ page }) => {
   await expect(page.getByText("Buka video pembelajaran")).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
+
+test("Wali help center explains common LMS flows", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page, "wali@limo.local");
+  await expect(page).toHaveURL(/\/wali$/, { timeout: 15_000 });
+
+  await page.goto("/wali/bantuan");
+  await expect(page.getByRole("heading", { name: "Bantuan untuk Wali" })).toBeVisible();
+  const question = page.getByText("Bagaimana cara membuka tugas anak?");
+  await expect(question).toBeVisible();
+  await question.click();
+  await expect(page.getByText(/Buka menu Tugas Anak, pilih anak/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "admin@limo.local" })).toHaveAttribute("href", "mailto:admin@limo.local");
+  await expectNoHorizontalOverflow(page);
+});
