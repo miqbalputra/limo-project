@@ -6,6 +6,7 @@ import { canAccessInvoice } from "@/server/policies/access-policy";
 import { createPakasirPaymentUrl } from "@/server/providers/payment/pakasir";
 import { createTarifSchema, generateInvoiceSchema } from "@/server/validation/billing";
 import { getSelectedWaliStudentId } from "@/server/dal/wali-selector-dal";
+import { notifyWaliForStudents } from "@/server/services/notification-service";
 
 function requireAdmin(actor: Actor) {
   if (actor.role !== "ADMIN") {
@@ -150,6 +151,7 @@ export async function generateMonthlyInvoices(actor: Actor | null, input: unknow
   let created = 0;
   let skipped = 0;
   const failures: string[] = [];
+  const createdStudentIds: string[] = [];
 
   for (const student of students) {
     const kelasId = student.enrollments[0]?.kelasId;
@@ -191,6 +193,7 @@ export async function generateMonthlyInvoices(actor: Actor | null, input: unknow
 
     if (result.createdAt.getTime() === result.updatedAt.getTime()) {
       created += 1;
+      createdStudentIds.push(student.id);
     } else {
       skipped += 1;
     }
@@ -207,6 +210,14 @@ export async function generateMonthlyInvoices(actor: Actor | null, input: unknow
         failedCount: failures.length,
         metadata: { period: parsed.data.period, failures },
       },
+    });
+
+    await notifyWaliForStudents({
+      siswaIds: createdStudentIds,
+      template: "invoice-created",
+      subject: "Tagihan baru LIMO tersedia",
+      body: `Tagihan ${parsed.data.jenis} periode ${parsed.data.period} sudah dibuat. Buka menu Tagihan untuk melihat nominal dan instruksi pembayaran.`,
+      metadata: { period: parsed.data.period, jenis: parsed.data.jenis },
     });
   }
 

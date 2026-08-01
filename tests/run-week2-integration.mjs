@@ -92,6 +92,7 @@ try {
       kelasId: kelas.id,
       title: examTitle,
       status: "PUBLISHED",
+      deliveryMode: "ONLINE_VIA_WALI",
       examDate: "2026-08-01",
       durationMinutes: 45,
       questions: [{ bankSoalId, weight: 10 }],
@@ -104,6 +105,11 @@ try {
   assert.equal(createdExam.durationMinutes, 45);
   assert.equal(createdExam.questions.length, 1);
   ok("Ujian stores timer duration and selected questions");
+
+  const publishedNotifications = await prisma.notifikasi.findMany({ where: { template: "online-exam-published", recipient: "wali@limo.local" }, orderBy: { createdAt: "desc" }, select: { id: true, metadata: true } });
+  const publishedNotification = publishedNotifications.find((notification) => notification.metadata && typeof notification.metadata === "object" && !Array.isArray(notification.metadata) && notification.metadata.ujianId === createdExam.id);
+  assert.ok(publishedNotification);
+  ok("Published online exam creates a Wali task notification");
 
   const result = await request("/api/v1/hasil-ujian", {
     method: "POST",
@@ -118,6 +124,10 @@ try {
   assert.equal(Number(result.payload.data.item.totalScore), 10);
   assert.equal(result.payload.data.item.status, "FINAL");
   ok("Pilihan ganda is auto-scored into final exam history");
+
+  const resultNotification = await prisma.notifikasi.findFirst({ where: { template: "exam-result-updated", recipient: "wali@limo.local" }, orderBy: { createdAt: "desc" }, select: { id: true } });
+  assert.ok(resultNotification);
+  ok("Final exam result creates a Wali notification");
 
   const waliNilai = await request("/wali/nilai", { cookie: wali.cookie });
   assert.equal(waliNilai.response.status, 200);

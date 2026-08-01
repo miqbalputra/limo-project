@@ -113,6 +113,9 @@ try {
   });
   assert.equal(progres.response.status, 200, JSON.stringify(progres.payload));
   ok("Guru can submit 1-5 learning progress notes");
+  const progressNotification = await prisma.notifikasi.findFirst({ where: { template: "progress-updated", recipient: "wali@limo.local" }, orderBy: { createdAt: "desc" }, select: { id: true } });
+  assert.ok(progressNotification);
+  ok("Progress submission creates a Wali notification");
 
   const waliProgress = await request(`/wali/progres/${enrollment.siswaId}`, { cookie: wali.cookie });
   assert.equal(waliProgress.response.status, 200);

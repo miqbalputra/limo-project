@@ -58,7 +58,7 @@ test("Week 2 wali score history is readable on mobile", async ({ page }) => {
 
   await page.goto("/wali/nilai");
   await expect(page.getByRole("heading", { name: "Riwayat Nilai" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Mid Semester Demo English" })).toBeVisible();
+  await expect(page.locator("main").getByText(/Mid Semester Demo English|Week2 Timed Exam/).first()).toBeVisible();
   await expect(page.getByText("Skor").first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });

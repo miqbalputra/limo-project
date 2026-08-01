@@ -69,3 +69,4 @@ Gunakan data dummy yang menyerupai kondisi LIMO. Catat temuan sebagai `blocker`,
 - Saat koneksi Wali terputus, peringatan tampil, tombol submit tertahan, lalu draft tersimpan kembali setelah koneksi pulih.
 - Wali dapat memilih satu anak atau `Semua Anak`; data dashboard dan menu utama berubah sesuai pilihan tanpa membuka data anak yang tidak terhubung.
 - Wali hanya melihat materi `PUBLISHED` dari kelas anak terhubung dan file privat menolak akses tanpa relasi Wali yang valid.
+- Wali menerima notifikasi ketika progres tersimpan, nilai tersedia, ujian online dipublikasikan, atau invoice baru dibuat.

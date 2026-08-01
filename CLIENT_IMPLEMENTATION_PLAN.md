@@ -183,6 +183,16 @@ Status: **Sedang dikerjakan**
 4. Sediakan route file privat yang memvalidasi relasi Wali sebelum membaca storage.
 5. Tambahkan E2E coverage untuk materi selected child dan akses file.
 
+### Implementation Plan 5.5: Operational Notifications
+
+Status: **Sedang dikerjakan**
+
+1. Buat helper notifikasi berdasarkan relasi aktif Wali-Siswa.
+2. Kirim event saat ujian online dipublikasikan atau hasil nilai tersedia.
+3. Kirim event saat guru menyimpan progres yang terlihat Wali.
+4. Kirim event saat invoice baru dibuat atau instruksi pembayaran tersedia.
+5. Pastikan event idempotent pada operasi yang dapat diulang dan tetap masuk retry queue provider.
+
 ### Acceptance Criteria
 
 - Wali hanya melihat anak yang terhubung.

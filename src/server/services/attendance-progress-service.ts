@@ -4,6 +4,7 @@ import { prisma } from "@/server/db/prisma";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canManageClass } from "@/server/policies/access-policy";
 import { submitPresensiProgresSchema, submitPresensiSchema, submitProgresSchema } from "@/server/validation/attendance-progress";
+import { notifyWaliForStudents } from "@/server/services/notification-service";
 
 async function getManagedSession(actor: Actor, sesiKelasId: string) {
   const sesi = await prisma.sesiKelas.findUnique({
@@ -110,6 +111,14 @@ export async function submitProgres(actor: Actor, input: unknown) {
     prisma.auditLog.create({ data: { actorId: actor.id, action: "PROGRES_SUBMITTED", entityType: "SesiKelas", entityId: parsed.data.sesiKelasId } }),
   ]);
 
+  await notifyWaliForStudents({
+    siswaIds: parsed.data.items.map((item) => item.siswaId),
+    template: "progress-updated",
+    subject: `Progres belajar ${sesi.kelas.name} diperbarui`,
+    body: `Guru telah memperbarui progres belajar untuk sesi ${sesi.meetingNumber}: ${sesi.topic}. Buka dashboard Wali untuk melihat catatan yang dibagikan.`,
+    metadata: { sesiKelasId: sesi.id },
+  });
+
   return { success: true };
 }
 
@@ -141,6 +150,16 @@ export async function submitPresensiProgres(actor: Actor, input: unknown) {
     })),
     prisma.auditLog.create({ data: { actorId: actor.id, action: "PRESENSI_PROGRES_SUBMITTED", entityType: "SesiKelas", entityId: parsed.data.sesiKelasId } }),
   ]);
+
+  if (parsed.data.progresItems.length > 0) {
+    await notifyWaliForStudents({
+      siswaIds: parsed.data.progresItems.map((item) => item.siswaId),
+      template: "progress-updated",
+      subject: `Progres belajar ${sesi.kelas.name} diperbarui`,
+      body: `Guru telah memperbarui progres belajar untuk sesi ${sesi.meetingNumber}: ${sesi.topic}. Buka dashboard Wali untuk melihat catatan yang dibagikan.`,
+      metadata: { sesiKelasId: sesi.id },
+    });
+  }
 
   return { success: true };
 }

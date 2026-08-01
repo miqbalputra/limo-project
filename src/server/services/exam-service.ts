@@ -5,6 +5,7 @@ import { prisma } from "@/server/db/prisma";
 import { ForbiddenError, ValidationError } from "@/server/errors/application-error";
 import { canManageClass } from "@/server/policies/access-policy";
 import { createBankSoalSchema, createUjianSchema, submitHasilUjianSchema } from "@/server/validation/exam";
+import { notifyWaliForStudents } from "@/server/services/notification-service";
 
 const optionBasedTypes = new Set(["PILIHAN_GANDA", "MULTI_SELECT"]);
 const manualReviewTypes = new Set(["SPEAKING", "WRITING", "ROLEPLAY", "ESAI"]);
@@ -291,6 +292,17 @@ export async function createUjian(actor: Actor, input: unknown) {
 
     return ujian;
   });
+
+  if (parsed.data.status === "PUBLISHED" && ["ONLINE_VIA_WALI", "BOTH"].includes(parsed.data.deliveryMode)) {
+    const students = await prisma.kelasSiswa.findMany({ where: { kelasId: parsed.data.kelasId, status: "ACTIVE" }, select: { siswaId: true } });
+    await notifyWaliForStudents({
+      siswaIds: students.map((student) => student.siswaId),
+      template: "online-exam-published",
+      subject: `Tugas baru: ${item.title}`,
+      body: `Ujian online ${item.title} sudah tersedia untuk dikerjakan melalui menu Tugas Anak.`,
+      metadata: { ujianId: item.id },
+    });
+  }
 
   return { item };
 }
@@ -604,6 +616,14 @@ export async function submitHasilUjian(actor: Actor, input: unknown) {
     });
 
     return hasil;
+  });
+
+  await notifyWaliForStudents({
+    siswaIds: [parsed.data.siswaId],
+    template: "exam-result-updated",
+    subject: needsReview ? "Jawaban ujian menunggu review" : "Nilai ujian tersedia",
+    body: needsReview ? `Jawaban ujian ${ujian.title} sudah diterima dan menunggu review guru.` : `Nilai ujian ${ujian.title} sudah final. Buka menu Nilai untuk melihat hasilnya.`,
+    metadata: { ujianId: ujian.id, hasilUjianId: item.id },
   });
 
   return { item };
