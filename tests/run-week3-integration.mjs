@@ -69,6 +69,35 @@ try {
     select: { siswaId: true },
   });
 
+  const onlineExam = await prisma.ujian.findFirstOrThrow({
+    where: { title: "LIMO SD Assessment Types Demo", status: "PUBLISHED", deliveryMode: "ONLINE_VIA_WALI", questions: { some: {} }, kelas: { enrollments: { some: { siswaId: enrollment.siswaId, status: "ACTIVE" } } } },
+    select: { id: true },
+  });
+  const onlineQuestion = await prisma.ujianSoal.findFirstOrThrow({ where: { ujianId: onlineExam.id }, select: { id: true } });
+  const onlineAttempt = await request(`/api/v1/wali/tugas/${enrollment.siswaId}/ujian/${onlineExam.id}/attempt`, { method: "POST", cookie: wali.cookie, body: {} });
+  assert.equal(onlineAttempt.response.status, 201, JSON.stringify(onlineAttempt.payload));
+  const attemptId = onlineAttempt.payload.data.attemptId;
+
+  const draft = await request(`/api/v1/wali/attempt/${attemptId}`, {
+    method: "PATCH",
+    cookie: wali.cookie,
+    body: { answers: [{ ujianSoalId: onlineQuestion.id, selectedOption: "A" }] },
+  });
+  assert.equal(draft.response.status, 200, JSON.stringify(draft.payload));
+  const savedAttempt = await prisma.ujianAttempt.findUniqueOrThrow({ where: { id: attemptId }, select: { status: true, draftAnswers: true, draftSavedAt: true } });
+  assert.equal(savedAttempt.status, "IN_PROGRESS");
+  assert.equal(savedAttempt.draftSavedAt instanceof Date, true);
+  assert.deepEqual(savedAttempt.draftAnswers, [{ ujianSoalId: onlineQuestion.id, selectedOption: "A" }]);
+  ok("Wali autosave persists an online exam draft without finalizing the result");
+
+  const forbiddenDraft = await request(`/api/v1/wali/attempt/${attemptId}`, {
+    method: "PATCH",
+    cookie: guru.cookie,
+    body: { answers: [{ ujianSoalId: onlineQuestion.id, selectedOption: "B" }] },
+  });
+  assert.equal(forbiddenDraft.response.status, 403);
+  ok("Non-Wali cannot write an online exam draft");
+
   const presensi = await request("/api/v1/presensi", {
     method: "POST",
     cookie: guru.cookie,

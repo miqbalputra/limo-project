@@ -117,7 +117,7 @@ Status: **Sebagian besar fondasi tersedia**
 
 ## Fase 5: Pengalaman Wali dan Anak
 
-Status: **MVP tersedia, perlu hardening**
+Status: **Sedang dikerjakan di repository**
 
 ### Cakupan
 
@@ -131,6 +131,27 @@ Status: **MVP tersedia, perlu hardening**
 - Notifikasi tugas, nilai, progres, dan tagihan.
 - Materi pembelajaran yang dapat dibaca wali.
 - FAQ dan pusat bantuan.
+
+### Implementation Plan 5.1: Online Exam Hardening
+
+Status: **Sedang dikerjakan**
+
+Urutan implementasi:
+
+1. Simpan draft jawaban pada `UjianAttempt` tanpa mencampurnya dengan `HasilUjian` final.
+2. Tambahkan endpoint autosave yang memvalidasi ownership Wali, status attempt, expiry, dan ID soal.
+3. Hydrate draft saat attempt dibuka kembali setelah reload/browser tertutup.
+4. Tambahkan debounce autosave, indikator tersimpan/gagal, dan flush saat tab disembunyikan atau ditutup.
+5. Tandai attempt yang melewati `expiresAt` sebagai `EXPIRED` sebelum dapat dilanjutkan.
+6. Tambahkan integration/E2E coverage untuk persistensi, resume, expiry, dan isolasi role.
+
+Acceptance awal:
+
+- Jawaban yang sudah tersimpan muncul kembali setelah halaman direload.
+- Draft tidak muncul sebagai nilai final sebelum submit.
+- Wali lain tidak dapat membaca atau menulis draft attempt.
+- Attempt yang sudah expired tidak dapat menerima autosave atau submit.
+- Submit final tetap menjadi satu-satunya proses yang melakukan scoring.
 
 ### Acceptance Criteria
 

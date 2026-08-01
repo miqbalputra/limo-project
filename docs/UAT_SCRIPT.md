@@ -65,3 +65,4 @@ Gunakan data dummy yang menyerupai kondisi LIMO. Catat temuan sebagai `blocker`,
 - Mutation tanpa origin valid harus ditolak.
 - Webhook Pakasir signature salah harus ditolak.
 - Laporan Admin hanya dapat dibuka Admin, filter periode mengubah data, dan CSV berisi header serta baris siswa.
+- Jawaban ujian online tetap tersedia setelah reload, draft tidak tampil sebagai nilai final, dan attempt expired menolak perubahan.

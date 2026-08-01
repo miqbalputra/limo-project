@@ -1,5 +1,5 @@
 import "server-only";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
@@ -7,15 +7,16 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@
 
 const onlineDeliveryModes = ["ONLINE_VIA_WALI", "BOTH"];
 
-const submitAttemptSchema = z.object({
-  answers: z.array(z.object({
-    ujianSoalId: z.string().min(8).max(64),
-    selectedOption: z.string().trim().max(8).optional().or(z.literal("")),
-    selectedOptions: z.array(z.string().trim().max(8)).max(16).optional(),
-    shortAnswer: z.string().trim().max(10000).optional().or(z.literal("")),
-    essayAnswer: z.string().trim().max(10000).optional().or(z.literal("")),
-  })).min(1).max(100),
+const attemptAnswerSchema = z.object({
+  ujianSoalId: z.string().min(8).max(64),
+  selectedOption: z.string().trim().max(8).optional().or(z.literal("")),
+  selectedOptions: z.array(z.string().trim().max(8)).max(16).optional(),
+  shortAnswer: z.string().trim().max(10000).optional().or(z.literal("")),
+  essayAnswer: z.string().trim().max(10000).optional().or(z.literal("")),
 });
+
+const submitAttemptSchema = z.object({ answers: z.array(attemptAnswerSchema).min(1).max(100) });
+const saveAttemptDraftSchema = z.object({ answers: z.array(attemptAnswerSchema).max(100) });
 
 function normalizeText(value: string | undefined) {
   return (value || "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -133,7 +134,7 @@ async function getStudentTaskRows(waliProfileId: string, siswaId: string) {
         where: { siswaId, waliProfileId },
         orderBy: { createdAt: "desc" },
         take: 1,
-        select: { id: true, status: true, submittedAt: true, hasilUjianId: true },
+        select: { id: true, status: true, submittedAt: true, hasilUjianId: true, expiresAt: true },
       },
       results: {
         where: { siswaId },
@@ -150,7 +151,7 @@ async function getStudentTaskRows(waliProfileId: string, siswaId: string) {
       ? "FINAL"
       : result?.status === "NEEDS_REVIEW" || attempt?.status === "NEEDS_REVIEW"
         ? "NEEDS_REVIEW"
-        : attempt?.status === "IN_PROGRESS"
+        : attempt?.status === "IN_PROGRESS" && (!attempt.expiresAt || attempt.expiresAt > new Date())
           ? "IN_PROGRESS"
           : "NOT_STARTED";
 
@@ -201,11 +202,15 @@ export async function startWaliExamAttempt(actor: Actor, siswaId: string, ujianI
   const activeAttempt = await prisma.ujianAttempt.findFirst({
     where: { ujianId, siswaId, waliProfileId: profile.id, status: "IN_PROGRESS" },
     orderBy: { createdAt: "desc" },
-    select: { id: true },
+    select: { id: true, expiresAt: true },
   });
 
   if (activeAttempt) {
-    return { attemptId: activeAttempt.id };
+    if (!activeAttempt.expiresAt || activeAttempt.expiresAt > new Date()) {
+      return { attemptId: activeAttempt.id };
+    }
+
+    await prisma.ujianAttempt.update({ where: { id: activeAttempt.id }, data: { status: "EXPIRED" } });
   }
 
   const attemptCount = await prisma.ujianAttempt.count({
@@ -240,6 +245,8 @@ export async function getWaliAttemptContext(actor: Actor, attemptId: string) {
       id: true,
       status: true,
       expiresAt: true,
+      draftAnswers: true,
+      draftSavedAt: true,
       siswa: { select: { id: true, name: true, nomorInduk: true } },
       ujian: {
         select: {
@@ -273,7 +280,54 @@ export async function getWaliAttemptContext(actor: Actor, attemptId: string) {
     throw new NotFoundError("Attempt ujian tidak ditemukan");
   }
 
+  if (attempt.status === "IN_PROGRESS" && attempt.expiresAt && attempt.expiresAt <= new Date()) {
+    await prisma.ujianAttempt.update({ where: { id: attempt.id }, data: { status: "EXPIRED" } });
+    return { attempt: { ...attempt, status: "EXPIRED" } };
+  }
+
   return { attempt };
+}
+
+export async function saveWaliAttemptDraft(actor: Actor, attemptId: string, input: unknown) {
+  const profile = await getWaliProfile(actor);
+  const parsed = saveAttemptDraftSchema.safeParse(input);
+
+  if (!parsed.success) {
+    throw new ValidationError("Draft jawaban belum valid", parsed.error.flatten().fieldErrors);
+  }
+
+  const attempt = await prisma.ujianAttempt.findFirst({
+    where: { id: attemptId, waliProfileId: profile.id },
+    select: { id: true, status: true, expiresAt: true, ujian: { select: { questions: { select: { id: true } } } } },
+  });
+
+  if (!attempt) {
+    throw new NotFoundError("Attempt ujian tidak ditemukan");
+  }
+
+  if (attempt.status !== "IN_PROGRESS") {
+    throw new ConflictError("Attempt ujian sudah tidak aktif");
+  }
+
+  if (attempt.expiresAt && attempt.expiresAt <= new Date()) {
+    await prisma.ujianAttempt.update({ where: { id: attempt.id }, data: { status: "EXPIRED" } });
+    throw new ConflictError("Waktu pengerjaan ujian sudah habis");
+  }
+
+  const questionIds = new Set(attempt.ujian.questions.map((question) => question.id));
+  const answerIds = parsed.data.answers.map((answer) => answer.ujianSoalId);
+
+  if (new Set(answerIds).size !== answerIds.length || answerIds.some((id) => !questionIds.has(id))) {
+    throw new ValidationError("Draft berisi soal yang tidak sesuai dengan ujian");
+  }
+
+  const draftSavedAt = new Date();
+  await prisma.ujianAttempt.update({
+    where: { id: attempt.id },
+    data: { draftAnswers: parsed.data.answers, draftSavedAt },
+  });
+
+  return { draftSavedAt };
 }
 
 export async function submitWaliAttempt(actor: Actor, attemptId: string, input: unknown) {
@@ -400,7 +454,7 @@ export async function submitWaliAttempt(actor: Actor, attemptId: string, input: 
 
     await tx.ujianAttempt.update({
       where: { id: attempt.id },
-      data: { status: needsReview ? "NEEDS_REVIEW" : "FINAL", submittedAt: new Date(), hasilUjianId: hasil.id },
+      data: { status: needsReview ? "NEEDS_REVIEW" : "FINAL", submittedAt: new Date(), hasilUjianId: hasil.id, draftAnswers: Prisma.JsonNull, draftSavedAt: null },
     });
 
     await tx.auditLog.create({ data: { actorId: actor.id, action: "UJIAN_ATTEMPT_SUBMITTED", entityType: "UjianAttempt", entityId: attempt.id } });

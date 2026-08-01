@@ -563,6 +563,8 @@ model UjianAttempt {
   startedAt     DateTime     @default(now())
   submittedAt   DateTime?
   expiresAt      DateTime?
+  draftAnswers   Json?
+  draftSavedAt   DateTime?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 

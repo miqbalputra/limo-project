@@ -62,3 +62,31 @@ test("Week 2 wali score history is readable on mobile", async ({ page }) => {
   await expect(page.getByText("Skor").first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
+
+test("Wali online exam resumes an autosaved answer on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page, "wali@limo.local");
+  await expect(page).toHaveURL(/\/wali$/, { timeout: 15_000 });
+
+  await page.goto("/wali/tugas");
+  const childHref = await page.locator("article").filter({ hasText: "Ahmad Dev" }).first().getByRole("link", { name: "Lihat Tugas" }).getAttribute("href");
+  expect(childHref).toBeTruthy();
+  await page.goto(childHref || "/wali/tugas");
+
+  const taskCard = page.locator("article").filter({ hasText: "LIMO SD Assessment Types Demo" }).first();
+  const taskHref = await taskCard.locator("a").first().getAttribute("href");
+  expect(taskHref).toBeTruthy();
+  await page.goto(taskHref || "/wali/tugas");
+
+  if (page.url().includes("/ujian/")) {
+    await page.getByRole("button", { name: "Mulai Kerjakan" }).click();
+    await page.waitForURL(/\/wali\/tugas\/attempt\//, { timeout: 15_000 });
+  }
+
+  const firstAnswer = page.locator('input[type="radio"]').first();
+  await firstAnswer.check();
+  await expect(page.getByText("Draft tersimpan")).toBeVisible({ timeout: 10_000 });
+  await page.reload();
+  await expect(firstAnswer).toBeChecked();
+  await expectNoHorizontalOverflow(page);
+});
