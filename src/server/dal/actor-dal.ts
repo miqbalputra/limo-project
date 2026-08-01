@@ -1,6 +1,7 @@
 import "server-only";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
+import { getSelectedWaliStudentId } from "@/server/dal/wali-selector-dal";
 
 export async function getActorDashboardContext(actor: Actor) {
   if (actor.role === "ADMIN") {
@@ -52,12 +53,13 @@ export async function getActorDashboardContext(actor: Actor) {
     };
   }
 
+  const selectedStudentId = await getSelectedWaliStudentId(actor);
   const profile = await prisma.waliProfile.findUnique({
     where: { userId: actor.id },
     select: {
       id: true,
       siswaRelations: {
-        where: { endedAt: null },
+        where: { endedAt: null, ...(selectedStudentId ? { siswaId: selectedStudentId } : {}) },
         select: {
           siswa: {
             select: {

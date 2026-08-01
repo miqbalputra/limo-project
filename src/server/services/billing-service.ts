@@ -5,6 +5,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/
 import { canAccessInvoice } from "@/server/policies/access-policy";
 import { createPakasirPaymentUrl } from "@/server/providers/payment/pakasir";
 import { createTarifSchema, generateInvoiceSchema } from "@/server/validation/billing";
+import { getSelectedWaliStudentId } from "@/server/dal/wali-selector-dal";
 
 function requireAdmin(actor: Actor) {
   if (actor.role !== "ADMIN") {
@@ -72,10 +73,11 @@ export async function createTarif(actor: Actor, input: unknown) {
 }
 
 export async function listTagihan(actor: Actor) {
+  const selectedStudentId = actor.role === "WALI" ? await getSelectedWaliStudentId(actor) : null;
   const where = actor.role === "ADMIN"
     ? {}
     : actor.role === "WALI"
-      ? { siswa: { waliRelations: { some: { endedAt: null, waliProfile: { userId: actor.id } } } } }
+      ? { ...(selectedStudentId ? { siswaId: selectedStudentId } : {}), siswa: { waliRelations: { some: { endedAt: null, waliProfile: { userId: actor.id } } } } }
       : { siswaId: "__none__" };
 
   const items = await prisma.tagihan.findMany({

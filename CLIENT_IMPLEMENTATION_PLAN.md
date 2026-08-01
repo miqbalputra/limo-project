@@ -155,13 +155,23 @@ Acceptance awal:
 
 ### Implementation Plan 5.2: Connectivity and Timer Guard
 
-Status: **Sedang dikerjakan**
+Status: **Selesai di repository**
 
 1. Tampilkan peringatan jelas saat browser kehilangan koneksi.
 2. Tahan submit final selama offline agar status pengguna tidak ambigu.
 3. Simpan ulang draft otomatis saat koneksi kembali.
 4. Pertahankan countdown berbasis `expiresAt` server dan biarkan server menjadi sumber kebenaran expiry.
 5. Tambahkan E2E coverage untuk transisi offline/online dan submit guard.
+
+### Implementation Plan 5.3: Global Child Selector
+
+Status: **Sedang dikerjakan**
+
+1. Sediakan pilihan `Semua Anak` dan anak tertentu pada dashboard shell Wali.
+2. Persist pilihan secara lokal dan validasi ulang terhadap relasi Wali-Siswa di server.
+3. Terapkan filter ke dashboard, progres, presensi, nilai, tugas, dan tagihan.
+4. Pertahankan route detail dengan scoping authorization per `siswaId`.
+5. Tambahkan E2E coverage untuk berpindah anak dan kembali ke semua anak.
 
 ### Acceptance Criteria
 

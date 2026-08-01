@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
+import { getSelectedWaliStudentId } from "@/server/dal/wali-selector-dal";
 
 const onlineDeliveryModes = ["ONLINE_VIA_WALI", "BOTH"];
 
@@ -78,8 +79,9 @@ function onlineExamWhere(siswaId: string) {
 
 export async function listWaliTaskChildren(actor: Actor) {
   const profile = await getWaliProfile(actor);
+  const selectedStudentId = await getSelectedWaliStudentId(actor);
   const relations = await prisma.waliSiswa.findMany({
-    where: { waliProfileId: profile.id, endedAt: null },
+    where: { waliProfileId: profile.id, endedAt: null, ...(selectedStudentId ? { siswaId: selectedStudentId } : {}) },
     orderBy: { siswa: { name: "asc" } },
     select: {
       siswa: { select: { id: true, name: true, nomorInduk: true, program: { select: { name: true } } } },

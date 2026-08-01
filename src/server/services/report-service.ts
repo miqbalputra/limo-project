@@ -3,6 +3,7 @@ import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ForbiddenError, NotFoundError } from "@/server/errors/application-error";
 import { canAccessStudent, canManageClass } from "@/server/policies/access-policy";
+import { getSelectedWaliStudentId } from "@/server/dal/wali-selector-dal";
 
 export async function getStudentSummary(actor: Actor, siswaId: string) {
   const allowed = await canAccessStudent(actor, siswaId);
@@ -82,8 +83,9 @@ export async function getWaliExamHistory(actor: Actor) {
     throw new ForbiddenError();
   }
 
+  const selectedStudentId = await getSelectedWaliStudentId(actor);
   const children = await prisma.waliSiswa.findMany({
-    where: { endedAt: null, waliProfile: { userId: actor.id } },
+    where: { endedAt: null, ...(selectedStudentId ? { siswaId: selectedStudentId } : {}), waliProfile: { userId: actor.id } },
     orderBy: { siswa: { name: "asc" } },
     select: {
       siswa: {

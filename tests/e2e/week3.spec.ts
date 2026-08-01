@@ -57,3 +57,25 @@ test("Week 3 wali graphs, attendance recap, and billing are mobile friendly", as
   await expect(page.getByText("Notifikasi").first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
+
+test("Wali global child selector scopes and restores dashboard data", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page, "wali@limo.local");
+  await expect(page).toHaveURL(/\/wali$/, { timeout: 15_000 });
+
+  const childSelector = page.getByRole("combobox", { name: "Pilih anak" });
+  await expect(childSelector).toHaveValue("__all__");
+  await childSelector.selectOption({ label: "Ahmad Dev / LIMO-DEV-001" });
+  await expect(childSelector).toHaveValue(/.+/);
+  await expect(page.getByText("Anak Terhubung").locator("..").getByText("1")).toBeVisible();
+
+  await page.goto("/wali/nilai");
+  await expect(page.getByRole("heading", { name: "Ahmad Dev" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Aisyah Dev" })).toHaveCount(0);
+
+  await page.getByRole("combobox", { name: "Pilih anak" }).selectOption("__all__");
+  await expect(page.getByRole("combobox", { name: "Pilih anak" })).toHaveValue("__all__");
+  await page.reload();
+  await expect(page.locator("main").getByText("Aisyah Dev").first()).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});

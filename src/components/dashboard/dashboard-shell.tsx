@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import type { NavigationItem } from "@/components/dashboard/navigation";
 import { LogoutButton } from "@/components/dashboard/logout-button";
+import { WaliChildSelector } from "@/components/dashboard/wali-child-selector";
 
 type DashboardShellProps = {
   actor: {
@@ -27,6 +28,8 @@ type DashboardShellProps = {
       createdAt: string;
     }[];
   };
+  waliChildren?: { id: string; name: string; nomorInduk: string }[];
+  selectedWaliChildId?: string | null;
   children: ReactNode;
 };
 
@@ -46,7 +49,7 @@ function BellIcon() {
   return <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>;
 }
 
-export function DashboardShell({ actor, navigation, notifications, children }: DashboardShellProps) {
+export function DashboardShell({ actor, navigation, notifications, waliChildren, selectedWaliChildId, children }: DashboardShellProps) {
   const pathname = usePathname();
   const searchRef = useRef<HTMLInputElement>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -192,6 +195,7 @@ export function DashboardShell({ actor, navigation, notifications, children }: D
               ) : null}
             </div>
 
+            {waliChildren ? <WaliChildSelector options={waliChildren} selectedId={selectedWaliChildId ?? null} /> : null}
             <div className="ml-auto flex items-center gap-2 sm:gap-3">
               <div className="relative">
                 <button type="button" aria-label="Notifikasi" aria-expanded={isNotificationOpen} aria-controls="notification-panel" onClick={() => setIsNotificationOpen((open) => !open)} className="relative grid size-10 place-items-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-theme-xs hover:bg-gray-50 sm:size-11">
