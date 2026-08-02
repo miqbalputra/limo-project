@@ -165,7 +165,7 @@ Status: **Selesai di repository**
 
 ### Implementation Plan 5.3: Global Child Selector
 
-Status: **Sedang dikerjakan**
+Status: **Selesai di repository**
 
 1. Sediakan pilihan `Semua Anak` dan anak tertentu pada dashboard shell Wali.
 2. Persist pilihan secara lokal dan validasi ulang terhadap relasi Wali-Siswa di server.
@@ -175,7 +175,7 @@ Status: **Sedang dikerjakan**
 
 ### Implementation Plan 5.4: Wali Learning Materials
 
-Status: **Sedang dikerjakan**
+Status: **Selesai di repository**
 
 1. Tampilkan materi berstatus `PUBLISHED` dari kelas anak yang terhubung.
 2. Ikuti pilihan anak global atau tampilkan materi semua anak.
@@ -201,6 +201,15 @@ Status: **Selesai di repository**
 2. Jelaskan status `Belum`, `Sedang Dikerjakan`, `Menunggu Review`, dan `Selesai`.
 3. Sediakan kanal kontak Admin tanpa klaim SLA yang belum disepakati.
 4. Gunakan accordion native yang accessible dan mobile-friendly.
+
+### Implementation Plan 5.7: Production Readiness Probe
+
+Status: **Selesai di repository**
+
+1. Pisahkan liveness probe dari readiness probe.
+2. Readiness memeriksa environment, koneksi database, dan kemampuan private storage.
+3. Kembalikan HTTP `503` jika dependency wajib belum siap.
+4. Dokumentasikan penggunaan probe untuk Dokploy/staging tanpa mengklaim production-ready.
 
 ### Acceptance Criteria
 

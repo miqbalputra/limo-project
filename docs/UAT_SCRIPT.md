@@ -71,3 +71,4 @@ Gunakan data dummy yang menyerupai kondisi LIMO. Catat temuan sebagai `blocker`,
 - Wali hanya melihat materi `PUBLISHED` dari kelas anak terhubung dan file privat menolak akses tanpa relasi Wali yang valid.
 - Wali menerima notifikasi ketika progres tersimpan, nilai tersedia, ujian online dipublikasikan, atau invoice baru dibuat.
 - Wali dapat membuka Bantuan, membaca FAQ status tugas/nilai/tagihan, dan menemukan kanal kontak Admin.
+- `/api/health` mengembalikan liveness, sedangkan `/api/health/ready` mengembalikan readiness dependency dengan status `503` jika dependency wajib gagal.

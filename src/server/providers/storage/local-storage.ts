@@ -131,6 +131,15 @@ export async function readPrivateFile(storagePath: string) {
   return readFile(/*turbopackIgnore: true*/ resolved);
 }
 
+export async function checkPrivateStorage() {
+  const storageRoot = resolveStorageRoot();
+  const probePath = path.join(storageRoot, `.health-${randomUUID()}.tmp`);
+
+  await mkdir(storageRoot, { recursive: true });
+  await writeFile(/*turbopackIgnore: true*/ probePath, "ok", { flag: "wx" });
+  await unlink(/*turbopackIgnore: true*/ probePath);
+}
+
 export async function removePrivateFile(storagePath: string) {
   const storageRoot = resolveStorageRoot();
   const resolved = path.resolve(/*turbopackIgnore: true*/ storagePath);

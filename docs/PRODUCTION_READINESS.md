@@ -10,6 +10,7 @@ Dokumen ini adalah checklist kerja menuju klaim 100% production-ready. Item yang
 - [x] Dashboard role Admin/Guru/Wali memakai data scoping dasar.
 - [x] Payment Pakasir mendukung create transaction, fallback link resmi, webhook, dan verifikasi detail transaksi saat API key tersedia.
 - [x] Notification retry mendukung provider email SMTP.
+- [x] Readiness probe tersedia di `/api/health/ready` untuk environment, database, dan private storage.
 - [ ] Vulnerability audit dependency ditindaklanjuti tanpa breaking change. `npm audit fix` non-breaking sudah dijalankan; sisa advisory terkait Next/PostCSS/sharp dan lint dependency masih membutuhkan rilis upstream atau perubahan breaking yang harus diuji terpisah.
 - [ ] Warning Turbopack NFT private storage diselesaikan atau diterima eksplisit sebagai non-blocking.
 

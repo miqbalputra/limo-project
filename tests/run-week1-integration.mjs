@@ -42,6 +42,14 @@ try {
   assert.equal(health.response.status, 200);
   ok("SQLite-backed application health is available");
 
+  const readiness = await request("/api/health/ready");
+  assert.equal(readiness.response.status, 200, JSON.stringify(readiness.payload));
+  assert.equal(readiness.payload.data.status, "ready");
+  assert.equal(readiness.payload.data.checks.environment, "ok");
+  assert.equal(readiness.payload.data.checks.database, "ok");
+  assert.equal(readiness.payload.data.checks.privateStorage, "ok");
+  ok("Readiness probe verifies environment, database, and private storage");
+
   const admin = await login("admin@limo.local");
   assert.equal(admin.payload.data.actor.role, "ADMIN");
   assert.match(admin.setCookie, /HttpOnly/i);
