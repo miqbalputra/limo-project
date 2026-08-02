@@ -7,6 +7,7 @@ Dokumen ini mencatat gap MVP saat ini agar tidak dianggap selesai diam-diam.
 - Migration database nyata belum dijalankan di environment ini karena Docker CLI/MariaDB belum tersedia.
 - Acceptance test SQLite dan E2E Playwright sudah tersedia; parity test MariaDB production belum dijalankan di environment ini.
 - Warning Turbopack terkait dynamic filesystem tracing private storage masih muncul tetapi build sukses.
+- Rate limit aplikasi masih in-process; deployment multi-instance tetap membutuhkan Redis atau rate limit di reverse proxy.
 
 ## Payment
 
@@ -30,7 +31,7 @@ Dokumen ini mencatat gap MVP saat ini agar tidak dianggap selesai diam-diam.
 ## Akademik
 
 - Online exam MVP via akun wali sudah tersedia untuk tipe soal dasar; autosave/resume, network-loss warning, global child selector, materi Wali, operational notification triggers, dan FAQ/pusat bantuan tersedia. Recording speaking, matching/sequencing interaktif, dan akun siswa mandiri masih menjadi backlog.
-- Koreksi nilai setelah final belum memiliki UI khusus.
+- Hasil `FINAL`/`CORRECTED` sudah dikunci dari input biasa; UI workflow koreksi dengan audit before/after masih menjadi backlog.
 - Halaman materi untuk Wali belum expose penuh.
 
 ## Operasional

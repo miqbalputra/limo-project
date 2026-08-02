@@ -3,6 +3,7 @@ import { generateOpaqueToken, hashToken, timingSafeCompareText } from "../src/se
 import { sanitizeOriginalFilename } from "../src/server/security/filename.ts";
 import { submitPendaftaranSchema } from "../src/server/validation/pendaftaran.ts";
 import { createBankSoalSchema, createUjianSchema, submitHasilUjianSchema } from "../src/server/validation/exam.ts";
+import { createMateriSchema } from "../src/server/validation/lms.ts";
 import { generateInvoiceSchema } from "../src/server/validation/billing.ts";
 
 const tests = [
@@ -69,6 +70,14 @@ const tests = [
     },
   },
   {
+    name: "media URLs reject unsafe schemes",
+    run: () => {
+      assert.equal(createBankSoalSchema.safeParse({ type: "GAMBAR", question: "Picture", mediaUrl: "javascript:alert(1)" }).success, false);
+      assert.equal(createMateriSchema.safeParse({ kelasId: "ckelas123456", type: "VIDEO_LINK", title: "Video", videoUrl: "http://example.com/video" }).success, false);
+      assert.equal(createMateriSchema.safeParse({ kelasId: "ckelas123456", type: "VIDEO_LINK", title: "Video", videoUrl: "https://www.youtube.com/watch?v=demo" }).success, true);
+    },
+  },
+  {
     name: "exam schema rejects empty question list",
     run: () => {
       const parsed = createUjianSchema.safeParse({
@@ -91,6 +100,18 @@ const tests = [
         ],
       });
       assert.equal(parsed.success, true);
+    },
+  },
+  {
+    name: "blank manual score remains pending review",
+    run: () => {
+      const parsed = submitHasilUjianSchema.safeParse({
+        ujianId: "cujian123456",
+        siswaId: "csiswa123456",
+        answers: [{ ujianSoalId: "csoal123456", essayScore: "" }],
+      });
+      assert.equal(parsed.success, true);
+      if (parsed.success) assert.equal(parsed.data.answers[0].essayScore, "");
     },
   },
   {

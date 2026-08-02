@@ -211,6 +211,16 @@ Status: **Selesai di repository**
 3. Kembalikan HTTP `503` jika dependency wajib belum siap.
 4. Dokumentasikan penggunaan probe untuk Dokploy/staging tanpa mengklaim production-ready.
 
+### Implementation Plan 5.8: Guru Data Safety and Assessment Hardening
+
+Status: **Selesai di repository**
+
+1. Pisahkan penyimpanan presensi dan progres agar satu form tidak mengubah domain data lain.
+2. Batasi ringkasan dan mutation Guru pada kelas aktif yang benar-benar dikelola Guru.
+3. Normalisasi skor ujian ke skala 0-100, batasi skor manual terhadap bobot soal, dan kunci hasil final.
+4. Tambahkan origin check/rate limit upload, validasi URL media, dan perlindungan file sensitif siswa.
+5. Tolak perubahan presensi/progres pada sesi final atau dibatalkan serta tampilkan form read-only.
+
 ### Acceptance Criteria
 
 - Wali hanya melihat anak yang terhubung.

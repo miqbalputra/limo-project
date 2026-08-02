@@ -72,3 +72,6 @@ Gunakan data dummy yang menyerupai kondisi LIMO. Catat temuan sebagai `blocker`,
 - Wali menerima notifikasi ketika progres tersimpan, nilai tersedia, ujian online dipublikasikan, atau invoice baru dibuat.
 - Wali dapat membuka Bantuan, membaca FAQ status tugas/nilai/tagihan, dan menemukan kanal kontak Admin.
 - `/api/health` mengembalikan liveness, sedangkan `/api/health/ready` mengembalikan readiness dependency dengan status `503` jika dependency wajib gagal.
+- Guru dapat menyimpan presensi tanpa mengubah progres, dan menyimpan progres tanpa mengubah presensi.
+- Ringkasan Guru hanya menampilkan data kelas yang dikelola; sesi `FINAL`/`CANCELLED` tampil read-only.
+- Nilai ujian final tidak dapat ditimpa melalui alur input biasa dan skor tampil pada skala `0-100`.

@@ -60,7 +60,7 @@ export default async function GuruDashboardPage() {
                     <div><p className="text-lg font-semibold text-gray-900">{kelas._count.ujian}</p><p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">Ujian</p></div>
                   </div>
                   <div className="mt-5">
-                    <div className="mb-2 flex justify-between text-theme-xs text-gray-500"><span>Kesiapan kelas</span><span className="font-semibold text-gray-700">{readiness}%</span></div>
+                    <div className="mb-2 flex justify-between text-theme-xs text-gray-500"><span>Aktivitas pembelajaran</span><span className="font-semibold text-gray-700">{readiness}%</span></div>
                     <ProgressBar value={readiness} tone={readiness >= 70 ? "success" : "brand"} />
                   </div>
                   <div className="mt-5 flex flex-wrap gap-2">

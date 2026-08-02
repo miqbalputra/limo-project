@@ -2,7 +2,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
-import { ForbiddenError, ValidationError } from "@/server/errors/application-error";
+import { ConflictError, ForbiddenError, ValidationError } from "@/server/errors/application-error";
 import { canManageClass } from "@/server/policies/access-policy";
 import { createBankSoalSchema, createUjianSchema, submitHasilUjianSchema } from "@/server/validation/exam";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
@@ -444,8 +444,9 @@ export async function submitHasilUjian(actor: Actor, input: unknown) {
     }
   }
 
-  let totalScore = 0;
+  let earnedWeight = 0;
   let needsReview = false;
+  const totalWeight = ujian.questions.reduce((sum, question) => sum + Number(question.weight), 0);
 
   const answerRows = ujian.questions.map((question) => {
     const answer = answersByQuestion.get(question.id);
@@ -455,7 +456,7 @@ export async function submitHasilUjian(actor: Actor, input: unknown) {
     if (question.bankSoal.type === "PILIHAN_GANDA") {
       const selectedOption = answer?.selectedOption?.toUpperCase() || "";
       const score = selectedOption && correctOptions[0] === selectedOption ? Number(question.weight) : 0;
-      totalScore += score;
+      earnedWeight += score;
 
       return {
         ujianSoalId: question.id,
@@ -473,7 +474,7 @@ export async function submitHasilUjian(actor: Actor, input: unknown) {
     if (question.bankSoal.type === "MULTI_SELECT") {
       const selectedOptions = sortedLabels(answer?.selectedOptions);
       const score = selectedOptions.length > 0 && jsonEquals(selectedOptions, correctOptions) ? Number(question.weight) : 0;
-      totalScore += score;
+      earnedWeight += score;
 
       return {
         ujianSoalId: question.id,
@@ -491,7 +492,7 @@ export async function submitHasilUjian(actor: Actor, input: unknown) {
     if (question.bankSoal.type === "BENAR_SALAH") {
       const selectedOption = answer?.selectedOption || "";
       const score = normalizeText(selectedOption) === normalizeText(question.bankSoal.expectedAnswer || undefined) ? Number(question.weight) : 0;
-      totalScore += score;
+      earnedWeight += score;
 
       return {
         ujianSoalId: question.id,
@@ -509,7 +510,7 @@ export async function submitHasilUjian(actor: Actor, input: unknown) {
     if (["ISIAN_SINGKAT", "CLOZE"].includes(question.bankSoal.type) && question.bankSoal.expectedAnswer) {
       const shortAnswer = answer?.shortAnswer || "";
       const score = normalizeText(shortAnswer) === normalizeText(question.bankSoal.expectedAnswer) ? Number(question.weight) : 0;
-      totalScore += score;
+      earnedWeight += score;
 
       return {
         ujianSoalId: question.id,
@@ -528,7 +529,7 @@ export async function submitHasilUjian(actor: Actor, input: unknown) {
 
     if (["MENJODOHKAN", "URUTAN"].includes(question.bankSoal.type) && structuredAnswerKey !== undefined && answer?.structuredAnswer !== undefined) {
       const score = jsonEquals(answer.structuredAnswer, structuredAnswerKey) ? Number(question.weight) : 0;
-      totalScore += score;
+      earnedWeight += score;
 
       return {
         ujianSoalId: question.id,
@@ -546,7 +547,11 @@ export async function submitHasilUjian(actor: Actor, input: unknown) {
     if (manualScore === undefined) {
       needsReview = true;
     } else {
-      totalScore += manualScore;
+      if (manualScore > Number(question.weight)) {
+        throw new ValidationError(`Skor soal ${question.order + 1} tidak boleh melebihi bobot soal`);
+      }
+
+      earnedWeight += manualScore;
     }
 
     return {
@@ -562,11 +567,17 @@ export async function submitHasilUjian(actor: Actor, input: unknown) {
     };
   });
 
+  const totalScore = totalWeight > 0 ? Number(((earnedWeight / totalWeight) * 100).toFixed(2)) : 0;
+
   const item = await prisma.$transaction(async (tx) => {
     const existing = await tx.hasilUjian.findUnique({
       where: { ujianId_siswaId: { ujianId: parsed.data.ujianId, siswaId: parsed.data.siswaId } },
-      select: { id: true },
+      select: { id: true, status: true },
     });
+
+    if (existing && ["FINAL", "CORRECTED"].includes(existing.status)) {
+      throw new ConflictError("Hasil ujian sudah final dan tidak dapat ditimpa");
+    }
 
     if (existing) {
       await tx.jawabanUjian.deleteMany({ where: { hasilUjianId: existing.id } });

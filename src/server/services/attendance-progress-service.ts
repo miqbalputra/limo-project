@@ -1,15 +1,15 @@
 import "server-only";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canManageClass } from "@/server/policies/access-policy";
-import { submitPresensiProgresSchema, submitPresensiSchema, submitProgresSchema } from "@/server/validation/attendance-progress";
+import { submitPresensiSchema, submitProgresSchema } from "@/server/validation/attendance-progress";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
 
 async function getManagedSession(actor: Actor, sesiKelasId: string) {
   const sesi = await prisma.sesiKelas.findUnique({
     where: { id: sesiKelasId },
-    select: { id: true, kelasId: true, sessionDate: true, topic: true, meetingNumber: true, kelas: { select: { name: true } } },
+    select: { id: true, kelasId: true, sessionDate: true, topic: true, meetingNumber: true, status: true, kelas: { select: { name: true } } },
   });
 
   if (!sesi) {
@@ -23,6 +23,16 @@ async function getManagedSession(actor: Actor, sesiKelasId: string) {
   }
 
   return sesi;
+}
+
+function assertWritableSession(status: string) {
+  if (status === "FINAL") {
+    throw new ConflictError("Sesi sudah difinalkan dan tidak dapat diubah");
+  }
+
+  if (status === "CANCELLED") {
+    throw new ConflictError("Sesi yang dibatalkan tidak dapat diubah");
+  }
 }
 
 async function getActiveStudentIds(kelasId: string, sessionDate: Date) {
@@ -66,6 +76,7 @@ export async function submitPresensi(actor: Actor, input: unknown) {
   }
 
   const sesi = await getManagedSession(actor, parsed.data.sesiKelasId);
+  assertWritableSession(sesi.status);
   const activeIds = await getActiveStudentIds(sesi.kelasId, sesi.sessionDate);
 
   for (const item of parsed.data.items) {
@@ -94,6 +105,7 @@ export async function submitProgres(actor: Actor, input: unknown) {
   }
 
   const sesi = await getManagedSession(actor, parsed.data.sesiKelasId);
+  assertWritableSession(sesi.status);
   const activeIds = await getActiveStudentIds(sesi.kelasId, sesi.sessionDate);
 
   for (const item of parsed.data.items) {
@@ -118,48 +130,6 @@ export async function submitProgres(actor: Actor, input: unknown) {
     body: `Guru telah memperbarui progres belajar untuk sesi ${sesi.meetingNumber}: ${sesi.topic}. Buka dashboard Wali untuk melihat catatan yang dibagikan.`,
     metadata: { sesiKelasId: sesi.id },
   });
-
-  return { success: true };
-}
-
-export async function submitPresensiProgres(actor: Actor, input: unknown) {
-  const parsed = submitPresensiProgresSchema.safeParse(input);
-
-  if (!parsed.success) {
-    throw new ValidationError("Data presensi dan progres belum valid", parsed.error.flatten().fieldErrors);
-  }
-
-  const sesi = await getManagedSession(actor, parsed.data.sesiKelasId);
-  const activeIds = await getActiveStudentIds(sesi.kelasId, sesi.sessionDate);
-  const allStudentIds = [...parsed.data.presensiItems, ...parsed.data.progresItems].map((item) => item.siswaId);
-
-  if (allStudentIds.some((siswaId) => !activeIds.has(siswaId))) {
-    throw new ValidationError("Ada siswa yang tidak aktif pada sesi ini");
-  }
-
-  await prisma.$transaction([
-    ...parsed.data.presensiItems.map((item) => prisma.presensi.upsert({
-      where: { siswaId_sesiKelasId: { siswaId: item.siswaId, sesiKelasId: parsed.data.sesiKelasId } },
-      update: { status: item.status, note: item.note || null, updatedById: actor.id },
-      create: { siswaId: item.siswaId, sesiKelasId: parsed.data.sesiKelasId, status: item.status, note: item.note || null, createdById: actor.id, updatedById: actor.id },
-    })),
-    ...parsed.data.progresItems.map((item) => prisma.progresBelajar.upsert({
-      where: { siswaId_sesiKelasId_category: { siswaId: item.siswaId, sesiKelasId: parsed.data.sesiKelasId, category: item.category || "umum" } },
-      update: { understandingScore: item.understandingScore, publicNote: item.publicNote || null, internalNote: item.internalNote || null },
-      create: { siswaId: item.siswaId, sesiKelasId: parsed.data.sesiKelasId, category: item.category || "umum", understandingScore: item.understandingScore, publicNote: item.publicNote || null, internalNote: item.internalNote || null, createdById: actor.id },
-    })),
-    prisma.auditLog.create({ data: { actorId: actor.id, action: "PRESENSI_PROGRES_SUBMITTED", entityType: "SesiKelas", entityId: parsed.data.sesiKelasId } }),
-  ]);
-
-  if (parsed.data.progresItems.length > 0) {
-    await notifyWaliForStudents({
-      siswaIds: parsed.data.progresItems.map((item) => item.siswaId),
-      template: "progress-updated",
-      subject: `Progres belajar ${sesi.kelas.name} diperbarui`,
-      body: `Guru telah memperbarui progres belajar untuk sesi ${sesi.meetingNumber}: ${sesi.topic}. Buka dashboard Wali untuk melihat catatan yang dibagikan.`,
-      metadata: { sesiKelasId: sesi.id },
-    });
-  }
 
   return { success: true };
 }

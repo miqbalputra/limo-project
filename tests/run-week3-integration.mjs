@@ -60,7 +60,7 @@ try {
   ok("Wali cannot access Admin report CSV");
 
   const sesi = await prisma.sesiKelas.findFirstOrThrow({
-    where: { kelas: { guruProfile: { user: { email: "guru@limo.local" } } } },
+    where: { status: "DRAFT", kelas: { guruProfile: { user: { email: "guru@limo.local" } } } },
     orderBy: { sessionDate: "asc" },
     select: { id: true, kelasId: true },
   });
@@ -104,6 +104,10 @@ try {
     body: { sesiKelasId: sesi.id, items: [{ siswaId: enrollment.siswaId, status: "HADIR", note: "Week 3 acceptance" }] },
   });
   assert.equal(presensi.response.status, 200, JSON.stringify(presensi.payload));
+  const attendanceAfterSubmit = await prisma.presensi.findUniqueOrThrow({
+    where: { siswaId_sesiKelasId: { siswaId: enrollment.siswaId, sesiKelasId: sesi.id } },
+    select: { status: true, note: true },
+  });
   ok("Guru can submit attendance per session");
 
   const progres = await request("/api/v1/progres", {
@@ -112,7 +116,13 @@ try {
     body: { sesiKelasId: sesi.id, items: [{ siswaId: enrollment.siswaId, category: "week3", understandingScore: 5, publicNote: "Progress bagus", internalNote: "Acceptance" }] },
   });
   assert.equal(progres.response.status, 200, JSON.stringify(progres.payload));
+  const attendanceAfterProgress = await prisma.presensi.findUniqueOrThrow({
+    where: { siswaId_sesiKelasId: { siswaId: enrollment.siswaId, sesiKelasId: sesi.id } },
+    select: { status: true, note: true },
+  });
+  assert.deepEqual(attendanceAfterProgress, attendanceAfterSubmit);
   ok("Guru can submit 1-5 learning progress notes");
+  ok("Saving progress does not modify attendance");
   const progressNotification = await prisma.notifikasi.findFirst({ where: { template: "progress-updated", recipient: "wali@limo.local" }, orderBy: { createdAt: "desc" }, select: { id: true } });
   assert.ok(progressNotification);
   ok("Progress submission creates a Wali notification");

@@ -13,6 +13,12 @@ const globalForRateLimit = globalThis as typeof globalThis & {
 const buckets = globalForRateLimit.limoRateLimitBuckets ?? new Map<string, Bucket>();
 globalForRateLimit.limoRateLimitBuckets = buckets;
 
+export function getClientAddress(headers: Headers) {
+  return headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || headers.get("x-real-ip")?.trim()
+    || "unknown";
+}
+
 export function assertRateLimit(input: {
   key: string;
   limit: number;

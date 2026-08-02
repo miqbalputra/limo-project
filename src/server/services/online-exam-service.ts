@@ -376,8 +376,9 @@ export async function submitWaliAttempt(actor: Actor, attemptId: string, input: 
     }
   }
 
-  let totalScore = 0;
+  let earnedWeight = 0;
   let needsReview = false;
+  const totalWeight = attempt.ujian.questions.reduce((sum, question) => sum + Number(question.weight), 0);
 
   const answerRows = attempt.ujian.questions.map((question) => {
     const answer = answersByQuestion.get(question.id);
@@ -386,34 +387,36 @@ export async function submitWaliAttempt(actor: Actor, attemptId: string, input: 
     if (question.bankSoal.type === "PILIHAN_GANDA") {
       const selectedOption = answer?.selectedOption?.toUpperCase() || "";
       const score = selectedOption && correctOptions[0] === selectedOption ? Number(question.weight) : 0;
-      totalScore += score;
+      earnedWeight += score;
       return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption, selectedOptions: undefined, shortAnswer: undefined, essayAnswer: undefined, score, needsReview: false };
     }
 
     if (question.bankSoal.type === "MULTI_SELECT") {
       const selectedOptions = sortedLabels(answer?.selectedOptions);
       const score = selectedOptions.length > 0 && jsonEquals(selectedOptions, correctOptions) ? Number(question.weight) : 0;
-      totalScore += score;
+      earnedWeight += score;
       return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption: undefined, selectedOptions, shortAnswer: undefined, essayAnswer: undefined, score, needsReview: false };
     }
 
     if (question.bankSoal.type === "BENAR_SALAH") {
       const selectedOption = answer?.selectedOption || "";
       const score = normalizeText(selectedOption) === normalizeText(question.bankSoal.expectedAnswer || undefined) ? Number(question.weight) : 0;
-      totalScore += score;
+      earnedWeight += score;
       return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption, selectedOptions: undefined, shortAnswer: undefined, essayAnswer: undefined, score, needsReview: false };
     }
 
     if (["ISIAN_SINGKAT", "CLOZE", "GAMBAR", "LISTENING", "READING"].includes(question.bankSoal.type) && question.bankSoal.expectedAnswer) {
       const shortAnswer = answer?.shortAnswer || "";
       const score = normalizeText(shortAnswer) === normalizeText(question.bankSoal.expectedAnswer) ? Number(question.weight) : 0;
-      totalScore += score;
+      earnedWeight += score;
       return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption: undefined, selectedOptions: undefined, shortAnswer, essayAnswer: undefined, score, needsReview: false };
     }
 
     needsReview = true;
     return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption: undefined, selectedOptions: undefined, shortAnswer: answer?.shortAnswer || undefined, essayAnswer: answer?.essayAnswer || undefined, score: undefined, needsReview: true };
   });
+
+  const totalScore = totalWeight > 0 ? Number(((earnedWeight / totalWeight) * 100).toFixed(2)) : 0;
 
   const item = await prisma.$transaction(async (tx) => {
     const existing = await tx.hasilUjian.findUnique({

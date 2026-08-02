@@ -56,7 +56,7 @@ export default async function GuruKelasPage() {
                 </div>
 
                 <div className="mt-5">
-                  <div className="mb-2 flex justify-between text-theme-xs text-gray-500"><span>Kesiapan kelas</span><span className="font-semibold text-gray-700">{readiness}%</span></div>
+                    <div className="mb-2 flex justify-between text-theme-xs text-gray-500"><span>Aktivitas pembelajaran</span><span className="font-semibold text-gray-700">{readiness}%</span></div>
                   <ProgressBar value={readiness} tone={readiness >= 80 ? "success" : "warning"} />
                 </div>
 
@@ -79,7 +79,7 @@ export default async function GuruKelasPage() {
 
 function ClassHero({ totalClasses, totalStudents, totalSessions }: { totalClasses: number; totalStudents: number; totalSessions: number }) {
   return (
-    <div className="grid min-w-72 grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs">
+    <div className="grid w-full grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs sm:min-w-72">
       <MiniStat label="Kelas" value={totalClasses} />
       <MiniStat label="Siswa" value={totalStudents} />
       <MiniStat label="Sesi" value={totalSessions} />

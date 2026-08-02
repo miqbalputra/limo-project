@@ -20,11 +20,11 @@ export default async function GuruInputPresensiPage({ params }: { params: Promis
       <DashboardHero
         eyebrow={`${sesi.kelas.name} / ${sesi.sessionDate.toISOString().slice(0, 10)}`}
         title={`${sesi.meetingNumber}. ${sesi.topic}`}
-        description="Input presensi dan progres dalam satu form. Data yang disimpan akan langsung terlihat di dashboard wali murid."
-        actions={<><Link href="/guru/presensi" className="tailadmin-button-outline px-4 py-2">Kembali</Link><button form="presensi-progres-form" type="submit" className="tailadmin-button-primary gap-2 px-4 py-2"><DashboardIcon name="presensi" className="size-4" />Simpan Data</button></>}
+         description="Catat kehadiran siswa untuk sesi ini. Perubahan presensi tidak mengubah progres belajar."
+         actions={<><Link href="/guru/presensi" className="tailadmin-button-outline px-4 py-2">Kembali</Link>{sesi.status === "DRAFT" ? <button form="presensi-form" type="submit" className="tailadmin-button-primary gap-2 px-4 py-2"><DashboardIcon name="presensi" className="size-4" />Simpan Presensi</button> : null}</>}
         aside={<div className="grid min-w-72 grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs"><MiniStat label="Siswa" value={students.length} /><MiniStat label="Presensi" value={presensiFilled} /><MiniStat label="Progres" value={progressFilled} /></div>}
       />
-      <PresensiProgresForm sesiKelasId={sesi.id} students={students} />
+       <PresensiProgresForm sesiKelasId={sesi.id} students={students} mode="presensi" readOnly={sesi.status !== "DRAFT"} />
     </main>
   );
 }

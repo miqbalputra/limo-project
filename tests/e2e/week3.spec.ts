@@ -24,7 +24,15 @@ test("Week 3 guru attendance and progress UI is mobile friendly", async ({ page 
   await expectNoHorizontalOverflow(page);
 
   await page.goto(inputHref || "/guru/presensi");
-  await expect(page.getByRole("button", { name: /Simpan Presensi dan Progres/i })).toBeVisible();
+  await expect(page.locator("#presensi-form").getByRole("button", { name: "Simpan Presensi" })).toBeVisible();
+  await expect(page.locator('select[name^="presence-"]').first()).toContainText("Hadir");
+  await expect(page.locator('select[name^="score-"]')).toHaveCount(0);
+
+  await page.goto("/guru/progres");
+  const progressInputHref = await page.getByRole("link", { name: "Input" }).first().getAttribute("href");
+  expect(progressInputHref).toBeTruthy();
+  await page.goto(progressInputHref || "/guru/progres");
+  await expect(page.locator("#progres-form").getByRole("button", { name: "Simpan Progres" })).toBeVisible();
   await expect(page.locator('select[name^="score-"]').first()).toContainText("Pemahaman 5");
   await expectNoHorizontalOverflow(page);
 });

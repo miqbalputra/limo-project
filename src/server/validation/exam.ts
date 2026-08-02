@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isSafeMediaUrl } from "../security/safe-media-url.ts";
 
 const optionSchema = z.object({
   label: z.string().trim().min(1).max(8),
@@ -24,13 +25,14 @@ const soalTypeSchema = z.enum([
 ]);
 
 const jsonPayloadSchema = z.union([z.record(z.string(), z.unknown()), z.array(z.unknown())]).optional();
+const safeMediaUrlSchema = z.string().trim().max(500).refine((value) => !value || isSafeMediaUrl(value), "Media harus memakai HTTPS atau path lokal");
 
 export const createBankSoalSchema = z.object({
   kelasId: z.string().min(8).max(64).optional().or(z.literal("")),
   type: soalTypeSchema,
   question: z.string().trim().min(3).max(10000),
   stimulusText: z.string().trim().max(10000).optional().or(z.literal("")),
-  mediaUrl: z.string().trim().max(500).optional().or(z.literal("")),
+  mediaUrl: safeMediaUrlSchema.optional().or(z.literal("")),
   expectedAnswer: z.string().trim().max(10000).optional().or(z.literal("")),
   structuredPayload: jsonPayloadSchema,
   rubric: jsonPayloadSchema,
@@ -80,7 +82,7 @@ export const submitHasilUjianSchema = z.object({
         shortAnswer: z.string().trim().max(10000).optional().or(z.literal("")),
         structuredAnswer: jsonPayloadSchema,
         essayAnswer: z.string().trim().max(10000).optional().or(z.literal("")),
-        essayScore: z.coerce.number().min(0).max(1000).optional().or(z.literal("")),
+        essayScore: z.literal("").or(z.coerce.number().min(0).max(1000)).optional(),
       }),
     )
     .min(1)

@@ -66,6 +66,12 @@ try {
   assert.equal(materialList.payload.data.items.some((item) => item.title === materialTitle && item.type === "PDF"), true);
   ok("LMS materi accepts categorized PDF material");
 
+  const uploadForm = new FormData();
+  uploadForm.append("file", new Blob(["%PDF-1.7"], { type: "application/pdf" }), "week2.pdf");
+  const csrfUpload = await fetch(`${baseUrl}/api/v1/guru/materi/${material.payload.data.item.id}/files`, { method: "POST", headers: { Cookie: guru.cookie }, body: uploadForm });
+  assert.equal(csrfUpload.status, 403);
+  ok("Materi upload rejects requests without a same-origin header");
+
   const questionText = `Week2 auto scoring question ${runId}`;
   const question = await request("/api/v1/bank-soal", {
     method: "POST",
@@ -121,9 +127,21 @@ try {
     },
   });
   assert.equal(result.response.status, 201, JSON.stringify(result.payload));
-  assert.equal(Number(result.payload.data.item.totalScore), 10);
-  assert.equal(result.payload.data.item.status, "FINAL");
-  ok("Pilihan ganda is auto-scored into final exam history");
+   assert.equal(Number(result.payload.data.item.totalScore), 100);
+   assert.equal(result.payload.data.item.status, "FINAL");
+   ok("Pilihan ganda is auto-scored into final exam history");
+
+   const lockedResult = await request("/api/v1/hasil-ujian", {
+     method: "POST",
+     cookie: guru.cookie,
+     body: {
+       ujianId: createdExam.id,
+       siswaId: enrollment.siswaId,
+       answers: [{ ujianSoalId: createdExam.questions[0].id, selectedOption: "B" }],
+     },
+   });
+   assert.equal(lockedResult.response.status, 409, JSON.stringify(lockedResult.payload));
+   ok("Final exam result cannot be overwritten through the normal input flow");
 
   const resultNotification = await prisma.notifikasi.findFirst({ where: { template: "exam-result-updated", recipient: "wali@limo.local" }, orderBy: { createdAt: "desc" }, select: { id: true } });
   assert.ok(resultNotification);

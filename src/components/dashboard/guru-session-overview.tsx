@@ -41,7 +41,7 @@ export function GuruSessionOverview({
     const status = getSessionStatus(filled, expected);
 
     return { ...item, expected, filled, percent, status };
-  });
+  }).sort((left, right) => right.sesi.sessionDate.getTime() - left.sesi.sessionDate.getTime());
   const pendingRows = rows.filter((row) => row.status.kind !== "complete");
   const completedRows = rows.filter((row) => row.status.kind === "complete");
   const latestRows = rows.slice(0, 6);
@@ -65,7 +65,7 @@ export function GuruSessionOverview({
         <>
           {pendingRows.length > 0 ? (
             <section>
-              <SectionTitle title="Prioritas Hari Ini" description="Sesi berikut belum lengkap. Mulai dari sini agar data wali tetap aktual." />
+              <SectionTitle title="Perlu Ditindaklanjuti" description="Sesi berikut belum lengkap. Mulai dari sini agar data wali tetap aktual." />
               <div className="grid gap-4 xl:grid-cols-2">
                 {pendingRows.map((row) => <SessionCard key={row.sesi.id} row={row} mode={mode} highlight />)}
               </div>
@@ -93,7 +93,7 @@ export function GuruSessionOverview({
 
 function SessionHero({ total, pending, complete }: { total: number; pending: number; complete: number }) {
   return (
-    <div className="grid min-w-72 grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs">
+    <div className="grid w-full grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs sm:min-w-72">
       <MiniStat label="Sesi" value={total} />
       <MiniStat label="Prioritas" value={pending} />
       <MiniStat label="Lengkap" value={complete} />
@@ -196,5 +196,5 @@ function getSessionStatus(filled: number, expected: number) {
 }
 
 function formatDate(value: Date) {
-  return value.toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeZone: "Asia/Jakarta" }).format(value);
 }

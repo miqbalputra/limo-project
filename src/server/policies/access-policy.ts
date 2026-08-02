@@ -33,6 +33,7 @@ export async function canAccessStudent(actor: Actor, siswaId: string) {
         siswaId,
         status: "ACTIVE",
         kelas: {
+          status: "ACTIVE",
           guruProfile: {
             userId: actor.id,
           },
@@ -59,6 +60,7 @@ export async function canManageClass(actor: Actor, kelasId: string) {
   const kelas = await prisma.kelas.findFirst({
     where: {
       id: kelasId,
+      status: "ACTIVE",
       guruProfile: {
         userId: actor.id,
       },
@@ -129,6 +131,10 @@ export async function canDownloadFile(actor: Actor, fileId: string) {
   }
 
   if (file.ownerType === "SISWA") {
+    if (actor.role === "GURU") {
+      return false;
+    }
+
     return canAccessStudent(actor, file.ownerId);
   }
 

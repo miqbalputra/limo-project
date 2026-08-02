@@ -27,9 +27,3 @@ export const submitProgresSchema = z.object({
     .min(1)
     .max(100),
 });
-
-export const submitPresensiProgresSchema = z.object({
-  sesiKelasId: z.string().min(8).max(64),
-  presensiItems: z.array(presensiItemSchema).min(1).max(100),
-  progresItems: z.array(progresItemSchema).min(1).max(100),
-});

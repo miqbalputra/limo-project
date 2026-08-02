@@ -11,6 +11,8 @@ type Student = {
   progresBelajar?: { understandingScore: number; publicNote: string | null; internalNote: string | null; category: string | null }[];
 };
 
+type Mode = "presensi" | "progres";
+
 async function postJson(path: string, body: unknown) {
   const response = await fetch(path, {
     method: "POST",
@@ -24,7 +26,7 @@ async function postJson(path: string, body: unknown) {
   }
 }
 
-export function PresensiProgresForm({ sesiKelasId, students }: { sesiKelasId: string; students: Student[] }) {
+export function PresensiProgresForm({ sesiKelasId, students, mode, readOnly = false }: { sesiKelasId: string; students: Student[]; mode: Mode; readOnly?: boolean }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,21 +37,28 @@ export function PresensiProgresForm({ sesiKelasId, students }: { sesiKelasId: st
     setIsSubmitting(true);
     const data = new FormData(event.currentTarget);
 
-    const presensiItems = students.map((student) => ({
-      siswaId: student.id,
-      status: String(data.get(`presence-${student.id}`) || "ALPA"),
-      note: String(data.get(`presenceNote-${student.id}`) || ""),
-    }));
-    const progresItems = students.map((student) => ({
-      siswaId: student.id,
-      category: "umum",
-      understandingScore: Number(data.get(`score-${student.id}`) || 3),
-      publicNote: String(data.get(`publicNote-${student.id}`) || ""),
-      internalNote: String(data.get(`internalNote-${student.id}`) || ""),
-    }));
+    const body = mode === "presensi"
+      ? {
+          sesiKelasId,
+          items: students.map((student) => ({
+            siswaId: student.id,
+            status: String(data.get(`presence-${student.id}`) || "ALPA"),
+            note: String(data.get(`presenceNote-${student.id}`) || ""),
+          })),
+        }
+      : {
+          sesiKelasId,
+          items: students.map((student) => ({
+            siswaId: student.id,
+            category: "umum",
+            understandingScore: Number(data.get(`score-${student.id}`) || 3),
+            publicNote: String(data.get(`publicNote-${student.id}`) || ""),
+            internalNote: String(data.get(`internalNote-${student.id}`) || ""),
+          })),
+        };
 
     try {
-      await postJson("/api/v1/presensi-progres", { sesiKelasId, presensiItems, progresItems });
+      await postJson(`/api/v1/${mode}`, body);
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Data gagal disimpan");
@@ -59,8 +68,9 @@ export function PresensiProgresForm({ sesiKelasId, students }: { sesiKelasId: st
   }
 
   return (
-    <form id="presensi-progres-form" onSubmit={onSubmit} className="space-y-4">
+    <form id={`${mode}-form`} onSubmit={onSubmit} className="space-y-4">
       {error ? <p className="tailadmin-alert-error">{error}</p> : null}
+      {readOnly ? <p className="rounded-xl border border-warning-100 bg-warning-50 px-4 py-3 text-theme-sm text-warning-800">Sesi ini sudah tidak dapat diubah karena statusnya bukan DRAFT.</p> : null}
       {students.map((student) => {
         const presensi = student.presensi?.[0];
         const progress = student.progresBelajar?.find((item) => item.category === "umum") ?? student.progresBelajar?.[0];
@@ -74,37 +84,38 @@ export function PresensiProgresForm({ sesiKelasId, students }: { sesiKelasId: st
                 <p className="text-theme-sm text-gray-500">{student.nomorInduk}</p>
               </div>
             </div>
-            <div className="mt-4 grid gap-3 lg:grid-cols-2">
-              <div className="grid gap-3">
+            {mode === "presensi" ? (
+              <div className="mt-4 grid gap-3">
                 <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-400">Presensi</p>
-                <select name={`presence-${student.id}`} defaultValue={presensi?.status ?? "HADIR"} className="tailadmin-input">
+                <select disabled={readOnly} name={`presence-${student.id}`} aria-label={`Status presensi ${student.name}`} defaultValue={presensi?.status ?? "HADIR"} className="tailadmin-input">
                   <option value="HADIR">Hadir</option>
                   <option value="IZIN">Izin</option>
                   <option value="SAKIT">Sakit</option>
                   <option value="ALPA">Alpa</option>
                   <option value="TERLAMBAT">Terlambat</option>
                 </select>
-                <input name={`presenceNote-${student.id}`} defaultValue={presensi?.note ?? ""} placeholder="Catatan presensi" className="tailadmin-input" />
+                <input disabled={readOnly} name={`presenceNote-${student.id}`} aria-label={`Catatan presensi ${student.name}`} defaultValue={presensi?.note ?? ""} placeholder="Catatan presensi" className="tailadmin-input" />
               </div>
-              <div className="grid gap-3">
+            ) : (
+              <div className="mt-4 grid gap-3">
                 <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-400">Progres Belajar</p>
-                <select name={`score-${student.id}`} defaultValue={String(progress?.understandingScore ?? 3)} className="tailadmin-input">
+                <select disabled={readOnly} name={`score-${student.id}`} aria-label={`Skor pemahaman ${student.name}`} defaultValue={String(progress?.understandingScore ?? 3)} className="tailadmin-input">
                   <option value="1">Pemahaman 1</option>
                   <option value="2">Pemahaman 2</option>
                   <option value="3">Pemahaman 3</option>
                   <option value="4">Pemahaman 4</option>
                   <option value="5">Pemahaman 5</option>
                 </select>
-                <input name={`publicNote-${student.id}`} defaultValue={progress?.publicNote ?? ""} placeholder="Catatan untuk wali" className="tailadmin-input" />
-                <input name={`internalNote-${student.id}`} defaultValue={progress?.internalNote ?? ""} placeholder="Catatan internal" className="tailadmin-input" />
+                <input disabled={readOnly} name={`publicNote-${student.id}`} aria-label={`Catatan untuk wali ${student.name}`} defaultValue={progress?.publicNote ?? ""} placeholder="Catatan untuk wali" className="tailadmin-input" />
+                <input disabled={readOnly} name={`internalNote-${student.id}`} aria-label={`Catatan internal ${student.name}`} defaultValue={progress?.internalNote ?? ""} placeholder="Catatan internal" className="tailadmin-input" />
               </div>
-            </div>
+            )}
           </section>
         );
       })}
-      <button disabled={isSubmitting || students.length === 0} className="tailadmin-button-primary">
-        {isSubmitting ? "Menyimpan..." : "Simpan Presensi dan Progres"}
-      </button>
+      {!readOnly ? <button disabled={isSubmitting || students.length === 0} className="tailadmin-button-primary">
+        {isSubmitting ? "Menyimpan..." : mode === "presensi" ? "Simpan Presensi" : "Simpan Progres"}
+      </button> : null}
     </form>
   );
 }

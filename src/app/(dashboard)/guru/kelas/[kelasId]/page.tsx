@@ -14,7 +14,7 @@ export default async function GuruKelasDetailPage({ params }: { params: Promise<
     <main className="space-y-6">
       <div>
         <h1 className="tailadmin-page-title">Kelola Kelas</h1>
-        <p className="mt-2 tailadmin-muted">Buat sesi kelas dan materi pembelajaran.</p>
+        <p className="mt-2 tailadmin-muted">Buat sesi kelas dan materi pembelajaran. Data hanya tersedia untuk kelas aktif yang ditugaskan kepada Anda.</p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <SesiKelasForm kelasId={kelasId} />
@@ -24,7 +24,7 @@ export default async function GuruKelasDetailPage({ params }: { params: Promise<
         <div className="tailadmin-card p-5">
           <h2 className="font-semibold text-gray-900">Sesi</h2>
           <div className="mt-4 space-y-3">
-            {sesi.map((item) => <article key={item.id} className="rounded-xl bg-gray-50 p-3"><p className="font-semibold text-gray-900">{item.meetingNumber}. {item.topic}</p><p className="text-theme-sm text-gray-500">{item.sessionDate.toISOString().slice(0, 10)} / {item.status}</p></article>)}
+            {sesi.map((item) => <article key={item.id} className="rounded-xl bg-gray-50 p-3"><p className="font-semibold text-gray-900">{item.meetingNumber}. {item.topic}</p><p className="text-theme-sm text-gray-500">{new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeZone: "Asia/Jakarta" }).format(item.sessionDate)} / {item.status}</p></article>)}
           </div>
         </div>
         <div className="tailadmin-card p-5">
