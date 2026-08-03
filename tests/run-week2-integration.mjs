@@ -143,6 +143,34 @@ try {
    assert.equal(lockedResult.response.status, 409, JSON.stringify(lockedResult.payload));
    ok("Final exam result cannot be overwritten through the normal input flow");
 
+   const correction = await request(`/api/v1/hasil-ujian/${result.payload.data.item.id}/correction`, {
+     method: "POST",
+     cookie: guru.cookie,
+     body: {
+       reason: "Kunci jawaban perlu diperbaiki",
+       answers: [{ ujianSoalId: createdExam.questions[0].id, selectedOption: "B" }],
+     },
+   });
+   assert.equal(correction.response.status, 200, JSON.stringify(correction.payload));
+   assert.equal(correction.payload.data.item.status, "CORRECTED");
+   assert.equal(Number(correction.payload.data.item.totalScore), 0);
+   const correctionAudit = await prisma.auditLog.findFirst({ where: { action: "HASIL_UJIAN_CORRECTED", entityId: result.payload.data.item.id }, orderBy: { createdAt: "desc" }, select: { reason: true, metadata: true } });
+   assert.equal(correctionAudit?.reason, "Kunci jawaban perlu diperbaiki");
+   assert.equal(correctionAudit?.metadata?.afterStatus, "CORRECTED");
+   ok("Teacher correction stores before/after audit metadata");
+
+   const lockedAfterCorrection = await request("/api/v1/hasil-ujian", {
+     method: "POST",
+     cookie: guru.cookie,
+     body: {
+       ujianId: createdExam.id,
+       siswaId: enrollment.siswaId,
+       answers: [{ ujianSoalId: createdExam.questions[0].id, selectedOption: "A" }],
+     },
+   });
+   assert.equal(lockedAfterCorrection.response.status, 409, JSON.stringify(lockedAfterCorrection.payload));
+   ok("Corrected exam result remains locked from normal input");
+
   const resultNotification = await prisma.notifikasi.findFirst({ where: { template: "exam-result-updated", recipient: "wali@limo.local" }, orderBy: { createdAt: "desc" }, select: { id: true } });
   assert.ok(resultNotification);
   ok("Final exam result creates a Wali notification");

@@ -70,21 +70,25 @@ export const createUjianSchema = z.object({
     .max(100),
 });
 
+export const examAnswerSchema = z.object({
+  ujianSoalId: z.string().min(8).max(64),
+  selectedOption: z.string().trim().max(8).optional().or(z.literal("")),
+  selectedOptions: z.array(z.string().trim().max(8)).max(16).optional(),
+  shortAnswer: z.string().trim().max(10000).optional().or(z.literal("")),
+  structuredAnswer: jsonPayloadSchema,
+  essayAnswer: z.string().trim().max(10000).optional().or(z.literal("")),
+  essayScore: z.literal("").or(z.coerce.number().min(0).max(1000)).optional(),
+});
+
+const answersSchema = z.array(examAnswerSchema).min(1).max(100);
+
 export const submitHasilUjianSchema = z.object({
   ujianId: z.string().min(8).max(64),
   siswaId: z.string().min(8).max(64),
-  answers: z
-    .array(
-      z.object({
-        ujianSoalId: z.string().min(8).max(64),
-        selectedOption: z.string().trim().max(8).optional().or(z.literal("")),
-        selectedOptions: z.array(z.string().trim().max(8)).max(16).optional(),
-        shortAnswer: z.string().trim().max(10000).optional().or(z.literal("")),
-        structuredAnswer: jsonPayloadSchema,
-        essayAnswer: z.string().trim().max(10000).optional().or(z.literal("")),
-        essayScore: z.literal("").or(z.coerce.number().min(0).max(1000)).optional(),
-      }),
-    )
-    .min(1)
-    .max(100),
+  answers: answersSchema,
+});
+
+export const correctHasilUjianSchema = z.object({
+  reason: z.string().trim().min(5).max(1000),
+  answers: answersSchema,
 });

@@ -2,9 +2,9 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
-import { ConflictError, ForbiddenError, ValidationError } from "@/server/errors/application-error";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canManageClass } from "@/server/policies/access-policy";
-import { createBankSoalSchema, createUjianSchema, submitHasilUjianSchema } from "@/server/validation/exam";
+import { correctHasilUjianSchema, createBankSoalSchema, createUjianSchema, submitHasilUjianSchema } from "@/server/validation/exam";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
 
 const optionBasedTypes = new Set(["PILIHAN_GANDA", "MULTI_SELECT"]);
@@ -396,7 +396,78 @@ export async function listHasilUjian(actor: Actor) {
   return { items };
 }
 
-export async function submitHasilUjian(actor: Actor, input: unknown) {
+export async function getHasilUjianCorrectionContext(actor: Actor, hasilId: string) {
+  const hasil = await prisma.hasilUjian.findUnique({
+    where: { id: hasilId },
+    select: {
+      id: true,
+      status: true,
+      totalScore: true,
+      siswa: { select: { id: true, name: true, nomorInduk: true } },
+      ujian: {
+        select: {
+          id: true,
+          title: true,
+          kelasId: true,
+          durationMinutes: true,
+          kelas: { select: { name: true, program: { select: { name: true } } } },
+          questions: {
+            orderBy: { order: "asc" },
+            select: {
+              id: true,
+              weight: true,
+              bankSoal: {
+                select: {
+                  id: true,
+                  type: true,
+                  question: true,
+                  stimulusText: true,
+                  mediaUrl: true,
+                  expectedAnswer: true,
+                  structuredPayload: true,
+                  rubric: true,
+                  direction: true,
+                  options: { orderBy: { order: "asc" }, select: { label: true, content: true, isCorrect: true } },
+                },
+              },
+            },
+          },
+        },
+      },
+      answers: {
+        select: {
+          ujianSoalId: true,
+          selectedOption: true,
+          selectedOptions: true,
+          shortAnswer: true,
+          structuredAnswer: true,
+          essayAnswer: true,
+          score: true,
+        },
+      },
+    },
+  });
+
+  if (!hasil) {
+    throw new NotFoundError("Hasil ujian tidak ditemukan");
+  }
+
+  await assertQuestionScope(actor, hasil.ujian.kelasId);
+
+  if (!["FINAL", "CORRECTED"].includes(hasil.status)) {
+    throw new ConflictError("Hanya hasil final yang dapat dikoreksi");
+  }
+
+  return hasil;
+}
+
+type SubmitHasilUjianOptions = {
+  allowCorrection?: boolean;
+  expectedHasilId?: string;
+  correctionReason?: string;
+};
+
+export async function submitHasilUjian(actor: Actor, input: unknown, options: SubmitHasilUjianOptions = {}) {
   const parsed = submitHasilUjianSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -572,12 +643,20 @@ export async function submitHasilUjian(actor: Actor, input: unknown) {
   const item = await prisma.$transaction(async (tx) => {
     const existing = await tx.hasilUjian.findUnique({
       where: { ujianId_siswaId: { ujianId: parsed.data.ujianId, siswaId: parsed.data.siswaId } },
-      select: { id: true, status: true },
+      select: { id: true, status: true, totalScore: true },
     });
 
-    if (existing && ["FINAL", "CORRECTED"].includes(existing.status)) {
-      throw new ConflictError("Hasil ujian sudah final dan tidak dapat ditimpa");
+    if (options.expectedHasilId && existing?.id !== options.expectedHasilId) {
+      throw new ConflictError("Hasil ujian berubah sebelum koreksi diproses");
     }
+
+    if (existing && ["FINAL", "CORRECTED"].includes(existing.status)) {
+      if (!options.allowCorrection) {
+        throw new ConflictError("Hasil ujian sudah final dan tidak dapat ditimpa");
+      }
+    }
+
+    const resultStatus = needsReview ? "NEEDS_REVIEW" : options.allowCorrection ? "CORRECTED" : "FINAL";
 
     if (existing) {
       await tx.jawabanUjian.deleteMany({ where: { hasilUjianId: existing.id } });
@@ -587,7 +666,7 @@ export async function submitHasilUjian(actor: Actor, input: unknown) {
       ? await tx.hasilUjian.update({
           where: { id: existing.id },
           data: {
-            status: needsReview ? "NEEDS_REVIEW" : "FINAL",
+             status: resultStatus,
             totalScore,
             finalizedAt: needsReview ? null : new Date(),
             updatedById: actor.id,
@@ -598,7 +677,7 @@ export async function submitHasilUjian(actor: Actor, input: unknown) {
           data: {
             ujianId: parsed.data.ujianId,
             siswaId: parsed.data.siswaId,
-            status: needsReview ? "NEEDS_REVIEW" : "FINAL",
+             status: resultStatus,
             totalScore,
             finalizedAt: needsReview ? null : new Date(),
             createdById: actor.id,
@@ -623,7 +702,21 @@ export async function submitHasilUjian(actor: Actor, input: unknown) {
     });
 
     await tx.auditLog.create({
-      data: { actorId: actor.id, action: "HASIL_UJIAN_SUBMITTED", entityType: "HasilUjian", entityId: hasil.id },
+      data: {
+        actorId: actor.id,
+        action: options.allowCorrection ? "HASIL_UJIAN_CORRECTED" : "HASIL_UJIAN_SUBMITTED",
+        entityType: "HasilUjian",
+        entityId: hasil.id,
+        ...(options.allowCorrection ? {
+          reason: options.correctionReason,
+          metadata: {
+            beforeStatus: existing?.status ?? null,
+            beforeScore: existing?.totalScore?.toString() ?? null,
+            afterStatus: resultStatus,
+            afterScore: String(totalScore),
+          },
+        } : {}),
+      },
     });
 
     return hasil;
@@ -632,10 +725,30 @@ export async function submitHasilUjian(actor: Actor, input: unknown) {
   await notifyWaliForStudents({
     siswaIds: [parsed.data.siswaId],
     template: "exam-result-updated",
-    subject: needsReview ? "Jawaban ujian menunggu review" : "Nilai ujian tersedia",
-    body: needsReview ? `Jawaban ujian ${ujian.title} sudah diterima dan menunggu review guru.` : `Nilai ujian ${ujian.title} sudah final. Buka menu Nilai untuk melihat hasilnya.`,
+    subject: needsReview ? "Jawaban ujian menunggu review" : options.allowCorrection ? "Nilai ujian dikoreksi" : "Nilai ujian tersedia",
+    body: needsReview ? `Jawaban ujian ${ujian.title} sudah diterima dan menunggu review guru.` : options.allowCorrection ? `Nilai ujian ${ujian.title} telah dikoreksi guru. Buka menu Nilai untuk melihat hasil terbaru.` : `Nilai ujian ${ujian.title} sudah final. Buka menu Nilai untuk melihat hasilnya.`,
     metadata: { ujianId: ujian.id, hasilUjianId: item.id },
   });
 
   return { item };
+}
+
+export async function correctHasilUjian(actor: Actor, hasilId: string, input: unknown) {
+  const parsed = correctHasilUjianSchema.safeParse(input);
+
+  if (!parsed.success) {
+    throw new ValidationError("Data koreksi hasil ujian belum valid", parsed.error.flatten().fieldErrors);
+  }
+
+  const existing = await getHasilUjianCorrectionContext(actor, hasilId);
+
+  return submitHasilUjian(actor, {
+    ujianId: existing.ujian.id,
+    siswaId: existing.siswa.id,
+    answers: parsed.data.answers,
+  }, {
+    allowCorrection: true,
+    expectedHasilId: hasilId,
+    correctionReason: parsed.data.reason,
+  });
 }

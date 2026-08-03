@@ -217,7 +217,7 @@ Status: **Selesai di repository**
 
 1. Pisahkan penyimpanan presensi dan progres agar satu form tidak mengubah domain data lain.
 2. Batasi ringkasan dan mutation Guru pada kelas aktif yang benar-benar dikelola Guru.
-3. Normalisasi skor ujian ke skala 0-100, batasi skor manual terhadap bobot soal, dan kunci hasil final.
+3. Normalisasi skor ujian ke skala 0-100, batasi skor manual terhadap bobot soal, dan sediakan koreksi final dengan audit before/after.
 4. Tambahkan origin check/rate limit upload, validasi URL media, dan perlindungan file sensitif siswa.
 5. Tolak perubahan presensi/progres pada sesi final atau dibatalkan serta tampilkan form read-only.
 

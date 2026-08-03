@@ -20,6 +20,14 @@ type ExamQuestion = {
   };
 };
 
+export type InitialExamAnswer = {
+  selectedOption?: string | null;
+  selectedOptions?: string[];
+  shortAnswer?: string | null;
+  essayAnswer?: string | null;
+  essayScore?: string | number | null;
+};
+
 function needsManualScore(type: string) {
   return ["MENJODOHKAN", "URUTAN", "GAMBAR", "LISTENING", "SPEAKING", "WRITING", "READING", "ROLEPLAY", "ESAI"].includes(type);
 }
@@ -52,7 +60,25 @@ function getSequenceItems(payload: unknown) {
   return Array.isArray(items) ? items.map((item) => String(item || "")).filter(Boolean) : [];
 }
 
-export function HasilUjianForm({ ujianId, students, questions, durationMinutes }: { ujianId: string; students: Student[]; questions: ExamQuestion[]; durationMinutes: number }) {
+export function HasilUjianForm({
+  ujianId,
+  students,
+  questions,
+  durationMinutes,
+  mode = "input",
+  submitPath = "/api/v1/hasil-ujian",
+  initialStudentId,
+  initialAnswers = {},
+}: {
+  ujianId: string;
+  students: Student[];
+  questions: ExamQuestion[];
+  durationMinutes: number;
+  mode?: "input" | "correction";
+  submitPath?: string;
+  initialStudentId?: string;
+  initialAnswers?: Record<string, InitialExamAnswer>;
+}) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -73,14 +99,21 @@ export function HasilUjianForm({ ujianId, students, questions, durationMinutes }
         essayScore: String(data.get(`score-${question.id}`) || ""),
       }));
 
-      const response = await fetch("/api/v1/hasil-ujian", {
+      const payload = mode === "correction"
+        ? {
+            reason: String(data.get("reason") || ""),
+            answers,
+          }
+        : {
+            ujianId,
+            siswaId: String(data.get("siswaId") || ""),
+            answers,
+          };
+
+      const response = await fetch(submitPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ujianId,
-          siswaId: String(data.get("siswaId") || ""),
-          answers,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -100,11 +133,13 @@ export function HasilUjianForm({ ujianId, students, questions, durationMinutes }
   return (
     <form onSubmit={onSubmit} className="tailadmin-card space-y-4 p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="font-semibold text-gray-900">Input Hasil Offline</h2>
-        <ExamTimer durationMinutes={durationMinutes} />
+        <h2 className="font-semibold text-gray-900">{mode === "correction" ? "Koreksi Hasil Ujian" : "Input Hasil Offline"}</h2>
+        {mode === "correction" ? <span className="rounded-full bg-warning-50 px-3 py-1 text-theme-xs font-semibold text-warning-700">Perubahan diaudit</span> : <ExamTimer durationMinutes={durationMinutes} />}
       </div>
-      {error ? <p className="tailadmin-alert-error">{error}</p> : null}
-      <select name="siswaId" required className="tailadmin-input">
+      {error ? <p role="alert" className="tailadmin-alert-error">{error}</p> : null}
+      {mode === "correction" ? <input type="hidden" name="siswaId" value={initialStudentId || ""} /> : null}
+      {mode === "correction" ? <input name="reason" required minLength={5} maxLength={1000} placeholder="Alasan koreksi" className="tailadmin-input" /> : null}
+      <select disabled={mode === "correction"} name={mode === "input" ? "siswaId" : undefined} required className="tailadmin-input" defaultValue={initialStudentId || ""}>
         <option value="">Pilih siswa</option>
         {students.map((student) => (
           <option key={student.id} value={student.id}>{student.name} - {student.nomorInduk}</option>
@@ -112,13 +147,17 @@ export function HasilUjianForm({ ujianId, students, questions, durationMinutes }
       </select>
       <div className="space-y-4">
         {questions.map((question, index) => (
+          (() => {
+            const initial = initialAnswers[question.id];
+
+            return (
           <section key={question.id} className="rounded-xl bg-gray-50 p-4" dir={question.bankSoal.direction === "rtl" ? "rtl" : "ltr"}>
             <p className="text-theme-sm font-semibold text-gray-500">Soal {index + 1} / {question.bankSoal.type} / Bobot {question.weight}</p>
             {question.bankSoal.stimulusText ? <p className="mt-2 rounded-lg bg-white p-3 text-theme-sm text-gray-700">{question.bankSoal.stimulusText}</p> : null}
             {question.bankSoal.mediaUrl ? <p className="mt-2 text-theme-xs font-semibold text-brand-500">Media: {question.bankSoal.mediaUrl}</p> : null}
             <p className="mt-2 font-semibold text-gray-900">{question.bankSoal.question}</p>
             {question.bankSoal.type === "PILIHAN_GANDA" ? (
-              <select name={`selected-${question.id}`} className="tailadmin-input mt-3">
+                <select name={`selected-${question.id}`} defaultValue={initial?.selectedOption || ""} className="tailadmin-input mt-3">
                 <option value="">Tidak dijawab</option>
                 {question.bankSoal.options.map((option) => (
                   <option key={option.label} value={option.label}>{option.label}. {option.content}</option>
@@ -128,36 +167,38 @@ export function HasilUjianForm({ ujianId, students, questions, durationMinutes }
               <div className="mt-3 grid gap-2 text-theme-sm text-gray-700 sm:grid-cols-2">
                 {question.bankSoal.options.map((option) => (
                   <label key={option.label} className="rounded-lg bg-white p-3">
-                    <input name={`selected-${question.id}`} type="checkbox" value={option.label} className="mr-2 accent-brand-500" />
+                    <input name={`selected-${question.id}`} type="checkbox" value={option.label} defaultChecked={initial?.selectedOptions?.includes(option.label) || false} className="mr-2 accent-brand-500" />
                     {option.label}. {option.content}
                   </label>
                 ))}
               </div>
             ) : question.bankSoal.type === "BENAR_SALAH" ? (
-              <select name={`selected-${question.id}`} className="tailadmin-input mt-3">
+              <select name={`selected-${question.id}`} defaultValue={initial?.selectedOption || ""} className="tailadmin-input mt-3">
                 <option value="">Tidak dijawab</option>
                 <option value="benar">Benar</option>
                 <option value="salah">Salah</option>
               </select>
             ) : ["ISIAN_SINGKAT", "CLOZE"].includes(question.bankSoal.type) ? (
-              <input name={`short-${question.id}`} placeholder="Jawaban singkat siswa" className="tailadmin-input mt-3" />
+              <input name={`short-${question.id}`} defaultValue={initial?.shortAnswer || ""} placeholder="Jawaban singkat siswa" className="tailadmin-input mt-3" />
             ) : ["MENJODOHKAN", "URUTAN"].includes(question.bankSoal.type) ? (
               <div className="mt-3 grid gap-3">
                 {question.bankSoal.type === "MENJODOHKAN" ? <MatchingPreview payload={question.bankSoal.structuredPayload} /> : <SequencePreview payload={question.bankSoal.structuredPayload} />}
-                <textarea name={`essay-${question.id}`} placeholder="Catatan jawaban siswa, opsional" className="tailadmin-input min-h-20" />
-                <input name={`score-${question.id}`} type="number" min={0} step={0.1} placeholder="Skor manual, kosongkan jika perlu review" className="tailadmin-input" />
+                <textarea name={`essay-${question.id}`} defaultValue={initial?.essayAnswer || ""} placeholder="Catatan jawaban siswa, opsional" className="tailadmin-input min-h-20" />
+                <input name={`score-${question.id}`} defaultValue={initial?.essayScore?.toString() || ""} type="number" min={0} step={0.1} placeholder="Skor manual, kosongkan jika perlu review" className="tailadmin-input" />
               </div>
             ) : (
               <div className="mt-3 grid gap-3">
-                <textarea name={`essay-${question.id}`} placeholder="Jawaban, transkrip, catatan performa, atau hasil tulisan siswa" className="tailadmin-input min-h-24" />
-                {needsManualScore(question.bankSoal.type) ? <input name={`score-${question.id}`} type="number" min={0} step={0.1} placeholder="Skor manual, kosongkan jika perlu review" className="tailadmin-input" /> : null}
+                <textarea name={`essay-${question.id}`} defaultValue={initial?.essayAnswer || ""} placeholder="Jawaban, transkrip, catatan performa, atau hasil tulisan siswa" className="tailadmin-input min-h-24" />
+                {needsManualScore(question.bankSoal.type) ? <input name={`score-${question.id}`} defaultValue={initial?.essayScore?.toString() || ""} type="number" min={0} step={0.1} placeholder="Skor manual, kosongkan jika perlu review" className="tailadmin-input" /> : null}
               </div>
             )}
           </section>
+            );
+          })()
         ))}
       </div>
       <button disabled={isSubmitting} className="tailadmin-button-primary">
-        {isSubmitting ? "Menyimpan..." : "Simpan Hasil"}
+        {isSubmitting ? "Menyimpan..." : mode === "correction" ? "Simpan Koreksi" : "Simpan Hasil"}
       </button>
     </form>
   );
