@@ -64,6 +64,10 @@ try {
   const materialList = await request(`/api/v1/guru/kelas/${kelas.id}/materi`, { cookie: guru.cookie });
   assert.equal(materialList.response.status, 200);
   assert.equal(materialList.payload.data.items.some((item) => item.title === materialTitle && item.type === "PDF"), true);
+  const pagedMaterialList = await request(`/api/v1/guru/kelas/${kelas.id}/materi?page=1&pageSize=1`, { cookie: guru.cookie });
+  assert.equal(pagedMaterialList.response.status, 200);
+  assert.equal(pagedMaterialList.payload.data.pagination.pageSize, 1);
+  assert.ok(pagedMaterialList.payload.data.pagination.totalItems >= 1);
   ok("LMS materi accepts categorized PDF material");
 
   const uploadForm = new FormData();
@@ -88,6 +92,10 @@ try {
   });
   assert.equal(question.response.status, 201, JSON.stringify(question.payload));
   const bankSoalId = question.payload.data.item.id;
+  const pagedQuestionList = await request("/api/v1/bank-soal?page=1&pageSize=1", { cookie: guru.cookie });
+  assert.equal(pagedQuestionList.response.status, 200);
+  assert.equal(pagedQuestionList.payload.data.pagination.pageSize, 1);
+  assert.ok(pagedQuestionList.payload.data.pagination.totalItems >= 1);
   ok("Bank soal stores structured multiple choice questions");
 
   const examTitle = `Week2 Timed Exam ${runId}`;
@@ -110,6 +118,10 @@ try {
   const createdExam = examList.payload.data.items.find((item) => item.title === examTitle);
   assert.equal(createdExam.durationMinutes, 45);
   assert.equal(createdExam.questions.length, 1);
+  const pagedExamList = await request("/api/v1/ujian?page=1&pageSize=1", { cookie: guru.cookie });
+  assert.equal(pagedExamList.response.status, 200);
+  assert.equal(pagedExamList.payload.data.pagination.pageSize, 1);
+  assert.ok(pagedExamList.payload.data.pagination.totalItems >= 1);
   ok("Ujian stores timer duration and selected questions");
 
   const publishedNotifications = await prisma.notifikasi.findMany({ where: { template: "online-exam-published", recipient: "wali@limo.local" }, orderBy: { createdAt: "desc" }, select: { id: true, metadata: true } });
@@ -126,9 +138,13 @@ try {
       answers: [{ ujianSoalId: createdExam.questions[0].id, selectedOption: "A" }],
     },
   });
-  assert.equal(result.response.status, 201, JSON.stringify(result.payload));
+   assert.equal(result.response.status, 201, JSON.stringify(result.payload));
    assert.equal(Number(result.payload.data.item.totalScore), 100);
    assert.equal(result.payload.data.item.status, "FINAL");
+   const pagedResults = await request(`/api/v1/hasil-ujian?ujianId=${createdExam.id}&page=1&pageSize=1`, { cookie: guru.cookie });
+   assert.equal(pagedResults.response.status, 200);
+   assert.equal(pagedResults.payload.data.pagination.pageSize, 1);
+   assert.equal(pagedResults.payload.data.items.length, 1);
    ok("Pilihan ganda is auto-scored into final exam history");
 
    const lockedResult = await request("/api/v1/hasil-ujian", {

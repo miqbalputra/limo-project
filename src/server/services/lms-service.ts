@@ -4,6 +4,7 @@ import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canManageClass } from "@/server/policies/access-policy";
 import { createMateriSchema, createSesiKelasSchema } from "@/server/validation/lms";
+import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 
 function parseDate(value: string) {
   return new Date(`${value}T00:00:00.000Z`);
@@ -56,23 +57,29 @@ export async function listMyKelas(actor: Actor) {
   return { items };
 }
 
-export async function listSesiKelas(actor: Actor, kelasId: string) {
+export async function listSesiKelas(actor: Actor, kelasId: string, paginationInput?: PaginationInput) {
   await assertCanManageClass(actor, kelasId);
 
+  const where = { kelasId };
+  const pagination = resolvePagination(paginationInput, 100);
+  const totalItems = await prisma.sesiKelas.count({ where });
+  const paginationMeta = createPaginationMeta(pagination.page, pagination.pageSize, totalItems);
   const items = await prisma.sesiKelas.findMany({
-    where: { kelasId },
+    where,
     orderBy: [{ sessionDate: "desc" }, { meetingNumber: "desc" }],
-    select: {
-      id: true,
-      meetingNumber: true,
-      topic: true,
-      sessionDate: true,
-      status: true,
-      _count: { select: { presensi: true, progresBelajar: true, materi: true } },
-    },
+    skip: (paginationMeta.page - 1) * paginationMeta.pageSize,
+    take: paginationMeta.pageSize,
+      select: {
+        id: true,
+        meetingNumber: true,
+        topic: true,
+        sessionDate: true,
+        status: true,
+        _count: { select: { presensi: true, progresBelajar: true, materi: true } },
+      },
   });
 
-  return { items };
+  return { items, pagination: paginationMeta };
 }
 
 export async function createSesiKelas(actor: Actor, input: unknown) {
@@ -107,31 +114,37 @@ export async function createSesiKelas(actor: Actor, input: unknown) {
   return { item };
 }
 
-export async function listMateri(actor: Actor, kelasId: string) {
+export async function listMateri(actor: Actor, kelasId: string, paginationInput?: PaginationInput) {
   await assertCanManageClass(actor, kelasId);
 
+  const where = { kelasId };
+  const pagination = resolvePagination(paginationInput, 100);
+  const totalItems = await prisma.materi.count({ where });
+  const paginationMeta = createPaginationMeta(pagination.page, pagination.pageSize, totalItems);
   const items = await prisma.materi.findMany({
-    where: { kelasId },
+    where,
     orderBy: [{ order: "asc" }, { createdAt: "desc" }],
-    select: {
-      id: true,
-      title: true,
-      type: true,
-      status: true,
-      language: true,
-      direction: true,
-      order: true,
-      videoUrl: true,
-      files: {
-        where: { deletedAt: null },
-        select: { id: true, originalName: true, mimeType: true },
+    skip: (paginationMeta.page - 1) * paginationMeta.pageSize,
+    take: paginationMeta.pageSize,
+      select: {
+        id: true,
+        title: true,
+        type: true,
+        status: true,
+        language: true,
+        direction: true,
+        order: true,
+        videoUrl: true,
+        files: {
+          where: { deletedAt: null },
+          select: { id: true, originalName: true, mimeType: true },
+        },
+        sesiKelas: { select: { meetingNumber: true, topic: true } },
+        _count: { select: { files: true } },
       },
-      sesiKelas: { select: { meetingNumber: true, topic: true } },
-      _count: { select: { files: true } },
-    },
   });
 
-  return { items };
+  return { items, pagination: paginationMeta };
 }
 
 export async function createMateri(actor: Actor, input: unknown) {

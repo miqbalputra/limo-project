@@ -3,14 +3,21 @@ import { getClassSummary } from "@/server/services/report-service";
 import { listMateri, listSesiKelas } from "@/server/services/lms-service";
 import { MateriFileUpload, MateriForm, SesiKelasForm } from "@/components/dashboard/lms-forms";
 import { GuruRoster } from "@/components/dashboard/guru-roster";
+import { PaginationControls } from "@/components/dashboard/pagination-controls";
 
 export const metadata = { title: "Kelola Kelas" };
 
-export default async function GuruKelasDetailPage({ params }: { params: Promise<{ kelasId: string }> }) {
+export default async function GuruKelasDetailPage({ params, searchParams }: { params: Promise<{ kelasId: string }>; searchParams: Promise<{ sesiPage?: string; materiPage?: string }> }) {
   const actor = await requireActor();
   requireRole(actor, ["GURU"]);
   const { kelasId } = await params;
-  const [{ items: sesi }, { items: materi }, summary] = await Promise.all([listSesiKelas(actor, kelasId), listMateri(actor, kelasId), getClassSummary(actor, kelasId)]);
+  const { sesiPage, materiPage } = await searchParams;
+  const [{ items: sesiOptions }, { items: sesi, pagination: sesiPagination }, { items: materi, pagination: materiPagination }, summary] = await Promise.all([
+    listSesiKelas(actor, kelasId),
+    listSesiKelas(actor, kelasId, { page: Number(sesiPage) || 1, pageSize: 20 }),
+    listMateri(actor, kelasId, { page: Number(materiPage) || 1, pageSize: 20 }),
+    getClassSummary(actor, kelasId),
+  ]);
 
   return (
     <main className="space-y-6">
@@ -20,7 +27,7 @@ export default async function GuruKelasDetailPage({ params }: { params: Promise<
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <SesiKelasForm kelasId={kelasId} />
-        <MateriForm kelasId={kelasId} sesiOptions={sesi.map((item) => ({ id: item.id, label: `${item.meetingNumber}. ${item.topic}` }))} />
+        <MateriForm kelasId={kelasId} sesiOptions={sesiOptions.map((item) => ({ id: item.id, label: `${item.meetingNumber}. ${item.topic}` }))} />
       </div>
       <GuruRoster kelasId={kelasId} rows={summary.rows} />
       <section className="grid gap-4 lg:grid-cols-2">
@@ -28,6 +35,7 @@ export default async function GuruKelasDetailPage({ params }: { params: Promise<
           <h2 className="font-semibold text-gray-900">Sesi</h2>
           <div className="mt-4 space-y-3">
             {sesi.map((item) => <article key={item.id} className="rounded-xl bg-gray-50 p-3"><p className="font-semibold text-gray-900">{item.meetingNumber}. {item.topic}</p><p className="text-theme-sm text-gray-500">{new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeZone: "Asia/Jakarta" }).format(item.sessionDate)} / {item.status}</p></article>)}
+            <PaginationControls basePath={`/guru/kelas/${kelasId}`} pageParam="sesiPage" page={sesiPagination.page} totalPages={sesiPagination.totalPages} params={{ materiPage }} />
           </div>
         </div>
         <div className="tailadmin-card p-5">
@@ -52,6 +60,7 @@ export default async function GuruKelasDetailPage({ params }: { params: Promise<
                 <MateriFileUpload materiId={item.id} />
               </article>
             ))}
+            <PaginationControls basePath={`/guru/kelas/${kelasId}`} pageParam="materiPage" page={materiPagination.page} totalPages={materiPagination.totalPages} params={{ sesiPage }} />
           </div>
         </div>
       </section>

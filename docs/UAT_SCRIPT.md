@@ -77,3 +77,4 @@ Gunakan data dummy yang menyerupai kondisi LIMO. Catat temuan sebagai `blocker`,
 - Nilai ujian final tidak dapat ditimpa melalui alur input biasa dan skor tampil pada skala `0-100`.
 - Guru dapat membuka koreksi hasil final, wajib mengisi alasan, dan hasil berubah menjadi `CORRECTED` dengan audit before/after.
 - Detail kelas Guru menampilkan roster siswa aktif, pencarian nama/nomor induk, dan histori presensi/progres/nilai per siswa.
+- Daftar bank soal, ujian, hasil ujian, sesi, dan materi Guru dapat berpindah halaman tanpa kehilangan scope kelas atau parameter halaman terkait.

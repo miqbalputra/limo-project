@@ -12,7 +12,11 @@ export async function GET(request: Request) {
 
   try {
     const actor = await requireActor();
-    return apiOk(await listUjian(actor), { requestId });
+    const searchParams = new URL(request.url).searchParams;
+    const pagination = searchParams.has("page") || searchParams.has("pageSize")
+      ? { page: Number(searchParams.get("page")) || 1, pageSize: Number(searchParams.get("pageSize")) || 20 }
+      : undefined;
+    return apiOk(await listUjian(actor, pagination), { requestId });
   } catch (error) {
     return apiError(error, { requestId });
   }

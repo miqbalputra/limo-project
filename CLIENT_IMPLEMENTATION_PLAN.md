@@ -230,6 +230,15 @@ Status: **Selesai di repository**
 3. Tampilkan ringkasan presensi, progres, dan nilai dengan scoping kelas.
 4. Sediakan histori per siswa dari roster tanpa membuka data kelas lain.
 
+### Implementation Plan 5.10: Guru Server-side Pagination
+
+Status: **Selesai di repository**
+
+1. Tambahkan pagination server-side pada bank soal, ujian, hasil ujian, sesi, dan materi.
+2. Pertahankan scope Guru pada setiap query dan endpoint.
+3. Pertahankan opsi form builder lengkap ketika halaman daftar memakai pagination.
+4. Sediakan kontrol pagination accessible yang mempertahankan parameter URL terkait.
+
 ### Acceptance Criteria
 
 - Wali hanya melihat anak yang terhubung.

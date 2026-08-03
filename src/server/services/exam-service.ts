@@ -6,6 +6,7 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@
 import { canManageClass } from "@/server/policies/access-policy";
 import { correctHasilUjianSchema, createBankSoalSchema, createUjianSchema, submitHasilUjianSchema } from "@/server/validation/exam";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
+import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 
 const optionBasedTypes = new Set(["PILIHAN_GANDA", "MULTI_SELECT"]);
 const manualReviewTypes = new Set(["SPEAKING", "WRITING", "ROLEPLAY", "ESAI"]);
@@ -54,7 +55,7 @@ async function assertQuestionScope(actor: Actor, kelasId?: string | null) {
   }
 }
 
-export async function listBankSoal(actor: Actor) {
+export async function listBankSoal(actor: Actor, paginationInput?: PaginationInput) {
   if (actor.role === "WALI") {
     throw new ForbiddenError();
   }
@@ -68,10 +69,14 @@ export async function listBankSoal(actor: Actor) {
         ],
       };
 
+  const pagination = resolvePagination(paginationInput, 100);
+  const totalItems = await prisma.bankSoal.count({ where });
+  const paginationMeta = createPaginationMeta(pagination.page, pagination.pageSize, totalItems);
   const items = await prisma.bankSoal.findMany({
     where,
     orderBy: { createdAt: "desc" },
-    take: 100,
+    skip: (paginationMeta.page - 1) * paginationMeta.pageSize,
+    take: paginationMeta.pageSize,
     select: {
       id: true,
       type: true,
@@ -94,7 +99,7 @@ export async function listBankSoal(actor: Actor) {
     },
   });
 
-  return { items };
+  return { items, pagination: paginationMeta };
 }
 
 export async function createBankSoal(actor: Actor, input: unknown) {
@@ -189,7 +194,7 @@ function parseDate(value: string | undefined) {
   return value ? new Date(`${value}T00:00:00.000Z`) : undefined;
 }
 
-export async function listUjian(actor: Actor) {
+export async function listUjian(actor: Actor, paginationInput?: PaginationInput) {
   if (actor.role === "WALI") {
     throw new ForbiddenError();
   }
@@ -198,10 +203,14 @@ export async function listUjian(actor: Actor) {
     ? {}
     : { kelas: { guruProfile: { userId: actor.id } } };
 
+  const pagination = resolvePagination(paginationInput, 100);
+  const totalItems = await prisma.ujian.count({ where });
+  const paginationMeta = createPaginationMeta(pagination.page, pagination.pageSize, totalItems);
   const items = await prisma.ujian.findMany({
     where,
     orderBy: { createdAt: "desc" },
-    take: 100,
+    skip: (paginationMeta.page - 1) * paginationMeta.pageSize,
+    take: paginationMeta.pageSize,
     select: {
       id: true,
       title: true,
@@ -228,7 +237,7 @@ export async function listUjian(actor: Actor) {
     },
   });
 
-  return { items };
+  return { items, pagination: paginationMeta };
 }
 
 export async function createUjian(actor: Actor, input: unknown) {
@@ -371,17 +380,22 @@ export async function getUjianInputContext(actor: Actor, ujianId: string) {
   return { ujian, students: students.items };
 }
 
-export async function listHasilUjian(actor: Actor) {
+export async function listHasilUjian(actor: Actor, options: PaginationInput & { ujianId?: string } = {}) {
   if (actor.role === "WALI") {
     throw new ForbiddenError();
   }
 
-  const where = actor.role === "ADMIN" ? {} : { ujian: { kelas: { guruProfile: { userId: actor.id } } } };
+  const scopeWhere = actor.role === "ADMIN" ? {} : { ujian: { kelas: { guruProfile: { userId: actor.id } } } };
+  const where = { ...scopeWhere, ...(options.ujianId ? { ujianId: options.ujianId } : {}) };
+  const pagination = resolvePagination(options, 100);
 
+  const totalItems = await prisma.hasilUjian.count({ where });
+  const paginationMeta = createPaginationMeta(pagination.page, pagination.pageSize, totalItems);
   const items = await prisma.hasilUjian.findMany({
     where,
     orderBy: { createdAt: "desc" },
-    take: 100,
+    skip: (paginationMeta.page - 1) * paginationMeta.pageSize,
+    take: paginationMeta.pageSize,
     select: {
       id: true,
       status: true,
@@ -393,7 +407,7 @@ export async function listHasilUjian(actor: Actor) {
     },
   });
 
-  return { items };
+  return { items, pagination: paginationMeta };
 }
 
 export async function getHasilUjianCorrectionContext(actor: Actor, hasilId: string) {

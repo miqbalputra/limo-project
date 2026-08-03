@@ -3,14 +3,16 @@ import { requireActor, requireRole } from "@/server/auth/session";
 import { listBankSoal, listUjian } from "@/server/services/exam-service";
 import { listMyKelas } from "@/server/services/lms-service";
 import { UjianForm } from "@/components/dashboard/ujian-form";
+import { PaginationControls } from "@/components/dashboard/pagination-controls";
 
 export const metadata = { title: "Ujian" };
 
-export default async function GuruUjianPage() {
+export default async function GuruUjianPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const actor = await requireActor();
   requireRole(actor, ["GURU"]);
-  const [{ items: ujian }, { items: kelas }, { items: soal }] = await Promise.all([
-    listUjian(actor),
+  const { page } = await searchParams;
+  const [{ items: ujian, pagination }, { items: kelas }, { items: soal }] = await Promise.all([
+    listUjian(actor, { page: Number(page) || 1, pageSize: 20 }),
     listMyKelas(actor),
     listBankSoal(actor),
   ]);
@@ -42,6 +44,7 @@ export default async function GuruUjianPage() {
           </article>
         ))}
       </section>
+      <PaginationControls basePath="/guru/ujian" page={pagination.page} totalPages={pagination.totalPages} />
     </main>
   );
 }

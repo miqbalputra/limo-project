@@ -2,13 +2,15 @@ import { requireActor, requireRole } from "@/server/auth/session";
 import { listBankSoal } from "@/server/services/exam-service";
 import { listMyKelas } from "@/server/services/lms-service";
 import { BankSoalForm } from "@/components/dashboard/bank-soal-form";
+import { PaginationControls } from "@/components/dashboard/pagination-controls";
 
 export const metadata = { title: "Bank Soal" };
 
-export default async function GuruBankSoalPage() {
+export default async function GuruBankSoalPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const actor = await requireActor();
   requireRole(actor, ["GURU"]);
-  const [{ items: soal }, { items: kelas }] = await Promise.all([listBankSoal(actor), listMyKelas(actor)]);
+  const { page } = await searchParams;
+  const [{ items: soal, pagination }, { items: kelas }] = await Promise.all([listBankSoal(actor, { page: Number(page) || 1, pageSize: 20 }), listMyKelas(actor)]);
 
   return (
     <main className="space-y-6">
@@ -43,6 +45,7 @@ export default async function GuruBankSoalPage() {
           </article>
         ))}
       </section>
+      <PaginationControls basePath="/guru/bank-soal" page={pagination.page} totalPages={pagination.totalPages} />
     </main>
   );
 }
