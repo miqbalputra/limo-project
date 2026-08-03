@@ -173,6 +173,46 @@ export async function getClassSummary(actor: Actor, kelasId: string) {
   return { kelas, rows };
 }
 
+export async function getClassStudentHistory(actor: Actor, kelasId: string, siswaId: string) {
+  const allowed = await canManageClass(actor, kelasId);
+
+  if (!allowed) {
+    throw new ForbiddenError("Anda tidak memiliki akses ke kelas ini");
+  }
+
+  const enrollment = await prisma.kelasSiswa.findFirst({
+    where: { kelasId, siswaId, status: "ACTIVE" },
+    select: {
+      siswa: { select: { id: true, name: true, nomorInduk: true } },
+      kelas: { select: { id: true, name: true, program: { select: { name: true } }, level: { select: { name: true } } } },
+    },
+  });
+
+  if (!enrollment) {
+    throw new NotFoundError("Siswa tidak ditemukan pada kelas ini");
+  }
+
+  const [presensi, progres, hasil] = await Promise.all([
+    prisma.presensi.findMany({
+      where: { siswaId, sesiKelas: { kelasId } },
+      orderBy: { sesiKelas: { sessionDate: "desc" } },
+      select: { status: true, note: true, sesiKelas: { select: { meetingNumber: true, topic: true, sessionDate: true } } },
+    }),
+    prisma.progresBelajar.findMany({
+      where: { siswaId, sesiKelas: { kelasId } },
+      orderBy: { sesiKelas: { sessionDate: "desc" } },
+      select: { category: true, understandingScore: true, publicNote: true, internalNote: true, sesiKelas: { select: { meetingNumber: true, topic: true, sessionDate: true } } },
+    }),
+    prisma.hasilUjian.findMany({
+      where: { siswaId, ujian: { kelasId } },
+      orderBy: { updatedAt: "desc" },
+      select: { status: true, totalScore: true, updatedAt: true, ujian: { select: { title: true } } },
+    }),
+  ]);
+
+  return { kelas: enrollment.kelas, siswa: enrollment.siswa, presensi, progres, hasil };
+}
+
 export type AdminReportPeriod = { from: Date; to: Date; fromValue: string; toValue: string };
 
 export function parseAdminReportPeriod(fromValue?: string, toValue?: string): AdminReportPeriod {

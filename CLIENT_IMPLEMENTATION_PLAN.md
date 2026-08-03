@@ -221,6 +221,15 @@ Status: **Selesai di repository**
 4. Tambahkan origin check/rate limit upload, validasi URL media, dan perlindungan file sensitif siswa.
 5. Tolak perubahan presensi/progres pada sesi final atau dibatalkan serta tampilkan form read-only.
 
+### Implementation Plan 5.9: Guru Roster and Student History
+
+Status: **Selesai di repository**
+
+1. Tampilkan roster siswa aktif pada detail kelas Guru.
+2. Sediakan pencarian berdasarkan nama atau nomor induk.
+3. Tampilkan ringkasan presensi, progres, dan nilai dengan scoping kelas.
+4. Sediakan histori per siswa dari roster tanpa membuka data kelas lain.
+
 ### Acceptance Criteria
 
 - Wali hanya melihat anak yang terhubung.

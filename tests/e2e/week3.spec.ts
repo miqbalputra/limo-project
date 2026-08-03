@@ -17,6 +17,17 @@ test("Week 3 guru attendance and progress UI is mobile friendly", async ({ page 
   await login(page, "guru@limo.local");
   await expect(page).toHaveURL(/\/guru$/, { timeout: 15_000 });
 
+  await page.goto("/guru/kelas");
+  const classHref = await page.getByRole("link", { name: "Kelola Kelas" }).first().getAttribute("href");
+  expect(classHref).toBeTruthy();
+  await page.goto(classHref || "/guru/kelas");
+  await expect(page.getByRole("heading", { name: "Roster Siswa" })).toBeVisible();
+  await expect(page.getByPlaceholder("Cari nama atau nomor induk")).toBeVisible();
+  await expect(page.getByText("Ahmad Dev").first()).toBeVisible();
+  await page.getByRole("link", { name: "Ahmad Dev" }).first().click();
+  await expect(page.getByRole("heading", { name: "Histori Ahmad Dev" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Presensi" })).toBeVisible();
+
   await page.goto("/guru/presensi");
   await expect(page.getByRole("heading", { name: "Presensi" })).toBeVisible();
   const inputHref = await page.getByRole("link", { name: "Input" }).first().getAttribute("href");

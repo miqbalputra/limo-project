@@ -76,3 +76,4 @@ Gunakan data dummy yang menyerupai kondisi LIMO. Catat temuan sebagai `blocker`,
 - Ringkasan Guru hanya menampilkan data kelas yang dikelola; sesi `FINAL`/`CANCELLED` tampil read-only.
 - Nilai ujian final tidak dapat ditimpa melalui alur input biasa dan skor tampil pada skala `0-100`.
 - Guru dapat membuka koreksi hasil final, wajib mengisi alasan, dan hasil berubah menjadi `CORRECTED` dengan audit before/after.
+- Detail kelas Guru menampilkan roster siswa aktif, pencarian nama/nomor induk, dan histori presensi/progres/nilai per siswa.

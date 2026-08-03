@@ -1,13 +1,16 @@
 import { requireActor, requireRole } from "@/server/auth/session";
-import { getClassSummary } from "@/server/services/report-service";
+import { getClassStudentHistory, getClassSummary } from "@/server/services/report-service";
+import { GuruStudentHistory } from "@/components/dashboard/guru-student-history";
 
 export const metadata = { title: "Ringkasan Kelas" };
 
-export default async function GuruKelasRingkasanPage({ params }: { params: Promise<{ kelasId: string }> }) {
+export default async function GuruKelasRingkasanPage({ params, searchParams }: { params: Promise<{ kelasId: string }>; searchParams: Promise<{ siswaId?: string }> }) {
   const actor = await requireActor();
   requireRole(actor, ["GURU"]);
   const { kelasId } = await params;
+  const { siswaId } = await searchParams;
   const summary = await getClassSummary(actor, kelasId);
+  const studentHistory = siswaId ? await getClassStudentHistory(actor, kelasId, siswaId) : null;
 
   return (
     <main className="space-y-6">
@@ -15,6 +18,7 @@ export default async function GuruKelasRingkasanPage({ params }: { params: Promi
         <p className="text-theme-sm font-semibold text-brand-500">{summary.kelas.program.name} / {summary.kelas.level.name}</p>
         <h1 className="mt-1 tailadmin-page-title">Ringkasan {summary.kelas.name}</h1>
       </div>
+      {studentHistory ? <GuruStudentHistory history={studentHistory} /> : null}
       <section className="tailadmin-card overflow-hidden">
         <div className="hidden grid-cols-[1fr_120px_160px_120px] gap-4 border-b border-gray-200 bg-gray-50 px-5 py-3 text-theme-sm font-semibold text-gray-600 md:grid">
           <span>Siswa</span><span>Kehadiran</span><span>Pemahaman</span><span>Nilai</span>

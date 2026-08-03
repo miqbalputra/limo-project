@@ -69,6 +69,21 @@ try {
     select: { siswaId: true },
   });
 
+  const guruClassPage = await request(`/guru/kelas/${sesi.kelasId}`, { cookie: guru.cookie });
+  assert.equal(guruClassPage.response.status, 200);
+  assert.match(String(guruClassPage.payload), /Roster Siswa/);
+  assert.match(String(guruClassPage.payload), /Ahmad Dev/);
+  assert.match(String(guruClassPage.payload), /Cari nama atau nomor induk/);
+  ok("Guru class detail exposes a scoped searchable student roster");
+
+  const guruStudentHistory = await request(`/guru/kelas/${sesi.kelasId}/ringkasan?siswaId=${enrollment.siswaId}`, { cookie: guru.cookie });
+  assert.equal(guruStudentHistory.response.status, 200);
+  assert.match(String(guruStudentHistory.payload), /Histori/);
+  assert.match(String(guruStudentHistory.payload), /Ahmad Dev/);
+  assert.match(String(guruStudentHistory.payload), /Presensi/);
+  assert.match(String(guruStudentHistory.payload), /Nilai/);
+  ok("Guru can open one student's class-scoped history");
+
   const onlineExam = await prisma.ujian.findFirstOrThrow({
     where: { title: "LIMO SD Assessment Types Demo", status: "PUBLISHED", deliveryMode: "ONLINE_VIA_WALI", questions: { some: {} }, kelas: { enrollments: { some: { siswaId: enrollment.siswaId, status: "ACTIVE" } } } },
     select: { id: true },

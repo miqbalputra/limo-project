@@ -1,6 +1,8 @@
 import { requireActor, requireRole } from "@/server/auth/session";
+import { getClassSummary } from "@/server/services/report-service";
 import { listMateri, listSesiKelas } from "@/server/services/lms-service";
 import { MateriFileUpload, MateriForm, SesiKelasForm } from "@/components/dashboard/lms-forms";
+import { GuruRoster } from "@/components/dashboard/guru-roster";
 
 export const metadata = { title: "Kelola Kelas" };
 
@@ -8,7 +10,7 @@ export default async function GuruKelasDetailPage({ params }: { params: Promise<
   const actor = await requireActor();
   requireRole(actor, ["GURU"]);
   const { kelasId } = await params;
-  const [{ items: sesi }, { items: materi }] = await Promise.all([listSesiKelas(actor, kelasId), listMateri(actor, kelasId)]);
+  const [{ items: sesi }, { items: materi }, summary] = await Promise.all([listSesiKelas(actor, kelasId), listMateri(actor, kelasId), getClassSummary(actor, kelasId)]);
 
   return (
     <main className="space-y-6">
@@ -20,6 +22,7 @@ export default async function GuruKelasDetailPage({ params }: { params: Promise<
         <SesiKelasForm kelasId={kelasId} />
         <MateriForm kelasId={kelasId} sesiOptions={sesi.map((item) => ({ id: item.id, label: `${item.meetingNumber}. ${item.topic}` }))} />
       </div>
+      <GuruRoster kelasId={kelasId} rows={summary.rows} />
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="tailadmin-card p-5">
           <h2 className="font-semibold text-gray-900">Sesi</h2>
