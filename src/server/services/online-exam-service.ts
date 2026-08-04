@@ -139,7 +139,7 @@ async function getStudentTaskRows(waliProfileId: string, siswaId: string) {
         select: { id: true, status: true, submittedAt: true, hasilUjianId: true, expiresAt: true },
       },
       results: {
-        where: { siswaId },
+        where: { siswaId, ujian: { showResultToWali: true } },
         take: 1,
         select: { id: true, status: true, totalScore: true, finalizedAt: true },
       },
@@ -202,36 +202,42 @@ export async function startWaliExamAttempt(actor: Actor, siswaId: string, ujianI
   }
 
   const activeAttempt = await prisma.ujianAttempt.findFirst({
-    where: { ujianId, siswaId, waliProfileId: profile.id, status: "IN_PROGRESS" },
+    where: { ujianId, siswaId, status: "IN_PROGRESS" },
     orderBy: { createdAt: "desc" },
-    select: { id: true, expiresAt: true },
+    select: { id: true, expiresAt: true, waliProfileId: true },
   });
 
   if (activeAttempt) {
     if (!activeAttempt.expiresAt || activeAttempt.expiresAt > new Date()) {
+      if (activeAttempt.waliProfileId !== profile.id) {
+        throw new ConflictError("Ujian sedang dikerjakan oleh Wali lain");
+      }
+
       return { attemptId: activeAttempt.id };
     }
 
     await prisma.ujianAttempt.update({ where: { id: activeAttempt.id }, data: { status: "EXPIRED" } });
   }
 
-  const attemptCount = await prisma.ujianAttempt.count({
-    where: { ujianId, siswaId, waliProfileId: profile.id, status: { not: "CANCELLED" } },
-  });
+  const attempt = await prisma.$transaction(async (tx) => {
+    const attemptCount = await tx.ujianAttempt.count({
+      where: { ujianId, siswaId, status: { not: "CANCELLED" } },
+    });
 
-  if (attemptCount >= ujian.maxAttempts) {
-    throw new ConflictError("Batas pengerjaan ujian sudah tercapai");
-  }
+    if (attemptCount >= ujian.maxAttempts) {
+      throw new ConflictError("Batas pengerjaan ujian sudah tercapai");
+    }
 
-  const attempt = await prisma.ujianAttempt.create({
-    data: {
-      ujianId,
-      siswaId,
-      waliProfileId: profile.id,
-      status: "IN_PROGRESS",
-      expiresAt: new Date(Date.now() + ujian.durationMinutes * 60 * 1000),
-    },
-    select: { id: true },
+    return tx.ujianAttempt.create({
+      data: {
+        ujianId,
+        siswaId,
+        waliProfileId: profile.id,
+        status: "IN_PROGRESS",
+        expiresAt: new Date(Date.now() + ujian.durationMinutes * 60 * 1000),
+      },
+      select: { id: true },
+    });
   });
 
   await prisma.auditLog.create({ data: { actorId: actor.id, action: "UJIAN_ATTEMPT_STARTED", entityType: "UjianAttempt", entityId: attempt.id } });

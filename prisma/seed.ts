@@ -638,6 +638,12 @@ async function main() {
       data: { name: "SPP Bulanan Demo", programId: englishProgram.id, amount: "450000", effectiveFrom: new Date("2026-07-01T00:00:00.000Z") },
     });
   }
+  let monthlyArabicTarif = await prisma.tarif.findFirst({ where: { name: "SPP Bulanan Demo Arabic" } });
+  if (!monthlyArabicTarif) {
+    monthlyArabicTarif = await prisma.tarif.create({
+      data: { name: "SPP Bulanan Demo Arabic", programId: arabicProgram.id, amount: "350000", effectiveFrom: new Date("2026-07-01T00:00:00.000Z") },
+    });
+  }
 
   for (const input of [
     { siswaId: siswaA.id, status: TagihanStatus.UNPAID, dueDate: new Date("2026-08-10T00:00:00.000Z") },
@@ -646,16 +652,17 @@ async function main() {
     { siswaId: siswaD.id, status: TagihanStatus.OVERDUE, dueDate: new Date("2026-07-05T00:00:00.000Z") },
     { siswaId: siswaE.id, status: TagihanStatus.CANCELLED, dueDate: new Date("2026-08-10T00:00:00.000Z") },
   ]) {
+    const tarif = input.siswaId === siswaC.id || input.siswaId === siswaE.id ? monthlyArabicTarif : monthlyTarif;
     const tagihan = await prisma.tagihan.upsert({
       where: { siswaId_periode_jenis: { siswaId: input.siswaId, periode: new Date("2026-08-01T00:00:00.000Z"), jenis: "SPP" } },
-      update: { status: input.status, dueDate: input.dueDate, paidAt: input.paidAt },
+      update: { status: input.status, dueDate: input.dueDate, paidAt: input.paidAt, tarifId: tarif.id, amount: tarif.amount },
       create: {
         siswaId: input.siswaId,
-        tarifId: monthlyTarif.id,
+        tarifId: tarif.id,
         periode: new Date("2026-08-01T00:00:00.000Z"),
         jenis: "SPP",
         description: "SPP Bulanan Demo",
-        amount: "450000",
+        amount: tarif.amount,
         status: input.status,
         dueDate: input.dueDate,
         paidAt: input.paidAt,
@@ -674,7 +681,7 @@ async function main() {
         },
         create: {
           tagihanId: tagihan.id,
-          provider: "pakasir",
+          provider: "mayar",
           providerReference: tagihan.id,
           amount: tagihan.amount,
           status: input.status === TagihanStatus.PAID ? PembayaranStatus.PAID : PembayaranStatus.PENDING,
@@ -1117,7 +1124,7 @@ async function main() {
       { actorId: admin.id, action: "PENDAFTARAN_REVIEWED", entityType: "Pendaftaran", entityId: "seed-demo", reason: "Contoh audit review pendaftaran", metadata: { status: "APPROVED" } },
       { actorId: guruUser.id, action: "MATERI_CREATED", entityType: "Materi", entityId: "seed-demo", metadata: { title: "Greeting Flashcards" } },
       { actorId: guruUser.id, action: "UJIAN_CREATED", entityType: "Ujian", entityId: "seed-demo", metadata: { title: "Mid Semester Demo English" } },
-      { actorId: admin.id, action: "PAYMENT_RECONCILED", entityType: "Pembayaran", entityId: "seed-demo", reason: "Contoh audit rekonsiliasi pembayaran", metadata: { provider: "pakasir" } },
+      { actorId: admin.id, action: "PAYMENT_RECONCILED", entityType: "Pembayaran", entityId: "seed-demo", reason: "Contoh audit rekonsiliasi pembayaran", metadata: { provider: "manual" } },
     ],
   });
 

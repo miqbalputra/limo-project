@@ -76,7 +76,7 @@ Target test berikutnya sesuai `IMPLEMENTATION_PLAN.md`:
 - Authorized file download.
 - Scoping Guru/Wali.
 - Generate tagihan dua kali tanpa duplikasi.
-- Webhook Pakasir duplicate/signature/amount mismatch.
+- Webhook Mayar duplicate/secret/merchant/amount mismatch.
 - Flow E2E pendaftaran sampai pembayaran.
 
 ## Job Terjadwal

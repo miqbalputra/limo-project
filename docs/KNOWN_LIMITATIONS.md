@@ -6,21 +6,19 @@ Dokumen ini mencatat gap MVP saat ini agar tidak dianggap selesai diam-diam.
 
 - Migration database nyata belum dijalankan di environment ini karena Docker CLI/MariaDB belum tersedia.
 - Acceptance test SQLite dan E2E Playwright sudah tersedia; parity test MariaDB production belum dijalankan di environment ini.
-- Warning Turbopack terkait dynamic filesystem tracing private storage masih muncul tetapi build sukses.
 - Rate limit aplikasi masih in-process; deployment multi-instance tetap membutuhkan Redis atau rate limit di reverse proxy.
 
 ## Payment
 
-- Webhook Pakasir menerima payload resmi tanpa signature; jika `PAKASIR_WEBHOOK_SECRET` diisi, signature HMAC SHA-256 `x-pakasir-signature` tetap divalidasi sebagai hardening tambahan.
-- Jika `PAKASIR_API_KEY` tersedia, webhook diverifikasi ulang ke Transaction Detail API Pakasir sebelum status pembayaran diterima.
-- Create payment QRIS/VA ke Pakasir sudah tersedia: API Pakasir dipakai ketika `PAKASIR_API_KEY` tersedia, dan fallback link resmi dipakai ketika hanya `PAKASIR_PROJECT` yang dikonfigurasi.
-- Kredensial production Pakasir dan UAT end-to-end di merchant nyata belum dilakukan di environment ini.
+- Mayar menjadi provider pembayaran resmi. Webhook dilindungi secret LIMO dan validasi merchant/nominal jika credential production sudah dikonfigurasi.
+- Reconciliation Mayar menggunakan detail invoice API melalui `npm run mayar:reconcile`.
+- Kredensial production Mayar dan UAT end-to-end di merchant nyata belum dilakukan di environment ini.
 - Redirect browser tidak mengubah status pembayaran, sesuai PRD.
 
 ## Notifikasi
 
-- Provider email SMTP sudah tersedia untuk production awal melalui `NOTIFICATION_PROVIDER=email` dan script `npm run notifications:retry`.
-- Provider WhatsApp nyata belum diimplementasikan; gunakan email sebagai kanal production awal sampai vendor WhatsApp dipilih.
+- Provider email SMTP tersedia melalui `NOTIFICATION_PROVIDER=email` dan script `npm run notifications:retry`.
+- Provider n8n tersedia untuk email/WhatsApp; pengiriman WhatsApp tetap dilakukan oleh workflow GOWA eksternal, bukan langsung dari LIMO.
 
 ## UI/UX
 
@@ -31,11 +29,11 @@ Dokumen ini mencatat gap MVP saat ini agar tidak dianggap selesai diam-diam.
 ## Akademik
 
 - Online exam MVP via akun wali sudah tersedia untuk tipe soal dasar; autosave/resume, network-loss warning, global child selector, materi Wali, operational notification triggers, dan FAQ/pusat bantuan tersedia. Recording speaking, matching/sequencing interaktif, dan akun siswa mandiri masih menjadi backlog.
-- Hasil `FINAL`/`CORRECTED` sudah dikunci dari input biasa; workflow koreksi Guru tersedia melalui endpoint dan halaman koreksi dengan audit before/after.
-- Halaman materi untuk Wali belum expose penuh.
+- Hasil `NEEDS_REVIEW`, `FINAL`, dan `CORRECTED` memiliki jalur review/koreksi Guru; hasil final tetap dikunci dari input biasa.
+- Sesi Guru memiliki workflow finalisasi yang mengunci presensi dan progres setelah data lengkap.
 
 ## Operasional
 
-- Backup/restore belum diuji nyata.
+- Backup/restore terjadwal, SQL import, ZIP checksum, dan endpoint n8n sudah tersedia; belum diuji nyata terhadap MariaDB staging serta storage off-site.
 - Nginx/PM2 config final belum dibuat sebagai file deploy siap pakai.
 - Domain/staging/credential provider masih open decision.

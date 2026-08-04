@@ -1,4 +1,6 @@
 export const APP_TIME_ZONE = "Asia/Jakarta";
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type JakartaDateParts = {
   year: number;
@@ -43,4 +45,14 @@ export function formatJakartaDate(date = new Date()) {
 export function formatJakartaPeriod(date = new Date()) {
   const parts = getJakartaDateParts(date);
   return `${parts.year}-${String(parts.month).padStart(2, "0")}`;
+}
+
+export function getJakartaDayRange(startOffsetDays = 0, endOffsetDays = 1) {
+  const { year, month, day } = getJakartaDateParts();
+  const base = Date.UTC(year, month - 1, day) - JAKARTA_OFFSET_MS;
+
+  return {
+    start: new Date(base + startOffsetDays * DAY_MS),
+    end: new Date(base + endOffsetDays * DAY_MS),
+  };
 }

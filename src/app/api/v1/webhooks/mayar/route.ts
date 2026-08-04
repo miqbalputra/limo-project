@@ -1,6 +1,6 @@
 import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
-import { processPakasirWebhook } from "@/server/services/payment-service";
+import { processMayarWebhook } from "@/server/services/payment-service";
 
 export const runtime = "nodejs";
 
@@ -9,12 +9,9 @@ export async function POST(request: Request) {
 
   try {
     const rawBody = await request.text();
-    const result = await processPakasirWebhook({
-      rawBody,
-      signature: request.headers.get("x-pakasir-signature"),
-    });
-
-    return apiOk(result, { requestId });
+    const url = new URL(request.url);
+    const secret = request.headers.get("x-mayar-webhook-secret") || url.searchParams.get("secret");
+    return apiOk(await processMayarWebhook({ rawBody, secret }), { requestId });
   } catch (error) {
     return apiError(error, { requestId });
   }

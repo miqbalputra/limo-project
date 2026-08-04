@@ -2,8 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { FormFieldError } from "@/components/dashboard/form-field-error";
 
 type KelasOption = { id: string; name: string };
+type FieldErrors = Record<string, string[]>;
 
 const questionTypes = [
   { value: "PILIHAN_GANDA", label: "Pilihan Ganda", hint: "Satu jawaban benar, auto-score." },
@@ -66,6 +68,7 @@ function buildStructuredPayload(data: FormData, type: string) {
 export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [type, setType] = useState("PILIHAN_GANDA");
 
@@ -78,6 +81,7 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setFieldErrors({});
     setIsSubmitting(true);
       const data = new FormData(event.currentTarget);
       const type = String(data.get("type") || "PILIHAN_GANDA");
@@ -118,7 +122,8 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
         });
 
       if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
+        const payload = (await response.json().catch(() => ({}))) as { error?: { message?: string; fields?: FieldErrors } };
+        setFieldErrors(payload.error?.fields || {});
         throw new Error(payload.error?.message || "Soal gagal disimpan");
       }
 
@@ -136,15 +141,17 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
     <form onSubmit={onSubmit} className="tailadmin-card grid gap-3 p-5">
       <h2 className="font-semibold text-gray-900">Tambah Bank Soal</h2>
       {error ? <p className="tailadmin-alert-error">{error}</p> : null}
-      <select name="kelasId" className="tailadmin-input">
+      <select name="kelasId" aria-invalid={Boolean(fieldErrors.kelasId)} aria-describedby="soal-class-error" className="tailadmin-input">
         <option value="">Umum / tidak terikat kelas</option>
         {kelasOptions.map((kelas) => <option key={kelas.id} value={kelas.id}>{kelas.name}</option>)}
       </select>
-      <select name="type" value={type} onChange={(event) => setType(event.target.value)} className="tailadmin-input">
+      <FormFieldError id="soal-class-error" errors={fieldErrors.kelasId} />
+      <select name="type" value={type} onChange={(event) => setType(event.target.value)} aria-invalid={Boolean(fieldErrors.type)} aria-describedby="soal-type-error" className="tailadmin-input">
         {questionTypes.map((item) => (
           <option key={item.value} value={item.value}>{item.label}</option>
         ))}
       </select>
+      <FormFieldError id="soal-type-error" errors={fieldErrors.type} />
       <p className="text-theme-xs text-gray-500">{questionTypes.find((item) => item.value === type)?.hint}</p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -195,7 +202,8 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
       </div>
       <textarea name="stimulusText" placeholder="Stimulus: teks bacaan, dialog, instruksi audio, atau konteks roleplay" className="tailadmin-input min-h-20" />
       {usesMedia ? <input name="mediaUrl" placeholder="URL media privat/publik: gambar, audio, atau bahan bacaan" className="tailadmin-input" /> : null}
-      <textarea name="question" required placeholder="Tulis pertanyaan atau prompt untuk siswa" className="tailadmin-input min-h-28" />
+      <textarea name="question" required placeholder="Tulis pertanyaan atau prompt untuk siswa" aria-invalid={Boolean(fieldErrors.question)} aria-describedby="soal-question-error" className="tailadmin-input min-h-28" />
+      <FormFieldError id="soal-question-error" errors={fieldErrors.question} />
       {usesOptions ? (
         <div className="grid gap-3">
           <div className="grid gap-3 sm:grid-cols-2">

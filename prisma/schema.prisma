@@ -706,6 +706,8 @@ model Notifikasi {
   body       String                 @db.Text
   status     NotificationStatus     @default(PENDING)
   metadata   Json?
+  dedupeKey  String?                @unique
+  readAt     DateTime?
   createdAt  DateTime               @default(now())
   updatedAt  DateTime               @updatedAt
   deliveries NotificationDelivery[]

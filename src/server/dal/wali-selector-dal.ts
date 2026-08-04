@@ -1,8 +1,6 @@
-import "server-only";
-import { cookies } from "next/headers";
-import type { Actor } from "@/server/auth/session";
-import { prisma } from "@/server/db/prisma";
-import { WALI_ALL_CHILDREN_VALUE, WALI_SELECTED_CHILD_COOKIE } from "@/lib/wali-selector";
+import type { Actor } from "../auth/session.ts";
+import { prisma } from "../db/prisma.ts";
+import { WALI_ALL_CHILDREN_VALUE, WALI_SELECTED_CHILD_COOKIE } from "../../lib/wali-selector.ts";
 
 export async function listWaliSelectorChildren(actor: Actor) {
   if (actor.role !== "WALI") {
@@ -10,7 +8,7 @@ export async function listWaliSelectorChildren(actor: Actor) {
   }
 
   const relations = await prisma.waliSiswa.findMany({
-    where: { endedAt: null, waliProfile: { userId: actor.id } },
+    where: { endedAt: null, siswa: { status: "ACTIVE", deletedAt: null }, waliProfile: { userId: actor.id } },
     orderBy: { siswa: { name: "asc" } },
     select: { siswa: { select: { id: true, name: true, nomorInduk: true } } },
   });
@@ -23,6 +21,7 @@ export async function getSelectedWaliStudentId(actor: Actor) {
     return null;
   }
 
+  const { cookies } = await import("next/headers");
   const selectedId = (await cookies()).get(WALI_SELECTED_CHILD_COOKIE)?.value;
 
   if (!selectedId || selectedId === WALI_ALL_CHILDREN_VALUE) {
@@ -30,7 +29,7 @@ export async function getSelectedWaliStudentId(actor: Actor) {
   }
 
   const relation = await prisma.waliSiswa.findFirst({
-    where: { siswaId: selectedId, endedAt: null, waliProfile: { userId: actor.id } },
+    where: { siswaId: selectedId, endedAt: null, siswa: { status: "ACTIVE", deletedAt: null }, waliProfile: { userId: actor.id } },
     select: { siswaId: true },
   });
 

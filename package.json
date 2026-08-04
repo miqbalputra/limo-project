@@ -27,10 +27,13 @@
     "billing:generate": "node --experimental-strip-types scripts/generate-monthly-invoices.ts",
     "billing:mark-overdue": "node --experimental-strip-types scripts/mark-overdue-invoices.ts",
     "sessions:cleanup": "node --experimental-strip-types scripts/cleanup-expired-sessions.ts",
-    "notifications:retry": "node --experimental-strip-types scripts/retry-notifications.ts"
+    "notifications:retry": "node --experimental-strip-types scripts/retry-notifications.ts",
+    "mayar:reconcile": "node --experimental-strip-types scripts/reconcile-mayar-payments.ts",
+    "backup:create": "node --experimental-strip-types scripts/backup.ts",
+    "backup:restore": "node --experimental-strip-types scripts/restore.ts"
   },
   "prisma": {
-    "seed": "node --experimental-strip-types prisma/seed.ts"
+    "seed": "node --experimental-strip-types scripts/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.13.0",

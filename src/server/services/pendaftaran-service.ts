@@ -1,5 +1,6 @@
 import "server-only";
 import type { Actor } from "@/server/auth/session";
+import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 import { hashPassword, normalizeEmail } from "@/server/auth/password";
 import { createPasswordResetGrant } from "@/server/auth/password-reset";
 import { prisma } from "@/server/db/prisma";
@@ -156,34 +157,39 @@ export async function lookupPendaftaranStatus(input: unknown, context: { ipAddre
   return { pendaftaran };
 }
 
-export async function listPendaftaran(actor: Actor) {
+export async function listPendaftaran(actor: Actor, paginationInput: PaginationInput = {}) {
   if (actor.role !== "ADMIN") {
     throw new ForbiddenError();
   }
 
-  const items = await prisma.pendaftaran.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    select: {
-      id: true,
-      kode: true,
-      status: true,
-      studentName: true,
-      waliName: true,
-      waliEmail: true,
-      submittedAt: true,
-      program: { select: { name: true } },
-      files: {
-        where: { deletedAt: null },
-        select: {
-          id: true,
-          originalName: true,
+  const pagination = resolvePagination(paginationInput, 20);
+  const [totalItems, items] = await Promise.all([
+    prisma.pendaftaran.count(),
+    prisma.pendaftaran.findMany({
+      orderBy: { createdAt: "desc" },
+      skip: pagination.skip,
+      take: pagination.take,
+      select: {
+        id: true,
+        kode: true,
+        status: true,
+        studentName: true,
+        waliName: true,
+        waliEmail: true,
+        submittedAt: true,
+        program: { select: { name: true } },
+        files: {
+          where: { deletedAt: null },
+          select: {
+            id: true,
+            originalName: true,
+          },
         },
       },
-    },
-  });
+    }),
+  ]);
 
-  return { items };
+  return { items, pagination: createPaginationMeta(pagination.page, pagination.pageSize, totalItems) };
 }
 
 export async function getPendaftaranDetail(actor: Actor, id: string) {

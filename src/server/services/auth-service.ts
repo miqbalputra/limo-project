@@ -1,4 +1,5 @@
 import "server-only";
+import { z } from "zod";
 import { prisma } from "@/server/db/prisma";
 import { ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from "@/server/errors/application-error";
 import { createSession, revokeSessionToken } from "@/server/auth/session";
@@ -9,6 +10,7 @@ import { changePasswordSchema, forgotPasswordSchema, loginSchema, resetPasswordS
 import { hashToken } from "@/server/security/crypto";
 import { logger } from "@/server/logging/logger";
 import { assertRateLimit, clearRateLimit } from "@/server/security/rate-limit";
+import { createPaginationMeta, resolvePagination } from "@/server/pagination";
 
 export async function login(input: unknown, context: { userAgent?: string | null; ipAddress?: string | null }) {
   const parsed = loginSchema.safeParse(input);
@@ -233,14 +235,28 @@ export async function changePassword(actor: Actor, input: unknown) {
   return { success: true };
 }
 
-export async function listUsers(actor: Actor) {
+export async function listUsers(actor: Actor, input: unknown = {}) {
   if (actor.role !== "ADMIN") throw new ForbiddenError();
-  const items = await prisma.user.findMany({
-    where: { deletedAt: null },
-    orderBy: [{ role: "asc" }, { name: "asc" }],
-    select: { id: true, email: true, name: true, role: true, status: true, lastLoginAt: true, _count: { select: { sessions: true } } },
-  });
-  return { items };
+  const parsed = adminUserListSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Filter pengguna belum valid", parsed.error.flatten().fieldErrors);
+  const pagination = resolvePagination(parsed.data, 20);
+  const where = {
+    deletedAt: null,
+    ...(parsed.data.search ? { OR: [{ name: { contains: parsed.data.search } }, { email: { contains: parsed.data.search } }] } : {}),
+    ...(parsed.data.role ? { role: parsed.data.role } : {}),
+    ...(parsed.data.status ? { status: parsed.data.status } : {}),
+  };
+  const [totalItems, items] = await Promise.all([
+    prisma.user.count({ where }),
+    prisma.user.findMany({
+      where,
+      orderBy: [{ role: "asc" }, { name: "asc" }],
+      skip: pagination.skip,
+      take: pagination.take,
+      select: { id: true, email: true, name: true, role: true, status: true, lastLoginAt: true, _count: { select: { sessions: true } } },
+    }),
+  ]);
+  return { items, pagination: createPaginationMeta(pagination.page, pagination.pageSize, totalItems), filters: parsed.data };
 }
 
 export async function setUserStatus(actor: Actor, userId: string, input: unknown) {
@@ -253,7 +269,11 @@ export async function setUserStatus(actor: Actor, userId: string, input: unknown
   const now = new Date();
   const [, item] = await prisma.$transaction([
     prisma.session.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now, revokedById: actor.id } }),
-    prisma.user.update({ where: { id: userId }, data: { status: parsed.data.status } }),
+    prisma.user.update({
+      where: { id: userId },
+      data: { status: parsed.data.status },
+      select: { id: true, email: true, name: true, role: true, status: true, lastLoginAt: true },
+    }),
     prisma.auditLog.create({ data: { actorId: actor.id, action: `USER_${parsed.data.status}`, entityType: "User", entityId: userId } }),
   ]);
   return { item };
@@ -270,6 +290,14 @@ export async function revokeUserSessions(actor: Actor, userId: string) {
   await prisma.auditLog.create({ data: { actorId: actor.id, action: "USER_SESSIONS_REVOKED", entityType: "User", entityId: userId, metadata: { count: result.count } } });
   return { revoked: result.count };
 }
+
+const adminUserListSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().trim().max(120).default(""),
+  role: z.enum(["ADMIN", "GURU", "WALI"]).optional(),
+  status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+});
 
 async function writeAuditLog(input: {
   actorId?: string;

@@ -1,7 +1,6 @@
-import "server-only";
 import type { UserRole } from "@prisma/client";
-import type { Actor } from "@/server/auth/session";
-import { prisma } from "@/server/db/prisma";
+import type { Actor } from "../auth/session.ts";
+import { prisma } from "../db/prisma.ts";
 
 export function canManageUsers(actor: Actor) {
   return actor.role === "ADMIN";
@@ -16,6 +15,7 @@ export async function canAccessStudent(actor: Actor, siswaId: string) {
     const relation = await prisma.waliSiswa.findFirst({
       where: {
         siswaId,
+        siswa: { status: "ACTIVE", deletedAt: null },
         endedAt: null,
         waliProfile: {
           userId: actor.id,
@@ -31,6 +31,7 @@ export async function canAccessStudent(actor: Actor, siswaId: string) {
     const enrollment = await prisma.kelasSiswa.findFirst({
       where: {
         siswaId,
+        siswa: { status: "ACTIVE", deletedAt: null },
         status: "ACTIVE",
         kelas: {
           status: "ACTIVE",
@@ -84,6 +85,8 @@ export async function canAccessInvoice(actor: Actor, tagihanId: string) {
     where: {
       id: tagihanId,
       siswa: {
+        status: "ACTIVE",
+        deletedAt: null,
         waliRelations: {
           some: {
             endedAt: null,
@@ -153,6 +156,8 @@ export async function canDownloadFile(actor: Actor, fileId: string) {
           kelasId: file.materi.kelasId,
           status: "ACTIVE",
           siswa: {
+            status: "ACTIVE",
+            deletedAt: null,
             waliRelations: {
               some: {
                 endedAt: null,

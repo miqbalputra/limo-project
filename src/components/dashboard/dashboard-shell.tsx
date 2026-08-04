@@ -18,7 +18,7 @@ type DashboardShellProps = {
   };
   navigation: NavigationItem[];
   notifications: {
-    pendingCount: number;
+    unreadCount: number;
     items: {
       id: string;
       subject: string | null;
@@ -26,6 +26,7 @@ type DashboardShellProps = {
       status: string;
       template: string;
       createdAt: string;
+      readAt: string | null;
     }[];
   };
   waliChildren?: { id: string; name: string; nomorInduk: string }[];
@@ -56,6 +57,7 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [localReadNotificationIds, setLocalReadNotificationIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const homeHref = navigation[0]?.href || "/admin";
   const activeItem = [...navigation]
@@ -69,15 +71,18 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
     ? navigation.filter((item) => item.label.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 6)
     : [];
   const profileHref = navigation.find((item) => item.label === "Profil")?.href;
+  const locallyRead = new Set(localReadNotificationIds);
+  const unreadCount = Math.max(0, notifications.unreadCount - localReadNotificationIds.length);
 
   useEffect(() => {
     function handleShortcut(event: KeyboardEvent) {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        searchRef.current?.focus();
+        window.requestAnimationFrame(() => searchRef.current?.focus({ preventScroll: true }));
       }
 
       if (event.key === "Escape") {
+        setIsSidebarOpen(false);
         setIsNotificationOpen(false);
         setIsProfileOpen(false);
         setSearch("");
@@ -87,6 +92,18 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
     document.addEventListener("keydown", handleShortcut);
     return () => document.removeEventListener("keydown", handleShortcut);
   }, []);
+
+  async function markNotificationRead(id: string) {
+    const item = notifications.items.find((notification) => notification.id === id);
+    if (!item || item.readAt || locallyRead.has(id)) {
+      return;
+    }
+
+    const response = await fetch(`/api/v1/notifications/${id}/read`, { method: "POST" });
+    if (response.ok) {
+      setLocalReadNotificationIds((current) => [...current, id]);
+    }
+  }
 
   function toggleSidebar() {
     if (window.innerWidth >= 1024) {
@@ -111,7 +128,7 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
       >
         <div className={`flex h-20 shrink-0 items-center border-b border-gray-100 ${isSidebarCollapsed ? "justify-center px-3" : "justify-between px-5"}`}>
           <Link href={homeHref} className="flex min-w-0 items-center gap-3" onClick={() => setIsSidebarOpen(false)}>
-            <Image src="/logo.jpg" width={42} height={42} alt="LIMO" className="size-10 shrink-0 rounded-xl border border-gray-200 bg-white object-contain shadow-theme-xs" priority />
+            <Image src="/logo.jpg" width={40} height={40} alt="LIMO" className="size-10 shrink-0 rounded-xl border border-gray-200 bg-white object-contain shadow-theme-xs" priority />
             {!isSidebarCollapsed ? (
               <span className="min-w-0">
                 <span className="block text-lg font-bold leading-5 text-gray-900">LIMO</span>
@@ -178,16 +195,21 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"><SearchIcon /></span>
               <input
                 ref={searchRef}
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Cari menu atau halaman..."
+                 value={search}
+                 onChange={(event) => setSearch(event.target.value)}
+                 id="dashboard-search"
+                 aria-label="Cari menu atau halaman"
+                 role="combobox"
+                 aria-expanded={searchResults.length > 0}
+                 aria-controls="dashboard-search-results"
+                 placeholder="Cari menu atau halaman..."
                 className="h-11 w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-12 pr-16 text-theme-sm text-gray-800 shadow-theme-xs outline-none placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10"
               />
               <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[10px] font-medium text-gray-400">Ctrl K</span>
               {searchResults.length > 0 ? (
-                <div className="absolute left-0 right-0 top-12 rounded-xl border border-gray-200 bg-white p-2 shadow-theme-lg">
+                <div id="dashboard-search-results" role="listbox" className="absolute left-0 right-0 top-12 rounded-xl border border-gray-200 bg-white p-2 shadow-theme-lg">
                   {searchResults.map((item) => (
-                    <Link key={item.href} href={item.href} onClick={() => setSearch("")} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-theme-sm text-gray-700 hover:bg-gray-50">
+                    <Link key={item.href} role="option" href={item.href} onClick={() => setSearch("")} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-theme-sm text-gray-700 hover:bg-gray-50">
                       <DashboardIcon name={item.icon} className="size-5 text-gray-400" />{item.label}
                     </Link>
                   ))}
@@ -200,26 +222,26 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
               <div className="relative">
                 <button type="button" aria-label="Notifikasi" aria-expanded={isNotificationOpen} aria-controls="notification-panel" onClick={() => setIsNotificationOpen((open) => !open)} className="relative grid size-10 place-items-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-theme-xs hover:bg-gray-50 sm:size-11">
                   <BellIcon />
-                  {notifications.pendingCount > 0 ? <span className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-error-500 px-1 text-[10px] font-bold leading-4 text-white">{notifications.pendingCount}</span> : null}
+                  {unreadCount > 0 ? <span className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-error-500 px-1 text-[10px] font-bold leading-4 text-white">{unreadCount}</span> : null}
                 </button>
                 {isNotificationOpen ? (
                   <div id="notification-panel" role="region" aria-label="Daftar notifikasi" className="absolute right-0 top-[52px] z-20 w-[calc(100vw-2rem)] max-w-sm rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg sm:w-96">
                     <div className="flex items-center justify-between border-b border-gray-100 px-2 pb-3">
                       <div><p className="text-theme-sm font-semibold text-gray-800">Notifikasi</p><p className="text-theme-xs text-gray-500">{notifications.items.length} aktivitas terbaru</p></div>
-                      <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-semibold text-brand-600">{notifications.pendingCount} pending</span>
+                      <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-semibold text-brand-600">{unreadCount} belum dibaca</span>
                     </div>
                     <div className="max-h-96 overflow-y-auto py-2">
                       {notifications.items.length > 0 ? notifications.items.map((item) => (
-                        <article key={item.id} className="rounded-xl px-3 py-2.5 hover:bg-gray-50">
-                          <div className="flex items-start gap-3">
-                            <span className={`mt-1 size-2 shrink-0 rounded-full ${item.status === "PENDING" ? "bg-warning-500" : "bg-success-500"}`} />
-                            <div className="min-w-0">
+                         <button type="button" key={item.id} onClick={() => void markNotificationRead(item.id)} className={`w-full rounded-xl px-3 py-2.5 text-left hover:bg-gray-50 ${item.readAt || locallyRead.has(item.id) ? "opacity-70" : ""}`}>
+                           <div className="flex items-start gap-3">
+                             <span className={`mt-1 size-2 shrink-0 rounded-full ${item.readAt || locallyRead.has(item.id) ? "bg-gray-300" : "bg-brand-500"}`} />
+                             <div className="min-w-0">
                               <p className="truncate text-theme-sm font-semibold text-gray-800">{item.subject || item.template}</p>
                               <p className="mt-1 line-clamp-2 text-theme-xs leading-5 text-gray-500">{item.body}</p>
-                              <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">{formatNotificationDate(item.createdAt)} / {item.status}</p>
-                            </div>
-                          </div>
-                        </article>
+                               <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">{formatNotificationDate(item.createdAt)} / {item.readAt || locallyRead.has(item.id) ? "DIBACA" : "BARU"}</p>
+                             </div>
+                           </div>
+                         </button>
                       )) : <p className="px-3 py-6 text-center text-theme-sm text-gray-500">Belum ada notifikasi.</p>}
                     </div>
                   </div>
@@ -248,7 +270,7 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
           <div className="mx-auto flex w-full max-w-[1600px] items-center gap-2 text-theme-xs text-gray-500"><Link href={homeHref} className="hover:text-brand-500">Dashboard</Link><span>/</span><span className="font-medium text-gray-700">{activeItem?.label || "Halaman"}</span></div>
         </div>
 
-        <main id="dashboard-content" tabIndex={-1} className="mx-auto w-full max-w-[1600px] px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">{children}</main>
+        <div id="dashboard-content" tabIndex={-1} className="mx-auto w-full max-w-[1600px] px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">{children}</div>
       </div>
     </div>
   );

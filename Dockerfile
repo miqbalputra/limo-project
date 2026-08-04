@@ -4,7 +4,7 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates openssl \
+  && apt-get install -y --no-install-recommends ca-certificates openssl mariadb-client zip unzip \
   && rm -rf /var/lib/apt/lists/*
 
 FROM base AS deps
@@ -26,9 +26,8 @@ FROM base AS runner
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-ENV DOKPLOY_SQLITE_DEMO=true
-ENV SQLITE_DATABASE_URL=file:/app/data/limo-demo.db
-ENV DOKPLOY_SEED_ON_START=true
+ENV DOKPLOY_SQLITE_DEMO=false
+ENV DOKPLOY_SEED_ON_START=false
 
 RUN groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 nextjs
@@ -38,8 +37,9 @@ COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
 
 RUN chmod +x /app/docker-entrypoint.sh \
   && mkdir -p /app/storage/private \
+  && mkdir -p /app/backups \
   && mkdir -p /app/data \
-  && chown -R nextjs:nodejs /app/storage /app/data
+  && chown -R nextjs:nodejs /app/storage /app/backups /app/data
 
 USER nextjs
 

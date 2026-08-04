@@ -2,7 +2,7 @@ import nodemailer from "nodemailer";
 import type { Notifikasi, Prisma } from "@prisma/client";
 import { getEnv } from "../../env.ts";
 
-type NotificationPayload = Pick<Notifikasi, "id" | "channel" | "recipient" | "subject" | "body">;
+type NotificationPayload = Pick<Notifikasi, "id" | "channel" | "recipient" | "subject" | "body" | "metadata">;
 
 export type DeliveryResult = {
   provider: string;
@@ -13,6 +13,10 @@ export type DeliveryResult = {
 
 export async function deliverNotification(notification: NotificationPayload): Promise<DeliveryResult> {
   const env = getEnv();
+
+  if (notification.channel === "in_app") {
+    return { provider: "in_app", status: "SENT", response: { deliveredBy: "limo-dashboard" } };
+  }
 
   if (env.NOTIFICATION_PROVIDER === "console") {
     return {
@@ -26,11 +30,57 @@ export async function deliverNotification(notification: NotificationPayload): Pr
     return sendEmailNotification(notification);
   }
 
+  if (env.NOTIFICATION_PROVIDER === "n8n") {
+    return sendN8nNotification(notification);
+  }
+
   return {
     provider: env.NOTIFICATION_PROVIDER,
     status: "FAILED",
     errorMessage: "Provider WhatsApp belum dikonfigurasi untuk production",
   };
+}
+
+async function sendN8nNotification(notification: NotificationPayload): Promise<DeliveryResult> {
+  const env = getEnv();
+
+  if (notification.channel === "in_app") {
+    return { provider: "in_app", status: "SENT", response: { deliveredBy: "limo-dashboard" } };
+  }
+
+  const webhookUrl = notification.channel === "whatsapp" ? env.N8N_WHATSAPP_WEBHOOK_URL : notification.channel === "email" ? env.N8N_EMAIL_WEBHOOK_URL : "";
+  if (!webhookUrl) {
+    return { provider: "n8n", status: "FAILED", errorMessage: `Webhook n8n untuk channel ${notification.channel} belum dikonfigurasi` };
+  }
+
+  try {
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(env.N8N_WEBHOOK_SECRET ? { "X-Limo-Webhook-Secret": env.N8N_WEBHOOK_SECRET } : {}),
+      },
+      body: JSON.stringify({
+        event: "limo.notification",
+        notificationId: notification.id,
+        channel: notification.channel,
+        recipient: notification.recipient,
+        subject: notification.subject,
+        body: notification.body,
+        metadata: notification.metadata,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    const responseBody = await response.text();
+    if (!response.ok) {
+      return { provider: `n8n-${notification.channel}`, status: "FAILED", response: { status: response.status, body: responseBody.slice(0, 500) }, errorMessage: `Webhook n8n merespons HTTP ${response.status}` };
+    }
+
+    return { provider: `n8n-${notification.channel}`, status: "SENT", response: { status: response.status, body: responseBody.slice(0, 500) } };
+  } catch (error) {
+    return { provider: `n8n-${notification.channel}`, status: "FAILED", errorMessage: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 async function sendEmailNotification(notification: NotificationPayload): Promise<DeliveryResult> {

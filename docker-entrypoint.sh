@@ -5,6 +5,10 @@ if [ -n "${PRIVATE_STORAGE_PATH:-}" ]; then
   mkdir -p "$PRIVATE_STORAGE_PATH"
 fi
 
+if [ -n "${BACKUP_DIR:-}" ]; then
+  mkdir -p "$BACKUP_DIR"
+fi
+
 if [ "${DOKPLOY_SQLITE_DEMO:-false}" = "true" ]; then
   mkdir -p /app/data
   export DATABASE_URL="${SQLITE_DATABASE_URL:-file:/app/data/limo-demo.db}"

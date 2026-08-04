@@ -17,11 +17,17 @@ test("Week 3 guru attendance and progress UI is mobile friendly", async ({ page 
   await login(page, "guru@limo.local");
   await expect(page).toHaveURL(/\/guru$/, { timeout: 15_000 });
 
+  await page.goto("/guru/jadwal");
+  await expect(page.getByRole("heading", { name: "Jadwal Kelas" })).toBeVisible();
+  await expect(page.getByText("Family Members")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
   await page.goto("/guru/kelas");
   const classHref = await page.getByRole("link", { name: "Kelola Kelas" }).first().getAttribute("href");
   expect(classHref).toBeTruthy();
   await page.goto(classHref || "/guru/kelas");
   await expect(page.getByRole("heading", { name: "Roster Siswa" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Duplikat Sesi" }).first()).toBeVisible();
   await expect(page.getByPlaceholder("Cari nama atau nomor induk")).toBeVisible();
   await expect(page.getByText("Ahmad Dev").first()).toBeVisible();
   await page.getByRole("link", { name: "Ahmad Dev" }).first().click();
@@ -36,6 +42,15 @@ test("Week 3 guru attendance and progress UI is mobile friendly", async ({ page 
 
   await page.goto(inputHref || "/guru/presensi");
   await expect(page.locator("#presensi-form").getByRole("button", { name: "Simpan Presensi" })).toBeVisible();
+  await page.locator("#presensi-form").getByRole("button", { name: "Hadir Semua" }).click();
+  await expect(page.locator("#presensi-form").getByRole("status")).toContainText("siswa ditandai hadir");
+  const presenceSelects = page.locator('select[name^="presence-"]');
+  for (let index = 0; index < await presenceSelects.count(); index += 1) {
+    await expect(presenceSelects.nth(index)).toHaveValue("HADIR");
+  }
+  await presenceSelects.first().selectOption("IZIN");
+  await page.reload();
+  await expect(page.locator('select[name^="presence-"]').first()).toHaveValue("IZIN");
   await expect(page.locator('select[name^="presence-"]').first()).toContainText("Hadir");
   await expect(page.locator('select[name^="score-"]')).toHaveCount(0);
 
@@ -69,7 +84,7 @@ test("Week 3 wali graphs, attendance recap, and billing are mobile friendly", as
 
   await page.goto("/wali/tagihan");
   await expect(page.getByRole("heading", { name: "Tagihan" })).toBeVisible();
-  await expect(page.getByText(/QRIS|Pakasir|Virtual Account|Buat Instruksi Bayar/).first()).toBeVisible();
+  await expect(page.getByText(/Mayar|QRIS|Virtual Account|Buat Instruksi Bayar/).first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.getByRole("button", { name: "Notifikasi" }).click();
@@ -106,7 +121,7 @@ test("Wali can read published learning materials", async ({ page }) => {
 
   await page.goto("/wali/materi");
   await expect(page.getByRole("heading", { name: "Materi Pembelajaran" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Greeting Flashcards" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Greeting Flashcards" }).first()).toBeVisible();
   await expect(page.getByText("Video Colors Song")).toBeVisible();
   await expect(page.getByText("Buka video pembelajaran")).toBeVisible();
   await expectNoHorizontalOverflow(page);

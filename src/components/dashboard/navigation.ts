@@ -27,6 +27,7 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
   GURU: [
     { label: "Dashboard", href: "/guru", icon: "dashboard", section: "Overview" },
     { label: "Kelas Saya", href: "/guru/kelas", icon: "classes", section: "Pembelajaran" },
+    { label: "Jadwal", href: "/guru/jadwal", icon: "presensi", section: "Pembelajaran" },
     { label: "Materi", href: "/guru/materi", icon: "materials", section: "Pembelajaran" },
     { label: "Bank Soal", href: "/guru/bank-soal", icon: "exam", section: "Evaluasi" },
     { label: "Ujian", href: "/guru/ujian", icon: "audit", section: "Evaluasi" },

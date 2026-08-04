@@ -316,6 +316,72 @@ export async function createUjian(actor: Actor, input: unknown) {
   return { item };
 }
 
+export async function duplicateUjian(actor: Actor, ujianId: string) {
+  const source = await prisma.ujian.findUnique({
+    where: { id: ujianId },
+    select: {
+      id: true,
+      kelasId: true,
+      title: true,
+      description: true,
+      deliveryMode: true,
+      durationMinutes: true,
+      maxAttempts: true,
+      showResultToWali: true,
+      questions: {
+        orderBy: { order: "asc" },
+        select: { bankSoalId: true, weight: true, order: true },
+      },
+    },
+  });
+
+  if (!source) {
+    throw new NotFoundError("Ujian tidak ditemukan");
+  }
+
+  await assertQuestionScope(actor, source.kelasId);
+
+  const item = await prisma.$transaction(async (tx) => {
+    const duplicate = await tx.ujian.create({
+      data: {
+        kelasId: source.kelasId,
+        title: `${source.title} (Template)`.slice(0, 200),
+        description: source.description || undefined,
+        status: "DRAFT",
+        deliveryMode: source.deliveryMode,
+        durationMinutes: source.durationMinutes,
+        maxAttempts: source.maxAttempts,
+        showResultToWali: source.showResultToWali,
+        createdById: actor.id,
+      },
+      select: { id: true, title: true, status: true },
+    });
+
+    await tx.ujianSoal.createMany({
+      data: source.questions.map((question) => ({
+        ujianId: duplicate.id,
+        bankSoalId: question.bankSoalId,
+        order: question.order,
+        weight: question.weight,
+      })),
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorId: actor.id,
+        action: "UJIAN_DUPLICATED",
+        entityType: "Ujian",
+        entityId: duplicate.id,
+        metadata: { sourceUjianId: source.id },
+      },
+    });
+
+    return duplicate;
+  });
+
+  return { item: { ...item, questionCount: source.questions.length } };
+}
+
 export async function listExamStudents(actor: Actor, ujianId: string) {
   const ujian = await prisma.ujian.findUnique({
     where: { id: ujianId },
@@ -468,8 +534,8 @@ export async function getHasilUjianCorrectionContext(actor: Actor, hasilId: stri
 
   await assertQuestionScope(actor, hasil.ujian.kelasId);
 
-  if (!["FINAL", "CORRECTED"].includes(hasil.status)) {
-    throw new ConflictError("Hanya hasil final yang dapat dikoreksi");
+  if (!["NEEDS_REVIEW", "FINAL", "CORRECTED"].includes(hasil.status)) {
+    throw new ConflictError("Hasil ujian belum dapat dikoreksi");
   }
 
   return hasil;

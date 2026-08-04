@@ -2,6 +2,7 @@ import "server-only";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { getSelectedWaliStudentId } from "@/server/dal/wali-selector-dal";
+import { getJakartaDayRange } from "@/server/time/jakarta";
 
 export async function getActorDashboardContext(actor: Actor) {
   if (actor.role === "ADMIN") {
@@ -59,7 +60,7 @@ export async function getActorDashboardContext(actor: Actor) {
     select: {
       id: true,
       siswaRelations: {
-        where: { endedAt: null, ...(selectedStudentId ? { siswaId: selectedStudentId } : {}) },
+        where: { endedAt: null, siswa: { status: "ACTIVE", deletedAt: null }, ...(selectedStudentId ? { siswaId: selectedStudentId } : {}) },
         select: {
           siswa: {
             select: {
@@ -70,7 +71,7 @@ export async function getActorDashboardContext(actor: Actor) {
               program: { select: { name: true } },
               presensi: { select: { status: true } },
               progresBelajar: { orderBy: { createdAt: "desc" }, take: 5, select: { understandingScore: true, publicNote: true } },
-              hasilUjian: { where: { status: { in: ["FINAL", "CORRECTED"] } }, orderBy: { updatedAt: "desc" }, take: 3, select: { totalScore: true, ujian: { select: { title: true } } } },
+              hasilUjian: { where: { status: { in: ["FINAL", "CORRECTED"] }, ujian: { showResultToWali: true } }, orderBy: { updatedAt: "desc" }, take: 3, select: { totalScore: true, ujian: { select: { title: true } } } },
               tagihan: { where: { status: { in: ["UNPAID", "PENDING", "OVERDUE"] } }, orderBy: { dueDate: "asc" }, take: 3, select: { id: true, status: true, amount: true, dueDate: true } },
             },
           },
@@ -83,4 +84,37 @@ export async function getActorDashboardContext(actor: Actor) {
     role: actor.role,
     children: profile?.siswaRelations.map((relation) => relation.siswa) ?? [],
   };
+}
+
+export async function getGuruTodayAgenda(actor: Actor) {
+  const { start, end } = getJakartaDayRange();
+  const items = await prisma.sesiKelas.findMany({
+    where: {
+      sessionDate: { gte: start, lt: end },
+      status: { not: "CANCELLED" },
+      kelas: { status: "ACTIVE", guruProfile: { userId: actor.id } },
+    },
+    orderBy: [{ sessionDate: "asc" }, { meetingNumber: "asc" }],
+    select: {
+      id: true,
+      meetingNumber: true,
+      topic: true,
+      sessionDate: true,
+      status: true,
+      kelas: {
+        select: {
+          id: true,
+          name: true,
+          _count: {
+            select: {
+              enrollments: { where: { status: "ACTIVE" } },
+            },
+          },
+        },
+      },
+      _count: { select: { presensi: true, progresBelajar: true } },
+    },
+  });
+
+  return items;
 }

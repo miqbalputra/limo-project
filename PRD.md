@@ -268,7 +268,7 @@ Arsitektur perlu ditinjau ulang jika kelak terjadi salah satu kondisi berikut:
 - Generate tagihan bulanan oleh script terjadwal.
 - Aturan nominal berdasarkan program/kelas atau tarif siswa.
 - Jatuh tempo dan status `DRAFT`, `UNPAID`, `PENDING`, `PAID`, `OVERDUE`, `CANCELLED`, `REFUNDED` bila didukung.
-- Pembuatan transaksi QRIS/VA melalui adapter Pakasir.
+- Pembuatan invoice QRIS/VA melalui adapter Mayar V2.
 - Webhook pembayaran dengan verifikasi signature berdasarkan dokumentasi provider.
 - Idempotency: webhook berulang tidak menggandakan pembayaran.
 - Rekonsiliasi manual oleh Admin dengan alasan dan audit trail.
@@ -563,7 +563,7 @@ Model final disusun di Prisma dan minimal mencakup:
 - `/api/v1/tagihan/*`
 - `/api/v1/pembayaran/*`
 - `/api/v1/files/*`
-- `/api/v1/webhooks/pakasir`
+- `/api/v1/webhooks/mayar`
 - `/api/health` dan endpoint readiness internal bila diperlukan
 
 API ini terutama untuk aplikasi LIMO sendiri. Dokumentasi OpenAPI penuh bersifat opsional untuk MVP, tetapi daftar endpoint dan schema input/output harus terdokumentasi dalam repository.
@@ -574,7 +574,7 @@ API ini terutama untuk aplikasi LIMO sendiri. Dokumentasi OpenAPI penuh bersifat
 
 | Integrasi | Fungsi | Prinsip Implementasi |
 |---|---|---|
-| **Pakasir** | QRIS/VA dan notifikasi pembayaran | Adapter terisolasi, signature verification, idempotency, timeout, retry terkontrol |
+| **Mayar V2** | Invoice QRIS/VA dan payment webhook | Adapter terisolasi, merchant/nominal validation, idempotency, timeout, reconciliation |
 | **Email/WhatsApp** | Status pendaftaran dan pembayaran | Interface provider; provider dapat diganti tanpa mengubah business logic |
 | **Video eksternal** | Materi video | Simpan URL tervalidasi; tidak melakukan download/transcode di server |
 | **Object storage opsional** | File privat atau upload besar | Private bucket, signed URL, lifecycle dan backup yang jelas |

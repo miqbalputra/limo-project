@@ -3,6 +3,7 @@ import { requireActor, requireRole } from "@/server/auth/session";
 import { listKelas, listPrograms } from "@/server/services/master-data-service";
 import { listSiswa, listWaliOptions } from "@/server/services/people-service";
 import { SiswaForm } from "@/components/dashboard/people-forms";
+import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 
 export const metadata = { title: "Siswa" };
 
@@ -31,7 +32,7 @@ export default async function AdminSiswaPage({ searchParams }: { searchParams: P
       <section className="tailadmin-card overflow-hidden">
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4"><div><h2 className="font-semibold text-gray-900">Daftar Siswa</h2><p className="mt-1 text-theme-xs text-gray-500">{pagination.total} siswa ditemukan</p></div></div>
         <div className="hidden grid-cols-[1.1fr_0.8fr_1fr_1fr_100px] gap-4 border-b border-gray-200 bg-gray-50 px-5 py-3 text-theme-xs font-semibold uppercase tracking-wide text-gray-500 lg:grid"><span>Siswa</span><span>Program</span><span>Wali</span><span>Kelas</span><span>Aksi</span></div>
-        <div className="divide-y divide-gray-100">
+         {siswa.length > 0 ? <div className="divide-y divide-gray-100">
           {siswa.map((item) => (
             <article key={item.id} className="grid gap-3 px-5 py-4 lg:grid-cols-[1.1fr_0.8fr_1fr_1fr_100px] lg:items-center lg:gap-4">
               <div className="flex items-center gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-50 text-theme-sm font-bold text-brand-600">{item.name.slice(0, 1)}</span><div><h3 className="text-theme-sm font-semibold text-gray-800">{item.name}</h3><p className="text-theme-xs text-gray-500">{item.nomorInduk}</p></div></div>
@@ -41,7 +42,7 @@ export default async function AdminSiswaPage({ searchParams }: { searchParams: P
               <Link href={`/admin/siswa/${item.id}`} className="text-theme-sm font-semibold text-brand-500 hover:text-brand-600">Kelola</Link>
             </article>
           ))}
-        </div>
+         </div> : <EmptyState icon="student" title="Siswa tidak ditemukan" description="Belum ada siswa yang cocok dengan filter saat ini. Coba ubah pencarian atau status." />}
       </section>
       <div className="flex items-center justify-between text-theme-sm text-gray-500"><span>Halaman {pagination.page} dari {Math.max(pagination.totalPages, 1)}</span><div className="flex gap-2">{pagination.page > 1 ? <Link href={pageHref(pagination.page - 1)} className="tailadmin-button-outline px-3 py-2">Sebelumnya</Link> : null}{pagination.page < pagination.totalPages ? <Link href={pageHref(pagination.page + 1)} className="tailadmin-button-outline px-3 py-2">Berikutnya</Link> : null}</div></div>
     </main>

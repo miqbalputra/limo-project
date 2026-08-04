@@ -22,6 +22,7 @@ export function PendaftaranActions({ id, disabled }: { id: string; disabled: boo
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function approve() {
+    if (!window.confirm("Setujui pendaftaran ini dan buat akun Wali?")) return;
     setMessage("");
     setIsSubmitting(true);
 

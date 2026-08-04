@@ -41,8 +41,8 @@ Target proposal Minggu 3 telah siap untuk demo:
 - Catatan progres belajar per sesi memakai skor pemahaman 1-5, catatan wali, dan catatan internal guru.
 - Grafik progress tersedia tanpa dependency tambahan melalui bar chart CSS responsif: pemahaman, nilai ujian, dan kehadiran bulanan di halaman wali; ringkasan kelas guru juga memakai indikator grafik.
 - Route `/wali/presensi` ditambahkan agar menu presensi wali tidak 404 dan menampilkan rate kehadiran per anak.
-- Halaman tagihan wali menampilkan status, nominal, jatuh tempo, dan CTA untuk membuat instruksi QRIS/Virtual Account Pakasir jika project dikonfigurasi, atau instruksi demo/rekonsiliasi manual jika belum dikonfigurasi.
-- Integrasi Pakasir mendukung pembuatan transaksi via API ketika `PAKASIR_API_KEY` tersedia, fallback link resmi `https://app.pakasir.com/pay/{slug}/{amount}?order_id={order_id}` ketika API key belum tersedia, webhook resmi `order_id`/`completed_at`, dan verifikasi Transaction Detail API saat API key tersedia.
+- Halaman tagihan wali menampilkan status, nominal, jatuh tempo, dan CTA instruksi pembayaran Mayar.
+- Integrasi Mayar V2 mendukung create invoice, webhook `payment.received`, validasi merchant/nominal, status transition, dan reconciliation detail invoice.
 - Acceptance test Minggu 3 tersedia melalui `npm.cmd run test:week3` dan browser smoke test mobile tersedia di `tests/e2e/week3.spec.ts`.
 
 ## Fitur yang Sudah Diimplementasikan
@@ -57,8 +57,8 @@ Target proposal Minggu 3 telah siap untuk demo:
 - Ujian online MVP via akun wali tersedia melalui menu Tugas Anak, dengan attempt, timer server-authoritative, auto-scoring objektif, dan status review untuk jawaban manual.
 - Timer ujian dan riwayat nilai wali untuk target Pekan 2.
 - Presensi massal dan pencatatan progres siswa.
-- Grafik progress wali/guru, rekap presensi bulanan, create payment Pakasir, dan webhook payment untuk target Minggu 3.
-- Tarif, tagihan, overdue job, webhook Pakasir skeleton, dan rekonsiliasi pembayaran manual.
+- Grafik progress wali/guru, rekap presensi bulanan, create payment Mayar, dan webhook payment untuk target Minggu 3.
+- Tarif, tagihan, overdue job, webhook Mayar, dan rekonsiliasi pembayaran manual.
 - PWA dasar, offline fallback, security headers, dan noindex untuk dashboard/auth.
 - Script job eksternal untuk tagihan, overdue, session cleanup, dan retry notification.
 - Unit test dasar dan dokumentasi deployment/UAT/backup.
@@ -98,7 +98,7 @@ Landing page di `src/app/(public)/page.tsx` telah disesuaikan dengan identitas L
 - `npm.cmd run lint`: lulus.
 - `npm.cmd test`: lulus.
 - `npm.cmd run test:week2`: 5 acceptance checks lulus untuk materi, bank soal, timer ujian, auto-skoring, dan riwayat nilai wali.
-- `npm.cmd run test:week3`: lulus untuk presensi, progres, grafik, rekap presensi wali, ringkasan kelas, instruksi payment gateway, create payment Pakasir ketika project dikonfigurasi, dan dropdown notifikasi berbasis data.
+- `npm.cmd run test:week3`: lulus untuk presensi, progres, finalisasi sesi, grafik, rekap presensi wali, ringkasan kelas, instruksi payment Mayar, webhook payment, dan dropdown notifikasi berbasis data.
 - `npm.cmd run build`: lulus dengan environment validasi.
 - `npm.cmd run sqlite:setup`: lulus, schema valid, database sinkron, client generated, seed berhasil.
 - `npm.cmd run test:week1`: 17 acceptance checks lulus.
@@ -119,14 +119,13 @@ PID dapat berubah jika server dijalankan ulang.
 
 - MariaDB/Docker belum tersedia di environment ini. Migration dan parity test MariaDB tetap harus dilakukan sebelum production.
 - SQLite tidak memvalidasi perilaku khusus MariaDB seperti collation, precision Decimal, batas `VarChar`, dan concurrency write.
-- Build masih menampilkan warning Turbopack non-fatal terkait filesystem tracing pada private storage.
 - Data kontak production, jadwal resmi, testimoni terverifikasi, materi, dan konten final perlu dikonfirmasi oleh LIMO.
 - Landing page memiliki kebebasan visual LIMO sendiri; dashboard, auth, dan form operasional tetap mengikuti TailAdmin.
-- Provider email SMTP sudah tersedia untuk production awal; provider WhatsApp nyata, kredensial production Pakasir, dan UAT payment end-to-end di environment production masih perlu diselesaikan.
+- Provider email SMTP dan outbound n8n sudah tersedia; credential Mayar production, workflow GOWA nyata, dan UAT payment end-to-end di environment production masih perlu diselesaikan.
 
 ## Langkah Berikutnya
 
 1. Finalisasi konten resmi landing page: kontak, jadwal, testimoni, dan informasi program.
 2. Lanjutkan target Minggu 4: integrasi final, pengujian, deployment production, dan pelatihan.
 3. Siapkan MariaDB, buat migration production dari `prisma/schema.prisma`, seed, dan jalankan parity test.
-4. Selesaikan provider email/WhatsApp nyata, kredensial Pakasir production, dan UAT payment end-to-end.
+4. Selesaikan workflow n8n/GOWA, credential Mayar production, dan UAT payment end-to-end.

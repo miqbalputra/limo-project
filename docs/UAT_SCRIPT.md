@@ -32,6 +32,7 @@ Gunakan data dummy yang menyerupai kondisi LIMO. Catat temuan sebagai `blocker`,
 9. Generate tagihan dry-run, lalu non-dry-run.
 10. Rekonsiliasi manual satu tagihan dengan alasan.
 11. Buka `/admin/laporan`, pilih periode, periksa ringkasan kelas/siswa, lalu unduh CSV.
+12. Jalankan backup dari workflow n8n, pastikan `database.sql` dan `backup.zip` berhasil diunggah ke storage off-site.
 
 ## Skenario Guru
 
@@ -63,7 +64,7 @@ Gunakan data dummy yang menyerupai kondisi LIMO. Catat temuan sebagai `blocker`,
 - Download file tanpa login harus ditolak.
 - Upload file `.html`, `.svg`, atau MIME palsu harus ditolak.
 - Mutation tanpa origin valid harus ditolak.
-- Webhook Pakasir signature salah harus ditolak.
+- Webhook Mayar dengan secret atau merchant ID salah harus ditolak.
 - Laporan Admin hanya dapat dibuka Admin, filter periode mengubah data, dan CSV berisi header serta baris siswa.
 - Jawaban ujian online tetap tersedia setelah reload, draft tidak tampil sebagai nilai final, dan attempt expired menolak perubahan.
 - Saat koneksi Wali terputus, peringatan tampil, tombol submit tertahan, lalu draft tersimpan kembali setelah koneksi pulih.
@@ -73,8 +74,10 @@ Gunakan data dummy yang menyerupai kondisi LIMO. Catat temuan sebagai `blocker`,
 - Wali dapat membuka Bantuan, membaca FAQ status tugas/nilai/tagihan, dan menemukan kanal kontak Admin.
 - `/api/health` mengembalikan liveness, sedangkan `/api/health/ready` mengembalikan readiness dependency dengan status `503` jika dependency wajib gagal.
 - Guru dapat menyimpan presensi tanpa mengubah progres, dan menyimpan progres tanpa mengubah presensi.
+- Guru dapat memfinalkan sesi setelah presensi dan progres seluruh siswa lengkap; sesi final menjadi read-only.
 - Ringkasan Guru hanya menampilkan data kelas yang dikelola; sesi `FINAL`/`CANCELLED` tampil read-only.
 - Nilai ujian final tidak dapat ditimpa melalui alur input biasa dan skor tampil pada skala `0-100`.
-- Guru dapat membuka koreksi hasil final, wajib mengisi alasan, dan hasil berubah menjadi `CORRECTED` dengan audit before/after.
+- Guru dapat membuka review hasil `NEEDS_REVIEW` atau koreksi hasil final, wajib mengisi alasan, dan hasil berubah menjadi `CORRECTED` dengan audit before/after.
 - Detail kelas Guru menampilkan roster siswa aktif, pencarian nama/nomor induk, dan histori presensi/progres/nilai per siswa.
 - Daftar bank soal, ujian, hasil ujian, sesi, dan materi Guru dapat berpindah halaman tanpa kehilangan scope kelas atau parameter halaman terkait.
+- Restore `backup.zip` ke MariaDB dan private storage staging berhasil, checksum manifest cocok, login berhasil, dan file privat dapat diunduh.

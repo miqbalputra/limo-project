@@ -34,7 +34,7 @@ function resolveStorageRoot() {
     return path.resolve(/*turbopackIgnore: true*/ configuredPath);
   }
 
-  return path.resolve(path.join(/*turbopackIgnore: true*/ process.cwd(), configuredPath));
+  return path.resolve(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ process.cwd(), configuredPath));
 }
 
 export function validatePrivateFile(input: { name: string; type: string; size: number; kind: "registration" | "material" }) {
@@ -103,11 +103,11 @@ export async function storeMaterialFile(file: File, folder: string): Promise<Sto
 async function writePrivateFile(input: { file: File; folder: string; extension: string; bytes: Uint8Array }): Promise<StoredFile> {
   const safeFolder = input.folder.replace(/[^a-zA-Z0-9._-]/g, "_");
   const storageRoot = resolveStorageRoot();
-  const storageDir = path.join(storageRoot, safeFolder);
+  const storageDir = path.join(/*turbopackIgnore: true*/ storageRoot, safeFolder);
   const storedName = `${randomUUID()}.${input.extension}`;
-  const storagePath = path.join(storageDir, storedName);
+  const storagePath = path.join(/*turbopackIgnore: true*/ storageDir, storedName);
 
-  await mkdir(storageDir, { recursive: true });
+  await mkdir(/*turbopackIgnore: true*/ storageDir, { recursive: true });
   await writeFile(/*turbopackIgnore: true*/ storagePath, input.bytes, { flag: "wx" });
 
   return {
@@ -133,9 +133,9 @@ export async function readPrivateFile(storagePath: string) {
 
 export async function checkPrivateStorage() {
   const storageRoot = resolveStorageRoot();
-  const probePath = path.join(storageRoot, `.health-${randomUUID()}.tmp`);
+  const probePath = path.join(/*turbopackIgnore: true*/ storageRoot, `.health-${randomUUID()}.tmp`);
 
-  await mkdir(storageRoot, { recursive: true });
+  await mkdir(/*turbopackIgnore: true*/ storageRoot, { recursive: true });
   await writeFile(/*turbopackIgnore: true*/ probePath, "ok", { flag: "wx" });
   await unlink(/*turbopackIgnore: true*/ probePath);
 }

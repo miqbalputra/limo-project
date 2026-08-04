@@ -23,10 +23,16 @@ export function UserActions({ userId, active, isSelf }: { userId: string; active
     }
   }
 
+  function confirmRequest(message: string, path: string, method: string, body?: unknown) {
+    if (window.confirm(message)) {
+      void request(path, method, body);
+    }
+  }
+
   return (
     <div className="mt-3 flex flex-wrap gap-2">
-      {!isSelf ? <button disabled={isSubmitting} onClick={() => void request(`/api/v1/admin/users/${userId}/status`, "PATCH", { status: active ? "INACTIVE" : "ACTIVE" })} className="tailadmin-button-outline px-3 py-2">{active ? "Nonaktifkan" : "Aktifkan"}</button> : null}
-      <button disabled={isSubmitting} onClick={() => void request(`/api/v1/admin/users/${userId}/sessions/revoke`, "POST")} className="tailadmin-button-outline px-3 py-2">Cabut Session</button>
+      {!isSelf ? <button disabled={isSubmitting} onClick={() => confirmRequest(active ? "Nonaktifkan akun ini? Session aktif akan dicabut." : "Aktifkan akun ini?", `/api/v1/admin/users/${userId}/status`, "PATCH", { status: active ? "INACTIVE" : "ACTIVE" })} className="tailadmin-button-outline px-3 py-2">{active ? "Nonaktifkan" : "Aktifkan"}</button> : null}
+      <button disabled={isSubmitting} onClick={() => confirmRequest("Cabut semua session user ini? User harus login ulang.", `/api/v1/admin/users/${userId}/sessions/revoke`, "POST")} className="tailadmin-button-outline px-3 py-2">Cabut Session</button>
       {error ? <p className="w-full text-theme-xs text-error-700">{error}</p> : null}
     </div>
   );

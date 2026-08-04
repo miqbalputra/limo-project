@@ -4,6 +4,7 @@ import { listMateri, listSesiKelas } from "@/server/services/lms-service";
 import { MateriFileUpload, MateriForm, SesiKelasForm } from "@/components/dashboard/lms-forms";
 import { GuruRoster } from "@/components/dashboard/guru-roster";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
+import { SessionDuplicateButton } from "@/components/dashboard/session-duplicate-button";
 
 export const metadata = { title: "Kelola Kelas" };
 
@@ -34,7 +35,7 @@ export default async function GuruKelasDetailPage({ params, searchParams }: { pa
         <div className="tailadmin-card p-5">
           <h2 className="font-semibold text-gray-900">Sesi</h2>
           <div className="mt-4 space-y-3">
-            {sesi.map((item) => <article key={item.id} className="rounded-xl bg-gray-50 p-3"><p className="font-semibold text-gray-900">{item.meetingNumber}. {item.topic}</p><p className="text-theme-sm text-gray-500">{new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeZone: "Asia/Jakarta" }).format(item.sessionDate)} / {item.status}</p></article>)}
+            {sesi.map((item) => <article key={item.id} className="rounded-xl bg-gray-50 p-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-gray-900">{item.meetingNumber}. {item.topic}</p><p className="text-theme-sm text-gray-500">{new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeZone: "Asia/Jakarta" }).format(item.sessionDate)} / {item.status}</p></div><SessionDuplicateButton sesiKelasId={item.id} /></div></article>)}
             <PaginationControls basePath={`/guru/kelas/${kelasId}`} pageParam="sesiPage" page={sesiPagination.page} totalPages={sesiPagination.totalPages} params={{ materiPage }} />
           </div>
         </div>

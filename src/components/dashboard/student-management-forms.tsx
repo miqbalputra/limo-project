@@ -137,9 +137,11 @@ export function TransferStudentForm({ studentId, kelas }: { studentId: string; k
 
 export function StudentRecordActions({ studentId, archived }: { studentId: string; archived: boolean }) {
   const mutation = useMutation();
-  const action = archived
-    ? () => mutate(`/api/v1/admin/siswa/${studentId}/restore`, "POST")
-    : () => mutate(`/api/v1/admin/siswa/${studentId}`, "DELETE");
+  const action = () => {
+    const message = archived ? "Pulihkan siswa ini? Enrollment baru mungkin perlu dibuat." : "Arsipkan siswa ini dan akhiri enrollment aktifnya?";
+    if (!window.confirm(message)) return Promise.resolve();
+    return mutate(archived ? `/api/v1/admin/siswa/${studentId}/restore` : `/api/v1/admin/siswa/${studentId}`, archived ? "POST" : "DELETE");
+  };
 
   return (
     <div>
@@ -147,7 +149,7 @@ export function StudentRecordActions({ studentId, archived }: { studentId: strin
       <button
         type="button"
         disabled={mutation.isSubmitting}
-        onClick={() => void mutation.run(action)}
+       onClick={() => void mutation.run(action)}
         className={archived ? "tailadmin-button-primary" : "inline-flex rounded-lg bg-error-500 px-4 py-2.5 text-theme-sm font-medium text-white hover:bg-error-700 disabled:opacity-50"}
       >
         {archived ? "Pulihkan Siswa" : "Arsipkan Siswa"}
@@ -158,11 +160,16 @@ export function StudentRecordActions({ studentId, archived }: { studentId: strin
 
 export function RemoveWaliButton({ studentId, waliProfileId }: { studentId: string; waliProfileId: string }) {
   const mutation = useMutation();
+  function remove() {
+    if (window.confirm("Lepaskan hubungan Wali dari siswa ini?")) {
+      void mutation.run(() => mutate(`/api/v1/admin/siswa/${studentId}/wali/${waliProfileId}`, "DELETE"));
+    }
+  }
   return (
     <button
       type="button"
       disabled={mutation.isSubmitting}
-      onClick={() => void mutation.run(() => mutate(`/api/v1/admin/siswa/${studentId}/wali/${waliProfileId}`, "DELETE"))}
+      onClick={remove}
       className="text-theme-xs font-semibold text-error-700 hover:underline disabled:opacity-50"
     >
       Lepas

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { listTagihan } from "@/server/services/billing-service";
 import { PaymentButton } from "@/components/dashboard/payment-button";
@@ -98,9 +99,9 @@ function InvoiceCard({ item }: { item: Invoice }) {
       </div>
 
       {item.status === "PAID" ? (
-        <p className="mt-4 tailadmin-alert-success">Pembayaran diterima pada {item.paidAt ? formatDate(item.paidAt) : "tanggal tercatat"}.</p>
-      ) : isPayable && item.paymentUrl ? (
-        <PaymentButton tagihanId={item.id} disabled={false} />
+        <div className="mt-4 tailadmin-alert-success"><p>Pembayaran diterima pada {item.paidAt ? formatDate(item.paidAt) : "tanggal tercatat"}.</p><Link href={`/wali/tagihan/success?tagihanId=${encodeURIComponent(item.id)}`} className="mt-2 inline-flex font-semibold underline">Lihat konfirmasi pembayaran</Link></div>
+      ) : isPayable && item.paymentAvailable ? (
+        <PaymentButton tagihanId={item.id} initialPaymentUrl={item.paymentUrl} disabled={false} />
       ) : isPayable ? (
         <p className="mt-4 tailadmin-alert-warning">Instruksi pembayaran belum tersedia. Hubungi admin LIMO untuk bantuan pembayaran.</p>
       ) : (

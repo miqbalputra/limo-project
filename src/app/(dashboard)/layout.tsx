@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getCurrentActor } from "@/server/auth/session";
 import { getNavigationForRole } from "@/components/dashboard/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { listDashboardNotifications } from "@/server/services/notification-service";
+import { listDashboardNotifications, syncGuruPendingNotifications } from "@/server/services/notification-service";
 import { getSelectedWaliStudentId, listWaliSelectorChildren } from "@/server/dal/wali-selector-dal";
 
 export const metadata: Metadata = {
@@ -22,6 +22,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   }
 
   const navigation = getNavigationForRole(actor.role);
+  if (actor.role === "GURU") {
+    await syncGuruPendingNotifications(actor);
+  }
   const notifications = await listDashboardNotifications(actor);
   const waliChildren = actor.role === "WALI" ? await listWaliSelectorChildren(actor) : undefined;
   const selectedWaliChildId = actor.role === "WALI" ? await getSelectedWaliStudentId(actor) : null;

@@ -28,6 +28,15 @@ test("Week 2 guru LMS and exam pages are usable on mobile", async ({ page }) => 
   await expect(page.getByRole("heading", { name: "Kelola Kelas" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Tambah Materi" })).toBeVisible();
   await expect(page.locator('select[name="type"]')).toContainText("PDF");
+  await page.getByPlaceholder("Judul materi").fill("Preview Greeting Cards");
+  await page.locator('select[name="type"]').selectOption("TEXT");
+  await page.locator('textarea[name="content"]').fill("Hello, welcome to class.");
+  await page.getByRole("button", { name: "Lihat Preview" }).click();
+  await expect(page.getByRole("heading", { name: "Preview Greeting Cards" })).toBeVisible();
+  await expect(page.getByText("Hello, welcome to class.")).toBeVisible();
+  await page.locator('textarea[name="content"]').fill("");
+  await page.getByRole("button", { name: "Simpan Materi" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Konten teks wajib diisi" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/guru/bank-soal");
@@ -40,7 +49,15 @@ test("Week 2 guru LMS and exam pages are usable on mobile", async ({ page }) => 
   await page.goto("/guru/ujian");
   await expect(page.getByRole("heading", { name: "Ujian", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Buat Ujian" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Duplikat sebagai Draft" }).first()).toBeVisible();
   await expect(page.getByPlaceholder("Durasi ujian dalam menit")).toBeVisible();
+  await page.getByPlaceholder("Judul ujian").fill("Preview Assessment Demo");
+  await page.locator('textarea[name="description"]').fill("Assessment preview before publish.");
+  await page.locator('input[name="bankSoalId"]').first().check();
+  await page.getByRole("button", { name: "Lihat Preview" }).click();
+  await expect(page.getByRole("heading", { name: "Preview Assessment Demo" })).toBeVisible();
+  await expect(page.getByText("Assessment preview before publish.")).toBeVisible();
+  await expect(page.getByText(/Soal terpilih \(1\)/)).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   const hasilHref = await page.getByRole("link", { name: "Input Hasil" }).first().getAttribute("href");

@@ -1,12 +1,12 @@
-import "server-only";
-import type { Actor } from "@/server/auth/session";
-import { prisma } from "@/server/db/prisma";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
-import { canAccessInvoice } from "@/server/policies/access-policy";
-import { createPakasirPaymentUrl } from "@/server/providers/payment/pakasir";
-import { createTarifSchema, generateInvoiceSchema } from "@/server/validation/billing";
-import { getSelectedWaliStudentId } from "@/server/dal/wali-selector-dal";
-import { notifyWaliForStudents } from "@/server/services/notification-service";
+import type { Actor } from "../auth/session.ts";
+import { prisma } from "../db/prisma.ts";
+import { ForbiddenError, NotFoundError, ValidationError } from "../errors/application-error.ts";
+import { canAccessInvoice } from "../policies/access-policy.ts";
+import { createTarifSchema, generateInvoiceSchema } from "../validation/billing.ts";
+import { getSelectedWaliStudentId } from "../dal/wali-selector-dal.ts";
+import { notifyWaliForStudents } from "./notification-service.ts";
+import { isMayarConfigured } from "../providers/payment/mayar.ts";
+import { createPaginationMeta, resolvePagination, type PaginationInput } from "../pagination.ts";
 
 function requireAdmin(actor: Actor) {
   if (actor.role !== "ADMIN") {
@@ -73,7 +73,7 @@ export async function createTarif(actor: Actor, input: unknown) {
   return { item };
 }
 
-export async function listTagihan(actor: Actor) {
+export async function listTagihan(actor: Actor, paginationInput: PaginationInput = {}) {
   const selectedStudentId = actor.role === "WALI" ? await getSelectedWaliStudentId(actor) : null;
   const where = actor.role === "ADMIN"
     ? {}
@@ -81,29 +81,43 @@ export async function listTagihan(actor: Actor) {
       ? { ...(selectedStudentId ? { siswaId: selectedStudentId } : {}), siswa: { waliRelations: { some: { endedAt: null, waliProfile: { userId: actor.id } } } } }
       : { siswaId: "__none__" };
 
-  const items = await prisma.tagihan.findMany({
-    where,
-    orderBy: [{ periode: "desc" }, { dueDate: "asc" }],
-    take: 100,
-    select: {
-      id: true,
-      periode: true,
-      jenis: true,
-      description: true,
-      amount: true,
-      status: true,
-      dueDate: true,
-      paidAt: true,
-      siswa: { select: { id: true, name: true, nomorInduk: true } },
-    },
-  });
+  const pagination = resolvePagination(paginationInput, actor.role === "ADMIN" ? 20 : 100);
+  const [totalItems, items] = await Promise.all([
+    prisma.tagihan.count({ where }),
+    prisma.tagihan.findMany({
+      where,
+      orderBy: [{ periode: "desc" }, { dueDate: "asc" }],
+      skip: pagination.skip,
+      take: pagination.take,
+      select: {
+        id: true,
+        periode: true,
+        jenis: true,
+        description: true,
+        amount: true,
+        status: true,
+        dueDate: true,
+        paidAt: true,
+        siswa: { select: { id: true, name: true, nomorInduk: true } },
+        pembayaran: { where: { provider: "mayar" }, orderBy: { createdAt: "desc" }, take: 1, select: { status: true, rawPayload: true } },
+      },
+    }),
+  ]);
 
   return {
     items: items.map((item) => ({
       ...item,
-      paymentUrl: createPakasirPaymentUrl({ tagihanId: item.id, amount: item.amount.toString() }),
+      paymentUrl: getPaymentUrl(item.pembayaran[0]?.rawPayload),
+      paymentAvailable: isMayarConfigured(),
     })),
+    pagination: createPaginationMeta(pagination.page, pagination.pageSize, totalItems),
   };
+}
+
+function getPaymentUrl(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const value = (payload as { paymentUrl?: unknown }).paymentUrl;
+  return typeof value === "string" ? value : null;
 }
 
 export async function getTagihan(actor: Actor, id: string) {
@@ -115,7 +129,19 @@ export async function getTagihan(actor: Actor, id: string) {
 
   const item = await prisma.tagihan.findUnique({
     where: { id },
-    include: { siswa: true, pembayaran: { orderBy: { createdAt: "desc" } } },
+    select: {
+      id: true,
+      siswaId: true,
+      periode: true,
+      jenis: true,
+      description: true,
+      amount: true,
+      status: true,
+      dueDate: true,
+      paidAt: true,
+      siswa: { select: { id: true, name: true, nomorInduk: true } },
+      pembayaran: { orderBy: { createdAt: "desc" }, select: { id: true, provider: true, providerReference: true, amount: true, status: true, paymentMethod: true, paidAt: true, createdAt: true } },
+    },
   });
 
   if (!item) {
@@ -218,6 +244,7 @@ export async function generateMonthlyInvoices(actor: Actor | null, input: unknow
       subject: "Tagihan baru LIMO tersedia",
       body: `Tagihan ${parsed.data.jenis} periode ${parsed.data.period} sudah dibuat. Buka menu Tagihan untuk melihat nominal dan instruksi pembayaran.`,
       metadata: { period: parsed.data.period, jenis: parsed.data.jenis },
+      channels: ["email", "whatsapp"],
     });
   }
 

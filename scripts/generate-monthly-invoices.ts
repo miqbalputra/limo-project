@@ -1,3 +1,4 @@
+import "./load-env.ts";
 import { generateMonthlyInvoices } from "../src/server/services/billing-service.ts";
 
 function readArg(name: string) {

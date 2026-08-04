@@ -2,7 +2,7 @@ import Link from "next/link";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import { DashboardHero, EmptyState, MetricCard, ProgressBar, QuickActionCard, SectionHeader } from "@/components/dashboard/dashboard-widgets";
 import { requireActor, requireRole } from "@/server/auth/session";
-import { getActorDashboardContext } from "@/server/dal/actor-dal";
+import { getActorDashboardContext, getGuruTodayAgenda } from "@/server/dal/actor-dal";
 
 export const metadata = {
   title: "Guru Dashboard",
@@ -11,7 +11,7 @@ export const metadata = {
 export default async function GuruDashboardPage() {
   const actor = await requireActor();
   requireRole(actor, ["GURU"]);
-  const context = await getActorDashboardContext(actor);
+  const [context, todayAgenda] = await Promise.all([getActorDashboardContext(actor), getGuruTodayAgenda(actor)]);
 
   if (context.role !== "GURU") return null;
 
@@ -36,6 +36,50 @@ export default async function GuruDashboardPage() {
         <MetricCard label="Siswa Dibimbing" value={totalStudents} description="Total enrollment aktif" icon="student" tone="success" />
         <MetricCard label="Sesi Kelas" value={totalSessions} description="Pertemuan yang tersedia" icon="presensi" tone="warning" />
         <MetricCard label="Materi & Ujian" value={totalMaterials + totalExams} description={`${totalMaterials} materi, ${totalExams} ujian`} icon="exam" tone="gray" />
+      </section>
+
+      <section>
+        <SectionHeader title="Agenda Hari Ini" description="Mulai dari sesi yang dijadwalkan hari ini dan selesaikan input yang masih tertunda." action={<Link href="/guru/presensi" className="text-theme-sm font-semibold text-brand-500 hover:text-brand-600">Buka semua sesi</Link>} />
+        {todayAgenda.length > 0 ? (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {todayAgenda.map((item) => {
+              const students = item.kelas._count.enrollments;
+              const attendanceReady = students > 0 && item._count.presensi >= students;
+              const progressReady = students > 0 && item._count.progresBelajar >= students;
+
+              return (
+                <article key={item.id} className="tailadmin-card min-w-0 p-5 ring-1 ring-brand-100">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 gap-4">
+                      <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand-50 text-theme-sm font-semibold text-brand-600">{item.meetingNumber}</span>
+                      <div className="min-w-0">
+                        <p className="text-theme-xs font-semibold uppercase tracking-wide text-brand-500">{item.kelas.name}</p>
+                        <h2 className="mt-1 truncate font-semibold text-gray-900" title={item.topic}>{item.topic}</h2>
+                        <p className="mt-1 text-theme-xs text-gray-500">{formatAgendaTime(item.sessionDate)} / {students} siswa aktif</p>
+                      </div>
+                    </div>
+                    <span className={`w-fit rounded-full px-3 py-1 text-theme-xs font-semibold ${item.status === "FINAL" ? "bg-success-50 text-success-700" : "bg-warning-50 text-warning-700"}`}>{item.status === "FINAL" ? "Final" : "Draft"}</span>
+                  </div>
+
+                  <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                    <AgendaStatus label="Presensi" complete={attendanceReady} value={`${Math.min(item._count.presensi, students)}/${students}`} />
+                    <AgendaStatus label="Progres" complete={progressReady} value={`${Math.min(item._count.progresBelajar, students)}/${students}`} />
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Link href={`/guru/presensi/${item.id}`} className="tailadmin-button-primary px-3 py-2">Input Presensi</Link>
+                    <Link href={`/guru/progres/${item.id}`} className="tailadmin-button-outline px-3 py-2">Input Progres</Link>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50/70 p-6">
+            <p className="font-semibold text-gray-900">Tidak ada sesi terjadwal hari ini</p>
+            <p className="mt-1 text-theme-sm text-gray-500">Sesi baru akan muncul di sini setelah admin membuat jadwal untuk kelas aktif Anda.</p>
+          </div>
+        )}
       </section>
 
       <section>
@@ -87,4 +131,12 @@ export default async function GuruDashboardPage() {
       </section>
     </div>
   );
+}
+
+function AgendaStatus({ label, value, complete }: { label: string; value: string; complete: boolean }) {
+  return <div className={`rounded-2xl border px-3 py-2.5 ${complete ? "border-success-100 bg-success-50/70" : "border-warning-100 bg-warning-50/70"}`}><div className="flex items-center justify-between gap-2"><span className="text-theme-xs font-medium text-gray-600">{label}</span><span className={`text-theme-xs font-semibold ${complete ? "text-success-700" : "text-warning-700"}`}>{complete ? "Lengkap" : "Perlu diinput"}</span></div><p className="mt-1 text-sm font-semibold text-gray-900">{value} siswa</p></div>;
+}
+
+function formatAgendaTime(value: Date) {
+  return new Intl.DateTimeFormat("id-ID", { timeStyle: "short", timeZone: "Asia/Jakarta" }).format(value);
 }

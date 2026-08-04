@@ -124,6 +124,19 @@ try {
   assert.ok(pagedExamList.payload.data.pagination.totalItems >= 1);
   ok("Ujian stores timer duration and selected questions");
 
+  const duplicate = await request(`/api/v1/ujian/${createdExam.id}/duplicate`, { method: "POST", cookie: guru.cookie, body: {} });
+  assert.equal(duplicate.response.status, 201, JSON.stringify(duplicate.payload));
+  assert.equal(duplicate.payload.data.item.status, "DRAFT");
+  assert.match(duplicate.payload.data.item.title, /\(Template\)$/);
+  assert.equal(duplicate.payload.data.item.questionCount, 1);
+  const duplicateAudit = await prisma.auditLog.findFirst({ where: { action: "UJIAN_DUPLICATED", entityId: duplicate.payload.data.item.id }, orderBy: { createdAt: "desc" }, select: { metadata: true } });
+  assert.equal(duplicateAudit?.metadata?.sourceUjianId, createdExam.id);
+  ok("Guru can duplicate an exam as a draft template");
+
+  const forbiddenDuplicate = await request(`/api/v1/ujian/${createdExam.id}/duplicate`, { method: "POST", cookie: wali.cookie, body: {} });
+  assert.equal(forbiddenDuplicate.response.status, 403, JSON.stringify(forbiddenDuplicate.payload));
+  ok("Wali cannot duplicate a Guru exam");
+
   const publishedNotifications = await prisma.notifikasi.findMany({ where: { template: "online-exam-published", recipient: "wali@limo.local" }, orderBy: { createdAt: "desc" }, select: { id: true, metadata: true } });
   const publishedNotification = publishedNotifications.find((notification) => notification.metadata && typeof notification.metadata === "object" && !Array.isArray(notification.metadata) && notification.metadata.ujianId === createdExam.id);
   assert.ok(publishedNotification);

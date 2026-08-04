@@ -14,10 +14,15 @@ Dokumen ini menjelaskan variable yang dibutuhkan aplikasi LIMO. Jangan menaruh s
 | `PRIVATE_STORAGE_PATH` | Ya | Path privat di luar `public/` dan tidak diekspos Nginx |
 | `MAX_REGISTRATION_FILE_MB` | Ya | Default 10 |
 | `MAX_MATERIAL_FILE_MB` | Ya | Default 25 |
-| `PAKASIR_PROJECT` | Untuk payment | Project/merchant identifier Pakasir |
-| `PAKASIR_API_KEY` | Untuk payment | API key Pakasir, tidak boleh `NEXT_PUBLIC_` |
-| `PAKASIR_WEBHOOK_SECRET` | Untuk webhook | Secret HMAC webhook Pakasir |
-| `NOTIFICATION_PROVIDER` | Ya | `console` untuk development, `email` untuk production awal. Production tidak boleh memakai `console` |
+| `MAYAR_ENV` | Ya | `sandbox` atau `production` |
+| `MAYAR_BASE_URL` | Opsional | Override base URL Mayar V2 |
+| `MAYAR_API_KEY` | Untuk payment | API key Mayar, tidak boleh `NEXT_PUBLIC_` |
+| `MAYAR_MERCHANT_ID` | Production | Merchant/user ID yang divalidasi dari webhook Mayar |
+| `MAYAR_WEBHOOK_SECRET` | Production | Secret webhook yang dikonfigurasi di endpoint LIMO |
+| `NOTIFICATION_PROVIDER` | Ya | `console` untuk development, `email` atau `n8n` untuk production. Production tidak boleh memakai `console` |
+| `N8N_EMAIL_WEBHOOK_URL` | Jika n8n | Webhook n8n untuk delivery email |
+| `N8N_WHATSAPP_WEBHOOK_URL` | Jika n8n | Webhook n8n untuk delivery WhatsApp/GOWA |
+| `N8N_WEBHOOK_SECRET` | Jika n8n | Secret header outbound LIMO ke n8n |
 | `NEXT_PUBLIC_LIMO_CONTACT_EMAIL` | Ya | Email kontak publik landing page; bukan secret |
 | `SMTP_HOST` | Jika email | Host SMTP |
 | `SMTP_PORT` | Jika email | Port SMTP |

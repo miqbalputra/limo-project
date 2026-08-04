@@ -159,7 +159,7 @@ export default function HomePage() {
         <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-3 group" aria-label="LIMO Home">
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-white p-0.5 shadow-theme-xs transition group-hover:shadow-theme-sm group-hover:scale-105">
-              <Image src="/logo.jpg" width={44} height={44} alt="LIMO" className="h-10 w-10 rounded-lg object-contain" priority />
+              <Image src="/logo.jpg" width={40} height={40} alt="LIMO" className="h-10 w-10 rounded-lg object-contain" priority />
             </div>
             <div className="hidden min-[420px]:block">
               <span className="block text-lg font-bold tracking-tight" style={{ color: "var(--color-limo-blue)" }}>LIMO</span>

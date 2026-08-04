@@ -6,6 +6,7 @@ import { createPasswordResetGrant } from "@/server/auth/password-reset";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { generateOpaqueToken } from "@/server/security/crypto";
+import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 import {
   createGuruSchema,
   createSiswaSchema,
@@ -30,21 +31,29 @@ async function createInitialPasswordHash() {
   return hashPassword(generateOpaqueToken(18));
 }
 
-export async function listGuru(actor: Actor) {
+export async function listGuru(actor: Actor, input: PaginationInput & { search?: string } = {}) {
   requireAdmin(actor);
 
-  const items = await prisma.guruProfile.findMany({
-    orderBy: { user: { name: "asc" } },
-    select: {
-      id: true,
-      phone: true,
-      address: true,
-      user: { select: { id: true, name: true, email: true, status: true } },
-      _count: { select: { kelas: true } },
-    },
-  });
+  const pagination = resolvePagination(input, 20);
+  const where = input.search ? { user: { OR: [{ name: { contains: input.search } }, { email: { contains: input.search } }] } } : {};
+  const [totalItems, items] = await Promise.all([
+    prisma.guruProfile.count({ where }),
+    prisma.guruProfile.findMany({
+      where,
+      orderBy: { user: { name: "asc" } },
+      skip: pagination.skip,
+      take: pagination.take,
+      select: {
+        id: true,
+        phone: true,
+        address: true,
+        user: { select: { id: true, name: true, email: true, status: true } },
+        _count: { select: { kelas: true } },
+      },
+    }),
+  ]);
 
-  return { items };
+  return { items, pagination: createPaginationMeta(pagination.page, pagination.pageSize, totalItems) };
 }
 
 export async function createGuru(actor: Actor, input: unknown) {
@@ -100,21 +109,29 @@ export async function createGuru(actor: Actor, input: unknown) {
   return { item };
 }
 
-export async function listWali(actor: Actor) {
+export async function listWali(actor: Actor, input: PaginationInput & { search?: string } = {}) {
   requireAdmin(actor);
 
-  const items = await prisma.waliProfile.findMany({
-    orderBy: { user: { name: "asc" } },
-    select: {
-      id: true,
-      phone: true,
-      address: true,
-      user: { select: { id: true, name: true, email: true, status: true } },
-      _count: { select: { siswaRelations: true } },
-    },
-  });
+  const pagination = resolvePagination(input, 20);
+  const where = input.search ? { user: { OR: [{ name: { contains: input.search } }, { email: { contains: input.search } }] } } : {};
+  const [totalItems, items] = await Promise.all([
+    prisma.waliProfile.count({ where }),
+    prisma.waliProfile.findMany({
+      where,
+      orderBy: { user: { name: "asc" } },
+      skip: pagination.skip,
+      take: pagination.take,
+      select: {
+        id: true,
+        phone: true,
+        address: true,
+        user: { select: { id: true, name: true, email: true, status: true } },
+        _count: { select: { siswaRelations: true } },
+      },
+    }),
+  ]);
 
-  return { items };
+  return { items, pagination: createPaginationMeta(pagination.page, pagination.pageSize, totalItems) };
 }
 
 export async function createWali(actor: Actor, input: unknown) {
@@ -321,10 +338,21 @@ export async function updateSiswa(actor: Actor, id: string, input: unknown) {
     throw new ValidationError("Data siswa belum valid", parsed.error.flatten().fieldErrors);
   }
 
-  const existing = await prisma.siswa.findUnique({ where: { id }, select: { id: true } });
+  const existing = await prisma.siswa.findUnique({ where: { id }, select: { id: true, programId: true } });
   if (!existing) throw new NotFoundError("Siswa tidak ditemukan");
 
   const item = await prisma.$transaction(async (tx) => {
+    if (existing.programId !== parsed.data.programId) {
+      const activeEnrollmentCount = await tx.kelasSiswa.count({ where: { siswaId: id, status: "ACTIVE" } });
+      if (activeEnrollmentCount > 0) {
+        throw new ConflictError("Program siswa tidak dapat diubah selama masih memiliki enrollment aktif; lakukan transfer kelas terlebih dahulu");
+      }
+    }
+
+    if (parsed.data.status !== "ACTIVE") {
+      await tx.kelasSiswa.updateMany({ where: { siswaId: id, status: "ACTIVE" }, data: { status: "CANCELLED", endDate: new Date() } });
+    }
+
     const updated = await tx.siswa.update({
       where: { id },
       data: {

@@ -42,6 +42,7 @@ async function getActiveStudentIds(kelasId: string, sessionDate: Date) {
       status: "ACTIVE",
       startDate: { lte: sessionDate },
       OR: [{ endDate: null }, { endDate: { gte: sessionDate } }],
+      siswa: { status: "ACTIVE", deletedAt: null },
     },
     select: { siswaId: true },
   });
@@ -54,7 +55,7 @@ export async function getSessionRoster(actor: Actor, sesiKelasId: string) {
   const activeIds = await getActiveStudentIds(sesi.kelasId, sesi.sessionDate);
 
   const students = await prisma.siswa.findMany({
-    where: { id: { in: [...activeIds] }, deletedAt: null },
+    where: { id: { in: [...activeIds] }, status: "ACTIVE", deletedAt: null },
     orderBy: { name: "asc" },
     select: {
       id: true,
@@ -132,4 +133,29 @@ export async function submitProgres(actor: Actor, input: unknown) {
   });
 
   return { success: true };
+}
+
+export async function finalizeSesiKelas(actor: Actor, sesiKelasId: string) {
+  const sesi = await getManagedSession(actor, sesiKelasId);
+  assertWritableSession(sesi.status);
+  const activeIds = await getActiveStudentIds(sesi.kelasId, sesi.sessionDate);
+  const studentIds = [...activeIds];
+  const [presensiCount, progressStudents] = await Promise.all([
+    prisma.presensi.count({ where: { sesiKelasId, siswaId: { in: studentIds } } }),
+    prisma.progresBelajar.findMany({ where: { sesiKelasId, siswaId: { in: studentIds } }, distinct: ["siswaId"], select: { siswaId: true } }),
+  ]);
+  const progressCount = progressStudents.length;
+
+  if (presensiCount < studentIds.length || progressCount < studentIds.length) {
+    throw new ConflictError(`Sesi belum lengkap: presensi ${presensiCount}/${studentIds.length}, progres ${progressCount}/${studentIds.length}`);
+  }
+
+  const finalizedAt = new Date();
+  await prisma.$transaction([
+    prisma.presensi.updateMany({ where: { sesiKelasId, siswaId: { in: studentIds } }, data: { finalizedAt } }),
+    prisma.sesiKelas.update({ where: { id: sesiKelasId }, data: { status: "FINAL" } }),
+    prisma.auditLog.create({ data: { actorId: actor.id, action: "SESI_KELAS_FINALIZED", entityType: "SesiKelas", entityId: sesiKelasId } }),
+  ]);
+
+  return { success: true, finalizedAt };
 }

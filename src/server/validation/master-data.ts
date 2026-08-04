@@ -21,6 +21,10 @@ export const createKelasSchema = z.object({
   scheduleNote: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
+export const updateProgramSchema = createProgramSchema.pick({ name: true, description: true });
+export const updateLevelSchema = createLevelSchema.pick({ name: true, order: true, description: true });
+export const updateKelasSchema = createKelasSchema.pick({ name: true, guruProfileId: true, scheduleNote: true });
+
 export const createGuruSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().email().max(255),

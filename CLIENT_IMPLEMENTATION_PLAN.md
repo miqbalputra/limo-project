@@ -47,7 +47,7 @@ Status: **Menunggu environment staging client**
 - Domain HTTPS staging.
 - Persistent private storage.
 - SMTP sandbox dan production verification.
-- Pakasir sandbox UAT: create, payment, webhook, reconcile.
+- Mayar sandbox UAT: create invoice, payment, webhook, reconcile.
 - Backup database dan storage.
 - Restore drill.
 - Error monitoring dan alerting.
@@ -95,6 +95,8 @@ Implementasi pertama fase ini tersedia melalui `/admin/laporan` dengan filter pe
 ## Fase 4: Pengalaman Guru
 
 Status: **Sebagian besar fondasi tersedia**
+
+Dashboard Guru kini menampilkan agenda sesi hari ini dan halaman kalender jadwal yang scoped ke kelas aktif Guru, termasuk status kelengkapan presensi dan progres serta shortcut input langsung. Form presensi juga menyediakan aksi bulk `Hadir Semua` dan autosave draft lokal sebelum penyimpanan. Form Guru menampilkan feedback field-level dari validasi API, form materi dan assessment memiliki preview lokal sebelum draft atau publish dikirim ke server, serta sesi dan ujian dapat diduplikasi sebagai template draft.
 
 ### Cakupan
 
@@ -296,7 +298,7 @@ Status: **Belum dimulai**
 - Domain dan HTTPS.
 - MariaDB production/staging.
 - SMTP credentials.
-- Pakasir credentials dan webhook URL.
+- Mayar credentials, merchant ID, dan webhook URL.
 - Struktur program, level, kelas, jadwal, dan tarif.
 - Rubric serta konten assessment.
 - Daftar user dan relasi wali-anak.

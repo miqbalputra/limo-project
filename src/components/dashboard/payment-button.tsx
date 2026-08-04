@@ -1,28 +1,56 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import Link from "next/link";
+import { FormEvent, useEffect, useState } from "react";
 
 type PaymentResult = {
-  mode: "api" | "redirect";
+  mode: "redirect";
+  provider: "mayar";
   paymentUrl: string | null;
-  payment: {
-    payment_method: string;
-    payment_number: string;
-    total_payment?: number;
-    expired_at?: string;
-  } | null;
+  payment: null;
+  invoiceId?: string;
+  transactionId?: string;
 };
 
-export function PaymentButton({ tagihanId, disabled }: { tagihanId: string; disabled: boolean }) {
-  const [method, setMethod] = useState("qris");
+export function PaymentButton({ tagihanId, disabled, initialPaymentUrl = null }: { tagihanId: string; disabled: boolean; initialPaymentUrl?: string | null }) {
+  const [method, setMethod] = useState("all");
   const [error, setError] = useState("");
-  const [result, setResult] = useState<PaymentResult | null>(null);
+  const [result, setResult] = useState<PaymentResult | null>(initialPaymentUrl ? { mode: "redirect", provider: "mayar", paymentUrl: initialPaymentUrl, payment: null } : null);
+  const [isPaid, setIsPaid] = useState(false);
+  const [statusError, setStatusError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!result?.paymentUrl || isPaid) return;
+
+    let cancelled = false;
+    const checkPaymentStatus = async () => {
+      const response = await fetch(`/api/v1/tagihan/${tagihanId}`, { cache: "no-store" });
+      if (!response.ok) {
+        if (!cancelled) setStatusError("Status pembayaran belum dapat diperiksa. Coba lagi beberapa saat.");
+        return;
+      }
+      if (cancelled) return;
+      setStatusError("");
+      const payload = await response.json().catch(() => null) as { data?: { item?: { status?: string } } } | null;
+      if (!cancelled && payload?.data?.item?.status === "PAID") {
+        setIsPaid(true);
+      }
+    };
+
+    void checkPaymentStatus();
+    const interval = window.setInterval(() => void checkPaymentStatus(), 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [isPaid, result?.paymentUrl, tagihanId]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setResult(null);
+    setIsPaid(false);
     setIsSubmitting(true);
 
     try {
@@ -48,30 +76,28 @@ export function PaymentButton({ tagihanId, disabled }: { tagihanId: string; disa
   return (
     <form onSubmit={onSubmit} className="mt-4 space-y-3">
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-        <select value={method} onChange={(event) => setMethod(event.target.value)} disabled={disabled || isSubmitting} className="tailadmin-input py-2">
+        <label className="sr-only" htmlFor={`payment-method-${tagihanId}`}>Metode pembayaran Mayar</label>
+        <select id={`payment-method-${tagihanId}`} value={method} onChange={(event) => setMethod(event.target.value)} disabled={disabled || isSubmitting} className="tailadmin-input py-2">
+          <option value="all">Semua metode Mayar</option>
           <option value="qris">QRIS</option>
-          <option value="bni_va">BNI Virtual Account</option>
-          <option value="bri_va">BRI Virtual Account</option>
-          <option value="permata_va">Permata Virtual Account</option>
-          <option value="atm_bersama_va">ATM Bersama VA</option>
+          <option value="va/bni">BNI Virtual Account</option>
+          <option value="va/bri">BRI Virtual Account</option>
+          <option value="va/mandiri">Mandiri Virtual Account</option>
+          <option value="va/permata">Permata Virtual Account</option>
+          <option value="ewallet/gopay">GoPay</option>
         </select>
         <button type="submit" disabled={disabled || isSubmitting} className="tailadmin-button-primary justify-center px-4 py-2">
           {isSubmitting ? "Membuat..." : "Buat Instruksi Bayar"}
         </button>
       </div>
-      {error ? <p className="tailadmin-alert-error">{error}</p> : null}
-      {result?.payment ? (
-        <div className="rounded-xl border border-success-100 bg-success-50 p-3 text-theme-sm text-success-800">
-          <p className="font-semibold">{result.payment.payment_method.toUpperCase()} siap digunakan</p>
-          <p className="mt-1 break-all">Nomor/QR string: {result.payment.payment_number}</p>
-          {result.payment.total_payment ? <p>Total bayar: Rp {result.payment.total_payment.toLocaleString("id-ID")}</p> : null}
-          {result.payment.expired_at ? <p>Kadaluarsa: {new Date(result.payment.expired_at).toLocaleString("id-ID")}</p> : null}
-        </div>
-      ) : result?.paymentUrl ? (
+      {error ? <p role="alert" className="tailadmin-alert-error">{error}</p> : null}
+      {result?.paymentUrl ? <>
         <a href={result.paymentUrl} target="_blank" rel="noreferrer" className="tailadmin-button-outline w-full justify-center px-4 py-2">
-          Buka Halaman Pembayaran Pakasir
+          Buka Halaman Pembayaran Mayar
         </a>
-      ) : null}
+        {isPaid ? <div role="status" aria-live="polite" className="rounded-xl border border-success-100 bg-success-50 p-4 text-theme-sm text-success-800"><p className="font-semibold">Pembayaran berhasil diterima.</p><p className="mt-1">Webhook Mayar sudah memverifikasi pembayaran tagihan ini.</p><Link href={`/wali/tagihan/success?tagihanId=${encodeURIComponent(tagihanId)}`} className="mt-3 inline-flex font-semibold text-success-700 underline">Lihat halaman pembayaran berhasil</Link></div> : <p role="status" className="text-theme-xs text-gray-500">Menunggu konfirmasi pembayaran dari Mayar. Halaman ini memeriksa status otomatis.</p>}
+        {statusError ? <p role="status" className="text-theme-xs text-warning-700">{statusError}</p> : null}
+      </> : null}
     </form>
   );
 }

@@ -82,6 +82,39 @@ export async function listSesiKelas(actor: Actor, kelasId: string, paginationInp
   return { items, pagination: paginationMeta };
 }
 
+export async function listGuruSchedule(actor: Actor, from: Date, to: Date) {
+  if (actor.role !== "GURU") {
+    throw new ForbiddenError();
+  }
+
+  const items = await prisma.sesiKelas.findMany({
+    where: {
+      sessionDate: { gte: from, lt: to },
+      status: { not: "CANCELLED" },
+      kelas: { status: "ACTIVE", guruProfile: { userId: actor.id } },
+    },
+    orderBy: [{ sessionDate: "asc" }, { meetingNumber: "asc" }],
+    select: {
+      id: true,
+      meetingNumber: true,
+      topic: true,
+      sessionDate: true,
+      status: true,
+      kelas: {
+        select: {
+          id: true,
+          name: true,
+          program: { select: { name: true } },
+          _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
+        },
+      },
+      _count: { select: { presensi: true, progresBelajar: true, materi: true } },
+    },
+  });
+
+  return { items };
+}
+
 export async function createSesiKelas(actor: Actor, input: unknown) {
   const parsed = createSesiKelasSchema.safeParse(input);
 
@@ -112,6 +145,81 @@ export async function createSesiKelas(actor: Actor, input: unknown) {
   });
 
   return { item };
+}
+
+export async function duplicateSesiKelas(actor: Actor, sesiKelasId: string) {
+  const source = await prisma.sesiKelas.findUnique({
+    where: { id: sesiKelasId },
+    select: {
+      id: true,
+      kelasId: true,
+      topic: true,
+      sessionDate: true,
+      materi: {
+        select: { type: true, title: true, content: true, videoUrl: true, language: true, direction: true, order: true },
+        orderBy: { order: "asc" },
+      },
+    },
+  });
+
+  if (!source) {
+    throw new NotFoundError("Sesi kelas tidak ditemukan");
+  }
+
+  await assertCanManageClass(actor, source.kelasId);
+  const latest = await prisma.sesiKelas.aggregate({ where: { kelasId: source.kelasId }, _max: { meetingNumber: true } });
+  const meetingNumber = (latest._max.meetingNumber || 0) + 1;
+
+  const item = await prisma.$transaction(async (tx) => {
+    const duplicate = await tx.sesiKelas.create({
+      data: {
+        kelasId: source.kelasId,
+        meetingNumber,
+        topic: source.topic,
+        sessionDate: new Date(source.sessionDate.getTime() + 7 * 24 * 60 * 60 * 1000),
+        status: "DRAFT",
+      },
+      select: { id: true, meetingNumber: true, topic: true, sessionDate: true, status: true },
+    });
+
+    if (source.materi.length > 0) {
+      await tx.materi.createMany({
+        data: source.materi.map((material) => ({
+          kelasId: source.kelasId,
+          sesiKelasId: duplicate.id,
+          type: material.type,
+          status: "DRAFT" as const,
+          title: material.title,
+          content: material.content,
+          videoUrl: material.videoUrl,
+          language: material.language,
+          direction: material.direction,
+          order: material.order,
+          createdById: actor.id,
+        })),
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        actorId: actor.id,
+        action: "SESI_KELAS_DUPLICATED",
+        entityType: "SesiKelas",
+        entityId: duplicate.id,
+        metadata: { sourceSesiKelasId: source.id, materialCount: source.materi.length },
+      },
+    });
+
+    return duplicate;
+  }).catch((error: unknown) => {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+      throw new ConflictError("Nomor pertemuan sudah ada untuk kelas ini");
+    }
+
+    throw error;
+  });
+
+  return { item: { ...item, materialCount: source.materi.length } };
 }
 
 export async function listMateri(actor: Actor, kelasId: string, paginationInput?: PaginationInput) {
@@ -168,15 +276,15 @@ export async function createMateri(actor: Actor, input: unknown) {
   }
 
   if (parsed.data.type === "VIDEO_LINK" && !parsed.data.videoUrl) {
-    throw new ValidationError("URL video wajib diisi untuk materi video");
+    throw new ValidationError("URL video wajib diisi untuk materi video", { videoUrl: ["URL video wajib diisi untuk materi video"] });
   }
 
   if (parsed.data.type === "TEXT" && !parsed.data.content) {
-    throw new ValidationError("Konten teks wajib diisi untuk materi teks");
+    throw new ValidationError("Konten teks wajib diisi untuk materi teks", { content: ["Konten teks wajib diisi untuk materi teks"] });
   }
 
   if ((parsed.data.type === "PDF" || parsed.data.type === "IMAGE") && (parsed.data.content || parsed.data.videoUrl)) {
-    throw new ValidationError("Materi file tidak perlu konten teks atau URL video");
+    throw new ValidationError("Materi file tidak perlu konten teks atau URL video", { content: ["Materi file tidak perlu konten teks atau URL video"], videoUrl: ["Materi file tidak perlu konten teks atau URL video"] });
   }
 
   const item = await prisma.materi.create({

@@ -2,7 +2,7 @@ import "server-only";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
-import { createKelasSchema, createLevelSchema, createProgramSchema } from "@/server/validation/master-data";
+import { createKelasSchema, createLevelSchema, createProgramSchema, updateKelasSchema, updateLevelSchema, updateProgramSchema } from "@/server/validation/master-data";
 
 function requireAdmin(actor: Actor) {
   if (actor.role !== "ADMIN") {
@@ -63,6 +63,26 @@ export async function createProgram(actor: Actor, input: unknown) {
   return { item };
 }
 
+export async function updateProgram(actor: Actor, id: string, input: unknown) {
+  requireAdmin(actor);
+  const parsed = updateProgramSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Data program belum valid", parsed.error.flatten().fieldErrors);
+  const existing = await prisma.program.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) throw new NotFoundError("Program tidak ditemukan");
+  const item = await prisma.program.update({ where: { id }, data: { name: parsed.data.name, description: parsed.data.description || null }, select: { id: true, name: true, kind: true, isActive: true } });
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "PROGRAM_UPDATED", entityType: "Program", entityId: id } });
+  return { item };
+}
+
+export async function archiveProgram(actor: Actor, id: string) {
+  requireAdmin(actor);
+  const existing = await prisma.program.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) throw new NotFoundError("Program tidak ditemukan");
+  const item = await prisma.program.update({ where: { id }, data: { isActive: false }, select: { id: true, name: true, isActive: true } });
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "PROGRAM_ARCHIVED", entityType: "Program", entityId: id } });
+  return { item };
+}
+
 export async function listLevels(actor: Actor) {
   requireAdmin(actor);
 
@@ -115,6 +135,26 @@ export async function createLevel(actor: Actor, input: unknown) {
     },
   });
 
+  return { item };
+}
+
+export async function updateLevel(actor: Actor, id: string, input: unknown) {
+  requireAdmin(actor);
+  const parsed = updateLevelSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Data level belum valid", parsed.error.flatten().fieldErrors);
+  const existing = await prisma.level.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) throw new NotFoundError("Level tidak ditemukan");
+  const item = await prisma.level.update({ where: { id }, data: { name: parsed.data.name, order: parsed.data.order, description: parsed.data.description || null }, select: { id: true, name: true, order: true, isActive: true } });
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "LEVEL_UPDATED", entityType: "Level", entityId: id } });
+  return { item };
+}
+
+export async function archiveLevel(actor: Actor, id: string) {
+  requireAdmin(actor);
+  const existing = await prisma.level.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) throw new NotFoundError("Level tidak ditemukan");
+  const item = await prisma.level.update({ where: { id }, data: { isActive: false }, select: { id: true, name: true, isActive: true } });
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "LEVEL_ARCHIVED", entityType: "Level", entityId: id } });
   return { item };
 }
 
@@ -194,6 +234,30 @@ export async function createKelas(actor: Actor, input: unknown) {
     },
   });
 
+  return { item };
+}
+
+export async function updateKelas(actor: Actor, id: string, input: unknown) {
+  requireAdmin(actor);
+  const parsed = updateKelasSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Data kelas belum valid", parsed.error.flatten().fieldErrors);
+  const existing = await prisma.kelas.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) throw new NotFoundError("Kelas tidak ditemukan");
+  if (parsed.data.guruProfileId) {
+    const guru = await prisma.guruProfile.findUnique({ where: { id: parsed.data.guruProfileId }, select: { id: true } });
+    if (!guru) throw new NotFoundError("Guru tidak ditemukan");
+  }
+  const item = await prisma.kelas.update({ where: { id }, data: { name: parsed.data.name, guruProfileId: parsed.data.guruProfileId || null, scheduleNote: parsed.data.scheduleNote || null }, select: { id: true, name: true, status: true } });
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "KELAS_UPDATED", entityType: "Kelas", entityId: id } });
+  return { item };
+}
+
+export async function archiveKelas(actor: Actor, id: string) {
+  requireAdmin(actor);
+  const existing = await prisma.kelas.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) throw new NotFoundError("Kelas tidak ditemukan");
+  const item = await prisma.kelas.update({ where: { id }, data: { status: "ARCHIVED" }, select: { id: true, name: true, status: true } });
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "KELAS_ARCHIVED", entityType: "Kelas", entityId: id } });
   return { item };
 }
 

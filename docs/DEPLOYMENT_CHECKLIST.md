@@ -9,7 +9,7 @@ Gunakan checklist ini sebelum production/UAT staging.
 - [ ] `DATABASE_URL` mengarah MariaDB private/local.
 - [ ] `SESSION_SECRET` acak minimal 32 karakter.
 - [ ] `PRIVATE_STORAGE_PATH` di luar repository dan di luar `public/`.
-- [ ] `PAKASIR_PROJECT`, `PAKASIR_API_KEY`, dan optional `PAKASIR_WEBHOOK_SECRET` sesuai sandbox/production.
+- [ ] `MAYAR_ENV`, `MAYAR_API_KEY`, `MAYAR_MERCHANT_ID`, dan `MAYAR_WEBHOOK_SECRET` sesuai sandbox/production.
 - [ ] `NOTIFICATION_PROVIDER=email` untuk production.
 - [ ] `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_FROM`/`SMTP_USER`, dan `SMTP_PASSWORD` valid.
 - [ ] Tidak ada secret dengan prefix `NEXT_PUBLIC_`.
@@ -20,6 +20,7 @@ Gunakan checklist ini sebelum production/UAT staging.
 - [ ] `npx prisma generate` berhasil.
 - [ ] `npx prisma migrate deploy` berhasil.
 - [ ] Seed development tidak dijalankan di production.
+- [ ] Volume `BACKUP_DIR` persistent dan hanya dapat diakses service yang diperlukan.
 
 ## Build
 
@@ -55,4 +56,5 @@ Gunakan checklist ini sebelum production/UAT staging.
 
 - [ ] Backup database harian terjadwal.
 - [ ] Backup private storage terjadwal.
+- [ ] n8n mengunduh `database.sql` dan `backup.zip` ke storage off-site.
 - [ ] Restore drill berhasil diuji.

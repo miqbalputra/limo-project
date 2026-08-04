@@ -44,7 +44,7 @@ Route Handler / Server Component / Script
 - Service tidak boleh menerima `Request`, `Response`, atau objek framework.
 - Repository/DAL bertanggung jawab atas query dan data scoping.
 - Policy memeriksa role dan ownership.
-- Provider adapter membungkus Pakasir/notifikasi/storage.
+- Provider adapter membungkus Mayar/notifikasi/storage.
 - Server Component boleh memanggil DAL/service langsung; jangan fetch ke API aplikasi sendiri hanya untuk membaca data server-side.
 - Client Component hanya menerima data minimum dan menggunakan API untuk mutation/interaksi dinamis.
 
@@ -90,7 +90,7 @@ limo-system/
 │   │   │       ├── guru/
 │   │   │       ├── wali/
 │   │   │       ├── files/
-│   │   │       └── webhooks/pakasir/route.ts
+│   │   │       └── webhooks/mayar/route.ts
 │   │   ├── manifest.ts
 │   │   ├── sitemap.ts
 │   │   └── robots.ts
@@ -265,9 +265,10 @@ SESSION_COOKIE_NAME=limo_session
 PRIVATE_STORAGE_PATH=./storage/private
 MAX_REGISTRATION_FILE_MB=10
 MAX_MATERIAL_FILE_MB=25
-PAKASIR_PROJECT=
-PAKASIR_API_KEY=
-PAKASIR_WEBHOOK_SECRET=
+MAYAR_ENV=sandbox
+MAYAR_API_KEY=
+MAYAR_MERCHANT_ID=
+MAYAR_WEBHOOK_SECRET=
 NOTIFICATION_PROVIDER=console
 SMTP_HOST=
 SMTP_PORT=
@@ -687,7 +688,7 @@ Setiap script:
 
 Contoh jadwal production disimpan dalam dokumentasi deployment, bukan hard-coded pada source.
 
-## 10.3 Pakasir Adapter
+## 10.3 Mayar Adapter
 
 Buat interface semacam:
 
@@ -699,11 +700,11 @@ interface PaymentGateway {
 }
 ```
 
-Business service tidak boleh mengetahui detail HTTP Pakasir selain model adapter.
+Business service tidak boleh mengetahui detail HTTP Mayar selain model adapter.
 
 ## 10.4 Webhook Route Handler
 
-`POST /api/v1/webhooks/pakasir`
+`POST /api/v1/webhooks/mayar`
 
 Urutan wajib:
 
@@ -1038,7 +1039,7 @@ Daftar ini adalah baseline; nama final harus konsisten dan tidak menduplikasi fu
 
 - `/api/v1/tagihan/*`
 - `/api/v1/pembayaran/*`
-- `POST /api/v1/webhooks/pakasir`
+- `POST /api/v1/webhooks/mayar`
 
 ### File
 
@@ -1077,7 +1078,7 @@ Sebuah task coding dianggap selesai hanya jika:
 - [ ] Logo SVG/PNG resolusi tinggi serta icon PWA.
 - [ ] Jenis dan jumlah dokumen pendaftaran.
 - [ ] Retensi dokumen dan siapa yang boleh mengunduh.
-- [ ] Credential Pakasir dan contoh payload/signature resmi.
+- [ ] Credential Mayar, merchant ID, dan contoh payload webhook resmi.
 - [ ] Apakah materi dapat dilihat Wali atau hanya Guru/Admin.
 
 ---

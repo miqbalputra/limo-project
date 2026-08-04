@@ -97,7 +97,7 @@ export default async function WaliDashboardPage() {
                   <div className="mt-5 grid min-w-0 grid-cols-3 gap-2 rounded-2xl bg-gray-50 p-3 text-center">
                     <div><p className="text-lg font-semibold text-gray-900">{childAttendanceRate}%</p><p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">Hadir</p></div>
                     <div><p className="text-lg font-semibold text-gray-900">{childProgress === null ? "-" : childProgress.toFixed(1)}</p><p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">Progres</p></div>
-                    <div><p className="text-lg font-semibold text-gray-900">{latestScore ? Number(latestScore).toFixed(0) : "-"}</p><p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">Nilai</p></div>
+                    <div><p className="text-lg font-semibold text-gray-900">{latestScore != null ? Number(latestScore).toFixed(0) : "-"}</p><p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">Nilai</p></div>
                   </div>
                   <div className="mt-5">
                     <div className="mb-2 flex justify-between text-theme-xs text-gray-500"><span>Kehadiran</span><span className="font-semibold text-gray-700">{childAttended}/{childAttendance}</span></div>
@@ -125,7 +125,7 @@ export default async function WaliDashboardPage() {
           <QuickActionCard href="/wali/progres" icon="progress" label="Progres Anak" description="Grafik pemahaman, catatan guru, dan trend belajar." />
           <QuickActionCard href="/wali/presensi" icon="presensi" label="Presensi" description="Rekap kehadiran dan kedisiplinan belajar." />
           <QuickActionCard href="/wali/nilai" icon="exam" label="Nilai" description="Riwayat hasil ujian dan evaluasi final." />
-          <QuickActionCard href="/wali/tagihan" icon="billing" label="Tagihan" description="Status pembayaran dan instruksi Pakasir." />
+          <QuickActionCard href="/wali/tagihan" icon="billing" label="Tagihan" description="Status pembayaran dan instruksi Mayar." />
         </div>
       </section>
     </div>

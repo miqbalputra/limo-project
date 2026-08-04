@@ -131,6 +131,7 @@ export function ReconcilePaymentButton({ tagihanId, disabled }: { tagihanId: str
     const reason = window.prompt("Alasan rekonsiliasi manual");
 
     if (!reason) return;
+    if (!window.confirm("Tandai tagihan ini lunas secara manual? Pastikan pembayaran sudah diverifikasi.")) return;
 
     setMessage("");
     setIsSubmitting(true);

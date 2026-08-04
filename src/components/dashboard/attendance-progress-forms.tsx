@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 type Student = {
   id: string;
@@ -28,12 +28,45 @@ async function postJson(path: string, body: unknown) {
 
 export function PresensiProgresForm({ sesiKelasId, students, mode, readOnly = false }: { sesiKelasId: string; students: Student[]; mode: Mode; readOnly?: boolean }) {
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
   const [error, setError] = useState("");
+  const [bulkMessage, setBulkMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const draftKey = `limo:guru:${mode}:${sesiKelasId}:draft`;
+
+  useEffect(() => {
+    if (readOnly) return;
+
+    const rawDraft = window.localStorage.getItem(draftKey);
+    if (!rawDraft || !formRef.current) return;
+
+    try {
+      const parsedDraft = JSON.parse(rawDraft) as unknown;
+      const parsedObject = parsedDraft && typeof parsedDraft === "object" ? parsedDraft as Record<string, unknown> : null;
+      const savedAt = typeof parsedObject?.savedAt === "number" ? parsedObject.savedAt : undefined;
+      if (savedAt && Date.now() - savedAt > 7 * 24 * 60 * 60 * 1000) {
+        window.localStorage.removeItem(draftKey);
+        return;
+      }
+      const draft = parsedObject?.fields && typeof parsedObject.fields === "object"
+        ? parsedObject.fields as Record<string, string>
+        : parsedObject ?? {};
+      for (const [name, value] of Object.entries(draft)) {
+        if (typeof value !== "string") continue;
+        const field = formRef.current.elements.namedItem(name);
+        if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
+          field.value = value;
+        }
+      }
+    } catch {
+      window.localStorage.removeItem(draftKey);
+    }
+  }, [draftKey, readOnly]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setBulkMessage("");
     setIsSubmitting(true);
     const data = new FormData(event.currentTarget);
 
@@ -42,7 +75,7 @@ export function PresensiProgresForm({ sesiKelasId, students, mode, readOnly = fa
           sesiKelasId,
           items: students.map((student) => ({
             siswaId: student.id,
-            status: String(data.get(`presence-${student.id}`) || "ALPA"),
+            status: String(data.get(`presence-${student.id}`) || ""),
             note: String(data.get(`presenceNote-${student.id}`) || ""),
           })),
         }
@@ -59,6 +92,7 @@ export function PresensiProgresForm({ sesiKelasId, students, mode, readOnly = fa
 
     try {
       await postJson(`/api/v1/${mode}`, body);
+      window.localStorage.removeItem(draftKey);
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Data gagal disimpan");
@@ -67,10 +101,32 @@ export function PresensiProgresForm({ sesiKelasId, students, mode, readOnly = fa
     }
   }
 
+  function markAllPresent() {
+    formRef.current?.querySelectorAll<HTMLSelectElement>('select[name^="presence-"]').forEach((select) => {
+      select.value = "HADIR";
+    });
+    saveDraft();
+    setBulkMessage(`${students.length} siswa ditandai hadir. Periksa catatan lalu simpan presensi.`);
+  }
+
+  function saveDraft() {
+    if (readOnly || !formRef.current) return;
+
+    const draft = Object.fromEntries(
+      Array.from(new FormData(formRef.current).entries())
+        .filter(([name]) => !name.startsWith("internalNote-"))
+        .map(([name, value]) => [name, typeof value === "string" ? value : ""]),
+    );
+    window.localStorage.setItem(draftKey, JSON.stringify({ savedAt: Date.now(), fields: draft }));
+  }
+
   return (
-    <form id={`${mode}-form`} onSubmit={onSubmit} className="space-y-4">
+    <form ref={formRef} id={`${mode}-form`} onSubmit={onSubmit} onInput={saveDraft} onChange={saveDraft} className="space-y-4">
       {error ? <p className="tailadmin-alert-error">{error}</p> : null}
       {readOnly ? <p className="rounded-xl border border-warning-100 bg-warning-50 px-4 py-3 text-theme-sm text-warning-800">Sesi ini sudah tidak dapat diubah karena statusnya bukan DRAFT.</p> : null}
+      {!readOnly ? <p className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-theme-xs text-gray-600">Draft tersimpan otomatis di perangkat ini dan dipulihkan saat halaman dibuka kembali.</p> : null}
+      {mode === "presensi" && !readOnly && students.length > 0 ? <div className="flex flex-col gap-3 rounded-2xl border border-brand-100 bg-brand-50/60 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-theme-sm font-semibold text-brand-800">Percepat input presensi</p><p className="mt-1 text-theme-xs text-brand-700">Tandai seluruh siswa hadir, lalu ubah siswa yang izin, sakit, atau alpa.</p></div><button type="button" disabled={isSubmitting} onClick={markAllPresent} className="tailadmin-button-outline w-full border-brand-200 bg-white px-3 py-2 text-brand-700 sm:w-auto">Hadir Semua</button></div> : null}
+      {bulkMessage ? <p role="status" className="rounded-xl border border-success-100 bg-success-50 px-4 py-3 text-theme-sm text-success-800">{bulkMessage}</p> : null}
       {students.map((student) => {
         const presensi = student.presensi?.[0];
         const progress = student.progresBelajar?.find((item) => item.category === "umum") ?? student.progresBelajar?.[0];
@@ -87,7 +143,8 @@ export function PresensiProgresForm({ sesiKelasId, students, mode, readOnly = fa
             {mode === "presensi" ? (
               <div className="mt-4 grid gap-3">
                 <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-400">Presensi</p>
-                <select disabled={readOnly} name={`presence-${student.id}`} aria-label={`Status presensi ${student.name}`} defaultValue={presensi?.status ?? "HADIR"} className="tailadmin-input">
+                <select disabled={readOnly} name={`presence-${student.id}`} aria-label={`Status presensi ${student.name}`} defaultValue={presensi?.status ?? ""} className="tailadmin-input">
+                  <option value="" disabled>Pilih status presensi</option>
                   <option value="HADIR">Hadir</option>
                   <option value="IZIN">Izin</option>
                   <option value="SAKIT">Sakit</option>

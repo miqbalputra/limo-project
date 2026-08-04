@@ -70,13 +70,13 @@ export function ProgramForm() {
   return (
     <form onSubmit={onSubmit} className="tailadmin-card grid gap-3 p-5">
       <h2 className="font-semibold text-gray-900">Tambah Program</h2>
-      {error ? <p className="tailadmin-alert-error">{error}</p> : null}
-      <input name="name" required placeholder="Nama program" className="tailadmin-input" />
-      <select name="kind" required className="tailadmin-input">
+      {error ? <p role="alert" className="tailadmin-alert-error">{error}</p> : null}
+      <input id="program-name" name="name" required aria-label="Nama program" placeholder="Nama program" className="tailadmin-input" />
+      <select name="kind" required aria-label="Jenis program" className="tailadmin-input">
         <option value="ENGLISH">Bahasa Inggris</option>
         <option value="ARABIC">Bahasa Arab</option>
       </select>
-      <textarea name="description" placeholder="Deskripsi" className="tailadmin-input" />
+      <textarea name="description" aria-label="Deskripsi program" placeholder="Deskripsi" className="tailadmin-input" />
       <SubmitButton isSubmitting={isSubmitting} label="Simpan Program" />
     </form>
   );
@@ -112,16 +112,16 @@ export function LevelForm({ programs }: { programs: Option[] }) {
   return (
     <form onSubmit={onSubmit} className="tailadmin-card grid gap-3 p-5">
       <h2 className="font-semibold text-gray-900">Tambah Level</h2>
-      {error ? <p className="tailadmin-alert-error">{error}</p> : null}
-      <select name="programId" required className="tailadmin-input">
+      {error ? <p role="alert" className="tailadmin-alert-error">{error}</p> : null}
+      <select name="programId" required aria-label="Program level" className="tailadmin-input">
         <option value="">Pilih program</option>
         {programs.map((program) => (
           <option key={program.id} value={program.id}>{program.name}</option>
         ))}
       </select>
-      <input name="name" required placeholder="Nama level" className="tailadmin-input" />
-      <input name="order" type="number" min={0} defaultValue={0} className="tailadmin-input" />
-      <textarea name="description" placeholder="Deskripsi" className="tailadmin-input" />
+      <input name="name" required aria-label="Nama level" placeholder="Nama level" className="tailadmin-input" />
+      <input name="order" type="number" min={0} defaultValue={0} aria-label="Urutan level" className="tailadmin-input" />
+      <textarea name="description" aria-label="Deskripsi level" placeholder="Deskripsi" className="tailadmin-input" />
       <SubmitButton isSubmitting={isSubmitting} label="Simpan Level" />
     </form>
   );
@@ -158,27 +158,27 @@ export function KelasForm({ programs, levels, gurus }: { programs: Option[]; lev
   return (
     <form onSubmit={onSubmit} className="tailadmin-card grid gap-3 p-5">
       <h2 className="font-semibold text-gray-900">Tambah Kelas</h2>
-      {error ? <p className="tailadmin-alert-error">{error}</p> : null}
-      <select name="programId" required className="tailadmin-input">
+      {error ? <p role="alert" className="tailadmin-alert-error">{error}</p> : null}
+      <select name="programId" required aria-label="Program kelas" className="tailadmin-input">
         <option value="">Pilih program</option>
         {programs.map((program) => (
           <option key={program.id} value={program.id}>{program.name}</option>
         ))}
       </select>
-      <select name="levelId" required className="tailadmin-input">
+      <select name="levelId" required aria-label="Level kelas" className="tailadmin-input">
         <option value="">Pilih level</option>
         {levels.map((level) => (
           <option key={level.id} value={level.id}>{level.name}</option>
         ))}
       </select>
-      <select name="guruProfileId" className="tailadmin-input">
+      <select name="guruProfileId" aria-label="Guru pengampu kelas" className="tailadmin-input">
         <option value="">Tanpa guru dulu</option>
         {gurus.map((guru) => (
           <option key={guru.id} value={guru.id}>{guru.user.name} - {guru.user.email}</option>
         ))}
       </select>
-      <input name="name" required placeholder="Nama kelas" className="tailadmin-input" />
-      <input name="scheduleNote" placeholder="Catatan jadwal" className="tailadmin-input" />
+      <input name="name" required aria-label="Nama kelas" placeholder="Nama kelas" className="tailadmin-input" />
+      <input name="scheduleNote" aria-label="Catatan jadwal kelas" placeholder="Catatan jadwal" className="tailadmin-input" />
       <SubmitButton isSubmitting={isSubmitting} label="Simpan Kelas" />
     </form>
   );

@@ -245,6 +245,7 @@ try {
   const temporaryUser = await prisma.user.findUniqueOrThrow({ where: { email: temporaryEmail } });
   const deactivate = await request(`/api/v1/admin/users/${temporaryUser.id}/status`, { method: "PATCH", cookie: admin.cookie, body: { status: "INACTIVE" } });
   assert.equal(deactivate.response.status, 200);
+  assert.equal(Object.hasOwn(deactivate.payload.data.item, "passwordHash"), false);
   assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: temporaryUser.id } })).status, "INACTIVE");
   const activationNotification = await prisma.notifikasi.findFirst({ where: { recipient: temporaryEmail, template: "account-activation" } });
   assert.ok(activationNotification);

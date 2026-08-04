@@ -1,6 +1,8 @@
 import { requireActor, requireRole } from "@/server/auth/session";
 import { listGuruOptions, listKelas, listLevels, listPrograms } from "@/server/services/master-data-service";
 import { KelasForm } from "@/components/dashboard/master-data-forms";
+import { EmptyState } from "@/components/dashboard/dashboard-widgets";
+import { MasterDataActions } from "@/components/dashboard/master-data-actions";
 
 export const metadata = { title: "Kelas" };
 
@@ -25,7 +27,7 @@ export default async function AdminKelasPage() {
         levels={levels.map((level) => ({ id: level.id, name: `${level.program.name} - ${level.name}`, programId: level.program.id }))}
         gurus={gurus}
       />
-      <section className="grid gap-4 md:grid-cols-2">
+      {kelas.length > 0 ? <section className="grid gap-4 md:grid-cols-2">
         {kelas.map((item) => (
           <article key={item.id} className="tailadmin-card p-5">
             <p className="text-theme-sm font-semibold text-brand-500">{item.program.name} / {item.level.name}</p>
@@ -33,9 +35,10 @@ export default async function AdminKelasPage() {
             <p className="mt-2 text-theme-sm text-gray-500">Guru: {item.guruProfile?.user.name || "Belum ditentukan"}</p>
             <p className="mt-1 text-theme-sm text-gray-500">{item._count.enrollments} siswa aktif</p>
             <p className="mt-1 text-theme-sm text-gray-500">{item.scheduleNote || "Belum ada catatan jadwal"}</p>
+            <MasterDataActions resource="kelas" id={item.id} name={item.name} scheduleNote={item.scheduleNote || ""} guruProfileId={item.guruProfile?.id || ""} guruOptions={gurus} archived={item.status !== "ACTIVE"} />
           </article>
         ))}
-      </section>
+      </section> : <EmptyState icon="classes" title="Belum ada kelas" description="Buat kelas dan tentukan guru pengampu menggunakan formulir di atas." />}
     </main>
   );
 }

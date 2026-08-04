@@ -2,15 +2,18 @@ import { requireActor, requireRole } from "@/server/auth/session";
 import { listPendaftaran } from "@/server/services/pendaftaran-service";
 import { PendaftaranActions } from "@/components/dashboard/pendaftaran-actions";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
+import { PaginationControls } from "@/components/dashboard/pagination-controls";
 
 export const metadata = {
   title: "Pendaftaran Admin",
 };
 
-export default async function AdminPendaftaranPage() {
+export default async function AdminPendaftaranPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const actor = await requireActor();
   requireRole(actor, ["ADMIN"]);
-  const { items } = await listPendaftaran(actor);
+  const params = await searchParams;
+  const page = Number(Array.isArray(params.page) ? params.page[0] : params.page) || 1;
+  const { items, pagination } = await listPendaftaran(actor, { page, pageSize: 20 });
   const submitted = items.filter((item) => item.status === "SUBMITTED").length;
   const underReview = items.filter((item) => item.status === "UNDER_REVIEW").length;
   const approved = items.filter((item) => item.status === "APPROVED").length;
@@ -44,7 +47,7 @@ export default async function AdminPendaftaranPage() {
       </section>
 
       <section className="tailadmin-card overflow-hidden">
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4"><div><h2 className="font-semibold text-gray-900">Daftar Pendaftaran</h2><p className="mt-1 text-theme-xs text-gray-500">Maksimal 50 data terbaru</p></div></div>
+         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4"><div><h2 className="font-semibold text-gray-900">Daftar Pendaftaran</h2><p className="mt-1 text-theme-xs text-gray-500">{pagination.totalItems} data terdaftar</p></div></div>
         <div className="hidden grid-cols-[1.2fr_1fr_130px_170px] gap-4 border-b border-gray-200 bg-gray-50 px-5 py-3 text-theme-xs font-semibold uppercase tracking-wide text-gray-500 md:grid">
           <span>Calon Siswa</span>
           <span>Wali</span>
@@ -92,7 +95,8 @@ export default async function AdminPendaftaranPage() {
         ) : (
           <p className="px-5 py-8 text-theme-sm text-gray-500">Belum ada pendaftaran masuk.</p>
         )}
-      </section>
+       </section>
+       <PaginationControls basePath="/admin/pendaftaran" page={pagination.page} totalPages={pagination.totalPages} />
     </main>
   );
 }

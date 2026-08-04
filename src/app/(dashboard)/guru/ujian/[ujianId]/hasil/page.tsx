@@ -35,7 +35,7 @@ export default async function GuruInputHasilUjianPage({ params, searchParams }: 
             <article key={item.id} className="rounded-xl bg-gray-50 p-3">
               <p className="font-semibold text-gray-900">{item.siswa.name}</p>
               <p className="text-theme-sm text-gray-500">Status {item.status} / Skor {item.totalScore?.toString() ?? "-"}</p>
-              {["FINAL", "CORRECTED"].includes(item.status) ? <Link href={`/guru/ujian/${ujianId}/hasil/${item.id}/koreksi`} className="mt-2 inline-block text-theme-sm font-semibold text-brand-500 hover:text-brand-600">Buka koreksi</Link> : null}
+              {["NEEDS_REVIEW", "FINAL", "CORRECTED"].includes(item.status) ? <Link href={`/guru/ujian/${ujianId}/hasil/${item.id}/koreksi`} className="mt-2 inline-block text-theme-sm font-semibold text-brand-500 hover:text-brand-600">{item.status === "NEEDS_REVIEW" ? "Review hasil" : "Buka koreksi"}</Link> : null}
             </article>
           ))}
         </div>

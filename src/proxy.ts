@@ -1,11 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
-
-const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || "limo_session";
+import { getSessionCookieName } from "@/server/env";
 
 const dashboardPrefixes = ["/admin", "/guru", "/wali"];
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hasSessionCookie = Boolean(request.cookies.get(SESSION_COOKIE_NAME)?.value);
+  const hasSessionCookie = Boolean(request.cookies.get(getSessionCookieName())?.value);
 
   if (dashboardPrefixes.some((prefix) => pathname.startsWith(prefix)) && !hasSessionCookie) {
     const url = request.nextUrl.clone();
