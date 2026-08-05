@@ -8,6 +8,7 @@ import { generateInvoiceSchema } from "../src/server/validation/billing.ts";
 import { createRppSchema } from "../src/server/validation/rpp.ts";
 import { addModuleItemSchema, createLearningModuleSchema, reorderModuleItemsSchema } from "../src/server/validation/learning-module.ts";
 import { createAssignmentSchema, saveAssignmentDraftSchema, submitAssignmentSchema } from "../src/server/validation/assignment.ts";
+import { getReminderWindow } from "../src/server/services/reminder-service.ts";
 
 const tests = [
   {
@@ -200,6 +201,17 @@ const tests = [
     run: () => {
       assert.equal(saveAssignmentDraftSchema.safeParse({ externalLink: "https://example.com/answer", version: 0 }).success, true);
       assert.equal(submitAssignmentSchema.safeParse({ externalLink: "javascript:alert(1)" }).success, false);
+    },
+  },
+  {
+    name: "deadline reminder windows use Jakarta calendar boundaries",
+    run: () => {
+      const now = new Date("2026-08-06T09:00:00+07:00");
+      assert.equal(getReminderWindow(new Date("2026-08-09T10:00:00+07:00"), now), "H3");
+      assert.equal(getReminderWindow(new Date("2026-08-07T10:00:00+07:00"), now), "H1");
+      assert.equal(getReminderWindow(new Date("2026-08-06T08:00:00+07:00"), now), "DUE");
+      assert.equal(getReminderWindow(new Date("2026-08-05T10:00:00+07:00"), now), "OVERDUE");
+      assert.equal(getReminderWindow(new Date("2026-08-08T10:00:00+07:00"), now), null);
     },
   },
 ];

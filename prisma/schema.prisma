@@ -103,6 +103,24 @@ enum LearningModuleStatus {
   ARCHIVED
 }
 
+enum CalendarEventType {
+  CLASS_SESSION
+  MODULE_RELEASE
+  ASSIGNMENT_DUE
+  QUIZ_DUE
+  EXAM
+  REMEDIAL_DUE
+  HOLIDAY
+  ANNOUNCEMENT
+}
+
+enum CalendarEventVisibility {
+  ALL
+  GURU
+  SISWA
+  WALI
+}
+
 enum ModuleItemType {
   MATERIAL
   ASSIGNMENT
@@ -282,6 +300,7 @@ model User {
   submissionGradesGiven      SubmissionGrade[]      @relation("SubmissionGrader")
   gradeCategoriesCreated     GradeCategory[]        @relation("GradeCategoryCreator")
   gradeItemsCreated          GradeItem[]            @relation("GradeItemCreator")
+  calendarEventsCreated      CalendarEvent[]        @relation("CalendarEventCreator")
 }
 
 model Session {
@@ -505,6 +524,7 @@ model Kelas {
   gradeCategories GradeCategory[]
   gradeItems      GradeItem[]
   finalGrades     FinalGrade[]
+  calendarEvents  CalendarEvent[]
   bankSoal        BankSoal[]
   ujian           Ujian[]
   tarif           Tarif[]
@@ -643,6 +663,27 @@ model LearningModule {
   items       ModuleItem[]
 
   @@index([kelasId, status, order])
+  @@index([createdById, createdAt])
+}
+
+model CalendarEvent {
+  id          String                  @id @default(cuid())
+  classId     String?
+  kelas       Kelas?                  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  title       String
+  description String?                 @db.Text
+  eventType   CalendarEventType
+  startAt     DateTime
+  endAt       DateTime?
+  allDay      Boolean                 @default(false)
+  visibility  CalendarEventVisibility @default(ALL)
+  createdById String?
+  createdBy   User?                   @relation("CalendarEventCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@index([classId, startAt, eventType])
+  @@index([visibility, startAt])
   @@index([createdById, createdAt])
 }
 

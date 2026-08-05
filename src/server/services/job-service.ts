@@ -3,6 +3,7 @@ import { prisma } from "../db/prisma.ts";
 import { deliverNotification } from "../providers/notification/notifier.ts";
 import { getMayarInvoice, isPaidMayarEvent } from "../providers/payment/mayar.ts";
 import { notifyAdmins } from "./notification-service.ts";
+export { sendDeadlineReminders } from "./reminder-service.ts";
 
 export async function markOverdueInvoices(input: { dryRun?: boolean; now?: Date } = {}) {
   const now = input.now ?? new Date();

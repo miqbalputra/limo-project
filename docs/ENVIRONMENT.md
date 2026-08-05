@@ -35,6 +35,7 @@ Dokumen ini menjelaskan variable yang dibutuhkan aplikasi LIMO. Jangan menaruh s
 | `LEARNING_MODULES_ENABLED` | Opsional | Modul pembelajaran terstruktur; default development aktif dan production nonaktif |
 | `ASSIGNMENTS_ENABLED` | Opsional | Tugas dan submission; default development aktif dan production nonaktif |
 | `GRADEBOOK_ENABLED` | Opsional | Gradebook; default development aktif dan production nonaktif |
+| `CALENDAR_ENABLED` | Opsional | Kalender, To-do, dan reminder; default development aktif dan production nonaktif |
 | `CLASS_DISCUSSION_ENABLED` | Opsional | Pengumuman dan diskusi kelas; default development aktif dan production nonaktif |
 | `PERIODIC_REPORTS_ENABLED` | Opsional | Laporan perkembangan periodik; default development aktif dan production nonaktif |
 | `GUARDIAN_ASSISTED_SUBMISSION_ENABLED` | Opsional | Bantuan submit oleh Wali; default selalu nonaktif |

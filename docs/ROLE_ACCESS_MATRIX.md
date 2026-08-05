@@ -17,6 +17,8 @@ Matrix ini mendokumentasikan akses MVP berdasarkan implementasi saat ini. Menu b
 | Ujian | Service mendukung admin | Builder ujian dan input hasil offline | Lihat nilai final via ringkasan progres | Lihat ujian published, belum submit |
 | Presensi | Service mendukung admin | Input untuk sesi kelas diampu | Lihat ringkasan presensi anak | Lihat presensi sendiri |
 | Progres | Service mendukung admin | Input untuk sesi kelas diampu | Lihat catatan publik anak | Lihat progres sendiri |
+| Kalender | Kelola event global/kelas | Kalender kelas diampu dan event manual kelas | Kalender seluruh anak terhubung | Kalender kelas aktif sendiri |
+| To-do | Tidak ada tindakan akademik | Draft, submission, sesi, dan nilai yang tertunda | Tugas, ujian, dan jadwal anak | Tugas, revisi, dan ujian sendiri |
 | Tagihan | Tarif, generate, rekonsiliasi | Tidak ada | Lihat tagihan anak | Belum tersedia |
 | Payment Webhook | Sistem/provider only | Tidak ada | Tidak ada | Tidak ada |
 | Audit | Lihat dan ekspor | Tidak ada | Tidak ada | Tidak ada |

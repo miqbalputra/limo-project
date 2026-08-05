@@ -90,6 +90,7 @@ npm run billing:generate -- --period=2026-07 --due-date=2026-07-10 --dry-run
 npm run billing:mark-overdue -- --dry-run
 npm run sessions:cleanup -- --dry-run
 npm run notifications:retry -- --limit=50 --dry-run
+npm run reminders:send -- --dry-run
 ```
 
 Contoh konsep cron production:
@@ -99,6 +100,7 @@ flock -n /var/lock/limo-invoice.lock npm run billing:generate -- --period=YYYY-M
 flock -n /var/lock/limo-overdue.lock npm run billing:mark-overdue
 flock -n /var/lock/limo-session-cleanup.lock npm run sessions:cleanup
 flock -n /var/lock/limo-notification-retry.lock npm run notifications:retry -- --limit=50
+flock -n /var/lock/limo-deadline-reminders.lock npm run reminders:send
 ```
 
 Jadwal final harus mengikuti timezone operasional `Asia/Jakarta` dan kebijakan billing LIMO.

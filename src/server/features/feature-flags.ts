@@ -8,6 +8,7 @@ export type FeatureFlagKey =
   | "learningModulesEnabled"
   | "assignmentsEnabled"
   | "gradebookEnabled"
+  | "calendarEnabled"
   | "classDiscussionEnabled"
   | "periodicReportsEnabled"
   | "guardianAssistedSubmissionEnabled";
@@ -19,6 +20,7 @@ const developmentDefaults: FeatureFlags = {
   learningModulesEnabled: true,
   assignmentsEnabled: true,
   gradebookEnabled: true,
+  calendarEnabled: true,
   classDiscussionEnabled: true,
   periodicReportsEnabled: true,
   guardianAssistedSubmissionEnabled: false,
@@ -29,6 +31,7 @@ const productionDefaults: FeatureFlags = {
   learningModulesEnabled: false,
   assignmentsEnabled: false,
   gradebookEnabled: false,
+  calendarEnabled: false,
   classDiscussionEnabled: false,
   periodicReportsEnabled: false,
   guardianAssistedSubmissionEnabled: false,
@@ -43,6 +46,7 @@ export function getFeatureFlags(): FeatureFlags {
     learningModulesEnabled: env.LEARNING_MODULES_ENABLED ?? defaults.learningModulesEnabled,
     assignmentsEnabled: env.ASSIGNMENTS_ENABLED ?? defaults.assignmentsEnabled,
     gradebookEnabled: env.GRADEBOOK_ENABLED ?? defaults.gradebookEnabled,
+    calendarEnabled: env.CALENDAR_ENABLED ?? defaults.calendarEnabled,
     classDiscussionEnabled: env.CLASS_DISCUSSION_ENABLED ?? defaults.classDiscussionEnabled,
     periodicReportsEnabled: env.PERIODIC_REPORTS_ENABLED ?? defaults.periodicReportsEnabled,
     guardianAssistedSubmissionEnabled: env.GUARDIAN_ASSISTED_SUBMISSION_ENABLED ?? defaults.guardianAssistedSubmissionEnabled,

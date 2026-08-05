@@ -22,6 +22,7 @@
     "test:week5": "node tests/run-week5-integration.mjs",
     "test:week6": "node tests/run-week6-integration.mjs",
     "test:week7": "node tests/run-week7-integration.mjs",
+    "test:week8": "node tests/run-week8-integration.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
@@ -32,6 +33,7 @@
     "billing:mark-overdue": "node --experimental-strip-types scripts/mark-overdue-invoices.ts",
     "sessions:cleanup": "node --experimental-strip-types scripts/cleanup-expired-sessions.ts",
     "notifications:retry": "node --experimental-strip-types scripts/retry-notifications.ts",
+    "reminders:send": "node --experimental-strip-types scripts/send-deadline-reminders.ts",
     "mayar:reconcile": "node --experimental-strip-types scripts/reconcile-mayar-payments.ts",
     "backup:create": "node --experimental-strip-types scripts/backup.ts",
     "backup:restore": "node --experimental-strip-types scripts/restore.ts"
