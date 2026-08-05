@@ -30,7 +30,7 @@ export default async function GuruKelasDetailPage({ params, searchParams }: { pa
           <h1 className="tailadmin-page-title">Kelola Kelas</h1>
           <p className="mt-2 tailadmin-muted">Buat sesi kelas dan materi pembelajaran. Data hanya tersedia untuk kelas aktif yang ditugaskan kepada Anda.</p>
         </div>
-        <div className="flex flex-wrap gap-2"><Link href={`/guru/kelas/${kelasId}/modul`} className="tailadmin-button-primary w-fit px-4 py-2">Susun Modul</Link>{isFeatureEnabled("assignmentsEnabled") ? <Link href={`/guru/kelas/${kelasId}/tugas`} className="tailadmin-button-outline w-fit px-4 py-2">Kelola Tugas</Link> : null}</div>
+        <div className="flex flex-wrap gap-2"><Link href={`/guru/kelas/${kelasId}/modul`} className="tailadmin-button-primary w-fit px-4 py-2">Susun Modul</Link>{isFeatureEnabled("assignmentsEnabled") ? <Link href={`/guru/kelas/${kelasId}/tugas`} className="tailadmin-button-outline w-fit px-4 py-2">Kelola Tugas</Link> : null}{isFeatureEnabled("gradebookEnabled") ? <Link href={`/guru/kelas/${kelasId}/gradebook`} className="tailadmin-button-outline w-fit px-4 py-2">Buka Gradebook</Link> : null}</div>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <SesiKelasForm kelasId={kelasId} />

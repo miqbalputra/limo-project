@@ -6,6 +6,7 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@
 import { canManageClass } from "@/server/policies/access-policy";
 import { correctHasilUjianSchema, createBankSoalSchema, createUjianSchema, submitHasilUjianSchema, updateUjianStatusSchema } from "@/server/validation/exam";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
+import { syncGradebookForSource } from "@/server/services/gradebook-service";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 
 const optionBasedTypes = new Set(["PILIHAN_GANDA", "MULTI_SELECT"]);
@@ -838,6 +839,7 @@ export async function submitHasilUjian(actor: Actor, input: unknown, options: Su
     body: needsReview ? `Jawaban ujian ${ujian.title} sudah diterima dan menunggu review guru.` : options.allowCorrection ? `Nilai ujian ${ujian.title} telah dikoreksi guru. Buka menu Nilai untuk melihat hasil terbaru.` : `Nilai ujian ${ujian.title} sudah final. Buka menu Nilai untuk melihat hasilnya.`,
     metadata: { ujianId: ujian.id, hasilUjianId: item.id },
   });
+  await syncGradebookForSource("EXAM", ujian.id);
 
   return { item };
 }

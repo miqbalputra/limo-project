@@ -21,7 +21,7 @@ export default async function StudentClassDetailPage({ params }: { params: Promi
         eyebrow={`${kelas.program.name} / ${kelas.level.name}`}
         title={kelas.name}
         description={kelas.scheduleNote || "Ruang belajar kelas Anda."}
-        actions={<>{isFeatureEnabled("learningModulesEnabled") ? <Link href={`/siswa/kelas/${kelasId}/modul`} className="tailadmin-button-primary px-4 py-2">Lihat Alur Modul</Link> : null}{isFeatureEnabled("assignmentsEnabled") ? <Link href={`/siswa/kelas/${kelasId}/tugas`} className="tailadmin-button-outline px-4 py-2">Lihat Tugas</Link> : null}</>}
+        actions={<>{isFeatureEnabled("learningModulesEnabled") ? <Link href={`/siswa/kelas/${kelasId}/modul`} className="tailadmin-button-primary px-4 py-2">Lihat Alur Modul</Link> : null}{isFeatureEnabled("assignmentsEnabled") ? <Link href={`/siswa/kelas/${kelasId}/tugas`} className="tailadmin-button-outline px-4 py-2">Lihat Tugas</Link> : null}{isFeatureEnabled("gradebookEnabled") ? <Link href={`/siswa/kelas/${kelasId}/gradebook`} className="tailadmin-button-outline px-4 py-2">Lihat Nilai</Link> : null}</>}
       />
 
       <section>

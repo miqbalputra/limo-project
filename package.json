@@ -21,6 +21,7 @@
     "test:week4": "node tests/run-week4-integration.mjs",
     "test:week5": "node tests/run-week5-integration.mjs",
     "test:week6": "node tests/run-week6-integration.mjs",
+    "test:week7": "node tests/run-week7-integration.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",

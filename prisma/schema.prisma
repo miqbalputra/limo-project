@@ -148,6 +148,48 @@ enum SubmissionGradeStatus {
   REVISED
 }
 
+enum GradeCategoryStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum GradeItemSourceType {
+  ASSIGNMENT
+  QUIZ
+  EXAM
+  MANUAL
+  ATTENDANCE
+  PROGRESS
+}
+
+enum GradeItemStatus {
+  DRAFT
+  PUBLISHED
+  LOCKED
+}
+
+enum GradeEntryStatus {
+  MISSING
+  SUBMITTED
+  GRADED
+  EXEMPT
+  REMEDIAL
+  FINAL
+}
+
+enum FinalGradeStatus {
+  DRAFT
+  PUBLISHED
+  LOCKED
+  CORRECTED
+}
+
+enum GradeCompletionStatus {
+  INCOMPLETE
+  COMPLETE
+}
+
 enum PresensiStatus {
   HADIR
   IZIN
@@ -238,6 +280,8 @@ model User {
   assignmentSubmissionsActed AssignmentSubmission[] @relation("AssignmentSubmissionActor")
   rubricsOwned               RubricTemplate[]       @relation("RubricOwner")
   submissionGradesGiven      SubmissionGrade[]      @relation("SubmissionGrader")
+  gradeCategoriesCreated     GradeCategory[]        @relation("GradeCategoryCreator")
+  gradeItemsCreated          GradeItem[]            @relation("GradeItemCreator")
 }
 
 model Session {
@@ -418,6 +462,8 @@ model Siswa {
   progresBelajar        ProgresBelajar[]
   hasilUjian            HasilUjian[]
   assignmentSubmissions AssignmentSubmission[]
+  gradeEntries          GradeEntry[]
+  finalGrades           FinalGrade[]
   tagihan               Tagihan[]
   ujianAttempts         UjianAttempt[]
 }
@@ -456,6 +502,9 @@ model Kelas {
   rpp             Rpp[]
   learningModules LearningModule[]
   assignments     Assignment[]
+  gradeCategories GradeCategory[]
+  gradeItems      GradeItem[]
+  finalGrades     FinalGrade[]
   bankSoal        BankSoal[]
   ujian           Ujian[]
   tarif           Tarif[]
@@ -769,6 +818,92 @@ model CriterionGrade {
 
   @@unique([submissionGradeId, criterionId])
   @@index([criterionId])
+}
+
+model GradeCategory {
+  id              String              @id @default(cuid())
+  classId         String
+  kelas           Kelas               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  name            String
+  weight          Decimal             @db.Decimal(6, 2)
+  order           Int                 @default(0)
+  dropLowestCount Int                 @default(0)
+  status          GradeCategoryStatus @default(DRAFT)
+  createdById     String?
+  createdBy       User?               @relation("GradeCategoryCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  items           GradeItem[]
+
+  @@index([classId, status, order])
+  @@index([createdById, createdAt])
+}
+
+model GradeItem {
+  id             String              @id @default(cuid())
+  classId        String
+  kelas          Kelas               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  categoryId     String
+  category       GradeCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  sourceType     GradeItemSourceType
+  sourceId       String?
+  title          String
+  order          Int                 @default(0)
+  maxScore       Decimal             @db.Decimal(10, 2)
+  weightOverride Decimal?            @db.Decimal(6, 2)
+  isExtraCredit  Boolean             @default(false)
+  status         GradeItemStatus     @default(DRAFT)
+  dueAt          DateTime?
+  createdById    String?
+  createdBy      User?               @relation("GradeItemCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  entries        GradeEntry[]
+
+  @@unique([classId, sourceType, sourceId])
+  @@index([classId, status, dueAt])
+  @@index([categoryId, order])
+  @@index([sourceType, sourceId])
+}
+
+model GradeEntry {
+  id              String           @id @default(cuid())
+  gradeItemId     String
+  gradeItem       GradeItem        @relation(fields: [gradeItemId], references: [id], onDelete: Cascade)
+  studentId       String
+  student         Siswa            @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  rawScore        Decimal?         @db.Decimal(10, 2)
+  normalizedScore Decimal?         @db.Decimal(7, 2)
+  status          GradeEntryStatus @default(MISSING)
+  isLate          Boolean          @default(false)
+  feedbackSummary String?          @db.Text
+  sourceVersion   String?          @db.VarChar(191)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([gradeItemId, studentId])
+  @@index([studentId, status, updatedAt])
+  @@index([gradeItemId, status])
+}
+
+model FinalGrade {
+  id               String                @id @default(cuid())
+  classId          String
+  kelas            Kelas                 @relation(fields: [classId], references: [id], onDelete: Cascade)
+  studentId        String
+  student          Siswa                 @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  calculatedScore  Decimal?              @db.Decimal(7, 2)
+  publishedScore   Decimal?              @db.Decimal(7, 2)
+  letterGrade      String?               @db.VarChar(8)
+  completionStatus GradeCompletionStatus @default(INCOMPLETE)
+  status           FinalGradeStatus      @default(DRAFT)
+  publishedAt      DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  @@unique([classId, studentId])
+  @@index([classId, status, updatedAt])
+  @@index([studentId, status, updatedAt])
 }
 
 model Presensi {

@@ -8,6 +8,7 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@
 import { requireFeature } from "@/server/features/feature-flags";
 import { canAccessStudent, canManageClass } from "@/server/policies/access-policy";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
+import { syncGradebookForSource } from "@/server/services/gradebook-service";
 import { createRubricSchema, attachRubricSchema, saveSubmissionGradeSchema, updateRubricSchema, updateRubricStatusSchema } from "@/server/validation/rubric";
 
 type RubricSnapshot = {
@@ -202,6 +203,7 @@ export async function publishSubmissionGrade(actor: Actor, submissionId: string,
   });
   await notifyStudentGrade(submission.studentId, submission.assignment.title, published.id, published.score);
   await notifyWaliForStudents({ siswaIds: [submission.studentId], template: "assignment-grade-published", subject: `Feedback tugas: ${submission.assignment.title}`, body: `Nilai dan feedback tugas ${submission.assignment.title} sudah tersedia untuk anak.`, dedupeKey: published.id, metadata: { gradeId: published.id, assignmentId: submission.assignment.id } });
+  await syncGradebookForSource("ASSIGNMENT", submission.assignment.id);
   return { item: published };
 }
 
