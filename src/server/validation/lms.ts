@@ -22,3 +22,7 @@ export const createMateriSchema = z.object({
   status: z.enum(["DRAFT", "PUBLISHED"]).default("DRAFT"),
   order: z.coerce.number().int().min(0).max(10000).default(0),
 });
+
+export const updateMateriStatusSchema = z.object({
+  status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]),
+});

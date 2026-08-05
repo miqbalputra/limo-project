@@ -202,6 +202,7 @@ export async function getPendaftaranDetail(actor: Actor, id: string) {
     include: {
       program: { select: { name: true, kind: true } },
       histories: { orderBy: { createdAt: "asc" } },
+      files: { where: { deletedAt: null }, select: { id: true, originalName: true } },
     },
   });
 

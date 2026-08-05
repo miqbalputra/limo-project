@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { prisma } from "../db/prisma.ts";
 import { deliverNotification } from "../providers/notification/notifier.ts";
 import { getMayarInvoice, isPaidMayarEvent } from "../providers/payment/mayar.ts";
+import { notifyAdmins } from "./notification-service.ts";
 
 export async function markOverdueInvoices(input: { dryRun?: boolean; now?: Date } = {}) {
   const now = input.now ?? new Date();
@@ -190,7 +191,13 @@ export async function reconcilePendingMayarPayments(input: { dryRun?: boolean; l
             prisma.tagihan.update({ where: { id: payment.tagihanId }, data: { status: "PAID", paidAt } }),
           ]);
 
-          await enqueuePaymentSuccessNotifications(payment.tagihan.siswaId, payment.tagihanId);
+           await enqueuePaymentSuccessNotifications(payment.tagihan.siswaId, payment.tagihanId);
+           await notifyAdmins({
+             template: "admin-payment-success",
+             subject: "Pembayaran Mayar diterima",
+             body: `Pembayaran tagihan ${payment.tagihanId} telah dikonfirmasi oleh rekonsiliasi Mayar.`,
+             metadata: { tagihanId: payment.tagihanId, provider: "mayar", source: "reconciliation" },
+           });
         }
 
         paid += 1;

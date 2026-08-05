@@ -312,6 +312,7 @@ export async function getSiswa(actor: Actor, id: string) {
     where: { id },
     include: {
       program: true,
+      siswaAccount: { select: { id: true, loginIdentifier: true, contactEmail: true, status: true, activatedAt: true, lastLoginAt: true, user: { select: { email: true, status: true } } } },
       waliRelations: {
         orderBy: { createdAt: "asc" },
         include: { waliProfile: { include: { user: { select: { name: true, email: true } } } } },

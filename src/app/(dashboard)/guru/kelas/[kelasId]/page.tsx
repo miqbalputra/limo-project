@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { getClassSummary } from "@/server/services/report-service";
 import { listMateri, listSesiKelas } from "@/server/services/lms-service";
@@ -5,6 +6,8 @@ import { MateriFileUpload, MateriForm, SesiKelasForm } from "@/components/dashbo
 import { GuruRoster } from "@/components/dashboard/guru-roster";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { SessionDuplicateButton } from "@/components/dashboard/session-duplicate-button";
+import { MaterialStatusActions } from "@/components/dashboard/material-status-actions";
+import { isFeatureEnabled } from "@/server/features/feature-flags";
 
 export const metadata = { title: "Kelola Kelas" };
 
@@ -22,9 +25,12 @@ export default async function GuruKelasDetailPage({ params, searchParams }: { pa
 
   return (
     <main className="space-y-6">
-      <div>
-        <h1 className="tailadmin-page-title">Kelola Kelas</h1>
-        <p className="mt-2 tailadmin-muted">Buat sesi kelas dan materi pembelajaran. Data hanya tersedia untuk kelas aktif yang ditugaskan kepada Anda.</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="tailadmin-page-title">Kelola Kelas</h1>
+          <p className="mt-2 tailadmin-muted">Buat sesi kelas dan materi pembelajaran. Data hanya tersedia untuk kelas aktif yang ditugaskan kepada Anda.</p>
+        </div>
+        <div className="flex flex-wrap gap-2"><Link href={`/guru/kelas/${kelasId}/modul`} className="tailadmin-button-primary w-fit px-4 py-2">Susun Modul</Link>{isFeatureEnabled("assignmentsEnabled") ? <Link href={`/guru/kelas/${kelasId}/tugas`} className="tailadmin-button-outline w-fit px-4 py-2">Kelola Tugas</Link> : null}</div>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <SesiKelasForm kelasId={kelasId} />
@@ -58,7 +64,8 @@ export default async function GuruKelasDetailPage({ params, searchParams }: { pa
                     ))}
                   </div>
                 ) : null}
-                <MateriFileUpload materiId={item.id} />
+                 <MateriFileUpload materiId={item.id} />
+                 <MaterialStatusActions materiId={item.id} status={item.status} />
               </article>
             ))}
             <PaginationControls basePath={`/guru/kelas/${kelasId}`} pageParam="materiPage" page={materiPagination.page} totalPages={materiPagination.totalPages} params={{ sesiPage }} />

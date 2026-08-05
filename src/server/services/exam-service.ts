@@ -4,7 +4,7 @@ import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canManageClass } from "@/server/policies/access-policy";
-import { correctHasilUjianSchema, createBankSoalSchema, createUjianSchema, submitHasilUjianSchema } from "@/server/validation/exam";
+import { correctHasilUjianSchema, createBankSoalSchema, createUjianSchema, submitHasilUjianSchema, updateUjianStatusSchema } from "@/server/validation/exam";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 
@@ -380,6 +380,35 @@ export async function duplicateUjian(actor: Actor, ujianId: string) {
   });
 
   return { item: { ...item, questionCount: source.questions.length } };
+}
+
+export async function updateUjianStatus(actor: Actor, ujianId: string, input: unknown) {
+  const parsed = updateUjianStatusSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Status ujian belum valid", parsed.error.flatten().fieldErrors);
+
+  const existing = await prisma.ujian.findUnique({ where: { id: ujianId }, select: { id: true, title: true, kelasId: true, status: true, deliveryMode: true, questions: { select: { id: true } } } });
+  if (!existing) throw new NotFoundError("Ujian tidak ditemukan");
+  await assertQuestionScope(actor, existing.kelasId);
+
+  if (parsed.data.status === "PUBLISHED" && existing.questions.length === 0) {
+    throw new ValidationError("Ujian harus memiliki minimal satu soal sebelum dipublish");
+  }
+
+  const item = await prisma.ujian.update({ where: { id: ujianId }, data: { status: parsed.data.status }, select: { id: true, title: true, status: true } });
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: `UJIAN_${parsed.data.status}`, entityType: "Ujian", entityId: ujianId } });
+
+  if (parsed.data.status === "PUBLISHED" && existing.status !== "PUBLISHED" && ["ONLINE_VIA_WALI", "BOTH"].includes(existing.deliveryMode)) {
+    const students = await prisma.kelasSiswa.findMany({ where: { kelasId: existing.kelasId, status: "ACTIVE" }, select: { siswaId: true } });
+    await notifyWaliForStudents({
+      siswaIds: students.map((student) => student.siswaId),
+      template: "online-exam-published",
+      subject: `Tugas baru: ${existing.title}`,
+      body: `Ujian online ${existing.title} sudah tersedia untuk dikerjakan melalui menu Tugas Anak.`,
+      metadata: { ujianId },
+    });
+  }
+
+  return { item };
 }
 
 export async function listExamStudents(actor: Actor, ujianId: string) {

@@ -31,6 +31,18 @@ const optionalBooleanFromString = z
     return ["1", "true", "yes", "on"].includes(value.toLowerCase());
   });
 
+const optionalFeatureFlagFromString = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => {
+    if (!value) {
+      return undefined;
+    }
+
+    return ["1", "true", "yes", "on"].includes(value.toLowerCase());
+  });
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   APP_URL: z.string().url(),
@@ -45,6 +57,8 @@ const envSchema = z.object({
   BACKUP_WEBHOOK_SECRET: z.string().optional().default(""),
   MAX_REGISTRATION_FILE_MB: optionalNumberFromString.default("10"),
   MAX_MATERIAL_FILE_MB: optionalNumberFromString.default("25"),
+  MAX_RPP_FILE_MB: optionalNumberFromString.default("20"),
+  MAX_ASSIGNMENT_FILE_MB: optionalNumberFromString.default("25"),
   MAYAR_ENV: z.enum(["sandbox", "production"]).default("sandbox"),
   MAYAR_BASE_URL: z.string().url().optional().or(z.literal("")),
   MAYAR_API_KEY: z.string().optional().default(""),
@@ -60,20 +74,29 @@ const envSchema = z.object({
   SMTP_FROM: z.string().email().optional().or(z.literal("")).default(""),
   SMTP_USER: z.string().optional().default(""),
   SMTP_PASSWORD: z.string().optional().default(""),
+  STUDENT_PORTAL_ENABLED: optionalFeatureFlagFromString,
+  LEARNING_MODULES_ENABLED: optionalFeatureFlagFromString,
+  ASSIGNMENTS_ENABLED: optionalFeatureFlagFromString,
+  GRADEBOOK_ENABLED: optionalFeatureFlagFromString,
+  CLASS_DISCUSSION_ENABLED: optionalFeatureFlagFromString,
+  PERIODIC_REPORTS_ENABLED: optionalFeatureFlagFromString,
+  GUARDIAN_ASSISTED_SUBMISSION_ENABLED: optionalFeatureFlagFromString,
 }).superRefine((env, ctx) => {
-  if (env.NODE_ENV === "production" && env.NOTIFICATION_PROVIDER === "console") {
+  const enforceProductionSecrets = env.NODE_ENV === "production" && process.env.NEXT_PHASE !== "phase-production-build";
+
+  if (enforceProductionSecrets && env.NOTIFICATION_PROVIDER === "console") {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["NOTIFICATION_PROVIDER"], message: "Production wajib memakai provider notifikasi nyata, bukan console" });
   }
 
-  if (env.NODE_ENV === "production" && !env.MAYAR_API_KEY) {
+  if (enforceProductionSecrets && !env.MAYAR_API_KEY) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["MAYAR_API_KEY"], message: "MAYAR_API_KEY wajib diisi di production" });
   }
 
-  if (env.NODE_ENV === "production" && !env.MAYAR_WEBHOOK_SECRET) {
+  if (enforceProductionSecrets && !env.MAYAR_WEBHOOK_SECRET) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["MAYAR_WEBHOOK_SECRET"], message: "MAYAR_WEBHOOK_SECRET wajib diisi di production" });
   }
 
-  if (env.NODE_ENV === "production" && !env.MAYAR_MERCHANT_ID) {
+  if (enforceProductionSecrets && !env.MAYAR_MERCHANT_ID) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["MAYAR_MERCHANT_ID"], message: "MAYAR_MERCHANT_ID wajib diisi di production" });
   }
 

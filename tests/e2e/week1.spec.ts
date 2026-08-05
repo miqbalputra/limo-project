@@ -25,6 +25,7 @@ test("login redirects each role to its own dashboard and blocks external next pa
     ["admin@limo.local", "/admin"],
     ["guru@limo.local", "/guru"],
     ["wali@limo.local", "/wali"],
+    ["LIMO-DEV-001", "/siswa"],
   ] as const;
 
   for (const [email, expectedPath] of cases) {

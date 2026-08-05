@@ -6,7 +6,9 @@ import {
   TransferStudentForm,
   UpdateStudentForm,
 } from "@/components/dashboard/student-management-forms";
+import { StudentAccountForm } from "@/components/dashboard/student-account-form";
 import { requireActor, requireRole } from "@/server/auth/session";
+import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { listKelas, listPrograms } from "@/server/services/master-data-service";
 import { getSiswa, listWaliOptions } from "@/server/services/people-service";
 
@@ -30,12 +32,14 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
         <h1 className="mt-2 tailadmin-page-title">{item.name}</h1>
         <p className="mt-1 tailadmin-muted">{item.nomorInduk} / {item.program.name}</p>
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
+       <div className="flex justify-end"><Link href={`/admin/siswa/${item.id}/akun`} className="tailadmin-button-outline px-3 py-2 text-theme-xs">Buka Pengaturan Akun</Link></div>
+       <div className="grid gap-4 lg:grid-cols-2">
         <UpdateStudentForm
           student={{ id: item.id, name: item.name, birthDate: item.birthAt?.toISOString().slice(0, 10) || "", programId: item.programId, status: item.status }}
           programs={programs.map((program) => ({ id: program.id, name: program.name }))}
         />
         <StudentRelationForm studentId={item.id} walis={walis} />
+        {isFeatureEnabled("studentPortalEnabled") ? <StudentAccountForm studentId={item.id} studentName={item.name} defaultIdentifier={item.nomorInduk} account={item.siswaAccount} /> : null}
         <TransferStudentForm studentId={item.id} kelas={kelas.filter((entry) => entry.program.id === item.programId).map((entry) => ({ id: entry.id, name: `${entry.level.name} - ${entry.name}` }))} />
         <section className="tailadmin-card p-5">
           <h2 className="font-semibold text-gray-900">Wali Terhubung</h2>

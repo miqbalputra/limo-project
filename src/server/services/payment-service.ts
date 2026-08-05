@@ -6,7 +6,8 @@ import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canAccessInvoice } from "@/server/policies/access-policy";
 import { createMayarInvoice, isPaidMayarEvent, verifyMayarWebhook } from "@/server/providers/payment/mayar";
-import { notifyWaliForStudents } from "@/server/services/notification-service";
+import { notifyAdmins, notifyWaliForStudents } from "@/server/services/notification-service";
+import { MAYAR_PAYMENT_METHODS } from "@/lib/mayar-payment-methods";
 
 export async function processMayarWebhook(input: { rawBody: string; secret: string | null }) {
   const event = verifyMayarWebhook(input);
@@ -87,6 +88,12 @@ export async function processMayarWebhook(input: { rawBody: string; secret: stri
       body: `Pembayaran tagihan ${tagihan.id} telah diterima melalui Mayar.`,
       metadata: { tagihanId: tagihan.id, provider: "mayar" },
       channels: ["email", "whatsapp"],
+    });
+    await notifyAdmins({
+      template: "admin-payment-success",
+      subject: "Pembayaran Mayar diterima",
+      body: `Pembayaran tagihan ${tagihan.id} sebesar Rp ${Number(tagihan.amount).toLocaleString("id-ID")} telah diterima melalui Mayar.`,
+      metadata: { tagihanId: tagihan.id, provider: "mayar", siswaId: tagihan.siswaId },
     });
   }
 
@@ -266,6 +273,12 @@ export async function reconcilePayment(actor: Actor, input: unknown) {
       metadata: { tagihanId: parsed.data.tagihanId, provider: "manual" },
       channels: ["email", "whatsapp"],
     });
+    await notifyAdmins({
+      template: "admin-payment-success",
+      subject: "Pembayaran manual diterima",
+      body: `Pembayaran tagihan ${parsed.data.tagihanId} telah direkonsiliasi oleh Admin.`,
+      metadata: { tagihanId: parsed.data.tagihanId, provider: "manual" },
+    });
   }
 
   return { success: true, duplicate: result.duplicate };
@@ -277,5 +290,5 @@ const zManualReconcile = z.object({
 });
 
 const zCreateInvoicePayment = z.object({
-  method: z.enum(["all", "qris", "va/bni", "va/bri", "va/mandiri", "va/cimb", "va/permata", "va/bjb", "va/bsi", "ewallet/dana", "ewallet/gopay", "outlet/alfamart"]).default("all"),
+  method: z.enum(["all", ...MAYAR_PAYMENT_METHODS] as [string, ...string[]]).default("all"),
 });

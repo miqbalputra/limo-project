@@ -32,6 +32,7 @@ export function PresensiProgresForm({ sesiKelasId, students, mode, readOnly = fa
   const [error, setError] = useState("");
   const [bulkMessage, setBulkMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [category, setCategory] = useState("umum");
   const draftKey = `limo:guru:${mode}:${sesiKelasId}:draft`;
 
   useEffect(() => {
@@ -57,6 +58,7 @@ export function PresensiProgresForm({ sesiKelasId, students, mode, readOnly = fa
         if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
           field.value = value;
         }
+        if (name === "category") window.queueMicrotask(() => setCategory(value));
       }
     } catch {
       window.localStorage.removeItem(draftKey);
@@ -80,10 +82,10 @@ export function PresensiProgresForm({ sesiKelasId, students, mode, readOnly = fa
           })),
         }
       : {
-          sesiKelasId,
-          items: students.map((student) => ({
-            siswaId: student.id,
-            category: "umum",
+           sesiKelasId,
+           items: students.map((student) => ({
+             siswaId: student.id,
+             category: String(data.get("category") || category || "umum").trim().toLowerCase(),
             understandingScore: Number(data.get(`score-${student.id}`) || 3),
             publicNote: String(data.get(`publicNote-${student.id}`) || ""),
             internalNote: String(data.get(`internalNote-${student.id}`) || ""),
@@ -125,11 +127,12 @@ export function PresensiProgresForm({ sesiKelasId, students, mode, readOnly = fa
       {error ? <p className="tailadmin-alert-error">{error}</p> : null}
       {readOnly ? <p className="rounded-xl border border-warning-100 bg-warning-50 px-4 py-3 text-theme-sm text-warning-800">Sesi ini sudah tidak dapat diubah karena statusnya bukan DRAFT.</p> : null}
       {!readOnly ? <p className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-theme-xs text-gray-600">Draft tersimpan otomatis di perangkat ini dan dipulihkan saat halaman dibuka kembali.</p> : null}
-      {mode === "presensi" && !readOnly && students.length > 0 ? <div className="flex flex-col gap-3 rounded-2xl border border-brand-100 bg-brand-50/60 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-theme-sm font-semibold text-brand-800">Percepat input presensi</p><p className="mt-1 text-theme-xs text-brand-700">Tandai seluruh siswa hadir, lalu ubah siswa yang izin, sakit, atau alpa.</p></div><button type="button" disabled={isSubmitting} onClick={markAllPresent} className="tailadmin-button-outline w-full border-brand-200 bg-white px-3 py-2 text-brand-700 sm:w-auto">Hadir Semua</button></div> : null}
+       {mode === "progres" && !readOnly ? <div className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4"><label className="text-theme-sm font-semibold text-brand-800">Kategori progres<input name="category" value={category} onChange={(event) => setCategory(event.target.value)} placeholder="umum, speaking, grammar" className="mt-2 tailadmin-input bg-white" /></label><p className="mt-1 text-theme-xs text-brand-700">Gunakan kategori yang konsisten agar timeline progres lebih mudah dibaca.</p></div> : null}
+       {mode === "presensi" && !readOnly && students.length > 0 ? <div className="flex flex-col gap-3 rounded-2xl border border-brand-100 bg-brand-50/60 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-theme-sm font-semibold text-brand-800">Percepat input presensi</p><p className="mt-1 text-theme-xs text-brand-700">Tandai seluruh siswa hadir, lalu ubah siswa yang izin, sakit, atau alpa.</p></div><button type="button" disabled={isSubmitting} onClick={markAllPresent} className="tailadmin-button-outline w-full border-brand-200 bg-white px-3 py-2 text-brand-700 sm:w-auto">Hadir Semua</button></div> : null}
       {bulkMessage ? <p role="status" className="rounded-xl border border-success-100 bg-success-50 px-4 py-3 text-theme-sm text-success-800">{bulkMessage}</p> : null}
       {students.map((student) => {
         const presensi = student.presensi?.[0];
-        const progress = student.progresBelajar?.find((item) => item.category === "umum") ?? student.progresBelajar?.[0];
+         const progress = student.progresBelajar?.find((item) => item.category === category) ?? (category === "umum" ? student.progresBelajar?.[0] : undefined);
 
         return (
           <section key={student.id} className="tailadmin-card p-5">

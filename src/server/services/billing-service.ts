@@ -22,6 +22,11 @@ function parsePeriod(value: string) {
   return new Date(`${value}-01T00:00:00.000Z`);
 }
 
+export type TagihanListFilters = {
+  status?: "UNPAID" | "PENDING" | "PAID" | "OVERDUE" | "CANCELLED" | "REFUNDED";
+  search?: string;
+};
+
 export async function listTarif(actor: Actor) {
   requireAdmin(actor);
 
@@ -73,10 +78,13 @@ export async function createTarif(actor: Actor, input: unknown) {
   return { item };
 }
 
-export async function listTagihan(actor: Actor, paginationInput: PaginationInput = {}) {
+export async function listTagihan(actor: Actor, paginationInput: PaginationInput = {}, filters: TagihanListFilters = {}) {
   const selectedStudentId = actor.role === "WALI" ? await getSelectedWaliStudentId(actor) : null;
   const where = actor.role === "ADMIN"
-    ? {}
+    ? {
+        ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.search ? { OR: [{ id: { contains: filters.search } }, { siswa: { name: { contains: filters.search } } }, { siswa: { nomorInduk: { contains: filters.search } } }] } : {}),
+      }
     : actor.role === "WALI"
       ? { ...(selectedStudentId ? { siswaId: selectedStudentId } : {}), siswa: { waliRelations: { some: { endedAt: null, waliProfile: { userId: actor.id } } } } }
       : { siswaId: "__none__" };
@@ -99,17 +107,21 @@ export async function listTagihan(actor: Actor, paginationInput: PaginationInput
         dueDate: true,
         paidAt: true,
         siswa: { select: { id: true, name: true, nomorInduk: true } },
-        pembayaran: { where: { provider: "mayar" }, orderBy: { createdAt: "desc" }, take: 1, select: { status: true, rawPayload: true } },
+         pembayaran: { orderBy: { createdAt: "desc" }, take: 5, select: { id: true, provider: true, providerReference: true, amount: true, status: true, paymentMethod: true, paidAt: true, createdAt: true, rawPayload: true } },
       },
     }),
   ]);
 
   return {
-    items: items.map((item) => ({
-      ...item,
-      paymentUrl: getPaymentUrl(item.pembayaran[0]?.rawPayload),
-      paymentAvailable: isMayarConfigured(),
-    })),
+    items: items.map((item) => {
+      const latestMayarPayment = item.pembayaran.find((payment) => payment.provider === "mayar");
+      return {
+        ...item,
+        paymentUrl: getPaymentUrl(latestMayarPayment?.rawPayload),
+        paymentHistory: item.pembayaran.map(({ rawPayload: _rawPayload, ...payment }) => payment),
+        paymentAvailable: isMayarConfigured(),
+      };
+    }),
     pagination: createPaginationMeta(pagination.page, pagination.pageSize, totalItems),
   };
 }

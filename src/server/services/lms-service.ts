@@ -3,7 +3,7 @@ import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canManageClass } from "@/server/policies/access-policy";
-import { createMateriSchema, createSesiKelasSchema } from "@/server/validation/lms";
+import { createMateriSchema, createSesiKelasSchema, updateMateriStatusSchema } from "@/server/validation/lms";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 
 function parseDate(value: string) {
@@ -308,5 +308,22 @@ export async function createMateri(actor: Actor, input: unknown) {
     data: { actorId: actor.id, action: "MATERI_CREATED", entityType: "Materi", entityId: item.id },
   });
 
+  return { item };
+}
+
+export async function updateMateriStatus(actor: Actor, materiId: string, input: unknown) {
+  const parsed = updateMateriStatusSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Status materi belum valid", parsed.error.flatten().fieldErrors);
+
+  const existing = await prisma.materi.findUnique({ where: { id: materiId }, select: { id: true, kelasId: true, status: true, title: true } });
+  if (!existing) throw new NotFoundError("Materi tidak ditemukan");
+  await assertCanManageClass(actor, existing.kelasId);
+
+  if (parsed.data.status === "PUBLISHED" && existing.status === "ARCHIVED") {
+    throw new ConflictError("Materi arsip harus dikembalikan ke draft sebelum dipublish");
+  }
+
+  const item = await prisma.materi.update({ where: { id: materiId }, data: { status: parsed.data.status }, select: { id: true, title: true, status: true } });
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: `MATERI_${parsed.data.status}`, entityType: "Materi", entityId: materiId } });
   return { item };
 }

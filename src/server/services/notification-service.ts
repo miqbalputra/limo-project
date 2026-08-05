@@ -10,6 +10,7 @@ export async function notifyWaliForStudents(input: {
   subject: string;
   body: string;
   metadata?: Record<string, string | number | boolean | null>;
+  dedupeKey?: string;
   channels?: Array<"email" | "whatsapp">;
   }) {
   const siswaIds = [...new Set(input.siswaIds)];
@@ -30,7 +31,7 @@ export async function notifyWaliForStudents(input: {
     const recipient = channel === "email" ? relation.waliProfile.user.email : relation.waliProfile.phone;
     if (!recipient) return null;
 
-    const key = `${relation.siswaId}:${channel}:${recipient}:${input.template}`;
+     const key = `${relation.siswaId}:${channel}:${recipient}:${input.dedupeKey || input.template}`;
     if (uniqueRecipients.has(key)) return null;
 
     uniqueRecipients.add(key);
@@ -40,7 +41,7 @@ export async function notifyWaliForStudents(input: {
       recipient,
       subject: input.subject,
       body: input.body,
-      dedupeKey: createHash("sha256").update(`${input.template}|${channel}|${recipient}|${input.body}`).digest("hex"),
+       dedupeKey: createHash("sha256").update(`${input.template}|${channel}|${recipient}|${input.dedupeKey || input.body}`).digest("hex"),
       metadata: { ...input.metadata, siswaId: relation.siswaId },
     };
   })).filter((item): item is NonNullable<typeof item> => item !== null);
@@ -55,6 +56,41 @@ export async function notifyWaliForStudents(input: {
         continue;
       }
 
+      throw error;
+    }
+  }
+
+  return { created };
+}
+
+export async function notifyAdmins(input: {
+  template: string;
+  subject: string;
+  body: string;
+  metadata?: Record<string, string | number | boolean | null>;
+}) {
+  const admins = await prisma.user.findMany({
+    where: { role: "ADMIN", status: "ACTIVE", deletedAt: null },
+    select: { email: true },
+  });
+  let created = 0;
+
+  for (const admin of admins) {
+    try {
+      await prisma.notifikasi.create({
+        data: {
+          channel: "in_app",
+          template: input.template,
+          recipient: admin.email,
+          subject: input.subject,
+          body: input.body,
+          dedupeKey: createHash("sha256").update(`${input.template}|${admin.email}|${input.body}`).digest("hex"),
+          metadata: input.metadata,
+        },
+      });
+      created += 1;
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2002") continue;
       throw error;
     }
   }

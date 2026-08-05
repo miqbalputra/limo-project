@@ -14,6 +14,7 @@ Dokumen ini menjelaskan variable yang dibutuhkan aplikasi LIMO. Jangan menaruh s
 | `PRIVATE_STORAGE_PATH` | Ya | Path privat di luar `public/` dan tidak diekspos Nginx |
 | `MAX_REGISTRATION_FILE_MB` | Ya | Default 10 |
 | `MAX_MATERIAL_FILE_MB` | Ya | Default 25 |
+| `MAX_ASSIGNMENT_FILE_MB` | Ya | Default 25; allowlist submission file |
 | `MAYAR_ENV` | Ya | `sandbox` atau `production` |
 | `MAYAR_BASE_URL` | Opsional | Override base URL Mayar V2 |
 | `MAYAR_API_KEY` | Untuk payment | API key Mayar, tidak boleh `NEXT_PUBLIC_` |
@@ -30,6 +31,13 @@ Dokumen ini menjelaskan variable yang dibutuhkan aplikasi LIMO. Jangan menaruh s
 | `SMTP_FROM` | Jika email | Alamat pengirim email. Jika kosong memakai `SMTP_USER` |
 | `SMTP_USER` | Jika email | Username SMTP |
 | `SMTP_PASSWORD` | Jika email | Password SMTP |
+| `STUDENT_PORTAL_ENABLED` | Opsional | Portal Siswa; default development aktif dan production nonaktif |
+| `LEARNING_MODULES_ENABLED` | Opsional | Modul pembelajaran terstruktur; default development aktif dan production nonaktif |
+| `ASSIGNMENTS_ENABLED` | Opsional | Tugas dan submission; default development aktif dan production nonaktif |
+| `GRADEBOOK_ENABLED` | Opsional | Gradebook; default development aktif dan production nonaktif |
+| `CLASS_DISCUSSION_ENABLED` | Opsional | Pengumuman dan diskusi kelas; default development aktif dan production nonaktif |
+| `PERIODIC_REPORTS_ENABLED` | Opsional | Laporan perkembangan periodik; default development aktif dan production nonaktif |
+| `GUARDIAN_ASSISTED_SUBMISSION_ENABLED` | Opsional | Bantuan submit oleh Wali; default selalu nonaktif |
 
 ## Development Seed
 
@@ -42,6 +50,7 @@ Seed development membuat akun:
 - `wali@limo.local`
 - `guru.arab@limo.local`
 - `wali.demo@limo.local`
+- `siswa@limo.local` (login menggunakan nomor induk `LIMO-DEV-001`)
 
 Password development: `password-dev-only`.
 

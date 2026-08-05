@@ -46,6 +46,15 @@ export async function canAccessStudent(actor: Actor, siswaId: string) {
     return Boolean(enrollment);
   }
 
+  if (actor.role === "SISWA") {
+    const account = await prisma.siswaAccount.findFirst({
+      where: { userId: actor.id, status: "ACTIVE", siswaId, siswa: { status: "ACTIVE", deletedAt: null } },
+      select: { id: true },
+    });
+
+    return Boolean(account);
+  }
+
   return false;
 }
 
@@ -126,6 +135,12 @@ export async function canDownloadFile(actor: Actor, fileId: string) {
           kelasId: true,
         },
       },
+      rpp: {
+        select: {
+          status: true,
+          kelasId: true,
+        },
+      },
     },
   });
 
@@ -171,6 +186,28 @@ export async function canDownloadFile(actor: Actor, fileId: string) {
         select: { id: true },
       });
 
+      return Boolean(relation);
+    }
+  }
+
+  if (file.ownerType === "RPP" && file.rpp) {
+    if (actor.role === "GURU") {
+      return canManageClass(actor, file.rpp.kelasId);
+    }
+
+    if (actor.role === "WALI" && file.rpp.status === "PUBLISHED") {
+      const relation = await prisma.kelasSiswa.findFirst({
+        where: {
+          kelasId: file.rpp.kelasId,
+          status: "ACTIVE",
+          siswa: {
+            status: "ACTIVE",
+            deletedAt: null,
+            waliRelations: { some: { endedAt: null, waliProfile: { userId: actor.id } } },
+          },
+        },
+        select: { id: true },
+      });
       return Boolean(relation);
     }
   }

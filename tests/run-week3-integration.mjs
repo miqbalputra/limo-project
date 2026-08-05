@@ -45,6 +45,19 @@ try {
   assert.equal(unauthorizedBackup.response.status, 401);
   ok("Backup trigger rejects requests without the dedicated secret");
 
+  const adminDashboard = await request("/admin", { cookie: admin.cookie });
+  assert.equal(adminDashboard.response.status, 200);
+  assert.match(String(adminDashboard.payload), /Admin Command Center/);
+  assert.match(String(adminDashboard.payload), /Tagihan Terbuka/);
+  assert.match(String(adminDashboard.payload), /Kehadiran Bulan Ini/);
+  ok("Admin dashboard exposes operational billing and academic summaries");
+
+  const adminBilling = await request("/admin/tagihan?status=PAID", { cookie: admin.cookie });
+  assert.equal(adminBilling.response.status, 200);
+  assert.match(String(adminBilling.payload), /Payment Gateway: Mayar/);
+  assert.match(String(adminBilling.payload), /Histori Pembayaran|Belum ada transaksi payment gateway/);
+  ok("Admin billing page exposes Mayar status, filters, and payment history");
+
   const guruDashboard = await request("/guru", { cookie: guru.cookie });
   assert.equal(guruDashboard.response.status, 200);
   assert.match(String(guruDashboard.payload), /Agenda Hari Ini/);
@@ -261,6 +274,8 @@ try {
   assert.equal(mayarWebhook.payload.data.paid, true);
   const paidMayarTagihan = await prisma.tagihan.findUniqueOrThrow({ where: { id: mayarWebhookTagihan.id }, select: { status: true } });
   assert.equal(paidMayarTagihan.status, "PAID");
+  const adminPaymentNotification = await prisma.notifikasi.findMany({ where: { template: "admin-payment-success", recipient: "admin@limo.local" }, orderBy: { createdAt: "desc" }, take: 10, select: { body: true } });
+  assert.ok(adminPaymentNotification.some((item) => item.body.includes(mayarWebhookTagihan.id)));
   const mayarSuccessPage = await request(`/wali/tagihan/success?tagihanId=${mayarWebhookTagihan.id}`, { cookie: wali.cookie });
   assert.equal(mayarSuccessPage.response.status, 200);
   assert.match(String(mayarSuccessPage.payload), /Pembayaran Berhasil/);

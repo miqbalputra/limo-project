@@ -3,6 +3,7 @@ import { requireActor, requireRole } from "@/server/auth/session";
 import { getStudentSummary } from "@/server/services/report-service";
 import { DashboardHero, EmptyState, ProgressBar } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
+import { isFeatureEnabled } from "@/server/features/feature-flags";
 
 export const metadata = { title: "Ringkasan Progres" };
 
@@ -23,7 +24,7 @@ export default async function WaliProgresDetailPage({ params }: { params: Promis
         eyebrow={`${summary.siswa.nomorInduk} / ${summary.siswa.program.name}`}
         title={summary.siswa.name}
         description="Ringkasan lengkap progres belajar, nilai final, kehadiran bulanan, dan catatan guru untuk wali murid."
-        actions={<><Link href="/wali/progres" className="tailadmin-button-outline px-4 py-2">Kembali</Link><Link href="/wali/nilai" className="tailadmin-button-primary gap-2 px-4 py-2"><DashboardIcon name="exam" className="size-4" />Lihat Nilai</Link></>}
+        actions={<><Link href="/wali/progres" className="tailadmin-button-outline px-4 py-2">Kembali</Link><Link href={`/wali/progres/${siswaId}/modul`} className="tailadmin-button-primary px-4 py-2">Lihat Modul</Link>{isFeatureEnabled("assignmentsEnabled") ? <Link href={`/wali/progres/${siswaId}/tugas`} className="tailadmin-button-outline px-4 py-2">Lihat Tugas</Link> : null}<Link href="/wali/nilai" className="tailadmin-button-outline gap-2 px-4 py-2"><DashboardIcon name="exam" className="size-4" />Lihat Nilai</Link></>}
         aside={<div className="grid min-w-72 grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs"><MetricMini label="Pemahaman" value={summary.averageProgress === null ? "-" : summary.averageProgress.toFixed(1)} /><MetricMini label="Nilai" value={summary.averageScore === null ? "-" : summary.averageScore.toFixed(0)} /><MetricMini label="Hadir" value={attendanceRate === null ? "-" : `${attendanceRate}%`} /></div>}
       />
 

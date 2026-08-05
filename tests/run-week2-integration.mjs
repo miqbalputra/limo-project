@@ -12,12 +12,12 @@ async function request(path, { method = "GET", body, cookie, headers = {} } = {}
   const requestHeaders = new Headers(headers);
   if (method !== "GET") requestHeaders.set("Origin", origin);
   if (cookie) requestHeaders.set("Cookie", cookie);
-  if (body !== undefined) requestHeaders.set("Content-Type", "application/json");
+  if (body !== undefined && !(body instanceof FormData)) requestHeaders.set("Content-Type", "application/json");
 
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: requestHeaders,
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body),
     redirect: "manual",
   });
   const contentType = response.headers.get("content-type") || "";
@@ -42,12 +42,99 @@ try {
 
   const kelas = await prisma.kelas.findFirstOrThrow({
     where: { guruProfile: { user: { email: "guru@limo.local" } } },
-    select: { id: true },
+    select: { id: true, programId: true, levelId: true, guruProfileId: true },
   });
   const enrollment = await prisma.kelasSiswa.findFirstOrThrow({
     where: { kelasId: kelas.id, status: "ACTIVE", siswa: { waliRelations: { some: { waliProfile: { user: { email: "wali@limo.local" } } } } } },
     select: { siswaId: true },
   });
+
+  const directRppTitle = `Week2 Form RPP ${runId}`;
+  const directRppForm = new FormData();
+  directRppForm.set("kelasId", kelas.id);
+  directRppForm.set("mode", "FORM");
+  directRppForm.set("title", directRppTitle);
+  directRppForm.set("planDate", "2026-08-05");
+  directRppForm.set("meetingNumber", "1");
+  directRppForm.set("topic", "Daily routines");
+  directRppForm.set("difficulty", "Sedang");
+  directRppForm.set("learningObjectives", "Murid memahami kosakata kegiatan harian");
+  directRppForm.set("materials", "Kartu kosakata dan papan tulis");
+  directRppForm.set("activities", "Pembukaan, latihan inti, dan refleksi penutup");
+  directRppForm.set("assessment", "Observasi penggunaan kosakata");
+  directRppForm.set("durationMinutes", "45");
+  const directRpp = await request("/api/v1/guru/rpp", { method: "POST", cookie: guru.cookie, body: directRppForm });
+  assert.equal(directRpp.response.status, 201, JSON.stringify(directRpp.payload));
+  assert.equal(directRpp.payload.data.item.mode, "FORM");
+  ok("Guru can create a direct-form RPP draft");
+
+  const uploadRppTitle = `Week2 Upload RPP ${runId}`;
+  const uploadRppForm = new FormData();
+  uploadRppForm.set("kelasId", kelas.id);
+  uploadRppForm.set("mode", "FILE");
+  uploadRppForm.set("title", uploadRppTitle);
+  uploadRppForm.set("planDate", "2026-08-06");
+  uploadRppForm.set("topic", "Animals");
+  uploadRppForm.set("difficulty", "Mudah");
+  uploadRppForm.set("file", new File(["%PDF-1.7\nWeek2 RPP"], "week2-rpp.pdf", { type: "application/pdf" }));
+  const uploadRpp = await request("/api/v1/guru/rpp", { method: "POST", cookie: guru.cookie, body: uploadRppForm });
+  assert.equal(uploadRpp.response.status, 201, JSON.stringify(uploadRpp.payload));
+  assert.equal(uploadRpp.payload.data.item.mode, "FILE");
+  const uploadRppFile = await prisma.fileAsset.findFirstOrThrow({ where: { rppId: uploadRpp.payload.data.item.id, deletedAt: null }, select: { id: true, originalName: true, storagePath: true, mimeType: true, sizeBytes: true, checksumSha256: true } });
+  ok("Guru can create an upload-mode RPP with a private PDF");
+
+  const publishedDirectRpp = await request(`/api/v1/guru/rpp/${directRpp.payload.data.item.id}`, { method: "PATCH", cookie: guru.cookie, body: { status: "PUBLISHED" } });
+  assert.equal(publishedDirectRpp.response.status, 200, JSON.stringify(publishedDirectRpp.payload));
+  const publishedUploadRpp = await request(`/api/v1/guru/rpp/${uploadRpp.payload.data.item.id}`, { method: "PATCH", cookie: guru.cookie, body: { status: "PUBLISHED" } });
+  assert.equal(publishedUploadRpp.response.status, 200, JSON.stringify(publishedUploadRpp.payload));
+  const waliRppPage = await request("/wali/rpp", { cookie: wali.cookie });
+  assert.equal(waliRppPage.response.status, 200);
+  assert.match(String(waliRppPage.payload), new RegExp(directRppTitle));
+  assert.match(String(waliRppPage.payload), new RegExp(uploadRppTitle));
+  const waliRppFile = await request(`/api/v1/files/${uploadRppFile.id}`, { cookie: wali.cookie });
+  assert.equal(waliRppFile.response.status, 200, JSON.stringify(waliRppFile.payload));
+  assert.match(String(waliRppFile.payload), /%PDF-1\.7/);
+  ok("Published RPPs are visible to the enrolled Wali and its PDF remains private");
+
+  const foreignClass = await prisma.kelas.create({ data: { name: `Week2 RPP Foreign ${runId}`, programId: kelas.programId, levelId: kelas.levelId, guruProfileId: kelas.guruProfileId } });
+  const foreignRpp = await prisma.rpp.create({
+    data: {
+      kelasId: foreignClass.id,
+      createdById: guru.payload.data.actor.id,
+      mode: "FILE",
+      status: "PUBLISHED",
+      title: `Week2 Foreign RPP ${runId}`,
+      planDate: new Date("2026-08-07T00:00:00.000Z"),
+      topic: "Foreign class",
+      learningObjectives: "",
+      materials: "",
+      difficulty: "Mudah",
+      activities: "",
+      assessment: "",
+    },
+    select: { id: true, title: true },
+  });
+  const foreignRppFile = await prisma.fileAsset.create({
+    data: {
+      ownerType: "RPP",
+      ownerId: foreignRpp.id,
+      rppId: foreignRpp.id,
+      originalName: "foreign-rpp.pdf",
+      storedName: `foreign-${runId}.pdf`,
+      storagePath: uploadRppFile.storagePath,
+      mimeType: uploadRppFile.mimeType,
+      sizeBytes: uploadRppFile.sizeBytes,
+      checksumSha256: uploadRppFile.checksumSha256,
+      visibility: "PRIVATE",
+      uploadedById: guru.payload.data.actor.id,
+    },
+    select: { id: true },
+  });
+  const foreignRppAccess = await request(`/api/v1/files/${foreignRppFile.id}`, { cookie: wali.cookie });
+  assert.equal(foreignRppAccess.response.status, 403, JSON.stringify(foreignRppAccess.payload));
+  const foreignRppPage = await request("/wali/rpp", { cookie: wali.cookie });
+  assert.doesNotMatch(String(foreignRppPage.payload), new RegExp(foreignRpp.title));
+  ok("Wali cannot list or download an RPP from a class without an active enrollment");
 
   const materialTitle = `PDF Materi Week2 ${runId}`;
   const material = await request(`/api/v1/guru/kelas/${kelas.id}/materi`, {
@@ -69,6 +156,14 @@ try {
   assert.equal(pagedMaterialList.payload.data.pagination.pageSize, 1);
   assert.ok(pagedMaterialList.payload.data.pagination.totalItems >= 1);
   ok("LMS materi accepts categorized PDF material");
+
+  const archivedMaterial = await request(`/api/v1/guru/materi/${material.payload.data.item.id}`, { method: "PATCH", cookie: guru.cookie, body: { status: "ARCHIVED" } });
+  assert.equal(archivedMaterial.response.status, 200, JSON.stringify(archivedMaterial.payload));
+  assert.equal(archivedMaterial.payload.data.item.status, "ARCHIVED");
+  const restoredMaterial = await request(`/api/v1/guru/materi/${material.payload.data.item.id}`, { method: "PATCH", cookie: guru.cookie, body: { status: "DRAFT" } });
+  assert.equal(restoredMaterial.response.status, 200, JSON.stringify(restoredMaterial.payload));
+  assert.equal(restoredMaterial.payload.data.item.status, "DRAFT");
+  ok("Guru can publish, archive, and restore material lifecycle state");
 
   const uploadForm = new FormData();
   uploadForm.append("file", new Blob(["%PDF-1.7"], { type: "application/pdf" }), "week2.pdf");
@@ -123,6 +218,14 @@ try {
   assert.equal(pagedExamList.payload.data.pagination.pageSize, 1);
   assert.ok(pagedExamList.payload.data.pagination.totalItems >= 1);
   ok("Ujian stores timer duration and selected questions");
+
+  const archivedExam = await request(`/api/v1/ujian/${createdExam.id}/status`, { method: "PATCH", cookie: guru.cookie, body: { status: "ARCHIVED" } });
+  assert.equal(archivedExam.response.status, 200, JSON.stringify(archivedExam.payload));
+  assert.equal(archivedExam.payload.data.item.status, "ARCHIVED");
+  const restoredExam = await request(`/api/v1/ujian/${createdExam.id}/status`, { method: "PATCH", cookie: guru.cookie, body: { status: "DRAFT" } });
+  assert.equal(restoredExam.response.status, 200, JSON.stringify(restoredExam.payload));
+  assert.equal(restoredExam.payload.data.item.status, "DRAFT");
+  ok("Guru can publish, archive, and restore exam lifecycle state");
 
   const duplicate = await request(`/api/v1/ujian/${createdExam.id}/duplicate`, { method: "POST", cookie: guru.cookie, body: {} });
   assert.equal(duplicate.response.status, 201, JSON.stringify(duplicate.payload));

@@ -1,4 +1,5 @@
 import { requireActor, requireRole } from "@/server/auth/session";
+import Link from "next/link";
 import { listPendaftaran } from "@/server/services/pendaftaran-service";
 import { PendaftaranActions } from "@/components/dashboard/pendaftaran-actions";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
@@ -62,7 +63,7 @@ export default async function AdminPendaftaranPage({ searchParams }: { searchPar
               return (
                  <article key={item.id} className="grid gap-4 px-5 py-4 md:grid-cols-[1.2fr_1fr_130px_170px] md:items-center">
                   <div>
-                    <p className="font-semibold text-gray-900">{item.studentName}</p>
+                    <Link href={`/admin/pendaftaran/${item.id}`} className="font-semibold text-brand-600 hover:text-brand-700">{item.studentName}</Link>
                     <p className="mt-1 text-theme-xs text-gray-500">{item.kode} / {item.program.name}</p>
                     {item.files.length > 0 ? (
                       <div className="mt-2 space-y-1">

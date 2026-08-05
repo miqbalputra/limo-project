@@ -1,4 +1,4 @@
-import { HasilUjianStatus, JobStatus, MateriType, NotificationStatus, PembayaranStatus, PendaftaranStatus, PresensiStatus, Prisma, PrismaClient, ProgramKind, PublishStatus, SesiStatus, SoalType, TagihanStatus, UserRole, UserStatus } from "@prisma/client";
+import { HasilUjianStatus, JobStatus, MateriType, NotificationStatus, PembayaranStatus, PendaftaranStatus, PresensiStatus, Prisma, PrismaClient, ProgramKind, PublishStatus, SesiStatus, SiswaAccountStatus, SoalType, TagihanStatus, UserRole, UserStatus } from "@prisma/client";
 import argon2 from "argon2";
 
 const prisma = new PrismaClient();
@@ -366,6 +366,18 @@ async function main() {
       name: "Ahmad Dev",
       programId: englishProgram.id,
     },
+  });
+
+  const siswaDevUser = await prisma.user.upsert({
+    where: { email: "siswa@limo.local" },
+    update: { name: siswaA.name, role: UserRole.SISWA, status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
+    create: { email: "siswa@limo.local", name: siswaA.name, passwordHash: devPasswordHash, role: UserRole.SISWA, status: UserStatus.ACTIVE },
+  });
+
+  await prisma.siswaAccount.upsert({
+    where: { siswaId: siswaA.id },
+    update: { userId: siswaDevUser.id, loginIdentifier: siswaA.nomorInduk.toLowerCase(), contactEmail: siswaDevUser.email, status: SiswaAccountStatus.ACTIVE, activatedAt: new Date("2026-07-01T00:00:00.000Z") },
+    create: { siswaId: siswaA.id, userId: siswaDevUser.id, loginIdentifier: siswaA.nomorInduk.toLowerCase(), contactEmail: siswaDevUser.email, status: SiswaAccountStatus.ACTIVE, activatedAt: new Date("2026-07-01T00:00:00.000Z") },
   });
 
   const siswaB = await prisma.siswa.upsert({

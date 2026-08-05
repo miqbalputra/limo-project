@@ -56,3 +56,11 @@ export function getJakartaDayRange(startOffsetDays = 0, endOffsetDays = 1) {
     end: new Date(base + endOffsetDays * DAY_MS),
   };
 }
+
+export function getJakartaMonthRange(date = new Date()) {
+  const { year, month } = getJakartaDateParts(date);
+  const start = Date.UTC(year, month - 1, 1) - JAKARTA_OFFSET_MS;
+  const end = Date.UTC(year, month, 1) - JAKARTA_OFFSET_MS;
+
+  return { start: new Date(start), end: new Date(end), year, month };
+}

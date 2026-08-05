@@ -70,6 +70,10 @@ export const createUjianSchema = z.object({
     .max(100),
 });
 
+export const updateUjianStatusSchema = z.object({
+  status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]),
+});
+
 export const examAnswerSchema = z.object({
   ujianSoalId: z.string().min(8).max(64),
   selectedOption: z.string().trim().max(8).optional().or(z.literal("")),

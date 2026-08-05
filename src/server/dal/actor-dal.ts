@@ -2,15 +2,25 @@ import "server-only";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { getSelectedWaliStudentId } from "@/server/dal/wali-selector-dal";
-import { getJakartaDayRange } from "@/server/time/jakarta";
+import { getJakartaDayRange, getJakartaMonthRange } from "@/server/time/jakarta";
 
 export async function getActorDashboardContext(actor: Actor) {
   if (actor.role === "ADMIN") {
-    const [studentCount, teacherCount, guardianCount, pendingRegistrations] = await Promise.all([
+    const month = getJakartaMonthRange();
+    const [studentCount, teacherCount, guardianCount, pendingRegistrations, openInvoiceCount, overdueInvoiceCount, paidInvoiceTotal, openInvoiceTotal, attendanceTotal, attendancePresent, progressAverage, examCount, publishedMaterialCount] = await Promise.all([
       prisma.siswa.count({ where: { deletedAt: null } }),
       prisma.guruProfile.count(),
       prisma.waliProfile.count(),
       prisma.pendaftaran.count({ where: { status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } }),
+      prisma.tagihan.count({ where: { status: { in: ["UNPAID", "PENDING", "OVERDUE"] } } }),
+      prisma.tagihan.count({ where: { status: "OVERDUE" } }),
+      prisma.tagihan.aggregate({ where: { status: "PAID", periode: { gte: month.start, lt: month.end } }, _sum: { amount: true } }),
+      prisma.tagihan.aggregate({ where: { status: { in: ["UNPAID", "PENDING", "OVERDUE"] }, periode: { gte: month.start, lt: month.end } }, _sum: { amount: true } }),
+      prisma.presensi.count({ where: { sesiKelas: { sessionDate: { gte: month.start, lt: month.end } } } }),
+      prisma.presensi.count({ where: { status: { in: ["HADIR", "TERLAMBAT"] }, sesiKelas: { sessionDate: { gte: month.start, lt: month.end } } } }),
+      prisma.progresBelajar.aggregate({ where: { sesiKelas: { sessionDate: { gte: month.start, lt: month.end } } }, _avg: { understandingScore: true } }),
+      prisma.hasilUjian.count({ where: { status: { in: ["FINAL", "CORRECTED"] }, updatedAt: { gte: month.start, lt: month.end } } }),
+      prisma.materi.count({ where: { status: "PUBLISHED" } }),
     ]);
 
     return {
@@ -19,6 +29,17 @@ export async function getActorDashboardContext(actor: Actor) {
       teacherCount,
       guardianCount,
       pendingRegistrations,
+      currentMonth: {
+        period: `${month.year}-${String(month.month).padStart(2, "0")}`,
+        openInvoiceCount,
+        overdueInvoiceCount,
+        paidInvoiceTotal: Number(paidInvoiceTotal._sum.amount || 0),
+        openInvoiceTotal: Number(openInvoiceTotal._sum.amount || 0),
+        attendanceRate: attendanceTotal ? Math.round((attendancePresent / attendanceTotal) * 100) : null,
+        progressAverage: progressAverage._avg.understandingScore === null ? null : Number(progressAverage._avg.understandingScore),
+        examCount,
+        publishedMaterialCount,
+      },
     };
   }
 

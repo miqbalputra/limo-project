@@ -11,6 +11,7 @@ enum UserRole {
   ADMIN
   GURU
   WALI
+  SISWA
 }
 
 enum UserStatus {
@@ -37,6 +38,12 @@ enum SiswaStatus {
   INACTIVE
   GRADUATED
   ARCHIVED
+}
+
+enum SiswaAccountStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
 }
 
 enum KelasStatus {
@@ -68,6 +75,7 @@ enum FileOwnerType {
   MATERI
   USER
   SISWA
+  RPP
 }
 
 enum MateriType {
@@ -81,6 +89,63 @@ enum PublishStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
+}
+
+enum RppMode {
+  FORM
+  FILE
+}
+
+enum LearningModuleStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ModuleItemType {
+  MATERIAL
+  ASSIGNMENT
+  QUIZ
+  EXAM
+  DISCUSSION
+  CLASS_SESSION
+}
+
+enum AssignmentSubmissionType {
+  ONLINE_TEXT
+  FILE
+  IMAGE
+  AUDIO
+  VIDEO
+  EXTERNAL_LINK
+  OFFLINE_ACTIVITY
+}
+
+enum AssignmentSubmissionStatus {
+  DRAFT
+  SUBMITTED
+  LATE
+  NEEDS_REVISION
+  GRADED
+}
+
+enum RubricScope {
+  PRIVATE
+  CLASS
+  INSTITUTION
+}
+
+enum RubricStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SubmissionGradeStatus {
+  DRAFT
+  PUBLISHED
+  REVISED
 }
 
 enum PresensiStatus {
@@ -149,22 +214,30 @@ enum JobStatus {
 }
 
 model User {
-  id                String               @id @default(cuid())
-  email             String               @unique
-  name              String
-  passwordHash      String
-  role              UserRole
-  status            UserStatus           @default(ACTIVE)
-  lastLoginAt       DateTime?
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
-  deletedAt         DateTime?
-  sessions          Session[]
-  resetTokens       PasswordResetToken[]
-  guruProfile       GuruProfile?
-  waliProfile       WaliProfile?
-  auditLogs         AuditLog[]           @relation("AuditActor")
-  pendaftaranReview Pendaftaran[]        @relation("PendaftaranReviewer")
+  id                         String                 @id @default(cuid())
+  email                      String                 @unique
+  name                       String
+  passwordHash               String
+  role                       UserRole
+  status                     UserStatus             @default(ACTIVE)
+  lastLoginAt                DateTime?
+  createdAt                  DateTime               @default(now())
+  updatedAt                  DateTime               @updatedAt
+  deletedAt                  DateTime?
+  sessions                   Session[]
+  resetTokens                PasswordResetToken[]
+  guruProfile                GuruProfile?
+  waliProfile                WaliProfile?
+  siswaAccount               SiswaAccount?
+  siswaAccountsActivated     SiswaAccount[]         @relation("SiswaAccountActivator")
+  auditLogs                  AuditLog[]             @relation("AuditActor")
+  pendaftaranReview          Pendaftaran[]          @relation("PendaftaranReviewer")
+  rppCreated                 Rpp[]                  @relation("RppCreator")
+  learningModulesCreated     LearningModule[]       @relation("LearningModuleCreator")
+  assignmentsCreated         Assignment[]           @relation("AssignmentCreator")
+  assignmentSubmissionsActed AssignmentSubmission[] @relation("AssignmentSubmissionActor")
+  rubricsOwned               RubricTemplate[]       @relation("RubricOwner")
+  submissionGradesGiven      SubmissionGrade[]      @relation("SubmissionGrader")
 }
 
 model Session {
@@ -207,16 +280,35 @@ model GuruProfile {
 }
 
 model WaliProfile {
-  id             String        @id @default(cuid())
-  userId         String        @unique
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String         @id @default(cuid())
+  userId         String         @unique
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   phone          String?
-  address        String?       @db.Text
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  address        String?        @db.Text
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
   siswaRelations WaliSiswa[]
   pendaftaran    Pendaftaran[]
   ujianAttempts  UjianAttempt[]
+}
+
+model SiswaAccount {
+  id              String             @id @default(cuid())
+  siswaId         String             @unique
+  siswa           Siswa              @relation(fields: [siswaId], references: [id], onDelete: Cascade)
+  userId          String             @unique
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loginIdentifier String             @unique
+  contactEmail    String?
+  status          SiswaAccountStatus @default(PENDING)
+  activatedAt     DateTime?
+  activatedById   String?
+  activatedBy     User?              @relation("SiswaAccountActivator", fields: [activatedById], references: [id], onDelete: SetNull)
+  lastLoginAt     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([status])
 }
 
 model AuditLog {
@@ -308,24 +400,26 @@ model RiwayatStatusPendaftaran {
 }
 
 model Siswa {
-  id                  String           @id @default(cuid())
-  nomorInduk          String           @unique
-  name                String
-  birthAt             DateTime?
-  status              SiswaStatus      @default(ACTIVE)
-  programId           String
-  program             Program          @relation(fields: [programId], references: [id], onDelete: Restrict)
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-  deletedAt           DateTime?
-  approvedPendaftaran Pendaftaran?     @relation("ApprovedPendaftaran")
-  waliRelations       WaliSiswa[]
-  enrollments         KelasSiswa[]
-  presensi            Presensi[]
-  progresBelajar      ProgresBelajar[]
-  hasilUjian          HasilUjian[]
-  tagihan             Tagihan[]
-  ujianAttempts       UjianAttempt[]
+  id                    String                 @id @default(cuid())
+  nomorInduk            String                 @unique
+  name                  String
+  birthAt               DateTime?
+  status                SiswaStatus            @default(ACTIVE)
+  programId             String
+  program               Program                @relation(fields: [programId], references: [id], onDelete: Restrict)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  deletedAt             DateTime?
+  siswaAccount          SiswaAccount?
+  approvedPendaftaran   Pendaftaran?           @relation("ApprovedPendaftaran")
+  waliRelations         WaliSiswa[]
+  enrollments           KelasSiswa[]
+  presensi              Presensi[]
+  progresBelajar        ProgresBelajar[]
+  hasilUjian            HasilUjian[]
+  assignmentSubmissions AssignmentSubmission[]
+  tagihan               Tagihan[]
+  ujianAttempts         UjianAttempt[]
 }
 
 model WaliSiswa {
@@ -344,24 +438,27 @@ model WaliSiswa {
 }
 
 model Kelas {
-  id            String       @id @default(cuid())
-  name          String
-  programId     String
-  program       Program      @relation(fields: [programId], references: [id], onDelete: Restrict)
-  levelId       String
-  level         Level        @relation(fields: [levelId], references: [id], onDelete: Restrict)
-  guruProfileId String?
-  guruProfile   GuruProfile? @relation(fields: [guruProfileId], references: [id], onDelete: SetNull)
-  status        KelasStatus  @default(ACTIVE)
-  scheduleNote  String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  enrollments   KelasSiswa[]
-  sessions      SesiKelas[]
-  materi        Materi[]
-  bankSoal      BankSoal[]
-  ujian         Ujian[]
-  tarif         Tarif[]
+  id              String           @id @default(cuid())
+  name            String
+  programId       String
+  program         Program          @relation(fields: [programId], references: [id], onDelete: Restrict)
+  levelId         String
+  level           Level            @relation(fields: [levelId], references: [id], onDelete: Restrict)
+  guruProfileId   String?
+  guruProfile     GuruProfile?     @relation(fields: [guruProfileId], references: [id], onDelete: SetNull)
+  status          KelasStatus      @default(ACTIVE)
+  scheduleNote    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  enrollments     KelasSiswa[]
+  sessions        SesiKelas[]
+  materi          Materi[]
+  rpp             Rpp[]
+  learningModules LearningModule[]
+  assignments     Assignment[]
+  bankSoal        BankSoal[]
+  ujian           Ujian[]
+  tarif           Tarif[]
 
   @@unique([programId, levelId, name])
   @@index([guruProfileId])
@@ -410,6 +507,8 @@ model FileAsset {
   pendaftaran    Pendaftaran?   @relation(fields: [pendaftaranId], references: [id], onDelete: Cascade)
   materiId       String?
   materi         Materi?        @relation(fields: [materiId], references: [id], onDelete: Cascade)
+  rppId          String?
+  rpp            Rpp?           @relation(fields: [rppId], references: [id], onDelete: Cascade)
   originalName   String
   storedName     String         @unique
   storagePath    String
@@ -424,6 +523,7 @@ model FileAsset {
   @@index([ownerType, ownerId])
   @@index([pendaftaranId])
   @@index([materiId])
+  @@index([rppId])
 }
 
 model Materi {
@@ -447,6 +547,228 @@ model Materi {
 
   @@index([kelasId, status])
   @@index([sesiKelasId])
+}
+
+model Rpp {
+  id                 String        @id @default(cuid())
+  kelasId            String
+  kelas              Kelas         @relation(fields: [kelasId], references: [id], onDelete: Restrict)
+  createdById        String
+  createdBy          User          @relation("RppCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  mode               RppMode
+  status             PublishStatus @default(DRAFT)
+  title              String
+  planDate           DateTime
+  meetingNumber      Int?
+  topic              String
+  learningObjectives String        @db.Text
+  materials          String        @db.Text
+  difficulty         String        @db.VarChar(32)
+  activities         String        @db.Text
+  assessment         String        @db.Text
+  durationMinutes    Int?
+  notes              String?       @db.Text
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  files              FileAsset[]
+
+  @@index([kelasId, status, planDate])
+  @@index([createdById, createdAt])
+}
+
+model LearningModule {
+  id          String               @id @default(cuid())
+  kelasId     String
+  kelas       Kelas                @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  title       String
+  description String?              @db.Text
+  order       Int                  @default(0)
+  status      LearningModuleStatus @default(DRAFT)
+  releaseAt   DateTime?
+  dueAt       DateTime?
+  createdById String
+  createdBy   User                 @relation("LearningModuleCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  publishedAt DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  items       ModuleItem[]
+
+  @@index([kelasId, status, order])
+  @@index([createdById, createdAt])
+}
+
+model ModuleItem {
+  id                 String         @id @default(cuid())
+  moduleId           String
+  module             LearningModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  itemType           ModuleItemType
+  entityId           String
+  titleOverride      String?
+  order              Int            @default(0)
+  isRequired         Boolean        @default(true)
+  availableFrom      DateTime?
+  availableUntil     DateTime?
+  prerequisiteItemId String?
+  prerequisiteItem   ModuleItem?    @relation("ModuleItemPrerequisite", fields: [prerequisiteItemId], references: [id], onDelete: SetNull)
+  dependentItems     ModuleItem[]   @relation("ModuleItemPrerequisite")
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@unique([moduleId, itemType, entityId])
+  @@index([moduleId, order])
+  @@index([prerequisiteItemId])
+}
+
+model Assignment {
+  id                  String                   @id @default(cuid())
+  kelasId             String
+  kelas               Kelas                    @relation(fields: [kelasId], references: [id], onDelete: Restrict)
+  title               String
+  instructions        String                   @db.Text
+  submissionType      AssignmentSubmissionType
+  maxScore            Int                      @default(100)
+  availableFrom       DateTime?
+  dueAt               DateTime?
+  cutoffAt            DateTime?
+  maxAttempts         Int                      @default(1)
+  allowLateSubmission Boolean                  @default(false)
+  allowResubmission   Boolean                  @default(false)
+  status              PublishStatus            @default(DRAFT)
+  createdById         String
+  createdBy           User                     @relation("AssignmentCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  rubricTemplateId    String?
+  rubricTemplate      RubricTemplate?          @relation("AssignmentRubric", fields: [rubricTemplateId], references: [id], onDelete: SetNull)
+  rubricSnapshot      Json?
+  publishedAt         DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  submissions         AssignmentSubmission[]
+
+  @@index([kelasId, status, availableFrom])
+  @@index([createdById, createdAt])
+}
+
+model AssignmentSubmission {
+  id            String                     @id @default(cuid())
+  assignmentId  String
+  assignment    Assignment                 @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       Siswa                      @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  attemptNumber Int
+  status        AssignmentSubmissionStatus @default(DRAFT)
+  onlineText    String?                    @db.Text
+  externalLink  String?                    @db.Text
+  submittedAt   DateTime?
+  isLate        Boolean                    @default(false)
+  actorUserId   String?
+  actorUser     User?                      @relation("AssignmentSubmissionActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  version       Int                        @default(0)
+  draftSavedAt  DateTime?
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+  files         AssignmentSubmissionFile[]
+  grades        SubmissionGrade[]
+
+  @@unique([assignmentId, studentId, attemptNumber])
+  @@index([assignmentId, status])
+  @@index([studentId, assignmentId, createdAt])
+}
+
+model AssignmentSubmissionFile {
+  id            String               @id @default(cuid())
+  submissionId  String
+  submission    AssignmentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  storageKey    String               @unique
+  storagePath   String
+  originalName  String
+  mimeType      String
+  sizeBytes     BigInt
+  checksum      String?
+  mediaDuration Int?
+  createdAt     DateTime             @default(now())
+
+  @@index([submissionId, createdAt])
+}
+
+model RubricTemplate {
+  id          String            @id @default(cuid())
+  ownerUserId String
+  owner       User              @relation("RubricOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  title       String
+  description String?           @db.Text
+  scope       RubricScope       @default(PRIVATE)
+  status      RubricStatus      @default(DRAFT)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  criteria    RubricCriterion[]
+  assignments Assignment[]      @relation("AssignmentRubric")
+
+  @@index([ownerUserId, status, createdAt])
+}
+
+model RubricCriterion {
+  id              String           @id @default(cuid())
+  rubricId        String
+  rubric          RubricTemplate   @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?          @db.Text
+  maxScore        Int
+  order           Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  levels          RubricLevel[]
+  criterionGrades CriterionGrade[]
+
+  @@index([rubricId, order])
+}
+
+model RubricLevel {
+  id              String           @id @default(cuid())
+  criterionId     String
+  criterion       RubricCriterion  @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  label           String
+  description     String?          @db.Text
+  score           Int
+  order           Int              @default(0)
+  criterionGrades CriterionGrade[]
+
+  @@index([criterionId, order])
+}
+
+model SubmissionGrade {
+  id                      String                @id @default(cuid())
+  submissionId            String
+  submission              AssignmentSubmission  @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  graderUserId            String
+  grader                  User                  @relation("SubmissionGrader", fields: [graderUserId], references: [id], onDelete: Restrict)
+  rawScore                Int?
+  score                   Int?
+  feedbackText            String?               @db.Text
+  feedbackAudioStorageKey String?
+  status                  SubmissionGradeStatus @default(DRAFT)
+  correctionReason        String?               @db.Text
+  publishedAt             DateTime?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  criteria                CriterionGrade[]
+
+  @@index([submissionId, status, createdAt])
+  @@index([graderUserId, createdAt])
+}
+
+model CriterionGrade {
+  id                String          @id @default(cuid())
+  submissionGradeId String
+  submissionGrade   SubmissionGrade @relation(fields: [submissionGradeId], references: [id], onDelete: Cascade)
+  criterionId       String
+  criterion         RubricCriterion @relation(fields: [criterionId], references: [id], onDelete: Restrict)
+  rubricLevelId     String?
+  rubricLevel       RubricLevel?    @relation(fields: [rubricLevelId], references: [id], onDelete: SetNull)
+  score             Int
+  comment           String?         @db.Text
+
+  @@unique([submissionGradeId, criterionId])
+  @@index([criterionId])
 }
 
 model Presensi {
@@ -486,30 +808,30 @@ model ProgresBelajar {
 }
 
 model BankSoal {
-  id          String         @id @default(cuid())
-  kelasId     String?
-  kelas       Kelas?         @relation(fields: [kelasId], references: [id], onDelete: SetNull)
-  type        SoalType
-  question    String         @db.Text
-  stimulusText String?       @db.Text
-  mediaUrl    String?        @db.VarChar(500)
-  expectedAnswer String?     @db.Text
+  id                String         @id @default(cuid())
+  kelasId           String?
+  kelas             Kelas?         @relation(fields: [kelasId], references: [id], onDelete: SetNull)
+  type              SoalType
+  question          String         @db.Text
+  stimulusText      String?        @db.Text
+  mediaUrl          String?        @db.VarChar(500)
+  expectedAnswer    String?        @db.Text
   structuredPayload Json?
-  rubric      Json?
-  language    String?        @db.VarChar(16)
-  direction   String?        @db.VarChar(8)
-  cognitiveLevel String      @default("LOTS") @db.VarChar(16)
-  skill       String         @default("VOCABULARY") @db.VarChar(32)
-  difficulty  String         @default("EASY") @db.VarChar(16)
-  standard    String?        @db.VarChar(64)
-  assessmentType String      @default("FORMATIVE") @db.VarChar(24)
-  explanation String?        @db.Text
-  createdById String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  options     OpsiSoal[]
-  ujianSoal   UjianSoal[]
-  answers     JawabanUjian[]
+  rubric            Json?
+  language          String?        @db.VarChar(16)
+  direction         String?        @db.VarChar(8)
+  cognitiveLevel    String         @default("LOTS") @db.VarChar(16)
+  skill             String         @default("VOCABULARY") @db.VarChar(32)
+  difficulty        String         @default("EASY") @db.VarChar(16)
+  standard          String?        @db.VarChar(64)
+  assessmentType    String         @default("FORMATIVE") @db.VarChar(24)
+  explanation       String?        @db.Text
+  createdById       String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  options           OpsiSoal[]
+  ujianSoal         UjianSoal[]
+  answers           JawabanUjian[]
 
   @@index([kelasId, type])
 }
@@ -527,46 +849,46 @@ model OpsiSoal {
 }
 
 model Ujian {
-  id          String        @id @default(cuid())
-  kelasId     String
-  kelas       Kelas         @relation(fields: [kelasId], references: [id], onDelete: Restrict)
-  title       String
-  description String?       @db.Text
-  status      PublishStatus @default(DRAFT)
-  examDate    DateTime?
-  durationMinutes Int       @default(60)
-  deliveryMode String       @default("TEACHER_ENTRY") @db.VarChar(32)
-  availableFrom DateTime?
-  availableUntil DateTime?
-  maxAttempts Int           @default(1)
-  showResultToWali Boolean  @default(true)
-  createdById String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  questions   UjianSoal[]
-  results     HasilUjian[]
-  attempts    UjianAttempt[]
+  id               String         @id @default(cuid())
+  kelasId          String
+  kelas            Kelas          @relation(fields: [kelasId], references: [id], onDelete: Restrict)
+  title            String
+  description      String?        @db.Text
+  status           PublishStatus  @default(DRAFT)
+  examDate         DateTime?
+  durationMinutes  Int            @default(60)
+  deliveryMode     String         @default("TEACHER_ENTRY") @db.VarChar(32)
+  availableFrom    DateTime?
+  availableUntil   DateTime?
+  maxAttempts      Int            @default(1)
+  showResultToWali Boolean        @default(true)
+  createdById      String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  questions        UjianSoal[]
+  results          HasilUjian[]
+  attempts         UjianAttempt[]
 
   @@index([kelasId, status])
 }
 
 model UjianAttempt {
-  id            String       @id @default(cuid())
+  id            String      @id @default(cuid())
   ujianId       String
-  ujian         Ujian        @relation(fields: [ujianId], references: [id], onDelete: Cascade)
+  ujian         Ujian       @relation(fields: [ujianId], references: [id], onDelete: Cascade)
   siswaId       String
-  siswa         Siswa        @relation(fields: [siswaId], references: [id], onDelete: Restrict)
+  siswa         Siswa       @relation(fields: [siswaId], references: [id], onDelete: Restrict)
   waliProfileId String
-  waliProfile   WaliProfile  @relation(fields: [waliProfileId], references: [id], onDelete: Restrict)
+  waliProfile   WaliProfile @relation(fields: [waliProfileId], references: [id], onDelete: Restrict)
   hasilUjianId  String?
-  status        String       @default("IN_PROGRESS") @db.VarChar(32)
-  startedAt     DateTime     @default(now())
+  status        String      @default("IN_PROGRESS") @db.VarChar(32)
+  startedAt     DateTime    @default(now())
   submittedAt   DateTime?
-  expiresAt      DateTime?
-  draftAnswers   Json?
-  draftSavedAt   DateTime?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  expiresAt     DateTime?
+  draftAnswers  Json?
+  draftSavedAt  DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   @@index([ujianId, siswaId])
   @@index([waliProfileId, status])
@@ -606,22 +928,22 @@ model HasilUjian {
 }
 
 model JawabanUjian {
-  id             String     @id @default(cuid())
-  hasilUjianId   String
-  hasilUjian     HasilUjian @relation(fields: [hasilUjianId], references: [id], onDelete: Cascade)
-  ujianSoalId    String
-  ujianSoal      UjianSoal  @relation(fields: [ujianSoalId], references: [id], onDelete: Restrict)
-  bankSoalId     String
-  bankSoal       BankSoal   @relation(fields: [bankSoalId], references: [id], onDelete: Restrict)
-  selectedOption String?    @db.VarChar(8)
-  selectedOptions Json?
-  shortAnswer    String?    @db.Text
+  id               String     @id @default(cuid())
+  hasilUjianId     String
+  hasilUjian       HasilUjian @relation(fields: [hasilUjianId], references: [id], onDelete: Cascade)
+  ujianSoalId      String
+  ujianSoal        UjianSoal  @relation(fields: [ujianSoalId], references: [id], onDelete: Restrict)
+  bankSoalId       String
+  bankSoal         BankSoal   @relation(fields: [bankSoalId], references: [id], onDelete: Restrict)
+  selectedOption   String?    @db.VarChar(8)
+  selectedOptions  Json?
+  shortAnswer      String?    @db.Text
   structuredAnswer Json?
-  essayAnswer    String?    @db.Text
-  score          Decimal?   @db.Decimal(10, 2)
-  needsReview    Boolean    @default(false)
-  reviewedById   String?
-  reviewedAt     DateTime?
+  essayAnswer      String?    @db.Text
+  score            Decimal?   @db.Decimal(10, 2)
+  needsReview      Boolean    @default(false)
+  reviewedById     String?
+  reviewedAt       DateTime?
 
   @@unique([hasilUjianId, ujianSoalId])
   @@index([bankSoalId])

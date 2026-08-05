@@ -1,8 +1,12 @@
 import { z } from "zod";
 
 export const loginSchema = z.object({
-  email: z.string().email().max(255),
+  email: z.string().trim().min(3).max(255).optional(),
+  identifier: z.string().trim().min(3).max(255).optional(),
   password: z.string().min(8).max(128),
+}).refine((value) => Boolean(value.email || value.identifier), {
+  path: ["email"],
+  message: "Email atau nomor induk wajib diisi",
 });
 
 export const forgotPasswordSchema = z.object({

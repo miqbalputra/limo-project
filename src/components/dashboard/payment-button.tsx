@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { MAYAR_PAYMENT_METHOD_LABELS, MAYAR_PAYMENT_METHODS } from "@/lib/mayar-payment-methods";
 
 type PaymentResult = {
   mode: "redirect";
@@ -79,12 +80,7 @@ export function PaymentButton({ tagihanId, disabled, initialPaymentUrl = null }:
         <label className="sr-only" htmlFor={`payment-method-${tagihanId}`}>Metode pembayaran Mayar</label>
         <select id={`payment-method-${tagihanId}`} value={method} onChange={(event) => setMethod(event.target.value)} disabled={disabled || isSubmitting} className="tailadmin-input py-2">
           <option value="all">Semua metode Mayar</option>
-          <option value="qris">QRIS</option>
-          <option value="va/bni">BNI Virtual Account</option>
-          <option value="va/bri">BRI Virtual Account</option>
-          <option value="va/mandiri">Mandiri Virtual Account</option>
-          <option value="va/permata">Permata Virtual Account</option>
-          <option value="ewallet/gopay">GoPay</option>
+           {MAYAR_PAYMENT_METHODS.map((paymentMethod) => <option key={paymentMethod} value={paymentMethod}>{MAYAR_PAYMENT_METHOD_LABELS[paymentMethod]}</option>)}
         </select>
         <button type="submit" disabled={disabled || isSubmitting} className="tailadmin-button-primary justify-center px-4 py-2">
           {isSubmitting ? "Membuat..." : "Buat Instruksi Bayar"}

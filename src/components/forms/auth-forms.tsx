@@ -14,7 +14,7 @@ type ApiError = {
 type LoginResponse = {
   data: {
     actor: {
-      role: "ADMIN" | "GURU" | "WALI";
+      role: "ADMIN" | "GURU" | "WALI" | "SISWA";
     };
   };
 };
@@ -119,7 +119,7 @@ export function LoginForm() {
         password: String(formData.get("password") || ""),
       })) as LoginResponse;
 
-      const homeByRole = { ADMIN: "/admin", GURU: "/guru", WALI: "/wali" } as const;
+      const homeByRole = { ADMIN: "/admin", GURU: "/guru", WALI: "/wali", SISWA: "/siswa" } as const;
       const roleHome = homeByRole[result.data.actor.role];
       const requestedPath = searchParams.get("next");
       const allowedPrefix = `${roleHome}/`;
@@ -144,13 +144,13 @@ export function LoginForm() {
       <form className="mt-8 space-y-5" onSubmit={onSubmit}>
         <Feedback error={error} success="" />
         <label className="block text-theme-sm font-medium text-gray-700">
-          Email <span className="text-error-500">*</span>
-          <input
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-               placeholder="nama@domain.com"
+           Email atau Nomor Induk <span className="text-error-500">*</span>
+           <input
+             name="email"
+             type="text"
+             autoComplete="username"
+             required
+                placeholder="nama@domain.com atau nomor induk"
             className="mt-2 tailadmin-input"
           />
         </label>

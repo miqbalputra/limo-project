@@ -12,6 +12,15 @@ LIMO uses Mayar Headless API V2 for Wali invoice payment links. The local `Tagih
 - Reconciliation command: `npm run mayar:reconcile -- --dry-run`
 - Wali success page: `/wali/tagihan/success?tagihanId=<id>`
 
+The Wali checkout allows the Mayar V2 payment methods required by the proposal:
+
+- `qris`
+- `va/bni`, `va/bri`, `va/mandiri`, `va/cimb`, `va/permata`, `va/bjb`, `va/bsi`
+- `ewallet/dana`, `ewallet/gopay`
+- `outlet/alfamart`
+
+Mayar must have the selected channel enabled in the merchant dashboard. LIMO sends the method identifier to Mayar's `paymentMethod` field and keeps the returned hosted checkout link; QRIS/VA rendering and channel availability remain controlled by Mayar.
+
 Configure the Mayar dashboard webhook URL with the public LIMO webhook URL. Mayar documents `payment.received`; LIMO also stores the Mayar invoice/transaction IDs and uses `extraData.tagihanId` for local mapping.
 
 Required production variables:

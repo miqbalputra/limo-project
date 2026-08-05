@@ -73,6 +73,10 @@ try {
   assert.equal(foreignOrigin.response.status, 403);
   ok("Missing and foreign mutation origins are rejected");
 
+  const localhostLogin = await request("/api/v1/auth/login", { method: "POST", headers: { Origin: "http://localhost:3000" }, body: { email: "admin@limo.local", password: "password-dev-only" } });
+  assert.equal(localhostLogin.response.status, 200);
+  ok("Development localhost and 127.0.0.1 origins are treated as the same loopback app");
+
   const registrationEmail = `week1-${runId}@example.test`;
   const registration = await request("/api/v1/pendaftaran", {
     method: "POST",
@@ -205,7 +209,54 @@ try {
   assert.equal(archive.response.status, 200);
   const restore = await request(`/api/v1/admin/siswa/${studentId}/restore`, { method: "POST", cookie: admin.cookie });
   assert.equal(restore.response.status, 200);
+  const reassign = await request(`/api/v1/admin/siswa/${studentId}/transfer`, { method: "POST", cookie: admin.cookie, body: { kelasId: destinationClass.id, startDate: "2026-08-15" } });
+  assert.equal(reassign.response.status, 201, JSON.stringify(reassign.payload));
   ok("Student create, update, transfer history, CSV, archive, and restore work");
+
+  const studentContactEmail = `student-${runId}@example.test`;
+  const studentAccount = await request(`/api/v1/admin/siswa/${studentId}/akun`, {
+    method: "POST",
+    cookie: admin.cookie,
+    body: { email: studentContactEmail, loginIdentifier: studentNumber },
+  });
+  assert.equal(studentAccount.response.status, 201, JSON.stringify(studentAccount.payload));
+  assert.equal(studentAccount.payload.data.item.status, "PENDING");
+  assert.match(studentAccount.payload.data.activationUrl, /\/reset-password\?token=/);
+  const activationToken = new URL(studentAccount.payload.data.activationUrl).searchParams.get("token");
+  assert.ok(activationToken);
+  const activateStudent = await request("/api/v1/auth/reset-password", {
+    method: "POST",
+    body: { token: activationToken, password: "student-week1-password" },
+  });
+  assert.equal(activateStudent.response.status, 200, JSON.stringify(activateStudent.payload));
+  const student = await login(studentNumber, "student-week1-password");
+  assert.equal(student.payload.data.actor.role, "SISWA");
+  const studentMe = await request("/api/v1/siswa/me", { cookie: student.cookie });
+  assert.equal(studentMe.response.status, 200, JSON.stringify(studentMe.payload));
+  assert.equal(studentMe.payload.data.item.nomorInduk, studentNumber);
+  const studentDashboard = await request("/api/v1/siswa/dashboard", { cookie: student.cookie });
+  assert.equal(studentDashboard.response.status, 200, JSON.stringify(studentDashboard.payload));
+  assert.equal(studentDashboard.payload.data.profile.id, studentId);
+  const waliStudentAccess = await request("/api/v1/siswa/me", { cookie: wali.cookie });
+  assert.equal(waliStudentAccess.response.status, 403);
+  const studentClasses = await request("/api/v1/siswa/kelas", { cookie: student.cookie });
+  assert.equal(studentClasses.response.status, 200);
+  assert.equal(studentClasses.payload.data.items.some((item) => item.kelas.id === destinationClass.id), true);
+  const foreignStudentClass = await request(`/api/v1/siswa/kelas/${foreignClass.id}`, { cookie: student.cookie });
+  assert.equal(foreignStudentClass.response.status, 404);
+  const studentAdminAccess = await request("/api/v1/admin/siswa", { cookie: student.cookie });
+  assert.equal(studentAdminAccess.response.status, 403);
+  const studentPage = await request("/siswa", { cookie: student.cookie });
+  assert.equal(studentPage.response.status, 200);
+  assert.match(String(studentPage.payload), new RegExp(`Student Updated ${runId}`));
+  ok("Admin can activate a Siswa account and the Siswa portal enforces own-class and role scope");
+  const deactivateStudentAccount = await request(`/api/v1/admin/siswa/${studentId}/akun/status`, { method: "PATCH", cookie: admin.cookie, body: { status: "INACTIVE" } });
+  assert.equal(deactivateStudentAccount.response.status, 200, JSON.stringify(deactivateStudentAccount.payload));
+  const revokedStudentSession = await request("/api/v1/siswa/me", { cookie: student.cookie });
+  assert.equal(revokedStudentSession.response.status, 401);
+  const reactivateStudentAccount = await request(`/api/v1/admin/siswa/${studentId}/akun/status`, { method: "PATCH", cookie: admin.cookie, body: { status: "ACTIVE" } });
+  assert.equal(reactivateStudentAccount.response.status, 200, JSON.stringify(reactivateStudentAccount.payload));
+  ok("Admin can deactivate and reactivate a Siswa account while revoking its active session");
 
   const changed = await request("/api/v1/auth/change-password", {
     method: "POST",

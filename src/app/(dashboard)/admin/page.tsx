@@ -12,7 +12,10 @@ const quickActions = [
   { label: "Review pendaftaran", href: "/admin/pendaftaran", icon: "registration" as const, text: "Tinjau calon siswa baru" },
   { label: "Tambah siswa", href: "/admin/siswa", icon: "student" as const, text: "Kelola data dan enrollment" },
   { label: "Kelola kelas", href: "/admin/kelas", icon: "classes" as const, text: "Atur kelas dan guru" },
+  { label: "Pantau tagihan", href: "/admin/tagihan", icon: "billing" as const, text: "Mayar, SPP, dan rekonsiliasi" },
+  { label: "Lihat laporan", href: "/admin/laporan", icon: "audit" as const, text: "Presensi, progres, nilai, dan SPP" },
   { label: "Kelola pengguna", href: "/admin/users", icon: "users" as const, text: "Status akun dan session" },
+  { label: "Lihat audit", href: "/admin/audit", icon: "audit" as const, text: "Aktivitas sensitif sistem" },
 ];
 
 export default async function AdminDashboardPage() {
@@ -44,6 +47,16 @@ export default async function AdminDashboardPage() {
         <MetricCard label="Total Guru" value={context.teacherCount} description="Pengajar tercatat" icon="teacher" tone="success" />
         <MetricCard label="Total Wali" value={context.guardianCount} description="Akun wali murid" icon="guardian" tone="warning" />
         <MetricCard label="Perlu Review" value={context.pendingRegistrations} description="Pendaftaran menunggu" icon="registration" tone={context.pendingRegistrations > 0 ? "error" : "gray"} />
+      </section>
+
+      <section>
+        <SectionHeader title={`Operasional ${context.currentMonth.period}`} description="Ringkasan pembayaran, pembelajaran, dan aktivitas bulan berjalan." action={<Link href="/admin/laporan" className="text-theme-sm font-semibold text-brand-500 hover:text-brand-600">Buka laporan lengkap</Link>} />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard label="Tagihan Terbuka" value={context.currentMonth.openInvoiceCount} description={`${formatCurrency(context.currentMonth.openInvoiceTotal)} belum lunas`} icon="billing" tone={context.currentMonth.openInvoiceCount > 0 ? "warning" : "success"} />
+          <MetricCard label="Lewat Jatuh Tempo" value={context.currentMonth.overdueInvoiceCount} description="Perlu ditindaklanjuti Admin" icon="billing" tone={context.currentMonth.overdueInvoiceCount > 0 ? "error" : "success"} />
+          <MetricCard label="Kehadiran Bulan Ini" value={context.currentMonth.attendanceRate === null ? "-" : `${context.currentMonth.attendanceRate}%`} description="Hadir atau terlambat dari seluruh presensi" icon="presensi" tone="success" />
+          <MetricCard label="Aktivitas Akademik" value={`${context.currentMonth.examCount} ujian`} description={`${context.currentMonth.publishedMaterialCount} materi published; progres rata-rata ${context.currentMonth.progressAverage ?? "-"}/5`} icon="progress" tone="brand" />
+        </div>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.45fr_0.75fr]">
@@ -105,4 +118,8 @@ export default async function AdminDashboardPage() {
       </section>
     </div>
   );
+}
+
+function formatCurrency(value: number) {
+  return `Rp ${value.toLocaleString("id-ID")}`;
 }

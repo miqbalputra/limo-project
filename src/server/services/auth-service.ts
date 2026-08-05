@@ -19,8 +19,9 @@ export async function login(input: unknown, context: { userAgent?: string | null
     throw new ValidationError("Email atau password belum valid", parsed.error.flatten().fieldErrors);
   }
 
-  const email = normalizeEmail(parsed.data.email);
-  const throttleKey = `login:${context.ipAddress || "unknown"}:${email}`;
+  const identifier = parsed.data.identifier || parsed.data.email || "";
+  const normalizedIdentifier = identifier.includes("@") ? normalizeEmail(identifier) : identifier.trim().toLowerCase();
+  const throttleKey = `login:${context.ipAddress || "unknown"}:${normalizedIdentifier}`;
   assertRateLimit({
     key: throttleKey,
     limit: 5,
@@ -28,9 +29,14 @@ export async function login(input: unknown, context: { userAgent?: string | null
     message: "Terlalu banyak percobaan login. Coba lagi nanti",
   });
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findFirst({
+    where: identifier.includes("@")
+      ? { email: normalizedIdentifier }
+      : { OR: [{ email: normalizedIdentifier }, { siswaAccount: { loginIdentifier: normalizedIdentifier } }] },
+    include: { siswaAccount: { select: { id: true, status: true } } },
+  });
 
-  if (!user || user.status !== "ACTIVE" || user.deletedAt) {
+  if (!user || user.status !== "ACTIVE" || user.deletedAt || (user.role === "SISWA" && (!user.siswaAccount || user.siswaAccount.status !== "ACTIVE"))) {
     await writeAuditLog({
       action: "AUTH_LOGIN_FAILED",
       entityType: "User",
@@ -61,12 +67,13 @@ export async function login(input: unknown, context: { userAgent?: string | null
     ipAddress: context.ipAddress,
   });
 
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    }),
-    prisma.auditLog.create({
+  await prisma.$transaction(async (tx) => {
+    const now = new Date();
+    await tx.user.update({ where: { id: user.id }, data: { lastLoginAt: now } });
+    if (user.siswaAccount) {
+      await tx.siswaAccount.update({ where: { id: user.siswaAccount.id }, data: { lastLoginAt: now } });
+    }
+    await tx.auditLog.create({
       data: {
         actorId: user.id,
         action: "AUTH_LOGIN_SUCCESS",
@@ -74,8 +81,8 @@ export async function login(input: unknown, context: { userAgent?: string | null
         entityId: user.id,
         ipAddress: context.ipAddress?.slice(0, 64),
       },
-    }),
-  ]);
+    });
+  });
 
   clearRateLimit(throttleKey);
 
@@ -152,7 +159,7 @@ export async function resetPassword(input: unknown) {
   const tokenHash = hashToken(parsed.data.token);
   const resetToken = await prisma.passwordResetToken.findUnique({
     where: { tokenHash },
-    include: { user: true },
+    include: { user: { include: { siswaAccount: { select: { id: true, status: true } } } } },
   });
 
   if (
@@ -191,6 +198,9 @@ export async function resetPassword(input: unknown) {
         entityId: resetToken.userId,
       },
     }),
+    ...(resetToken.user.role === "SISWA" && resetToken.user.siswaAccount?.status === "PENDING"
+      ? [prisma.siswaAccount.update({ where: { id: resetToken.user.siswaAccount.id }, data: { status: "ACTIVE", activatedAt: new Date() } })]
+      : []),
   ]);
 
   return { success: true };
@@ -295,7 +305,7 @@ const adminUserListSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   search: z.string().trim().max(120).default(""),
-  role: z.enum(["ADMIN", "GURU", "WALI"]).optional(),
+  role: z.enum(["ADMIN", "GURU", "WALI", "SISWA"]).optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
 });
 

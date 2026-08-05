@@ -5,6 +5,9 @@ import { submitPendaftaranSchema } from "../src/server/validation/pendaftaran.ts
 import { createBankSoalSchema, createUjianSchema, submitHasilUjianSchema } from "../src/server/validation/exam.ts";
 import { createMateriSchema } from "../src/server/validation/lms.ts";
 import { generateInvoiceSchema } from "../src/server/validation/billing.ts";
+import { createRppSchema } from "../src/server/validation/rpp.ts";
+import { addModuleItemSchema, createLearningModuleSchema, reorderModuleItemsSchema } from "../src/server/validation/learning-module.ts";
+import { createAssignmentSchema, saveAssignmentDraftSchema, submitAssignmentSchema } from "../src/server/validation/assignment.ts";
 
 const tests = [
   {
@@ -124,6 +127,79 @@ const tests = [
         dryRun: true,
       });
       assert.equal(parsed.success, true);
+    },
+  },
+  {
+    name: "RPP upload mode accepts metadata without duplicating document contents",
+    run: () => {
+      const parsed = createRppSchema.safeParse({
+        kelasId: "ckelas123456",
+        mode: "FILE",
+        title: "RPP Upload",
+        planDate: "2026-08-05",
+        topic: "Daily routines",
+        difficulty: "Sedang",
+      });
+      assert.equal(parsed.success, true);
+      if (parsed.success) assert.equal(parsed.data.learningObjectives, "");
+    },
+  },
+  {
+    name: "RPP form mode requires direct learning content",
+    run: () => {
+      const parsed = createRppSchema.safeParse({
+        kelasId: "ckelas123456",
+        mode: "FORM",
+        title: "RPP Form",
+        planDate: "2026-08-05",
+        topic: "Daily routines",
+        difficulty: "Sedang",
+        learningObjectives: "Murid memahami kosakata kegiatan harian",
+        materials: "Kartu kosakata",
+        activities: "Pembukaan, latihan inti, dan refleksi penutup",
+        assessment: "Observasi penggunaan kosakata",
+      });
+      assert.equal(parsed.success, true);
+      assert.equal(createRppSchema.safeParse({ mode: "FORM", title: "Incomplete" }).success, false);
+    },
+  },
+  {
+    name: "learning module schema accepts scheduled module metadata",
+    run: () => {
+      const parsed = createLearningModuleSchema.safeParse({ title: "Unit 1", description: "Greetings", order: "2", releaseAt: "2026-08-10T08:00", dueAt: "2026-08-20T08:00" });
+      assert.equal(parsed.success, true);
+      if (parsed.success) assert.equal(parsed.data.order, 2);
+    },
+  },
+  {
+    name: "learning module item schema supports existing and future item types",
+    run: () => {
+      assert.equal(addModuleItemSchema.safeParse({ itemType: "MATERIAL", entityId: "cmaterial123456", isRequired: true }).success, true);
+      assert.equal(addModuleItemSchema.safeParse({ itemType: "ASSIGNMENT", entityId: "cassignment123456" }).success, true);
+      assert.equal(addModuleItemSchema.safeParse({ itemType: "MATERIAL", entityId: "short" }).success, false);
+    },
+  },
+  {
+    name: "learning module reorder schema requires an item id list",
+    run: () => {
+      assert.equal(reorderModuleItemsSchema.safeParse({ itemIds: ["citem123456"] }).success, true);
+      assert.equal(reorderModuleItemsSchema.safeParse({ itemIds: [] }).success, true);
+      assert.equal(reorderModuleItemsSchema.safeParse({ itemIds: "citem123456" }).success, false);
+    },
+  },
+  {
+    name: "assignment schema accepts text task scheduling and attempt rules",
+    run: () => {
+      const parsed = createAssignmentSchema.safeParse({ title: "Daily journal", instructions: "Write five sentences.", submissionType: "ONLINE_TEXT", dueAt: "2026-08-10T08:00", cutoffAt: "2026-08-12T08:00", maxAttempts: "2", allowResubmission: true });
+      assert.equal(parsed.success, true);
+      if (parsed.success) assert.equal(parsed.data.maxAttempts, 2);
+    },
+  },
+  {
+    name: "assignment submission schemas reject unsafe external links",
+    run: () => {
+      assert.equal(saveAssignmentDraftSchema.safeParse({ externalLink: "https://example.com/answer", version: 0 }).success, true);
+      assert.equal(submitAssignmentSchema.safeParse({ externalLink: "javascript:alert(1)" }).success, false);
     },
   },
 ];
