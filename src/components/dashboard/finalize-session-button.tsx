@@ -2,14 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
 
 export function FinalizeSessionButton({ sesiKelasId }: { sesiKelasId: string }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { confirm, dialog } = useConfirmDialog();
 
   async function finalize() {
-    if (!window.confirm("Finalkan sesi ini? Setelah final, presensi dan progres tidak dapat diubah melalui input biasa.")) return;
+    if (!(await confirm({ title: "Finalkan sesi?", description: "Setelah final, presensi dan progres tidak dapat diubah melalui input biasa.", confirmLabel: "Ya, finalkan", variant: "destructive" }))) return;
     setError("");
     setIsSubmitting(true);
     try {
@@ -24,5 +26,5 @@ export function FinalizeSessionButton({ sesiKelasId }: { sesiKelasId: string }) 
     }
   }
 
-  return <span className="inline-flex flex-col items-start gap-1"><button type="button" onClick={() => void finalize()} disabled={isSubmitting} className="tailadmin-button-outline px-4 py-2">{isSubmitting ? "Memfinalkan..." : "Finalkan Sesi"}</button>{error ? <span role="alert" className="text-theme-xs text-error-700">{error}</span> : null}</span>;
+  return <><span className="inline-flex flex-col items-start gap-1"><button type="button" onClick={() => void finalize()} disabled={isSubmitting} className="tailadmin-button-outline px-4 py-2">{isSubmitting ? "Memfinalkan..." : "Finalkan Sesi"}</button>{error ? <span role="alert" className="text-theme-xs text-error-700">{error}</span> : null}</span>{dialog}</>;
 }

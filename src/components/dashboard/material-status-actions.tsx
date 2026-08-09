@@ -2,16 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
 
 export function MaterialStatusActions({ materiId, status }: { materiId: string; status: "DRAFT" | "PUBLISHED" | "ARCHIVED" }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { confirm, dialog } = useConfirmDialog();
   const nextStatus = status === "DRAFT" ? "PUBLISHED" : status === "PUBLISHED" ? "ARCHIVED" : "DRAFT";
-  const label = status === "DRAFT" ? "Publish" : status === "PUBLISHED" ? "Arsipkan" : "Kembalikan ke Draft";
+  const label = status === "DRAFT" ? "Terbitkan" : status === "PUBLISHED" ? "Arsipkan" : "Kembalikan ke draf";
 
   async function updateStatus() {
-    if (status === "PUBLISHED" && !window.confirm("Arsipkan materi ini? Materi tidak lagi tampil untuk Wali.")) return;
+    if (status === "PUBLISHED" && !(await confirm({ title: "Arsipkan materi?", description: "Materi tidak lagi tampil untuk Wali.", confirmLabel: "Ya, arsipkan", variant: "destructive" }))) return;
     setError("");
     setIsSubmitting(true);
     try {
@@ -26,5 +28,5 @@ export function MaterialStatusActions({ materiId, status }: { materiId: string; 
     }
   }
 
-  return <div className="mt-3 flex flex-wrap items-center gap-2"><button type="button" onClick={updateStatus} disabled={isSubmitting} className="tailadmin-button-outline px-3 py-1 text-theme-xs">{isSubmitting ? "Memproses..." : label}</button>{error ? <p role="alert" className="text-theme-xs text-error-700">{error}</p> : null}</div>;
+  return <><div className="mt-3 flex flex-wrap items-center gap-2"><button type="button" onClick={() => void updateStatus()} disabled={isSubmitting} className="tailadmin-button-outline px-3 py-1 text-theme-xs">{isSubmitting ? "Memproses..." : label}</button>{error ? <p role="alert" className="text-theme-xs text-error-700">{error}</p> : null}</div>{dialog}</>;
 }

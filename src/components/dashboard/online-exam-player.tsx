@@ -2,6 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { ArabicTextField, LocalizedContent } from "@/components/localized-content";
+import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
+import { formatUiLabel } from "@/lib/ui-labels";
 
 type DraftAnswer = {
   ujianSoalId: string;
@@ -30,6 +33,7 @@ type AttemptContext = {
         question: string;
         stimulusText: string | null;
         mediaUrl: string | null;
+        language: string | null;
         direction: string | null;
         options: { label: string; content: string }[];
       };
@@ -47,6 +51,7 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">(attempt.draftSavedAt ? "saved" : "idle");
   const [isOnline, setIsOnline] = useState(true);
+  const { confirm, dialog } = useConfirmDialog();
 
   const draftByQuestion = new Map(normalizeDraft(attempt.draftAnswers).map((answer) => [answer.ujianSoalId, answer]));
 
@@ -101,14 +106,14 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
       const payload = await response.json().catch(() => ({})) as { error?: { message?: string } };
 
       if (!response.ok) {
-        throw new Error(payload.error?.message || "Draft gagal disimpan");
+        throw new Error(payload.error?.message || "Draf gagal disimpan");
       }
 
       setSaveState("saved");
     } catch (caught) {
       setSaveState("error");
       if (!navigator.onLine) {
-        setError("Koneksi terputus. Draft akan dicoba lagi saat koneksi kembali.");
+        setError("Koneksi terputus. Draf akan dicoba lagi saat koneksi kembali.");
       }
       if (caught instanceof Error && caught.message.includes("habis")) {
         setError(caught.message);
@@ -175,7 +180,7 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
       return;
     }
 
-    if (!window.confirm("Kumpulkan jawaban sekarang? Jawaban tidak bisa diubah setelah submit.")) {
+    if (!(await confirm({ title: "Kumpulkan jawaban?", description: "Jawaban tidak bisa diubah setelah submit.", confirmLabel: "Ya, kumpulkan", variant: "destructive" }))) {
       return;
     }
 
@@ -213,14 +218,14 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
       <section className="tailadmin-card sticky top-4 z-10 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-theme-xs font-semibold uppercase tracking-wide text-brand-500">{attempt.siswa.name}</p>
+            <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-500">{attempt.siswa.name}</p>
             <h2 className="font-semibold text-gray-900">{attempt.ujian.title}</h2>
             <p className="mt-1 text-theme-xs text-gray-500">{attempt.ujian.questions.length} soal / {attempt.ujian.durationMinutes} menit{expiresAt ? ` / batas ${expiresAt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}` : ""}</p>
           </div>
           <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
             <div className="flex flex-wrap items-center justify-end gap-2">
-              {saveState !== "idle" ? <span className={`rounded-full px-3 py-1 text-center text-theme-xs font-semibold ${saveState === "error" ? "bg-error-50 text-error-700" : saveState === "saving" ? "bg-warning-50 text-warning-700" : "bg-success-50 text-success-700"}`}>{saveState === "saving" ? "Menyimpan draft..." : saveState === "error" ? "Draft belum tersimpan" : "Draft tersimpan"}</span> : null}
-              {remainingSeconds !== null ? <span className={`rounded-full px-3 py-1 text-center text-theme-xs font-semibold ${remainingSeconds <= 60 ? "bg-error-50 text-error-700" : "bg-brand-50 text-brand-600"}`}>Sisa waktu {formatDuration(remainingSeconds)}</span> : null}
+              {saveState !== "idle" ? <span className={`rounded-full px-3 py-1 text-center text-theme-xs font-semibold ${saveState === "error" ? "bg-error-50 text-error-700" : saveState === "saving" ? "bg-warning-50 text-warning-700" : "bg-success-50 text-success-700"}`}>{saveState === "saving" ? "Menyimpan draf..." : saveState === "error" ? "Draf belum tersimpan" : "Draf tersimpan"}</span> : null}
+              {remainingSeconds !== null ? <span className={`rounded-full px-3 py-1 text-center text-theme-xs font-semibold ${remainingSeconds <= 60 ? "bg-error-50 text-error-700" : "bg-limo-blue-50 text-limo-blue-600"}`}>Sisa waktu {formatDuration(remainingSeconds)}</span> : null}
             </div>
             <button disabled={submitDisabled} className="tailadmin-button-primary px-4 py-2">{submitLabel}</button>
           </div>
@@ -230,14 +235,14 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
       </section>
 
       {attempt.ujian.questions.map((question, index) => (
-        <section key={question.id} className="tailadmin-card min-w-0 p-5" dir={question.bankSoal.direction === "rtl" ? "rtl" : "ltr"}>
+        <section key={question.id} className="tailadmin-card min-w-0 p-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-theme-sm font-semibold text-brand-500">Soal {index + 1} / {question.bankSoal.type}</p>
+            <p className="text-theme-sm font-semibold text-limo-blue-500">Soal {index + 1} / {formatUiLabel(question.bankSoal.type)}</p>
             <span className="w-fit rounded-full bg-gray-50 px-3 py-1 text-theme-xs font-semibold text-gray-500">Bobot {question.weight}</span>
           </div>
-          {question.bankSoal.stimulusText ? <p className="mt-4 rounded-2xl bg-gray-50 p-4 text-theme-sm leading-6 text-gray-700">{question.bankSoal.stimulusText}</p> : null}
+          {question.bankSoal.stimulusText ? <LocalizedContent as="p" text={question.bankSoal.stimulusText} language={question.bankSoal.language} direction={question.bankSoal.direction} className="mt-4 rounded-2xl bg-gray-50 p-4 text-theme-sm leading-7 text-gray-700">{question.bankSoal.stimulusText}</LocalizedContent> : null}
           <MediaBlock type={question.bankSoal.type} mediaUrl={question.bankSoal.mediaUrl} />
-          <p className="mt-4 text-lg font-semibold leading-7 text-gray-900">{question.bankSoal.question}</p>
+          <LocalizedContent as="p" text={question.bankSoal.question} language={question.bankSoal.language} direction={question.bankSoal.direction} className="mt-4 text-lg font-semibold leading-8 text-gray-900">{question.bankSoal.question}</LocalizedContent>
           <AnswerInput question={question} draft={draftByQuestion.get(question.id)} />
         </section>
       ))}
@@ -246,6 +251,7 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
         <p className="text-theme-sm text-gray-500">Periksa kembali jawaban sebelum dikumpulkan.</p>
         <button disabled={submitDisabled} className="mt-4 tailadmin-button-primary px-6 py-3">{submitLabel}</button>
       </section>
+      {dialog}
     </form>
   );
 }
@@ -270,7 +276,7 @@ function MediaBlock({ type, mediaUrl }: { type: string; mediaUrl: string | null 
     return <img src={mediaUrl} alt="Media soal" className="mt-4 max-h-72 rounded-2xl border border-gray-100 object-contain" />;
   }
 
-  return <a href={mediaUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex text-theme-sm font-semibold text-brand-500 hover:text-brand-600">Buka media soal</a>;
+  return <a href={mediaUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex text-theme-sm font-semibold text-limo-blue-500 hover:text-limo-blue-600">Buka media soal</a>;
 }
 
 function AnswerInput({ question, draft }: { question: AttemptContext["ujian"]["questions"][number]; draft?: DraftAnswer }) {
@@ -280,9 +286,9 @@ function AnswerInput({ question, draft }: { question: AttemptContext["ujian"]["q
     return (
       <div className="mt-4 grid gap-2">
         {question.bankSoal.options.map((option) => (
-          <label key={option.label} className="flex cursor-pointer gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-3 text-theme-sm text-gray-700 hover:border-brand-200 hover:bg-brand-50/40">
-            <input name={`selected-${question.id}`} type="radio" value={option.label} defaultChecked={draft?.selectedOption === option.label} className="mt-1 accent-brand-500" />
-            <span><b>{option.label}.</b> {option.content}</span>
+          <label key={option.label} className="flex cursor-pointer gap-3 rounded-xl border border-gray-200 bg-white p-3 text-theme-sm text-gray-700 hover:bg-gray-25">
+            <input name={`selected-${question.id}`} type="radio" value={option.label} defaultChecked={draft?.selectedOption === option.label} className="mt-1 accent-limo-blue-500" />
+            <span><b>{option.label}.</b> <LocalizedContent text={option.content} language={question.bankSoal.language} direction="auto">{option.content}</LocalizedContent></span>
           </label>
         ))}
       </div>
@@ -293,9 +299,9 @@ function AnswerInput({ question, draft }: { question: AttemptContext["ujian"]["q
     return (
       <div className="mt-4 grid gap-2">
         {question.bankSoal.options.map((option) => (
-          <label key={option.label} className="flex cursor-pointer gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-3 text-theme-sm text-gray-700 hover:border-brand-200 hover:bg-brand-50/40">
-            <input name={`selected-${question.id}`} type="checkbox" value={option.label} defaultChecked={draft?.selectedOptions?.includes(option.label)} className="mt-1 accent-brand-500" />
-            <span><b>{option.label}.</b> {option.content}</span>
+          <label key={option.label} className="flex cursor-pointer gap-3 rounded-xl border border-gray-200 bg-white p-3 text-theme-sm text-gray-700 hover:bg-gray-25">
+            <input name={`selected-${question.id}`} type="checkbox" value={option.label} defaultChecked={draft?.selectedOptions?.includes(option.label)} className="mt-1 accent-limo-blue-500" />
+            <span><b>{option.label}.</b> <LocalizedContent text={option.content} language={question.bankSoal.language} direction="auto">{option.content}</LocalizedContent></span>
           </label>
         ))}
       </div>
@@ -305,17 +311,17 @@ function AnswerInput({ question, draft }: { question: AttemptContext["ujian"]["q
   if (type === "BENAR_SALAH") {
     return (
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <label className="rounded-2xl bg-gray-50 p-4 text-theme-sm font-semibold text-gray-700"><input name={`selected-${question.id}`} type="radio" value="benar" defaultChecked={draft?.selectedOption === "benar"} className="mr-2 accent-brand-500" />Benar</label>
-        <label className="rounded-2xl bg-gray-50 p-4 text-theme-sm font-semibold text-gray-700"><input name={`selected-${question.id}`} type="radio" value="salah" defaultChecked={draft?.selectedOption === "salah"} className="mr-2 accent-brand-500" />Salah</label>
+        <label className="rounded-2xl bg-gray-50 p-4 text-theme-sm font-semibold text-gray-700"><input name={`selected-${question.id}`} type="radio" value="benar" defaultChecked={draft?.selectedOption === "benar"} className="me-2 accent-limo-blue-500" />Benar</label>
+        <label className="rounded-2xl bg-gray-50 p-4 text-theme-sm font-semibold text-gray-700"><input name={`selected-${question.id}`} type="radio" value="salah" defaultChecked={draft?.selectedOption === "salah"} className="me-2 accent-limo-blue-500" />Salah</label>
       </div>
     );
   }
 
   if (["ISIAN_SINGKAT", "CLOZE", "GAMBAR", "LISTENING", "READING"].includes(type)) {
-    return <input name={`short-${question.id}`} defaultValue={draft?.shortAnswer || ""} placeholder="Tulis jawaban singkat" className="mt-4 tailadmin-input" />;
+    return <ArabicTextField name={`short-${question.id}`} defaultValue={draft?.shortAnswer || ""} language={question.bankSoal.language} direction="auto" placeholder="Tulis jawaban singkat" className="mt-4 tailadmin-input" />;
   }
 
-  return <textarea name={`essay-${question.id}`} defaultValue={draft?.essayAnswer || ""} placeholder="Tulis jawaban di sini. Jawaban akan direview guru." className="mt-4 tailadmin-input min-h-32" />;
+  return <ArabicTextField as="textarea" name={`essay-${question.id}`} defaultValue={draft?.essayAnswer || ""} language={question.bankSoal.language} direction="auto" placeholder="Tulis jawaban di sini. Jawaban akan ditinjau guru." className="mt-4 tailadmin-input min-h-32" />;
 }
 
 function normalizeDraft(value: unknown): DraftAnswer[] {

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
 
 type Resource = "program" | "level" | "kelas";
 type GuruOption = { id: string; user: { name: string; email: string } };
@@ -36,6 +37,7 @@ export function MasterDataActions({
   const [draftGuruProfileId, setDraftGuruProfileId] = useState(guruProfileId);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { confirm, dialog } = useConfirmDialog();
 
   async function request(path: string, method: "PATCH" | "DELETE", body?: unknown) {
     setError("");
@@ -66,15 +68,15 @@ export function MasterDataActions({
     void request(`/api/v1/admin/${resource}/${id}`, "PATCH", body);
   }
 
-  function archive() {
-    if (window.confirm(`Arsipkan ${resource} ini? Data historis tetap dipertahankan.`)) {
+  async function archive() {
+    if (await confirm({ title: `Arsipkan ${resource} ini?`, description: "Data historis tetap dipertahankan.", confirmLabel: "Ya, arsipkan", variant: "destructive" })) {
       void request(`/api/v1/admin/${resource}/${id}`, "DELETE");
     }
   }
 
   if (editing) {
     return (
-      <div className="mt-4 grid gap-2 rounded-xl border border-brand-100 bg-brand-50/40 p-3">
+      <div className="mt-4 grid gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
         <input value={draftName} onChange={(event) => setDraftName(event.target.value)} aria-label={`Nama ${resource}`} className="tailadmin-input" />
         {resource === "level" ? <input value={draftOrder} onChange={(event) => setDraftOrder(event.target.value)} type="number" min={0} aria-label="Urutan level" className="tailadmin-input" /> : null}
         {resource === "kelas" ? <>
@@ -88,5 +90,5 @@ export function MasterDataActions({
     );
   }
 
-  return <div className="mt-4 flex flex-wrap items-center gap-2"><button type="button" onClick={() => setEditing(true)} disabled={archived || isSubmitting} className="tailadmin-button-outline px-3 py-2">Edit</button>{!archived ? <button type="button" onClick={archive} disabled={isSubmitting} className="inline-flex rounded-lg bg-error-50 px-3 py-2 text-theme-xs font-semibold text-error-700 hover:bg-error-100">Arsipkan</button> : <span className="rounded-full bg-gray-100 px-3 py-2 text-theme-xs font-semibold text-gray-500">Diarsipkan</span>}{error ? <p role="alert" className="w-full text-theme-xs text-error-700">{error}</p> : null}</div>;
+  return <><div className="mt-4 flex flex-wrap items-center gap-2"><button type="button" onClick={() => setEditing(true)} disabled={archived || isSubmitting} className="tailadmin-button-outline px-3 py-2">Edit</button>{!archived ? <button type="button" onClick={() => void archive()} disabled={isSubmitting} className="inline-flex rounded-lg bg-error-50 px-3 py-2 text-theme-xs font-semibold text-error-700 hover:bg-error-100">Arsipkan</button> : <span className="rounded-full bg-gray-100 px-3 py-2 text-theme-xs font-semibold text-gray-500">Diarsipkan</span>}{error ? <p role="alert" className="w-full text-theme-xs text-error-700">{error}</p> : null}</div>{dialog}</>;
 }

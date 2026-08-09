@@ -2,8 +2,15 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { LocalizedContent } from "@/components/localized-content";
+import { StatusBadge } from "@/components/dashboard/status-badge";
+import { requestJson } from "@/lib/api-json-client";
+import { formatUiLabel } from "@/lib/ui-labels";
+import { useAsyncAction } from "@/components/dashboard/use-async-action";
+import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
 
 type DateValue = string | Date | null;
+const moduleRequestFallback = "Perubahan modul gagal disimpan";
 
 export type LearningModuleItemView = {
   id: string;
@@ -23,6 +30,10 @@ export type LearningModuleItemView = {
   isScheduled: boolean;
   isExpired: boolean;
   isLockedByPrerequisite: boolean;
+  language?: string | null;
+  direction?: string | null;
+  completionRules?: Array<{ id: string; ruleType: string; minimumScore: number | null; requiredDurationSeconds: number | null; isRequired: boolean }>;
+  completion?: { status: string; completedAt: DateValue | null; completionSource: string | null } | null;
 };
 
 export type LearningModuleView = {
@@ -36,42 +47,30 @@ export type LearningModuleView = {
   dueAt: DateValue;
   publishedAt: DateValue;
   items: LearningModuleItemView[];
+  progress?: { requiredItemCount: number; completedRequiredItemCount: number; progressPercentage: number; completedAt: DateValue | null } | null;
 };
 
 type SelectOption = { id: string; title: string; status: string };
+type MaterialSelectOption = SelectOption & { language: string | null; direction: string | null };
 
 export type LearningModuleOptions = {
-  materials: SelectOption[];
+  materials: MaterialSelectOption[];
   assignments: SelectOption[];
   exams: SelectOption[];
   sessions: SelectOption[];
 };
 
-type RequestOptions = Omit<RequestInit, "body"> & { body?: unknown };
-
-async function requestJson(path: string, options: RequestOptions = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...options.headers },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-  });
-  const payload = (await response.json().catch(() => ({}))) as { data?: unknown; error?: { message?: string } };
-  if (!response.ok) throw new Error(payload.error?.message || "Perubahan modul gagal disimpan");
-  return payload.data;
-}
-
 export function LearningModuleBuilder({ kelasId, initialModules, options }: { kelasId: string; initialModules: LearningModuleView[]; options: LearningModuleOptions }) {
   const router = useRouter();
-  const [error, setError] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
+  const { error, isPending: isCreating, run } = useAsyncAction();
 
   async function createModule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError("");
-    setIsCreating(true);
-    try {
-      const data = new FormData(event.currentTarget);
-      await requestJson(`/api/v1/guru/kelas/${kelasId}/modul`, {
+    const data = new FormData(event.currentTarget);
+    await run(
+      "create",
+      () =>
+        requestJson(`/api/v1/guru/kelas/${kelasId}/modul`, {
         method: "POST",
         body: {
           title: String(data.get("title") || ""),
@@ -80,23 +79,25 @@ export function LearningModuleBuilder({ kelasId, initialModules, options }: { ke
           releaseAt: String(data.get("releaseAt") || ""),
           dueAt: String(data.get("dueAt") || ""),
         },
-      });
-      event.currentTarget.reset();
-      router.refresh();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Modul gagal dibuat");
-    } finally {
-      setIsCreating(false);
-    }
+        fallbackMessage: moduleRequestFallback,
+        }),
+      {
+        fallbackMessage: "Modul gagal dibuat",
+        onSuccess: () => {
+          event.currentTarget.reset();
+          router.refresh();
+        },
+      },
+    );
   }
 
   return (
     <div className="space-y-6">
       <form onSubmit={createModule} className="tailadmin-card grid gap-4 p-5">
         <div>
-          <p className="text-theme-xs font-semibold uppercase tracking-wide text-brand-500">Builder modul</p>
+          <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-500">Penyusun modul</p>
           <h2 className="mt-1 text-lg font-semibold text-gray-900">Buat alur belajar baru</h2>
-          <p className="mt-1 text-theme-sm text-gray-500">Susun materi, sesi, dan ujian existing tanpa menghapus akses daftar materi lama.</p>
+          <p className="mt-1 text-theme-sm text-gray-500">Susun materi, sesi, dan ujian yang sudah ada tanpa menghapus akses daftar materi lama.</p>
         </div>
         {error ? <p className="tailadmin-alert-error">{error}</p> : null}
         <div className="grid gap-3 md:grid-cols-2">
@@ -105,7 +106,7 @@ export function LearningModuleBuilder({ kelasId, initialModules, options }: { ke
         </div>
         <textarea name="description" maxLength={10000} placeholder="Tujuan atau ringkasan modul" className="tailadmin-input min-h-24" />
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="grid gap-1 text-theme-xs font-semibold text-gray-600">Release
+          <label className="grid gap-1 text-theme-xs font-semibold text-gray-600">Rilis
             <input name="releaseAt" type="datetime-local" className="tailadmin-input" />
           </label>
           <label className="grid gap-1 text-theme-xs font-semibold text-gray-600">Batas akhir opsional
@@ -129,21 +130,21 @@ export function LearningModuleBuilder({ kelasId, initialModules, options }: { ke
 }
 
 function ModuleCard({ module, options, onRefresh }: { module: LearningModuleView; options: LearningModuleOptions; onRefresh: () => void }) {
-  const [error, setError] = useState("");
-  const [busyAction, setBusyAction] = useState("");
+  const { error, pendingKey: busyAction, run } = useAsyncAction();
+  const { confirm, dialog } = useConfirmDialog();
 
   async function runAction(action: string, path: string, method = "POST", body?: unknown) {
-    if (action === "archive" && !window.confirm("Arsipkan modul ini? Data aktivitas dan nilai siswa tidak akan dihapus.")) return;
-    setError("");
-    setBusyAction(action);
-    try {
-      await requestJson(path, { method, body });
-      onRefresh();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Perubahan modul gagal disimpan");
-    } finally {
-      setBusyAction("");
-    }
+    if (action === "archive" && !(await confirm({ title: "Arsipkan modul?", description: "Data aktivitas dan nilai siswa tidak akan dihapus.", confirmLabel: "Ya, arsipkan", variant: "destructive" }))) return;
+    await run(
+      action,
+      () =>
+        requestJson(path, {
+        method,
+        body,
+        fallbackMessage: moduleRequestFallback,
+        }),
+      { fallbackMessage: "Perubahan modul gagal disimpan", onSuccess: onRefresh },
+    );
   }
 
   async function reorderItems(itemIds: string[]) {
@@ -156,20 +157,20 @@ function ModuleCard({ module, options, onRefresh }: { module: LearningModuleView
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${statusClass(module.status)}`}>{module.status}</span>
+              <StatusBadge status={module.status} compact className="uppercase tracking-wide" />
               <span className="text-theme-xs text-gray-500">Urutan {module.order}</span>
             </div>
             <h2 className="mt-2 break-words text-xl font-semibold text-gray-900">{module.title}</h2>
             <p className="mt-1 whitespace-pre-line text-theme-sm leading-6 text-gray-500">{module.description || "Belum ada deskripsi modul."}</p>
             <p className="mt-3 text-theme-xs text-gray-500">
-              {module.releaseAt ? `Release ${formatDate(module.releaseAt)}` : "Tersedia tanpa jadwal release"}
+              {module.releaseAt ? `Rilis ${formatDate(module.releaseAt)}` : "Tersedia tanpa jadwal rilis"}
               {module.dueAt ? ` / Batas ${formatDate(module.dueAt)}` : ""}
             </p>
           </div>
           <div className="flex flex-wrap gap-2 lg:max-w-sm lg:justify-end">
-            {module.status !== "PUBLISHED" ? <button disabled={Boolean(busyAction)} onClick={() => void runAction("publish", `/api/v1/guru/modul/${module.id}/publish`)} className="tailadmin-button-primary px-3 py-2 text-theme-xs">{busyAction === "publish" ? "..." : "Publish"}</button> : null}
+            {module.status !== "PUBLISHED" ? <button disabled={Boolean(busyAction)} onClick={() => void runAction("publish", `/api/v1/guru/modul/${module.id}/publish`)} className="tailadmin-button-primary px-3 py-2 text-theme-xs">{busyAction === "publish" ? "..." : "Terbitkan"}</button> : null}
             {module.status !== "ARCHIVED" ? <button disabled={Boolean(busyAction)} onClick={() => void runAction("archive", `/api/v1/guru/modul/${module.id}/archive`)} className="tailadmin-button-outline px-3 py-2 text-theme-xs">{busyAction === "archive" ? "..." : "Arsipkan"}</button> : null}
-            {module.status === "ARCHIVED" ? <button disabled={Boolean(busyAction)} onClick={() => void runAction("restore", `/api/v1/guru/modul/${module.id}`, "PATCH", { status: "DRAFT" })} className="tailadmin-button-outline px-3 py-2 text-theme-xs">Kembalikan Draft</button> : null}
+            {module.status === "ARCHIVED" ? <button disabled={Boolean(busyAction)} onClick={() => void runAction("restore", `/api/v1/guru/modul/${module.id}`, "PATCH", { status: "DRAFT" })} className="tailadmin-button-outline px-3 py-2 text-theme-xs">Kembalikan Draf</button> : null}
             <button disabled={Boolean(busyAction)} onClick={() => void runAction("duplicate", `/api/v1/guru/modul/${module.id}/duplicate`)} className="tailadmin-button-outline px-3 py-2 text-theme-xs">{busyAction === "duplicate" ? "..." : "Duplikasi"}</button>
           </div>
         </div>
@@ -197,28 +198,28 @@ function ModuleCard({ module, options, onRefresh }: { module: LearningModuleView
                 onDelete={() => void runAction("delete", `/api/v1/guru/modul/${module.id}/items/${item.id}`, "DELETE")}
                 busy={Boolean(busyAction)}
               />
-            )) : <p className="rounded-xl border border-dashed border-gray-200 p-5 text-theme-sm text-gray-500">Belum ada aktivitas. Tambahkan materi, sesi, atau ujian dari pilihan existing.</p>}
+            )) : <p className="rounded-xl border border-dashed border-gray-200 p-5 text-theme-sm text-gray-500">Belum ada aktivitas. Tambahkan materi, sesi, atau ujian dari pilihan yang sudah ada.</p>}
           </div>
         </section>
         <ModuleItemForm moduleId={module.id} items={module.items} options={options} onDone={onRefresh} />
       </div>
 
       <ModuleEditForm module={module} onDone={onRefresh} />
+      {dialog}
     </article>
   );
 }
 
 function ModuleEditForm({ module, onDone }: { module: LearningModuleView; onDone: () => void }) {
-  const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { error, isPending: isSubmitting, run } = useAsyncAction();
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError("");
-    setIsSubmitting(true);
-    try {
-      const data = new FormData(event.currentTarget);
-      await requestJson(`/api/v1/guru/modul/${module.id}`, {
+    const data = new FormData(event.currentTarget);
+    await run(
+      "submit",
+      () =>
+        requestJson(`/api/v1/guru/modul/${module.id}`, {
         method: "PATCH",
         body: {
           title: String(data.get("title") || ""),
@@ -227,18 +228,15 @@ function ModuleEditForm({ module, onDone }: { module: LearningModuleView; onDone
           releaseAt: String(data.get("releaseAt") || ""),
           dueAt: String(data.get("dueAt") || ""),
         },
-      });
-      onDone();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Modul gagal diperbarui");
-    } finally {
-      setIsSubmitting(false);
-    }
+        fallbackMessage: moduleRequestFallback,
+        }),
+      { fallbackMessage: "Modul gagal diperbarui", onSuccess: onDone },
+    );
   }
 
   return (
     <details className="border-t border-gray-100">
-      <summary className="cursor-pointer px-5 py-4 text-theme-sm font-semibold text-brand-600">Edit detail modul</summary>
+      <summary className="cursor-pointer px-5 py-4 text-theme-sm font-semibold text-limo-blue-600">Edit detail modul</summary>
       <form onSubmit={submit} className="grid gap-3 px-5 pb-5">
         {error ? <p className="tailadmin-alert-error">{error}</p> : null}
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_7rem]">
@@ -259,9 +257,9 @@ function ModuleEditForm({ module, onDone }: { module: LearningModuleView; onDone
 function ModuleItemForm({ moduleId, items, options, onDone }: { moduleId: string; items: LearningModuleItemView[]; options: LearningModuleOptions; onDone: () => void }) {
   const [itemType, setItemType] = useState("MATERIAL");
   const [entityId, setEntityId] = useState(options.materials[0]?.id || "");
-  const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { error, isPending: isSubmitting, run } = useAsyncAction();
   const choices = getChoices(itemType, options);
+  const selectedMaterial = itemType === "MATERIAL" ? options.materials.find((item) => item.id === entityId) : undefined;
 
   function changeType(nextType: string) {
     setItemType(nextType);
@@ -270,11 +268,11 @@ function ModuleItemForm({ moduleId, items, options, onDone }: { moduleId: string
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError("");
-    setIsSubmitting(true);
-    try {
-      const data = new FormData(event.currentTarget);
-      await requestJson(`/api/v1/guru/modul/${moduleId}/items`, {
+    const data = new FormData(event.currentTarget);
+    await run(
+      "submit",
+      () =>
+        requestJson(`/api/v1/guru/modul/${moduleId}/items`, {
         method: "POST",
         body: {
           itemType: String(data.get("itemType") || "MATERIAL"),
@@ -286,39 +284,41 @@ function ModuleItemForm({ moduleId, items, options, onDone }: { moduleId: string
           availableUntil: String(data.get("availableUntil") || ""),
           prerequisiteItemId: String(data.get("prerequisiteItemId") || ""),
         },
-      });
-      event.currentTarget.reset();
-      onDone();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Aktivitas gagal ditambahkan");
-    } finally {
-      setIsSubmitting(false);
-    }
+        fallbackMessage: moduleRequestFallback,
+        }),
+      {
+        fallbackMessage: "Aktivitas gagal ditambahkan",
+        onSuccess: () => {
+          event.currentTarget.reset();
+          onDone();
+        },
+      },
+    );
   }
 
   return (
-    <form onSubmit={submit} className="rounded-2xl border border-brand-100 bg-brand-50/40 p-4">
+    <form onSubmit={submit} className="tailadmin-card p-4">
       <h3 className="font-semibold text-gray-900">Tambah Aktivitas</h3>
-      <p className="mt-1 text-theme-xs leading-5 text-gray-500">Fase ini menghubungkan materi, sesi, dan ujian existing.</p>
+      <p className="mt-1 text-theme-xs leading-5 text-gray-500">Fase ini menghubungkan materi, sesi, dan ujian yang sudah ada.</p>
       {error ? <p className="mt-3 tailadmin-alert-error">{error}</p> : null}
       <div className="mt-4 grid gap-3">
-        <select name="itemType" value={itemType} onChange={(event) => changeType(event.target.value)} className="tailadmin-input">
-          <option value="MATERIAL">Materi</option>
-          <option value="ASSIGNMENT">Tugas</option>
-          <option value="CLASS_SESSION">Sesi kelas</option>
-          <option value="EXAM">Ujian</option>
-          <option value="QUIZ">Quiz (fase berikutnya)</option>
-          <option value="DISCUSSION">Diskusi (fase berikutnya)</option>
+        <select name="itemType" value={itemType} onChange={(event) => changeType(event.target.value)} dir="auto" className="tailadmin-input">
+          <option value="MATERIAL">{formatUiLabel("MATERIAL")}</option>
+          <option value="ASSIGNMENT">{formatUiLabel("ASSIGNMENT")}</option>
+          <option value="CLASS_SESSION">{formatUiLabel("CLASS_SESSION")}</option>
+          <option value="EXAM">{formatUiLabel("EXAM")}</option>
+          <option value="QUIZ">{formatUiLabel("QUIZ")} (fase berikutnya)</option>
+          <option value="DISCUSSION">{formatUiLabel("DISCUSSION")} (fase berikutnya)</option>
         </select>
-        <select name="entityId" value={entityId} onChange={(event) => setEntityId(event.target.value)} disabled={choices.length === 0} className="tailadmin-input">
-          {choices.length > 0 ? choices.map((choice) => <option key={choice.id} value={choice.id}>{choice.title} / {choice.status}</option>) : <option value="">Belum ada pilihan tersedia</option>}
+        <select name="entityId" value={entityId} onChange={(event) => setEntityId(event.target.value)} disabled={choices.length === 0} lang={selectedMaterial?.language || undefined} dir="auto" className="tailadmin-input">
+          {choices.length > 0 ? choices.map((choice) => <option key={choice.id} value={choice.id} lang={itemType === "MATERIAL" ? (choice as MaterialSelectOption).language || undefined : undefined} dir="auto">{choice.title} / {formatUiLabel(choice.status)}</option>) : <option value="">Belum ada pilihan tersedia</option>}
         </select>
         <input name="titleOverride" maxLength={200} placeholder="Judul alternatif (opsional)" className="tailadmin-input" />
         <div className="grid gap-3 sm:grid-cols-2">
           <input name="order" type="number" min={0} defaultValue={items.length} placeholder="Urutan" className="tailadmin-input" />
-          <select name="prerequisiteItemId" defaultValue="" className="tailadmin-input">
+          <select name="prerequisiteItemId" defaultValue="" dir="auto" className="tailadmin-input">
             <option value="">Tanpa prasyarat</option>
-            {items.map((item) => <option key={item.id} value={item.id}>{item.order + 1}. {item.title}</option>)}
+            {items.map((item) => <option key={item.id} value={item.id} lang={item.itemType === "MATERIAL" ? item.language || undefined : undefined} dir="auto">{item.order + 1}. {item.title}</option>)}
           </select>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -337,28 +337,34 @@ function ModuleItemForm({ moduleId, items, options, onDone }: { moduleId: string
 }
 
 function ModuleItemRow({ item, index, total, onMove, onDelete, busy }: { item: LearningModuleItemView; index: number; total: number; onMove: (_direction: -1 | 1) => void; onDelete: () => void; busy: boolean }) {
+  const { confirm, dialog } = useConfirmDialog();
+
+  async function deleteItem() {
+    if (await confirm({ title: "Hapus aktivitas dari modul?", description: "Entitas yang sudah ada tidak akan dihapus.", confirmLabel: "Ya, hapus", variant: "destructive" })) onDelete();
+  }
+
   return (
-    <article className="rounded-xl border border-gray-100 bg-white p-4 shadow-theme-xs">
+    <><article className="rounded-xl border border-gray-100 bg-white p-4 shadow-theme-xs">
       <div className="flex items-start gap-3">
-        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand-50 text-theme-xs font-semibold text-brand-600">{index + 1}</span>
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-limo-blue-50 text-theme-xs font-semibold text-limo-blue-600">{index + 1}</span>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold text-gray-600">{item.itemType}</span>{item.isRequired ? <span className="text-[10px] font-semibold text-warning-700">Wajib</span> : null}</div>
-          <p className="mt-2 break-words font-semibold text-gray-900">{item.title}</p>
-          <p className="mt-1 break-all text-theme-xs text-gray-500">Entity {item.entityId} / {item.targetStatus}</p>
+          <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold text-gray-600">{formatUiLabel(item.itemType)}</span>{item.isRequired ? <span className="text-[10px] font-semibold text-warning-700">Wajib</span> : null}</div>
+          {item.itemType === "MATERIAL" ? <LocalizedContent as="p" text={item.title} language={item.language} direction="auto" className="mt-2 break-words font-semibold text-gray-900">{item.title}</LocalizedContent> : <p className="mt-2 break-words font-semibold text-gray-900">{item.title}</p>}
+          <p className="mt-1 break-all text-theme-xs text-gray-500">Entitas {item.entityId} / {formatUiLabel(item.targetStatus)}</p>
           <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-semibold">
             {item.isLockedByPrerequisite ? <span className="rounded-full bg-warning-50 px-2 py-1 text-warning-700">Terkunci prasyarat</span> : null}
-            {item.isScheduled ? <span className="rounded-full bg-brand-50 px-2 py-1 text-brand-700">Terjadwal</span> : null}
+            {item.isScheduled ? <span className="rounded-full bg-limo-blue-50 px-2 py-1 text-limo-blue-700">Terjadwal</span> : null}
             {item.isExpired ? <span className="rounded-full bg-error-50 px-2 py-1 text-error-700">Batas lewat</span> : null}
-            {!item.targetPublished ? <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-600">Target belum publish</span> : null}
+            {!item.targetPublished ? <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-600">Target belum diterbitkan</span> : null}
           </div>
         </div>
         <div className="flex shrink-0 flex-col gap-1">
           <button type="button" disabled={busy || index === 0} onClick={() => onMove(-1)} className="rounded-lg border border-gray-200 px-2 py-1 text-theme-xs text-gray-600 disabled:opacity-40" aria-label="Naikkan aktivitas">↑</button>
           <button type="button" disabled={busy || index === total - 1} onClick={() => onMove(1)} className="rounded-lg border border-gray-200 px-2 py-1 text-theme-xs text-gray-600 disabled:opacity-40" aria-label="Turunkan aktivitas">↓</button>
-          <button type="button" disabled={busy} onClick={() => { if (window.confirm("Hapus aktivitas dari modul? Entity existing tidak akan dihapus.")) onDelete(); }} className="rounded-lg border border-error-100 px-2 py-1 text-theme-xs text-error-700 disabled:opacity-40" aria-label="Hapus aktivitas">×</button>
+          <button type="button" disabled={busy} onClick={() => void deleteItem()} className="rounded-lg border border-error-100 px-2 py-1 text-theme-xs text-error-700 disabled:opacity-40" aria-label="Hapus aktivitas">×</button>
         </div>
       </div>
-    </article>
+    </article>{dialog}</>
   );
 }
 
@@ -368,15 +374,6 @@ function getChoices(itemType: string, options: LearningModuleOptions) {
   if (itemType === "EXAM") return options.exams;
   if (itemType === "CLASS_SESSION") return options.sessions;
   return [];
-}
-
-function statusClass(status: string) {
-  return {
-    DRAFT: "bg-gray-100 text-gray-700",
-    SCHEDULED: "bg-warning-50 text-warning-700",
-    PUBLISHED: "bg-success-50 text-success-700",
-    ARCHIVED: "bg-error-50 text-error-700",
-  }[status] || "bg-gray-100 text-gray-700";
 }
 
 function formatDate(value: DateValue) {
