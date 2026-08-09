@@ -1,11 +1,13 @@
 import type { UserRole } from "@prisma/client";
 import type { DashboardIconName } from "@/components/dashboard/dashboard-icon";
+import { getFeatureFlags, type FeatureFlagKey } from "@/server/features/feature-flags";
 
 export type NavigationItem = {
   label: string;
   href: string;
   icon: DashboardIconName;
   section: string;
+  requiredFeatures?: readonly FeatureFlagKey[];
 };
 
 const navigationByRole: Record<UserRole, NavigationItem[]> = {
@@ -18,7 +20,7 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
     { label: "Program", href: "/admin/program", icon: "program", section: "Akademik" },
     { label: "Level", href: "/admin/level", icon: "levels", section: "Akademik" },
     { label: "Kelas", href: "/admin/kelas", icon: "classes", section: "Akademik" },
-    { label: "Kalender", href: "/admin/kalender", icon: "calendar", section: "Akademik" },
+    { label: "Kalender", href: "/admin/kalender", icon: "calendar", section: "Akademik", requiredFeatures: ["calendarEnabled"] },
     { label: "Tagihan", href: "/admin/tagihan", icon: "billing", section: "Administrasi" },
     { label: "Laporan", href: "/admin/laporan", icon: "audit", section: "Administrasi" },
     { label: "Pengguna", href: "/admin/users", icon: "users", section: "Administrasi" },
@@ -29,8 +31,8 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
     { label: "Dashboard", href: "/guru", icon: "dashboard", section: "Overview" },
     { label: "Kelas Saya", href: "/guru/kelas", icon: "classes", section: "Pembelajaran" },
     { label: "Jadwal", href: "/guru/jadwal", icon: "presensi", section: "Pembelajaran" },
-    { label: "Kalender", href: "/guru/kalender", icon: "calendar", section: "Pembelajaran" },
-    { label: "To-do", href: "/guru/todo", icon: "todo", section: "Pembelajaran" },
+    { label: "Kalender", href: "/guru/kalender", icon: "calendar", section: "Pembelajaran", requiredFeatures: ["calendarEnabled"] },
+    { label: "To-do", href: "/guru/todo", icon: "todo", section: "Pembelajaran", requiredFeatures: ["calendarEnabled"] },
     { label: "Materi", href: "/guru/materi", icon: "materials", section: "Pembelajaran" },
     { label: "RPP", href: "/guru/rpp", icon: "materials", section: "Pembelajaran" },
     { label: "Bank Soal", href: "/guru/bank-soal", icon: "exam", section: "Evaluasi" },
@@ -41,12 +43,12 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
   ],
   WALI: [
     { label: "Dashboard", href: "/wali", icon: "dashboard", section: "Overview" },
-    { label: "Tugas Anak", href: "/wali/tugas", icon: "exam", section: "Perkembangan Anak" },
+    { label: "Tugas Anak", href: "/wali/tugas", icon: "exam", section: "Perkembangan Anak", requiredFeatures: ["assignmentsEnabled"] },
     { label: "Materi", href: "/wali/materi", icon: "materials", section: "Perkembangan Anak" },
     { label: "RPP", href: "/wali/rpp", icon: "materials", section: "Perkembangan Anak" },
     { label: "Progres", href: "/wali/progres", icon: "progress", section: "Perkembangan Anak" },
-    { label: "Kalender", href: "/wali/kalender", icon: "calendar", section: "Perkembangan Anak" },
-    { label: "To-do", href: "/wali/todo", icon: "todo", section: "Perkembangan Anak" },
+    { label: "Kalender", href: "/wali/kalender", icon: "calendar", section: "Perkembangan Anak", requiredFeatures: ["calendarEnabled"] },
+    { label: "To-do", href: "/wali/todo", icon: "todo", section: "Perkembangan Anak", requiredFeatures: ["calendarEnabled"] },
     { label: "Presensi", href: "/wali/presensi", icon: "presensi", section: "Perkembangan Anak" },
     { label: "Nilai", href: "/wali/nilai", icon: "exam", section: "Perkembangan Anak" },
     { label: "Tagihan", href: "/wali/tagihan", icon: "billing", section: "Administrasi" },
@@ -55,15 +57,16 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
     { label: "Ubah Password", href: "/ubah-password", icon: "lock", section: "Akun" },
   ],
   SISWA: [
-    { label: "Dashboard", href: "/siswa", icon: "dashboard", section: "Overview" },
-    { label: "Kelas Saya", href: "/siswa/kelas", icon: "classes", section: "Belajar" },
-    { label: "Kalender", href: "/siswa/kalender", icon: "calendar", section: "Belajar" },
-    { label: "To-do", href: "/siswa/todo", icon: "todo", section: "Belajar" },
-    { label: "Profil", href: "/siswa/profil", icon: "profile", section: "Akun" },
+    { label: "Dashboard", href: "/siswa", icon: "dashboard", section: "Overview", requiredFeatures: ["studentPortalEnabled"] },
+    { label: "Kelas Saya", href: "/siswa/kelas", icon: "classes", section: "Belajar", requiredFeatures: ["studentPortalEnabled"] },
+    { label: "Kalender", href: "/siswa/kalender", icon: "calendar", section: "Belajar", requiredFeatures: ["studentPortalEnabled", "calendarEnabled"] },
+    { label: "To-do", href: "/siswa/todo", icon: "todo", section: "Belajar", requiredFeatures: ["studentPortalEnabled", "calendarEnabled"] },
+    { label: "Profil", href: "/siswa/profil", icon: "profile", section: "Akun", requiredFeatures: ["studentPortalEnabled"] },
     { label: "Ubah Password", href: "/ubah-password", icon: "lock", section: "Akun" },
   ],
 };
 
 export function getNavigationForRole(role: UserRole) {
-  return navigationByRole[role];
+  const flags = getFeatureFlags();
+  return navigationByRole[role].filter((item) => item.requiredFeatures?.every((feature) => flags[feature]) ?? true);
 }
