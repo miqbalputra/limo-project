@@ -83,12 +83,12 @@ try {
   ok("Siswa and Wali receive scoped open To-do items for an unpublished submission");
 
   const reminderJobNow = new Date(movedDueAt.getTime() - 24 * 60 * 60 * 1000);
-  const reminderRun = spawnSync(process.execPath, ["--experimental-strip-types", "scripts/send-deadline-reminders.ts", `--now=${reminderJobNow.toISOString()}`], { cwd: process.cwd(), env: { ...process.env, DATABASE_URL: "file:./dev.db" }, encoding: "utf8" });
+  const reminderRun = spawnSync(process.execPath, ["--experimental-strip-types", "scripts/send-deadline-reminders.ts", `--now=${reminderJobNow.toISOString()}`], { cwd: process.cwd(), env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL }, encoding: "utf8" });
   assert.equal(reminderRun.status, 0, reminderRun.stderr || reminderRun.stdout);
   const reminderNotification = await prisma.notifikasi.findFirst({ where: { template: "deadline-reminder", recipient: "siswa@limo.local", body: { contains: assignment.payload.data.item.title } }, select: { id: true } });
   assert.ok(reminderNotification, "Student reminder should be created");
   const reminderCountBefore = await prisma.notifikasi.count({ where: { template: "deadline-reminder", recipient: "siswa@limo.local", body: { contains: assignment.payload.data.item.title } } });
-  const secondReminderRun = spawnSync(process.execPath, ["--experimental-strip-types", "scripts/send-deadline-reminders.ts", `--now=${reminderJobNow.toISOString()}`], { cwd: process.cwd(), env: { ...process.env, DATABASE_URL: "file:./dev.db" }, encoding: "utf8" });
+  const secondReminderRun = spawnSync(process.execPath, ["--experimental-strip-types", "scripts/send-deadline-reminders.ts", `--now=${reminderJobNow.toISOString()}`], { cwd: process.cwd(), env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL }, encoding: "utf8" });
   assert.equal(secondReminderRun.status, 0, secondReminderRun.stderr || secondReminderRun.stdout);
   const reminderCountAfter = await prisma.notifikasi.count({ where: { template: "deadline-reminder", recipient: "siswa@limo.local", body: { contains: assignment.payload.data.item.title } } });
   assert.equal(reminderCountAfter, reminderCountBefore);
