@@ -5,7 +5,12 @@ import { ForbiddenError, NotFoundError } from "@/server/errors/application-error
 import { canAccessStudent, canManageClass } from "@/server/policies/access-policy";
 import { getSelectedWaliStudentId } from "@/server/dal/wali-selector-dal";
 
-export async function getStudentSummary(actor: Actor, siswaId: string) {
+type StudentSummaryOptions = {
+  attendanceFrom?: Date;
+  attendanceTo?: Date;
+};
+
+export async function getStudentSummary(actor: Actor, siswaId: string, options: StudentSummaryOptions = {}) {
   const allowed = await canAccessStudent(actor, siswaId);
 
   if (!allowed) {
@@ -21,16 +26,27 @@ export async function getStudentSummary(actor: Actor, siswaId: string) {
     throw new NotFoundError("Siswa tidak ditemukan");
   }
 
+  const attendanceWhere = {
+    siswaId,
+    ...(options.attendanceFrom || options.attendanceTo ? {
+      sesiKelas: {
+        sessionDate: {
+          ...(options.attendanceFrom ? { gte: options.attendanceFrom } : {}),
+          ...(options.attendanceTo ? { lt: options.attendanceTo } : {}),
+        },
+      },
+    } : {}),
+  };
   const [presensi, presensiRows, progres, hasil] = await Promise.all([
     prisma.presensi.groupBy({
       by: ["status"],
-      where: { siswaId },
+      where: attendanceWhere,
       _count: { status: true },
     }),
     prisma.presensi.findMany({
-      where: { siswaId },
+      where: attendanceWhere,
       orderBy: { sesiKelas: { sessionDate: "asc" } },
-      select: { status: true, sesiKelas: { select: { sessionDate: true } } },
+      select: { status: true, note: true, sesiKelas: { select: { meetingNumber: true, topic: true, sessionDate: true } } },
     }),
     prisma.progresBelajar.findMany({
       where: { siswaId },
@@ -57,21 +73,32 @@ export async function getStudentSummary(actor: Actor, siswaId: string) {
   const averageScore = hasil.length > 0
     ? hasil.reduce((sum, item) => sum + Number(item.totalScore || 0), 0) / hasil.length
     : null;
-  const monthlyAttendance = Object.values(presensiRows.reduce<Record<string, { month: string; hadir: number; total: number }>>((result, item) => {
+  const monthlyAttendance = Object.values(presensiRows.reduce<Record<string, { month: string; hadir: number; terlambat: number; izin: number; sakit: number; alpa: number; total: number }>>((result, item) => {
     const month = item.sesiKelas.sessionDate.toISOString().slice(0, 7);
-    const row = result[month] ||= { month, hadir: 0, total: 0 };
+    const row = result[month] ||= { month, hadir: 0, terlambat: 0, izin: 0, sakit: 0, alpa: 0, total: 0 };
     row.total += 1;
-    if (item.status === "HADIR" || item.status === "TERLAMBAT") {
-      row.hadir += 1;
-    }
+    if (item.status === "HADIR") row.hadir += 1;
+    if (item.status === "TERLAMBAT") row.terlambat += 1;
+    if (item.status === "IZIN") row.izin += 1;
+    if (item.status === "SAKIT") row.sakit += 1;
+    if (item.status === "ALPA") row.alpa += 1;
     return result;
   }, {}));
+  const attendanceTimeline = presensiRows.map((item) => ({
+    status: item.status,
+    note: item.note,
+    sessionDate: item.sesiKelas.sessionDate,
+    meetingNumber: item.sesiKelas.meetingNumber,
+    topic: item.sesiKelas.topic,
+  }));
+
 
   return {
     siswa,
     attendance: Object.fromEntries(presensi.map((item) => [item.status, item._count.status])),
     averageProgress,
     averageScore,
+    attendanceTimeline,
     monthlyAttendance,
     progressTimeline: progres,
     examResults: hasil,

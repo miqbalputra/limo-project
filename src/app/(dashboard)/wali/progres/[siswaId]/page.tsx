@@ -4,6 +4,7 @@ import { getStudentSummary } from "@/server/services/report-service";
 import { DashboardHero, EmptyState, ProgressBar } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
+import { withWaliChildContext } from "@/lib/wali-selector";
 
 export const metadata = { title: "Ringkasan Progres" };
 
@@ -12,7 +13,8 @@ export default async function WaliProgresDetailPage({ params }: { params: Promis
   requireRole(actor, ["WALI"]);
   const { siswaId } = await params;
   const summary = await getStudentSummary(actor, siswaId);
-  const hadir = (summary.attendance.HADIR || 0) + (summary.attendance.TERLAMBAT || 0);
+  const hadir = summary.attendance.HADIR || 0;
+  const terlambat = summary.attendance.TERLAMBAT || 0;
   const totalAttendance = Object.values(summary.attendance).reduce((sum, value) => sum + value, 0);
   const attendanceRate = totalAttendance ? Math.round((hadir / totalAttendance) * 100) : null;
   const latestProgress = summary.progressTimeline[0];
@@ -24,20 +26,21 @@ export default async function WaliProgresDetailPage({ params }: { params: Promis
         eyebrow={`${summary.siswa.nomorInduk} / ${summary.siswa.program.name}`}
         title={summary.siswa.name}
         description="Ringkasan lengkap progres belajar, nilai final, kehadiran bulanan, dan catatan guru untuk wali murid."
-        actions={<><Link href="/wali/progres" className="tailadmin-button-outline px-4 py-2">Kembali</Link><Link href={`/wali/progres/${siswaId}/modul`} className="tailadmin-button-primary px-4 py-2">Lihat Modul</Link>{isFeatureEnabled("assignmentsEnabled") ? <Link href={`/wali/progres/${siswaId}/tugas`} className="tailadmin-button-outline px-4 py-2">Lihat Tugas</Link> : null}{isFeatureEnabled("gradebookEnabled") ? <Link href={`/wali/progres/${siswaId}/gradebook`} className="tailadmin-button-outline px-4 py-2">Gradebook</Link> : null}<Link href="/wali/nilai" className="tailadmin-button-outline gap-2 px-4 py-2"><DashboardIcon name="exam" className="size-4" />Lihat Nilai</Link></>}
-        aside={<div className="grid min-w-72 grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs"><MetricMini label="Pemahaman" value={summary.averageProgress === null ? "-" : summary.averageProgress.toFixed(1)} /><MetricMini label="Nilai" value={summary.averageScore === null ? "-" : summary.averageScore.toFixed(0)} /><MetricMini label="Hadir" value={attendanceRate === null ? "-" : `${attendanceRate}%`} /></div>}
+        actions={<><Link href={withWaliChildContext("/wali/progres", siswaId)} className="tailadmin-button-outline px-4 py-2">Kembali</Link><Link href={`/wali/progres/${siswaId}/modul`} className="tailadmin-button-primary px-4 py-2">Lihat Modul</Link>{isFeatureEnabled("assignmentsEnabled") ? <Link href={`/wali/progres/${siswaId}/tugas`} className="tailadmin-button-outline px-4 py-2">Lihat Tugas</Link> : null}{isFeatureEnabled("remedialEnabled") && isFeatureEnabled("assignmentsEnabled") ? <Link href={`/wali/progres/${siswaId}/remedial`} className="tailadmin-button-outline px-4 py-2">Remedial</Link> : null}{isFeatureEnabled("gradebookEnabled") ? <Link href={`/wali/progres/${siswaId}/gradebook`} className="tailadmin-button-outline px-4 py-2">Buku Nilai</Link> : null}<Link href={withWaliChildContext("/wali/nilai", siswaId)} className="tailadmin-button-outline gap-2 px-4 py-2"><DashboardIcon name="exam" className="size-4" />Lihat Nilai</Link></>}
+         aside={<div className="grid w-full min-w-0 grid-cols-4 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs lg:w-auto lg:min-w-72"><MetricMini label="Pemahaman" value={summary.averageProgress === null ? "-" : summary.averageProgress.toFixed(1)} /><MetricMini label="Nilai" value={summary.averageScore === null ? "-" : summary.averageScore.toFixed(0)} /><MetricMini label="Hadir" value={attendanceRate === null ? "-" : `${attendanceRate}%`} /><MetricMini label="Terlambat" value={String(terlambat)} /></div>}
       />
 
       <section className="grid gap-4 md:grid-cols-3">
         <Metric label="Rata-rata Pemahaman" value={summary.averageProgress === null ? "-" : summary.averageProgress.toFixed(1)} />
         <Metric label="Rata-rata Nilai" value={summary.averageScore === null ? "-" : summary.averageScore.toFixed(1)} />
-        <Metric label="Total Hadir" value={String(hadir)} />
+         <Metric label="Total Hadir" value={String(hadir)} />
+         <Metric label="Total Terlambat" value={String(terlambat)} />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
         <article className="tailadmin-card p-5">
           <div className="flex items-start gap-3">
-            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600"><DashboardIcon name="progress" className="size-5" /></span>
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-limo-blue-50 text-limo-blue-700"><DashboardIcon name="progress" className="size-5" /></span>
             <div className="min-w-0">
               <h2 className="font-semibold text-gray-900">Catatan Progres Terbaru</h2>
               <p className="mt-2 text-theme-sm leading-6 text-gray-500">{latestProgress?.publicNote || "Belum ada catatan progres terbaru dari guru."}</p>
@@ -58,7 +61,7 @@ export default async function WaliProgresDetailPage({ params }: { params: Promis
       <section className="grid gap-4 lg:grid-cols-3">
         <ChartCard title="Grafik Pemahaman" items={summary.progressTimeline.slice().reverse().map((item, index) => ({ id: `progress-${item.sesiKelas.sessionDate.toISOString()}-${item.category ?? "umum"}-${index}`, label: item.sesiKelas.topic, value: item.understandingScore, max: 5 }))} />
         <ChartCard title="Grafik Nilai" items={summary.examResults.slice().reverse().map((item, index) => ({ id: `exam-${item.updatedAt.toISOString()}-${index}`, label: item.ujian.title, value: Number(item.totalScore || 0), max: 100 }))} />
-        <ChartCard title="Kehadiran Bulanan" items={summary.monthlyAttendance.map((item) => ({ label: item.month, value: item.hadir, max: item.total }))} />
+         <ChartCard title="Kehadiran Bulanan" items={summary.monthlyAttendance.flatMap((item) => [{ id: `${item.month}-hadir`, label: `${item.month} / Hadir`, value: item.hadir, max: item.total }, { id: `${item.month}-terlambat`, label: `${item.month} / Terlambat`, value: item.terlambat, max: item.total }])} />
       </section>
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="tailadmin-card p-5">
