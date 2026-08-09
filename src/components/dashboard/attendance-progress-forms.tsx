@@ -132,7 +132,7 @@ export function PresensiProgresForm({ sesiKelasId, students, mode, readOnly = fa
       {bulkMessage ? <p role="status" className="rounded-xl border border-success-100 bg-success-50 px-4 py-3 text-theme-sm text-success-800">{bulkMessage}</p> : null}
       {students.map((student) => {
         const presensi = student.presensi?.[0];
-         const progress = student.progresBelajar?.find((item) => item.category === category) ?? (category === "umum" ? student.progresBelajar?.[0] : undefined);
+        const progress = student.progresBelajar?.find((item) => item.category === normalizedCategory);
 
         return (
           <section key={student.id} className="tailadmin-card p-5">

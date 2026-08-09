@@ -63,6 +63,67 @@ test("Week 3 guru attendance and progress UI is mobile friendly", async ({ page 
   await expectNoHorizontalOverflow(page);
 });
 
+test("Week 3 progress category changes keep saved values isolated", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page, "guru@limo.local");
+  await expect(page).toHaveURL(/\/guru$/, { timeout: 15_000 });
+
+  await page.goto("/guru/progres");
+  const progressInputHref = await page.getByRole("link", { name: "Input" }).first().getAttribute("href");
+  if (!progressInputHref) throw new Error("Sesi progres tidak ditemukan");
+  const sessionId = progressInputHref.split("/").at(-1);
+  if (!sessionId) throw new Error("ID sesi progres tidak ditemukan");
+  const sessionData = await page.evaluate(async () => {
+    const response = await fetch("/api/v1/guru/sesi");
+    return response.json();
+  }) as { data: { items: { id: string; kelas: { id: string } }[] } };
+  const session = sessionData.data.items.find((item) => item.id === sessionId);
+  if (!session) throw new Error("Data sesi progres tidak ditemukan");
+
+  await page.goto(progressInputHref);
+  await page.evaluate(() => window.localStorage.clear());
+  await page.reload();
+  const progressForm = page.locator("#progres-form");
+  await expect(progressForm.getByRole("button", { name: "Simpan Progres" })).toBeVisible();
+  const categoryInput = progressForm.getByLabel("Kategori progres");
+  const firstScore = progressForm.locator('select[name^="score-"]').first();
+  const firstPublicNote = progressForm.locator('input[name^="publicNote-"]').first();
+  const categoryA = `g2-category-a-${Date.now()}`;
+  const categoryB = `g2-category-b-${Date.now()}`;
+  const categoryC = `g2-category-c-${Date.now()}`;
+
+  async function saveProgress(category: string, score: string, note: string) {
+    await categoryInput.fill(category);
+    await firstScore.selectOption(score);
+    await firstPublicNote.fill(note);
+    const responsePromise = page.waitForResponse((response) => response.url().endsWith("/api/v1/progres") && response.request().method() === "POST");
+    await progressForm.getByRole("button", { name: "Simpan Progres" }).click();
+    expect((await responsePromise).status()).toBe(200);
+  }
+
+  await saveProgress(categoryA, "5", "Catatan kategori A");
+  await page.reload();
+  await saveProgress(categoryB, "4", "Catatan kategori B");
+  await page.reload();
+
+  await categoryInput.fill("g2-transition");
+  await expect(firstScore).toHaveValue("3");
+  await expect(firstPublicNote).toHaveValue("");
+  await categoryInput.fill("umum");
+  await expect(firstScore).toHaveValue("3");
+  await expect(firstPublicNote).toHaveValue("");
+  await saveProgress("umum", "2", categoryC);
+
+  await page.goto(`/guru/kelas/${session.kelas.id}`);
+  const studentHistoryHref = await page.getByRole("link", { name: "Ahmad Dev" }).first().getAttribute("href");
+  if (!studentHistoryHref) throw new Error("Histori siswa tidak ditemukan");
+  await page.goto(studentHistoryHref);
+  await expect(page.getByText(new RegExp(`Skor 5/5 / ${categoryA}`))).toBeVisible();
+  await expect(page.getByText(new RegExp(`Skor 4/5 / ${categoryB}`))).toBeVisible();
+  await expect(page.getByText(new RegExp(`Skor 2/5 / umum`))).toBeVisible();
+});
+
 test("Week 3 wali graphs, attendance recap, and billing are mobile friendly", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page, "wali@limo.local");
