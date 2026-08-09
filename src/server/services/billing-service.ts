@@ -2,8 +2,7 @@ import type { Actor } from "../auth/session.ts";
 import { prisma } from "../db/prisma.ts";
 import { ForbiddenError, NotFoundError, ValidationError } from "../errors/application-error.ts";
 import { canAccessInvoice } from "../policies/access-policy.ts";
-import { createTarifSchema, generateInvoiceSchema } from "../validation/billing.ts";
-import { getSelectedWaliStudentId } from "../dal/wali-selector-dal.ts";
+import { createTarifSchema, generateInvoiceSchema, type PembayaranStatusValue, type TagihanStatusValue } from "../validation/billing.ts";
 import { notifyWaliForStudents } from "./notification-service.ts";
 import { isMayarConfigured } from "../providers/payment/mayar.ts";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "../pagination.ts";
@@ -23,7 +22,12 @@ function parsePeriod(value: string) {
 }
 
 export type TagihanListFilters = {
-  status?: "UNPAID" | "PENDING" | "PAID" | "OVERDUE" | "CANCELLED" | "REFUNDED";
+  status?: TagihanStatusValue;
+  search?: string;
+};
+
+export type PaymentLedgerFilters = {
+  status?: PembayaranStatusValue;
   search?: string;
 };
 
@@ -45,6 +49,53 @@ export async function listTarif(actor: Actor) {
   });
 
   return { items };
+}
+
+export async function getTagihanSummary(actor: Actor) {
+  requireAdmin(actor);
+
+  const grouped = await prisma.tagihan.groupBy({
+    by: ["status"],
+    _count: { _all: true },
+    _sum: { amount: true },
+  });
+  const groupedByStatus = new Map(grouped.map((item) => [item.status, item]));
+  const getStatus = (status: (typeof grouped)[number]["status"]) => {
+    const item = groupedByStatus.get(status);
+    return { count: item?._count._all ?? 0, amount: Number(item?._sum.amount ?? 0) };
+  };
+  const draft = getStatus("DRAFT");
+  const paid = getStatus("PAID");
+  const unpaid = getStatus("UNPAID");
+  const pending = getStatus("PENDING");
+  const overdue = getStatus("OVERDUE");
+  const cancelled = getStatus("CANCELLED");
+  const refunded = getStatus("REFUNDED");
+  const totalCount = grouped.reduce((sum, item) => sum + item._count._all, 0);
+  const totalAmount = grouped.reduce((sum, item) => sum + Number(item._sum.amount ?? 0), 0);
+  const openCount = unpaid.count + pending.count + overdue.count;
+  const openAmount = unpaid.amount + pending.amount + overdue.amount;
+
+  return {
+    totalCount,
+    totalAmount,
+    paidCount: paid.count,
+    paidAmount: paid.amount,
+    openCount,
+    openAmount,
+    overdueCount: overdue.count,
+    overdueAmount: overdue.amount,
+    collectionRate: totalAmount > 0 ? Math.round((paid.amount / totalAmount) * 100) : 0,
+    statusBreakdown: [
+      { status: "DRAFT" as const, label: "Draft", ...draft },
+      { status: "PAID" as const, label: "Lunas", ...paid },
+      { status: "UNPAID" as const, label: "Belum dibayar", ...unpaid },
+      { status: "PENDING" as const, label: "Menunggu", ...pending },
+      { status: "OVERDUE" as const, label: "Lewat tempo", ...overdue },
+      { status: "CANCELLED" as const, label: "Dibatalkan", ...cancelled },
+      { status: "REFUNDED" as const, label: "Refund", ...refunded },
+    ],
+  };
 }
 
 export async function createTarif(actor: Actor, input: unknown) {
@@ -78,12 +129,18 @@ export async function createTarif(actor: Actor, input: unknown) {
   return { item };
 }
 
-export async function listTagihan(actor: Actor, paginationInput: PaginationInput = {}, filters: TagihanListFilters = {}) {
-  const selectedStudentId = actor.role === "WALI" ? await getSelectedWaliStudentId(actor) : null;
+export async function listTagihan(actor: Actor, paginationInput: PaginationInput = {}, filters: TagihanListFilters = {}, selectedStudentId: string | null = null) {
   const where = actor.role === "ADMIN"
     ? {
         ...(filters.status ? { status: filters.status } : {}),
-        ...(filters.search ? { OR: [{ id: { contains: filters.search } }, { siswa: { name: { contains: filters.search } } }, { siswa: { nomorInduk: { contains: filters.search } } }] } : {}),
+        ...(filters.search ? {
+          OR: [
+            { id: { contains: filters.search } },
+            { siswa: { name: { contains: filters.search } } },
+            { siswa: { nomorInduk: { contains: filters.search } } },
+            { pembayaran: { some: { OR: [{ provider: { contains: filters.search } }, { providerReference: { contains: filters.search } }, { paymentMethod: { contains: filters.search } }] } } },
+          ],
+        } : {}),
       }
     : actor.role === "WALI"
       ? { ...(selectedStudentId ? { siswaId: selectedStudentId } : {}), siswa: { waliRelations: { some: { endedAt: null, waliProfile: { userId: actor.id } } } } }
@@ -107,18 +164,20 @@ export async function listTagihan(actor: Actor, paginationInput: PaginationInput
         dueDate: true,
         paidAt: true,
         siswa: { select: { id: true, name: true, nomorInduk: true } },
-         pembayaran: { orderBy: { createdAt: "desc" }, take: 5, select: { id: true, provider: true, providerReference: true, amount: true, status: true, paymentMethod: true, paidAt: true, createdAt: true, rawPayload: true } },
+        pembayaran: { orderBy: { createdAt: "desc" }, take: 5, select: { id: true, provider: true, providerReference: true, amount: true, status: true, paymentMethod: true, paidAt: true, createdAt: true, rawPayload: true } },
+        _count: { select: { pembayaran: true } },
       },
     }),
   ]);
 
   return {
-    items: items.map((item) => {
-      const latestMayarPayment = item.pembayaran.find((payment) => payment.provider === "mayar");
+    items: items.map(({ pembayaran, _count, ...item }) => {
+      const latestMayarPayment = pembayaran.find((payment) => payment.provider === "mayar");
       return {
         ...item,
         paymentUrl: getPaymentUrl(latestMayarPayment?.rawPayload),
-        paymentHistory: item.pembayaran.map(({ rawPayload: _rawPayload, ...payment }) => payment),
+        paymentHistory: pembayaran.map(({ rawPayload: _rawPayload, ...payment }) => ({ ...payment, amount: Number(payment.amount) })),
+        paymentHistoryCount: _count.pembayaran,
         paymentAvailable: isMayarConfigured(),
       };
     }),
@@ -161,6 +220,80 @@ export async function getTagihan(actor: Actor, id: string) {
   }
 
   return { item };
+}
+
+export async function listPaymentLedger(actor: Actor, paginationInput: PaginationInput = {}, filters: PaymentLedgerFilters = {}, selectedStudentId: string | null = null) {
+  if (actor.role !== "ADMIN" && actor.role !== "WALI") {
+    throw new ForbiddenError();
+  }
+
+  const where = actor.role === "ADMIN"
+    ? {
+        ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.search ? {
+          OR: [
+            { id: { contains: filters.search } },
+            { provider: { contains: filters.search } },
+            { providerReference: { contains: filters.search } },
+            { paymentMethod: { contains: filters.search } },
+            { tagihan: { id: { contains: filters.search } } },
+            { tagihan: { siswa: { name: { contains: filters.search } } } },
+            { tagihan: { siswa: { nomorInduk: { contains: filters.search } } } },
+          ],
+        } : {}),
+      }
+    : {
+        ...(filters.status ? { status: filters.status } : {}),
+        tagihan: {
+          ...(selectedStudentId ? { siswaId: selectedStudentId } : {}),
+          siswa: { waliRelations: { some: { endedAt: null, waliProfile: { userId: actor.id } } } },
+        },
+        ...(filters.search ? {
+          OR: [
+            { provider: { contains: filters.search } },
+            { providerReference: { contains: filters.search } },
+            { paymentMethod: { contains: filters.search } },
+            { tagihan: { id: { contains: filters.search } } },
+            { tagihan: { jenis: { contains: filters.search } } },
+          ],
+        } : {}),
+      };
+  const pagination = resolvePagination(paginationInput, actor.role === "ADMIN" ? 30 : 50);
+  const [totalItems, items] = await Promise.all([
+    prisma.pembayaran.count({ where }),
+    prisma.pembayaran.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: pagination.skip,
+      take: pagination.take,
+      select: {
+        id: true,
+        provider: true,
+        providerReference: true,
+        amount: true,
+        status: true,
+        paymentMethod: true,
+        paidAt: true,
+        createdAt: true,
+        updatedAt: true,
+        tagihan: {
+          select: {
+            id: true,
+            jenis: true,
+            description: true,
+            periode: true,
+            status: true,
+            siswa: { select: { id: true, name: true, nomorInduk: true } },
+          },
+        },
+      },
+    }),
+  ]);
+
+  return {
+    items: items.map((item) => ({ ...item, amount: Number(item.amount) })),
+    pagination: createPaginationMeta(pagination.page, pagination.pageSize, totalItems),
+  };
 }
 
 export async function generateMonthlyInvoices(actor: Actor | null, input: unknown) {
@@ -208,32 +341,42 @@ export async function generateMonthlyInvoices(actor: Actor | null, input: unknow
       continue;
     }
 
+    const existingInvoice = await prisma.tagihan.findUnique({
+      where: { siswaId_periode_jenis: { siswaId: student.id, periode: period, jenis: parsed.data.jenis } },
+      select: { id: true },
+    });
+
+    if (existingInvoice) {
+      skipped += 1;
+      continue;
+    }
+
     if (parsed.data.dryRun) {
       created += 1;
       continue;
     }
 
-    const result = await prisma.tagihan.upsert({
-      where: { siswaId_periode_jenis: { siswaId: student.id, periode: period, jenis: parsed.data.jenis } },
-      update: {},
-      create: {
-        siswaId: student.id,
-        tarifId: tarif.id,
-        periode: period,
-        jenis: parsed.data.jenis,
-        description: `${parsed.data.jenis} ${parsed.data.period}`,
-        amount: tarif.amount,
-        status: "UNPAID",
-        dueDate,
-      },
-      select: { createdAt: true, updatedAt: true },
-    });
-
-    if (result.createdAt.getTime() === result.updatedAt.getTime()) {
+    try {
+      await prisma.tagihan.create({
+        data: {
+          siswaId: student.id,
+          tarifId: tarif.id,
+          periode: period,
+          jenis: parsed.data.jenis,
+          description: `${parsed.data.jenis} ${parsed.data.period}`,
+          amount: tarif.amount,
+          status: "UNPAID",
+          dueDate,
+        },
+      });
       created += 1;
       createdStudentIds.push(student.id);
-    } else {
-      skipped += 1;
+    } catch (caught) {
+      if (typeof caught === "object" && caught && "code" in caught && caught.code === "P2002") {
+        skipped += 1;
+      } else {
+        failures.push(`Tagihan gagal dibuat untuk ${student.name}`);
+      }
     }
   }
 

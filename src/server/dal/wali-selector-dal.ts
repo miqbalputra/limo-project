@@ -1,6 +1,7 @@
 import type { Actor } from "../auth/session.ts";
 import { prisma } from "../db/prisma.ts";
-import { WALI_ALL_CHILDREN_VALUE, WALI_SELECTED_CHILD_COOKIE } from "../../lib/wali-selector.ts";
+import { NotFoundError } from "../errors/application-error.ts";
+import { WALI_ALL_CHILDREN_VALUE } from "../../lib/wali-selector.ts";
 
 export async function listWaliSelectorChildren(actor: Actor) {
   if (actor.role !== "WALI") {
@@ -16,13 +17,16 @@ export async function listWaliSelectorChildren(actor: Actor) {
   return relations.map(({ siswa }) => siswa);
 }
 
-export async function getSelectedWaliStudentId(actor: Actor) {
+export async function resolveWaliChildId(actor: Actor, childId?: string | string[] | null) {
   if (actor.role !== "WALI") {
     return null;
   }
 
-  const { cookies } = await import("next/headers");
-  const selectedId = (await cookies()).get(WALI_SELECTED_CHILD_COOKIE)?.value;
+  if (Array.isArray(childId)) {
+    throw new NotFoundError("Anak tidak ditemukan");
+  }
+
+  const selectedId = childId?.trim();
 
   if (!selectedId || selectedId === WALI_ALL_CHILDREN_VALUE) {
     return null;
@@ -33,5 +37,9 @@ export async function getSelectedWaliStudentId(actor: Actor) {
     select: { siswaId: true },
   });
 
-  return relation?.siswaId ?? null;
+  if (!relation) {
+    throw new NotFoundError("Anak tidak ditemukan");
+  }
+
+  return relation.siswaId;
 }
