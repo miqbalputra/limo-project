@@ -103,6 +103,25 @@ try {
   assert.ok(Math.abs(firstRow.calculatedScore - expectedMissingScore) < 0.01, `Missing item must be excluded, got ${firstRow.calculatedScore}`);
   ok("Assignment and Ujian sources synchronize automatically, while MISSING is excluded from the denominator");
 
+  const provisionalStudentView = await request(`/api/v1/siswa/kelas/${kelas.id}/gradebook`, { cookie: student.cookie });
+  assert.equal(provisionalStudentView.response.status, 200, JSON.stringify(provisionalStudentView.payload));
+  const provisionalStudentRow = provisionalStudentView.payload.data.rows[0];
+  assert.equal(provisionalStudentRow.finalGrade, null);
+  assert.equal(provisionalStudentRow.calculatedScore, null, "Siswa must not receive a provisional calculated score before final publish");
+  assert.equal(provisionalStudentRow.letterGrade, null, "Siswa must not receive a provisional letter grade before final publish");
+  assert.ok(provisionalStudentRow.categories.every((category) => category.score === null), "Siswa must not receive provisional category scores before final publish");
+  assert.ok(provisionalStudentRow.categories.flatMap((category) => category.items).every((item) => item.normalizedScore === null), "Siswa must not receive provisional item scores before final publish");
+
+  const provisionalWaliView = await request(`/api/v1/wali/anak/${studentAccount.siswaId}/kelas/${kelas.id}/gradebook`, { cookie: wali.cookie });
+  assert.equal(provisionalWaliView.response.status, 200, JSON.stringify(provisionalWaliView.payload));
+  const provisionalWaliRow = provisionalWaliView.payload.data.rows[0];
+  assert.equal(provisionalWaliRow.finalGrade, null);
+  assert.equal(provisionalWaliRow.calculatedScore, null, "Wali must not receive a provisional calculated score before final publish");
+  assert.equal(provisionalWaliRow.letterGrade, null, "Wali must not receive a provisional letter grade before final publish");
+  assert.ok(provisionalWaliRow.categories.every((category) => category.score === null), "Wali must not receive provisional category scores before final publish");
+  assert.ok(provisionalWaliRow.categories.flatMap((category) => category.items).every((item) => item.normalizedScore === null), "Wali must not receive provisional item scores before final publish");
+  ok("Unpublished gradebook scores stay hidden from Siswa and Wali API responses");
+
   const blankEntry = await request(`/api/v1/guru/gradebook/items/${itemIds[1]}/entries`, { method: "PUT", cookie: guru.cookie, body: { studentId: studentAccount.siswaId, status: "GRADED" } });
   assert.equal(blankEntry.response.status, 400, JSON.stringify(blankEntry.payload));
   assert.equal((await request(`/api/v1/guru/gradebook/items/${itemIds[1]}`, { method: "PATCH", cookie: guru.cookie, body: { status: "LOCKED" } })).response.status, 200);

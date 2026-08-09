@@ -300,7 +300,26 @@ function letterGrade(score: number | null) {
   return "E";
 }
 
-async function loadGradebook(classId: string, studentIds: string[], includeDrafts: boolean) {
+type GradebookLoadOptions = {
+  includeDrafts: boolean;
+  exposeProvisionalScores: boolean;
+};
+
+function hideUnpublishedCategoryScores(categoryRows: ReturnType<typeof calculateCategory>[]) {
+  return categoryRows.map((category) => ({
+    ...category,
+    score: null,
+    items: category.items.map((item) => ({
+      ...item,
+      normalizedScore: null,
+      rawScore: null,
+      feedbackSummary: null,
+    })),
+  }));
+}
+
+async function loadGradebook(classId: string, studentIds: string[], options: GradebookLoadOptions) {
+  const { includeDrafts, exposeProvisionalScores } = options;
   const categories = await prisma.gradeCategory.findMany({ where: { classId, ...(includeDrafts ? { status: { not: "ARCHIVED" } } : { status: "PUBLISHED" }) }, orderBy: { order: "asc" }, select: { id: true, name: true, weight: true, dropLowestCount: true, status: true, items: { where: includeDrafts ? { status: { in: ["PUBLISHED", "LOCKED"] } } : { status: { in: ["PUBLISHED", "LOCKED"] } }, orderBy: { order: "asc" }, select: { id: true, categoryId: true, sourceType: true, sourceId: true, title: true, order: true, maxScore: true, weightOverride: true, isExtraCredit: true, status: true, dueAt: true, entries: { where: { studentId: { in: studentIds } }, select: { studentId: true, rawScore: true, normalizedScore: true, status: true, isLate: true, feedbackSummary: true, sourceVersion: true } } } } } });
   const students = await prisma.siswa.findMany({ where: { id: { in: studentIds } }, orderBy: { name: "asc" }, select: { id: true, name: true, nomorInduk: true } });
   const finals = await prisma.finalGrade.findMany({ where: { classId, studentId: { in: studentIds }, ...(includeDrafts ? {} : { status: { in: ["PUBLISHED", "LOCKED", "CORRECTED"] } }) }, select: { id: true, studentId: true, calculatedScore: true, publishedScore: true, letterGrade: true, completionStatus: true, status: true, publishedAt: true, updatedAt: true } });
@@ -310,29 +329,42 @@ async function loadGradebook(classId: string, studentIds: string[], includeDraft
     const categoryRows = categories.map((category) => calculateCategory(category, student.id));
     const availableCategories = categoryRows.filter((category) => category.score !== null);
     const activeWeight = availableCategories.reduce((sum, category) => sum + category.weight, 0);
-    const calculatedScore = activeWeight > 0 ? roundScore(availableCategories.reduce((sum, category) => sum + (category.score || 0) * category.weight, 0) / activeWeight) : null;
+    const provisionalCalculatedScore = activeWeight > 0 ? roundScore(availableCategories.reduce((sum, category) => sum + (category.score || 0) * category.weight, 0) / activeWeight) : null;
     const complete = weightTotal >= 99.99 && weightTotal <= 100.01 && categories.length > 0 && categoryRows.every((category) => !category.incomplete && category.items.length > 0);
-    return { student, categories: categoryRows, calculatedScore, letterGrade: letterGrade(calculatedScore), completionStatus: complete ? "COMPLETE" : "INCOMPLETE", finalGrade: finalByStudent.get(student.id) || null };
+    const finalGrade = finalByStudent.get(student.id) || null;
+    const publishedScore = finalGrade?.publishedScore === null || finalGrade?.publishedScore === undefined ? null : toNumber(finalGrade.publishedScore);
+    const calculatedScore = exposeProvisionalScores ? provisionalCalculatedScore : null;
+    const visibleCategories = includeDrafts || publishedScore !== null ? categoryRows : hideUnpublishedCategoryScores(categoryRows);
+    const visibleLetterGrade = exposeProvisionalScores
+      ? letterGrade(provisionalCalculatedScore)
+      : publishedScore === null
+        ? null
+        : finalGrade?.letterGrade || letterGrade(publishedScore);
+    return { student, categories: visibleCategories, calculatedScore, letterGrade: visibleLetterGrade, completionStatus: complete ? "COMPLETE" : "INCOMPLETE", finalGrade };
   });
   return { categories: categories.map((category) => ({ id: category.id, name: category.name, weight: Number(category.weight), dropLowestCount: category.dropLowestCount, status: category.status, itemCount: category.items.length })), items: categories.flatMap((category) => category.items.map((item) => ({ id: item.id, categoryId: category.id, categoryName: category.name, sourceType: item.sourceType, sourceId: item.sourceId, title: item.title, order: item.order, maxScore: Number(item.maxScore), weightOverride: toNumber(item.weightOverride), isExtraCredit: item.isExtraCredit, status: item.status, dueAt: item.dueAt }))), rows, weightTotal: roundScore(weightTotal) || 0 };
+}
+
+async function loadGradebookForPublishing(classId: string, studentIds: string[]) {
+  return loadGradebook(classId, studentIds, { includeDrafts: false, exposeProvisionalScores: true });
 }
 
 export async function getGuruGradebook(actor: Actor, classId: string) {
   await assertGuruClass(actor, classId);
   await syncClassSources(classId);
-  return loadGradebook(classId, await getActiveStudentIds(classId), true);
+  return loadGradebook(classId, await getActiveStudentIds(classId), { includeDrafts: true, exposeProvisionalScores: true });
 }
 
 export async function getStudentGradebook(actor: Actor, classId: string) {
   const studentId = await assertStudentClass(actor, classId);
   await syncClassSources(classId);
-  return loadGradebook(classId, [studentId], false);
+  return loadGradebook(classId, [studentId], { includeDrafts: false, exposeProvisionalScores: false });
 }
 
 export async function getWaliGradebook(actor: Actor, studentId: string, classId: string) {
   await assertWaliClass(actor, studentId, classId);
   await syncClassSources(classId);
-  return loadGradebook(classId, [studentId], false);
+  return loadGradebook(classId, [studentId], { includeDrafts: false, exposeProvisionalScores: false });
 }
 
 export async function saveGradeEntry(actor: Actor, itemId: string, input: unknown) {
@@ -372,7 +404,7 @@ export async function publishFinalGrades(actor: Actor, classId: string, input: u
   const parsed = publishFinalGradesSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Data publish nilai akhir belum valid", parsed.error.flatten().fieldErrors);
   await syncClassSources(classId);
-  const gradebook = await loadGradebook(classId, await getActiveStudentIds(classId), false);
+  const gradebook = await loadGradebookForPublishing(classId, await getActiveStudentIds(classId));
   if (gradebook.weightTotal < 99.99 || gradebook.weightTotal > 100.01) throw new ValidationError("Total bobot kategori harus tepat 100% sebelum nilai akhir dipublikasikan");
   const selectedRows = parsed.data.studentIds?.length ? gradebook.rows.filter((row) => parsed.data.studentIds?.includes(row.student.id)) : gradebook.rows;
   if (selectedRows.length === 0) throw new ValidationError("Tidak ada siswa yang dipilih");
