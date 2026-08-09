@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DashboardHero, EmptyState, ProgressBar } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
+import { StatusBadge } from "@/components/dashboard/status-badge";
 
 type KelasSessionGroup = {
   kelas: {
@@ -93,7 +94,7 @@ export function GuruSessionOverview({
 
 function SessionHero({ total, pending, complete }: { total: number; pending: number; complete: number }) {
   return (
-    <div className="grid w-full grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs sm:min-w-72">
+    <div className="grid w-full min-w-0 grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs lg:w-auto lg:min-w-72">
       <MiniStat label="Sesi" value={total} />
       <MiniStat label="Prioritas" value={pending} />
       <MiniStat label="Lengkap" value={complete} />
@@ -103,7 +104,7 @@ function SessionHero({ total, pending, complete }: { total: number; pending: num
 
 function SummaryCard({ label, value, helper, tone }: { label: string; value: number; helper: string; tone: "brand" | "success" | "warning" }) {
   const classes = {
-    brand: "bg-brand-50 text-brand-600",
+    brand: "bg-limo-blue-50 text-limo-blue-700",
     success: "bg-success-50 text-success-700",
     warning: "bg-warning-50 text-warning-700",
   }[tone];
@@ -134,14 +135,14 @@ function SessionCard({
     <article className={`tailadmin-card min-w-0 p-5 transition hover:-translate-y-0.5 hover:shadow-theme-sm ${highlight ? "ring-1 ring-warning-100" : ""}`}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 gap-4">
-          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand-50 text-theme-sm font-semibold text-brand-600">{row.sesi.meetingNumber}</span>
+          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-limo-blue-50 text-theme-sm font-semibold text-limo-blue-700">{row.sesi.meetingNumber}</span>
           <div className="min-w-0">
-            <p className="text-theme-xs font-semibold uppercase tracking-wide text-brand-500">{row.kelas.program.name} / {row.kelas.name}</p>
+            <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-700">{row.kelas.program.name} / {row.kelas.name}</p>
             <h2 className="mt-1 truncate font-semibold text-gray-900" title={row.sesi.topic}>{row.sesi.topic}</h2>
             <p className="mt-1 text-theme-xs text-gray-500">{formatDate(row.sesi.sessionDate)} / {row.expected} siswa aktif</p>
           </div>
         </div>
-        <span className={`w-fit rounded-full px-3 py-1 text-theme-xs font-semibold ${row.status.className}`}>{row.status.label}</span>
+        <StatusBadge status={row.status.kind === "complete" ? "COMPLETE" : "INCOMPLETE"} fallback={row.status.label} className="w-fit px-3" />
       </div>
 
       <div className="mt-5 rounded-2xl bg-gray-50 p-4">

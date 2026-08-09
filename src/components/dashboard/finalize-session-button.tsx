@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
+import { requestJson } from "@/lib/api-json-client";
 
 export function FinalizeSessionButton({ sesiKelasId }: { sesiKelasId: string }) {
   const router = useRouter();
@@ -15,9 +16,7 @@ export function FinalizeSessionButton({ sesiKelasId }: { sesiKelasId: string }) 
     setError("");
     setIsSubmitting(true);
     try {
-      const response = await fetch(`/api/v1/guru/sesi/${sesiKelasId}/finalize`, { method: "POST" });
-      const payload = await response.json().catch(() => ({})) as { error?: { message?: string } };
-      if (!response.ok) throw new Error(payload.error?.message || "Sesi gagal difinalkan");
+      await requestJson(`/api/v1/guru/sesi/${sesiKelasId}/finalize`, { method: "POST", fallbackMessage: "Sesi gagal difinalkan" });
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Sesi gagal difinalkan");

@@ -2,13 +2,17 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import type { NavigationItem } from "@/components/dashboard/navigation";
 import { LogoutButton } from "@/components/dashboard/logout-button";
 import { WaliChildSelector } from "@/components/dashboard/wali-child-selector";
+import { DashboardRoleProvider } from "@/components/dashboard/dashboard-role-context";
+import { getWaliChildIdFromLocation, isWaliChildScopedPath, withWaliChildContext } from "@/lib/wali-selector";
+import { formatUiLabel } from "@/lib/ui-labels";
+import { requestJson } from "@/lib/api-json-client";
 
 type DashboardShellProps = {
   actor: {
@@ -30,7 +34,6 @@ type DashboardShellProps = {
     }[];
   };
   waliChildren?: { id: string; name: string; nomorInduk: string }[];
-  selectedWaliChildId?: string | null;
   children: ReactNode;
 };
 
@@ -50,8 +53,9 @@ function BellIcon() {
   return <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>;
 }
 
-export function DashboardShell({ actor, navigation, notifications, waliChildren, selectedWaliChildId, children }: DashboardShellProps) {
+export function DashboardShell({ actor, navigation, notifications, waliChildren, children }: DashboardShellProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const searchRef = useRef<HTMLInputElement>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -60,6 +64,10 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
   const [localReadNotificationIds, setLocalReadNotificationIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const homeHref = navigation[0]?.href || "/admin";
+  const selectedWaliChildId = actor.role === "WALI" ? getWaliChildIdFromLocation(pathname, searchParams) : null;
+  const navigationHref = (href: string) => actor.role === "WALI" && isWaliChildScopedPath(href)
+    ? withWaliChildContext(href, selectedWaliChildId)
+    : href;
   const activeItem = [...navigation]
     .sort((a, b) => b.href.length - a.href.length)
     .find((item) => pathname === item.href || (item.href !== homeHref && pathname.startsWith(`${item.href}/`))) ?? navigation[0];
@@ -99,9 +107,11 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
       return;
     }
 
-    const response = await fetch(`/api/v1/notifications/${id}/read`, { method: "POST" });
-    if (response.ok) {
+    try {
+      await requestJson(`/api/v1/notifications/${id}/read`, { method: "POST", fallbackMessage: "Notifikasi gagal ditandai sudah dibaca" });
       setLocalReadNotificationIds((current) => [...current, id]);
+    } catch {
+      // Keep the notification visible when the read mutation fails.
     }
   }
 
@@ -127,7 +137,7 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
         } ${isSidebarCollapsed ? "lg:w-[90px]" : "lg:w-[290px]"}`}
       >
         <div className={`flex h-20 shrink-0 items-center border-b border-gray-100 ${isSidebarCollapsed ? "justify-center px-3" : "justify-between px-5"}`}>
-          <Link href={homeHref} className="flex min-w-0 items-center gap-3" onClick={() => setIsSidebarOpen(false)}>
+          <Link href={navigationHref(homeHref)} className="flex min-w-0 items-center gap-3" onClick={() => setIsSidebarOpen(false)}>
             <Image src="/logo.jpg" width={40} height={40} alt="LIMO" className="size-10 shrink-0 rounded-xl border border-gray-200 bg-white object-contain shadow-theme-xs" priority />
             {!isSidebarCollapsed ? (
               <span className="min-w-0">
@@ -154,17 +164,17 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
                     return (
                       <li key={item.href}>
                         <Link
-                          href={item.href}
+                          href={navigationHref(item.href)}
                           title={isSidebarCollapsed ? item.label : undefined}
                           aria-current={isActive ? "page" : undefined}
                           onClick={() => setIsSidebarOpen(false)}
                           className={`group flex min-h-11 items-center gap-3 rounded-lg px-3 text-theme-sm font-medium transition-colors ${
                             isSidebarCollapsed ? "lg:justify-center" : ""
-                          } ${isActive ? "bg-brand-50 text-brand-600" : "text-gray-700 hover:bg-gray-100"}`}
+                          } ${isActive ? "bg-limo-blue-50 text-limo-blue-700" : "text-gray-700 hover:bg-gray-100"}`}
                         >
-                          <DashboardIcon name={item.icon} className={`size-5 shrink-0 ${isActive ? "text-brand-500" : "text-gray-500 group-hover:text-gray-700"}`} />
+                          <DashboardIcon name={item.icon} className={`size-5 shrink-0 ${isActive ? "text-limo-blue-700" : "text-gray-500 group-hover:text-gray-700"}`} />
                           {!isSidebarCollapsed ? <span className="truncate">{item.label}</span> : <span className="lg:hidden">{item.label}</span>}
-                          {isActive && !isSidebarCollapsed ? <span className="ml-auto size-1.5 rounded-full bg-brand-500" /> : null}
+                          {isActive && !isSidebarCollapsed ? <span className="ml-auto size-1.5 rounded-full bg-limo-blue-500" /> : null}
                         </Link>
                       </li>
                     );
@@ -203,13 +213,13 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
                  aria-expanded={searchResults.length > 0}
                  aria-controls="dashboard-search-results"
                  placeholder="Cari menu atau halaman..."
-                className="h-11 w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-12 pr-16 text-theme-sm text-gray-800 shadow-theme-xs outline-none placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10"
+                className="h-11 w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-12 pr-16 text-theme-sm text-gray-800 shadow-theme-xs outline-none placeholder:text-gray-400 focus:border-limo-blue-300 focus:ring-3 focus:ring-limo-blue-500/15"
               />
               <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[10px] font-medium text-gray-400">Ctrl K</span>
               {searchResults.length > 0 ? (
                 <div id="dashboard-search-results" role="listbox" className="absolute left-0 right-0 top-12 rounded-xl border border-gray-200 bg-white p-2 shadow-theme-lg">
                   {searchResults.map((item) => (
-                    <Link key={item.href} role="option" href={item.href} onClick={() => setSearch("")} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-theme-sm text-gray-700 hover:bg-gray-50">
+                    <Link key={item.href} role="option" href={navigationHref(item.href)} onClick={() => setSearch("")} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-theme-sm text-gray-700 hover:bg-gray-50">
                       <DashboardIcon name={item.icon} className="size-5 text-gray-400" />{item.label}
                     </Link>
                   ))}
@@ -217,10 +227,10 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
               ) : null}
             </div>
 
-            {waliChildren ? <WaliChildSelector options={waliChildren} selectedId={selectedWaliChildId ?? null} /> : null}
+            {waliChildren ? <WaliChildSelector options={waliChildren} /> : null}
             <div className="ml-auto flex items-center gap-2 sm:gap-3">
               <div className="relative">
-                <button type="button" aria-label="Notifikasi" aria-expanded={isNotificationOpen} aria-controls="notification-panel" onClick={() => setIsNotificationOpen((open) => !open)} className="relative grid size-10 place-items-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-theme-xs hover:bg-gray-50 sm:size-11">
+                <button type="button" aria-label="Notifikasi" aria-expanded={isNotificationOpen} aria-controls="notification-panel" onClick={() => setIsNotificationOpen((open) => !open)} className="relative grid size-11 place-items-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-theme-xs hover:bg-gray-50">
                   <BellIcon />
                   {unreadCount > 0 ? <span className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-error-500 px-1 text-[10px] font-bold leading-4 text-white">{unreadCount}</span> : null}
                 </button>
@@ -228,13 +238,13 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
                   <div id="notification-panel" role="region" aria-label="Daftar notifikasi" className="absolute right-0 top-[52px] z-20 w-[calc(100vw-2rem)] max-w-sm rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg sm:w-96">
                     <div className="flex items-center justify-between border-b border-gray-100 px-2 pb-3">
                       <div><p className="text-theme-sm font-semibold text-gray-800">Notifikasi</p><p className="text-theme-xs text-gray-500">{notifications.items.length} aktivitas terbaru</p></div>
-                      <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-semibold text-brand-600">{unreadCount} belum dibaca</span>
+                      <span className="rounded-full bg-limo-blue-50 px-2.5 py-1 text-[10px] font-semibold text-limo-blue-700">{unreadCount} belum dibaca</span>
                     </div>
                     <div className="max-h-96 overflow-y-auto py-2">
                       {notifications.items.length > 0 ? notifications.items.map((item) => (
                          <button type="button" key={item.id} onClick={() => void markNotificationRead(item.id)} className={`w-full rounded-xl px-3 py-2.5 text-left hover:bg-gray-50 ${item.readAt || locallyRead.has(item.id) ? "opacity-70" : ""}`}>
                            <div className="flex items-start gap-3">
-                             <span className={`mt-1 size-2 shrink-0 rounded-full ${item.readAt || locallyRead.has(item.id) ? "bg-gray-300" : "bg-brand-500"}`} />
+                              <span className={`mt-1 size-2 shrink-0 rounded-full ${item.readAt || locallyRead.has(item.id) ? "bg-gray-300" : "bg-limo-blue-500"}`} />
                              <div className="min-w-0">
                               <p className="truncate text-theme-sm font-semibold text-gray-800">{item.subject || item.template}</p>
                               <p className="mt-1 line-clamp-2 text-theme-xs leading-5 text-gray-500">{item.body}</p>
@@ -249,8 +259,8 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
               </div>
               <div className="relative">
                 <button type="button" aria-label="Buka menu akun" aria-expanded={isProfileOpen} aria-controls="profile-panel" onClick={() => setIsProfileOpen((open) => !open)} className="flex items-center gap-3 rounded-lg p-1.5 text-left hover:bg-gray-50">
-                  <span className="grid size-9 place-items-center rounded-full bg-brand-50 text-theme-sm font-bold text-brand-600 ring-1 ring-brand-100 sm:size-10">{actor.name.slice(0, 1).toUpperCase()}</span>
-                  <span className="hidden max-w-40 sm:block"><span className="block truncate text-theme-sm font-semibold text-gray-800">{actor.name}</span><span className="block text-theme-xs text-gray-500">{actor.role}</span></span>
+                   <span className="grid size-9 place-items-center rounded-full bg-limo-blue-50 text-theme-sm font-bold text-limo-blue-700 ring-1 ring-limo-blue-100 sm:size-10">{actor.name.slice(0, 1).toUpperCase()}</span>
+                   <span className="hidden max-w-40 sm:block"><span className="block truncate text-theme-sm font-semibold text-gray-800">{actor.name}</span><span className="block text-theme-xs text-gray-500">{formatUiLabel(actor.role)}</span></span>
                   <svg viewBox="0 0 20 20" className={`hidden size-4 text-gray-400 transition sm:block ${isProfileOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
                 </button>
                 {isProfileOpen ? (
@@ -267,10 +277,12 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
         </header>
 
         <div className="border-b border-gray-100 bg-white px-4 py-3 sm:px-6 lg:px-8">
-          <div className="mx-auto flex w-full max-w-[1600px] items-center gap-2 text-theme-xs text-gray-500"><Link href={homeHref} className="hover:text-brand-500">Dashboard</Link><span>/</span><span className="font-medium text-gray-700">{activeItem?.label || "Halaman"}</span></div>
+          <div className="mx-auto flex w-full max-w-[1600px] items-center gap-2 text-theme-xs text-gray-500"><Link href={navigationHref(homeHref)} className="hover:text-limo-blue-700">Beranda</Link><span>/</span><span className="font-medium text-gray-700">{activeItem?.label || "Halaman"}</span></div>
         </div>
 
-        <div id="dashboard-content" tabIndex={-1} className="mx-auto w-full max-w-[1600px] px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">{children}</div>
+        <div id="dashboard-content" tabIndex={-1} className="mx-auto w-full max-w-[1600px] px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">
+          <DashboardRoleProvider role={actor.role}>{children}</DashboardRoleProvider>
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { requestJson } from "@/lib/api-json-client";
 
 export function ChangePasswordForm() {
   const [error, setError] = useState("");
@@ -16,22 +17,17 @@ export function ChangePasswordForm() {
     const data = new FormData(form);
 
     try {
-      const response = await fetch("/api/v1/auth/change-password", {
+      await requestJson("/api/v1/auth/change-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           currentPassword: String(data.get("currentPassword") || ""),
           newPassword: String(data.get("newPassword") || ""),
-        }),
+        },
+        fallbackMessage: "Password gagal diubah",
       });
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error?.message || "Password gagal diubah");
-      }
 
       form.reset();
-      setSuccess("Password berhasil diubah dan session lain telah dicabut.");
+      setSuccess("Kata sandi berhasil diubah dan sesi lain telah dicabut.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Password gagal diubah");
     } finally {

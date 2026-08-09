@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { requestJson } from "@/lib/api-json-client";
 
 type Option = {
   id: string;
@@ -17,16 +18,7 @@ type GuruOption = {
 };
 
 async function postJson(path: string, body: Record<string, string | number>) {
-  const response = await fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
-    throw new Error(payload.error?.message || "Data gagal disimpan");
-  }
+  await requestJson(path, { method: "POST", body, fallbackMessage: "Data gagal disimpan" });
 }
 
 function SubmitButton({ isSubmitting, label }: { isSubmitting: boolean; label: string }) {

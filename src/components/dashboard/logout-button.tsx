@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { requestJson } from "@/lib/api-json-client";
 
 export function LogoutButton() {
   const router = useRouter();
@@ -11,7 +12,7 @@ export function LogoutButton() {
     setIsSubmitting(true);
 
     try {
-      await fetch("/api/v1/auth/logout", { method: "POST" });
+      await requestJson("/api/v1/auth/logout", { method: "POST", fallbackMessage: "Logout gagal diproses" });
       const registrations = await navigator.serviceWorker?.getRegistrations?.();
       registrations?.forEach((registration) => registration.active?.postMessage({ type: "PURGE_LIMO_CACHE" }));
       router.replace("/login");

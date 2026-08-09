@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
+import { requestJson } from "@/lib/api-json-client";
 
 type DateValue = string | Date | null;
 
@@ -47,12 +48,6 @@ export type StudentAssignmentView = {
   status: string;
   kelas: { id: string; name: string; program: { name: string }; level: { name: string } };
 };
-
-async function parseResponse(response: Response) {
-  const payload = (await response.json().catch(() => ({}))) as { data?: { item?: SubmissionView }; error?: { message?: string } };
-  if (!response.ok) throw new Error(payload.error?.message || "Perubahan jawaban gagal");
-  return payload.data;
-}
 
 export function AssignmentSubmissionForm({ assignment, initialSubmission, remedialId, revisionRequestId }: { assignment: StudentAssignmentView; initialSubmission: SubmissionView | null; remedialId?: string; revisionRequestId?: string }) {
   const router = useRouter();
@@ -103,9 +98,8 @@ export function AssignmentSubmissionForm({ assignment, initialSubmission, remedi
     const timer = window.setTimeout(async () => {
       setSaveState("Menyimpan...");
       try {
-        const response = await fetch(`/api/v1/siswa/tugas/${assignment.id}/draft`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ onlineText, externalLink, version, remedialId, revisionRequestId }) });
-        const data = await parseResponse(response);
-        if (data?.item) setVersion(data.item.version);
+        const response = await requestJson<{ item?: SubmissionView }>(`/api/v1/siswa/tugas/${assignment.id}/draft`, { method: "PATCH", body: { onlineText, externalLink, version, remedialId, revisionRequestId }, fallbackMessage: "Draf gagal disimpan" });
+        if (response.data.item) setVersion(response.data.item.version);
         setSaveState("Tersimpan");
         setIsDirty(false);
       } catch (caught) {
@@ -123,7 +117,7 @@ export function AssignmentSubmissionForm({ assignment, initialSubmission, remedi
     setIsSubmitting(true);
     setSaveState("Mengirim jawaban...");
     try {
-      let response: Response;
+      let response: { data: { item?: SubmissionView } };
       if (acceptsFile) {
         const formData = new FormData();
         formData.set("onlineText", onlineText);
@@ -133,15 +127,14 @@ export function AssignmentSubmissionForm({ assignment, initialSubmission, remedi
         if (revisionRequestId) formData.set("revisionRequestId", revisionRequestId);
         if (mediaDuration !== null) formData.set("mediaDuration", String(mediaDuration));
         if (file) formData.set("file", file);
-        response = await fetch(`/api/v1/siswa/tugas/${assignment.id}/submit`, { method: "POST", body: formData });
+        response = await requestJson<{ item?: SubmissionView }>(`/api/v1/siswa/tugas/${assignment.id}/submit`, { method: "POST", body: formData, fallbackMessage: "Jawaban gagal dikirim" });
       } else {
-        response = await fetch(`/api/v1/siswa/tugas/${assignment.id}/submit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ onlineText, externalLink, version, remedialId, revisionRequestId }) });
+        response = await requestJson<{ item?: SubmissionView }>(`/api/v1/siswa/tugas/${assignment.id}/submit`, { method: "POST", body: { onlineText, externalLink, version, remedialId, revisionRequestId }, fallbackMessage: "Jawaban gagal dikirim" });
       }
-      const data = await parseResponse(response);
-      if (data?.item) {
-        setStatus(data.item.status);
-        setVersion(data.item.version);
-        setSubmittedAt(data.item.submittedAt);
+      if (response.data.item) {
+        setStatus(response.data.item.status);
+        setVersion(response.data.item.version);
+        setSubmittedAt(response.data.item.submittedAt);
       }
       setIsDirty(false);
       setSaveState("Jawaban tersimpan");

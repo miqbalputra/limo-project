@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { requestJson } from "@/lib/api-json-client";
 
 export function ExamDuplicateButton({ ujianId }: { ujianId: string }) {
   const router = useRouter();
@@ -13,11 +14,7 @@ export function ExamDuplicateButton({ ujianId }: { ujianId: string }) {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`/api/v1/ujian/${ujianId}/duplicate`, { method: "POST" });
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
-        throw new Error(payload.error?.message || "Ujian gagal diduplikasi");
-      }
+      await requestJson(`/api/v1/ujian/${ujianId}/duplicate`, { method: "POST", fallbackMessage: "Ujian gagal diduplikasi" });
 
       router.refresh();
     } catch (caught) {
@@ -27,5 +24,5 @@ export function ExamDuplicateButton({ ujianId }: { ujianId: string }) {
     }
   }
 
-  return <span className="inline-flex flex-col items-start gap-1"><button type="button" onClick={() => void duplicate()} disabled={isSubmitting} className="tailadmin-button-outline px-4 py-2">{isSubmitting ? "Menduplikasi..." : "Duplikat sebagai Draft"}</button>{error ? <span className="text-theme-xs text-error-700">{error}</span> : null}</span>;
+  return <span className="inline-flex flex-col items-start gap-1"><button type="button" onClick={() => void duplicate()} disabled={isSubmitting} className="tailadmin-button-outline px-4 py-2">{isSubmitting ? "Menduplikasi..." : "Duplikat sebagai Draf"}</button>{error ? <span className="text-theme-xs text-error-700">{error}</span> : null}</span>;
 }

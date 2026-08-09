@@ -3,9 +3,13 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useRef, useState } from "react";
 import { FormFieldError } from "@/components/dashboard/form-field-error";
+import { LocalizedContent } from "@/components/localized-content";
+import { formatUiLabel } from "@/lib/ui-labels";
+import { ApiJsonError, requestJson } from "@/lib/api-json-client";
+import { StatusBadge } from "@/components/dashboard/status-badge";
 
 type KelasOption = { id: string; name: string };
-type SoalOption = { id: string; label: string };
+type SoalOption = { id: string; label: string; question: string; language: string | null; direction: string | null };
 type FieldErrors = Record<string, string[]>;
 
 export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOption[]; soalOptions: SoalOption[] }) {
@@ -32,10 +36,16 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
       status: String(data.get("status") || "DRAFT"),
       durationMinutes: Number(data.get("durationMinutes") || 60),
       maxAttempts: Number(data.get("maxAttempts") || 1),
-      questions: selectedQuestionIds.map((id) => ({
-        label: soalOptions.find((soal) => soal.id === id)?.label || id,
-        weight: Number(data.get(`weight-${id}`) || 1),
-      })),
+      questions: selectedQuestionIds.map((id) => {
+        const question = soalOptions.find((soal) => soal.id === id);
+        return {
+          label: question?.label || id,
+          question: question?.question || id,
+          language: question?.language || null,
+          direction: question?.direction || null,
+          weight: Number(data.get(`weight-${id}`) || 1),
+        };
+      }),
     });
   }
 
@@ -52,10 +62,9 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
     }));
 
     try {
-      const response = await fetch("/api/v1/ujian", {
+      await requestJson("/api/v1/ujian", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           kelasId: String(data.get("kelasId") || ""),
           title: String(data.get("title") || ""),
           description: String(data.get("description") || ""),
@@ -68,18 +77,14 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
           maxAttempts: Number(data.get("maxAttempts") || 1),
           showResultToWali: data.get("showResultToWali") === "on",
           questions,
-        }),
+        },
+        fallbackMessage: "Ujian gagal disimpan",
       });
-
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as { error?: { message?: string; fields?: FieldErrors } };
-        setFieldErrors(payload.error?.fields || {});
-        throw new Error(payload.error?.message || "Ujian gagal disimpan");
-      }
 
       event.currentTarget.reset();
       router.refresh();
     } catch (caught) {
+      if (caught instanceof ApiJsonError) setFieldErrors(caught.fields || {});
       setError(caught instanceof Error ? caught.message : "Ujian gagal disimpan");
     } finally {
       setIsSubmitting(false);
@@ -101,24 +106,24 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
       <div className="grid gap-3 sm:grid-cols-2">
         <input name="examDate" type="date" className="tailadmin-input" />
         <select name="status" className="tailadmin-input">
-          <option value="DRAFT">Draft</option>
-          <option value="PUBLISHED">Publish</option>
+          <option value="DRAFT">{formatUiLabel("DRAFT")}</option>
+          <option value="PUBLISHED">{formatUiLabel("PUBLISHED")}</option>
         </select>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <select name="deliveryMode" defaultValue="TEACHER_ENTRY" className="tailadmin-input">
-          <option value="TEACHER_ENTRY">Offline teacher-entry</option>
-          <option value="ONLINE_VIA_WALI">Online via akun wali</option>
-          <option value="BOTH">Offline dan online</option>
+          <option value="TEACHER_ENTRY">{formatUiLabel("TEACHER_ENTRY")}</option>
+          <option value="ONLINE_VIA_WALI">{formatUiLabel("ONLINE_VIA_WALI")}</option>
+          <option value="BOTH">Luring dan daring</option>
         </select>
-        <input name="maxAttempts" type="number" min={1} max={5} defaultValue={1} className="tailadmin-input" placeholder="Maksimal attempt" />
+        <input name="maxAttempts" type="number" min={1} max={5} defaultValue={1} className="tailadmin-input" placeholder="Maksimal percobaan" />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <input name="availableFrom" type="date" className="tailadmin-input" aria-label="Tersedia mulai" />
         <input name="availableUntil" type="date" className="tailadmin-input" aria-label="Tersedia sampai" />
       </div>
       <label className="flex items-center gap-2 rounded-xl bg-gray-50 p-3 text-theme-sm text-gray-700">
-        <input name="showResultToWali" type="checkbox" defaultChecked className="accent-brand-500" />
+        <input name="showResultToWali" type="checkbox" defaultChecked className="accent-limo-blue-500" />
         Tampilkan hasil ke wali setelah final
       </label>
       <input name="durationMinutes" type="number" min={1} max={600} defaultValue={60} aria-invalid={Boolean(fieldErrors.durationMinutes)} aria-describedby="ujian-duration-error" className="tailadmin-input" placeholder="Durasi ujian dalam menit" />
@@ -128,7 +133,7 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
         <div className="mt-3 grid gap-3">
           {soalOptions.map((soal) => (
             <label key={soal.id} className="grid gap-2 rounded-lg bg-gray-50 p-3 text-theme-sm text-gray-700 sm:grid-cols-[1fr_100px]">
-              <span><input name="bankSoalId" type="checkbox" value={soal.id} className="mr-2 accent-brand-500" />{soal.label}</span>
+              <span><input name="bankSoalId" type="checkbox" value={soal.id} className="me-2 accent-limo-blue-500" /><span className="text-gray-500">{soal.label} / </span><LocalizedContent text={soal.question} language={soal.language} direction={soal.direction}>{soal.question}</LocalizedContent></span>
               <input name={`weight-${soal.id}`} type="number" min={0.1} step={0.1} defaultValue={1} className="tailadmin-input px-2 py-1" />
             </label>
           ))}
@@ -136,7 +141,7 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
         <FormFieldError id="ujian-questions-error" errors={fieldErrors.questions} />
       </div>
       <div className="flex flex-col gap-2 sm:flex-row">
-        <button type="button" onClick={togglePreview} className="tailadmin-button-outline flex-1">{preview ? "Tutup Preview" : "Lihat Preview"}</button>
+        <button type="button" onClick={togglePreview} className="tailadmin-button-outline flex-1">{preview ? "Tutup pratinjau" : "Lihat pratinjau"}</button>
         <button disabled={isSubmitting} className="tailadmin-button-primary flex-1">
           {isSubmitting ? "Menyimpan..." : "Simpan Ujian"}
         </button>
@@ -152,27 +157,27 @@ type ExamPreview = {
   status: string;
   durationMinutes: number;
   maxAttempts: number;
-  questions: { label: string; weight: number }[];
+  questions: { label: string; question: string; language: string | null; direction: string | null; weight: number }[];
 };
 
 function ExamPreviewCard({ preview }: { preview: ExamPreview }) {
   return (
-    <article className="rounded-2xl border border-brand-100 bg-brand-50/40 p-5">
+    <article className="tailadmin-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-theme-xs font-semibold uppercase tracking-wide text-brand-600">Preview Assessment</p>
+          <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-600">Pratinjau penilaian</p>
           <h3 className="mt-1 text-lg font-semibold text-gray-900">{preview.title || "Tanpa judul"}</h3>
         </div>
-        <span className="rounded-full bg-white px-3 py-1 text-theme-xs font-semibold text-gray-600">{preview.status === "PUBLISHED" ? "Publish" : "Draft"}</span>
+         <StatusBadge status={preview.status} compact />
       </div>
       <p className="mt-3 whitespace-pre-wrap text-theme-sm text-gray-600">{preview.description || "Tanpa deskripsi."}</p>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <div className="rounded-xl bg-white p-3"><p className="text-theme-xs text-gray-500">Durasi</p><p className="mt-1 font-semibold text-gray-900">{preview.durationMinutes} menit</p></div>
-        <div className="rounded-xl bg-white p-3"><p className="text-theme-xs text-gray-500">Maksimal attempt</p><p className="mt-1 font-semibold text-gray-900">{preview.maxAttempts} kali</p></div>
+        <div className="rounded-xl bg-white p-3"><p className="text-theme-xs text-gray-500">Maksimal percobaan</p><p className="mt-1 font-semibold text-gray-900">{preview.maxAttempts} kali</p></div>
       </div>
       <div className="mt-4 rounded-xl bg-white p-4">
         <p className="text-theme-sm font-semibold text-gray-800">Soal terpilih ({preview.questions.length})</p>
-        {preview.questions.length > 0 ? <ol className="mt-2 list-decimal space-y-2 pl-5 text-theme-sm text-gray-600">{preview.questions.map((question, index) => <li key={`${question.label}-${index}`}><span>{question.label}</span><span className="ml-2 text-theme-xs font-semibold text-brand-600">Bobot {question.weight}</span></li>)}</ol> : <p className="mt-2 text-theme-sm text-warning-700">Belum ada soal yang dipilih.</p>}
+        {preview.questions.length > 0 ? <ol className="mt-2 list-decimal space-y-2 ps-5 text-theme-sm text-gray-600">{preview.questions.map((question, index) => <li key={`${question.label}-${index}`}><span className="text-gray-500">{question.label} / </span><LocalizedContent text={question.question} language={question.language} direction={question.direction}>{question.question}</LocalizedContent><span className="ms-2 text-theme-xs font-semibold text-limo-blue-600">Bobot {question.weight}</span></li>)}</ol> : <p className="mt-2 text-theme-sm text-warning-700">Belum ada soal yang dipilih.</p>}
       </div>
     </article>
   );

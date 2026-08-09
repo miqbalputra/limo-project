@@ -2,24 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { requestJson } from "@/lib/api-json-client";
 
 type Option = { id: string; name: string };
 type WaliOption = { id: string; user: { name: string; email: string } };
 
-async function postJson(path: string, body: Record<string, string>) {
-  const response = await fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
-    throw new Error(payload.error?.message || "Data gagal disimpan");
-  }
+async function postJson(path: string, body: Record<string, string>, method: "POST" | "PATCH" = "POST") {
+  await requestJson(path, { method, body, fallbackMessage: "Data gagal disimpan" });
 }
 
-function useSubmit(path: string) {
+function useSubmit(path: string, method: "POST" | "PATCH" = "POST", resetOnSuccess = true) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,8 +22,8 @@ function useSubmit(path: string) {
     setIsSubmitting(true);
 
     try {
-      await postJson(path, pick(new FormData(event.currentTarget)));
-      event.currentTarget.reset();
+      await postJson(path, pick(new FormData(event.currentTarget)), method);
+      if (resetOnSuccess) event.currentTarget.reset();
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Data gagal disimpan");
@@ -79,6 +71,22 @@ export function WaliForm() {
       <Field name="phone" placeholder="Nomor HP" />
       <textarea name="address" aria-label="Alamat wali" placeholder="Alamat" className="tailadmin-input" />
       <Submit disabled={isSubmitting}>Simpan Wali</Submit>
+    </form>
+  );
+}
+
+export function PersonProfileForm({ type, profile }: { type: "guru" | "wali"; profile: { id: string; name: string; email: string; phone: string | null; address: string | null } }) {
+  const label = type === "guru" ? "Guru" : "Wali";
+  const { error, isSubmitting, submit } = useSubmit(`/api/v1/admin/${type}/${profile.id}`, "PATCH", false);
+
+  return (
+    <form onSubmit={(event) => submit(event, (data) => ({ name: String(data.get("name") || ""), email: String(data.get("email") || ""), phone: String(data.get("phone") || ""), address: String(data.get("address") || "") }))} className="tailadmin-card grid gap-4 p-5 sm:p-6">
+      <div><p className="text-theme-xs font-semibold uppercase tracking-[0.16em] text-limo-blue-700">Profil {label}</p><h2 className="mt-1 font-semibold text-gray-900">Data kontak dan akun</h2><p className="mt-1 text-theme-sm text-gray-500">Perubahan identitas dan kontak dicatat pada log audit.</p></div>
+      {error ? <p role="alert" className="tailadmin-alert-error">{error}</p> : null}
+      <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1"><span className="text-theme-xs font-medium text-gray-600">Nama {label.toLowerCase()}</span><input name="name" required defaultValue={profile.name} aria-label={`Nama ${label.toLowerCase()}`} className="tailadmin-input" /></label><label className="grid gap-1"><span className="text-theme-xs font-medium text-gray-600">Email</span><input name="email" type="email" required defaultValue={profile.email} aria-label="Email" className="tailadmin-input" /></label></div>
+      <label className="grid gap-1"><span className="text-theme-xs font-medium text-gray-600">Nomor HP</span><input name="phone" defaultValue={profile.phone || ""} aria-label="Nomor HP" className="tailadmin-input" /></label>
+      <label className="grid gap-1"><span className="text-theme-xs font-medium text-gray-600">Alamat</span><textarea name="address" defaultValue={profile.address || ""} aria-label="Alamat" className="tailadmin-input min-h-28" /></label>
+      <Submit disabled={isSubmitting}>Simpan Perubahan</Submit>
     </form>
   );
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { MAYAR_PAYMENT_METHOD_LABELS, MAYAR_PAYMENT_METHODS } from "@/lib/mayar-payment-methods";
+import { requestJson } from "@/lib/api-json-client";
 
 type PaymentResult = {
   mode: "redirect";
@@ -26,16 +27,13 @@ export function PaymentButton({ tagihanId, disabled, initialPaymentUrl = null }:
 
     let cancelled = false;
     const checkPaymentStatus = async () => {
-      const response = await fetch(`/api/v1/tagihan/${tagihanId}`, { cache: "no-store" });
-      if (!response.ok) {
+      try {
+        const response = await requestJson<{ item?: { status?: string } }>(`/api/v1/tagihan/${tagihanId}`, { cache: "no-store", fallbackMessage: "Status pembayaran belum dapat diperiksa" });
+        if (cancelled) return;
+        setStatusError("");
+        if (response.data.item?.status === "PAID") setIsPaid(true);
+      } catch {
         if (!cancelled) setStatusError("Status pembayaran belum dapat diperiksa. Coba lagi beberapa saat.");
-        return;
-      }
-      if (cancelled) return;
-      setStatusError("");
-      const payload = await response.json().catch(() => null) as { data?: { item?: { status?: string } } } | null;
-      if (!cancelled && payload?.data?.item?.status === "PAID") {
-        setIsPaid(true);
       }
     };
 
@@ -55,18 +53,12 @@ export function PaymentButton({ tagihanId, disabled, initialPaymentUrl = null }:
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`/api/v1/tagihan/${tagihanId}/payment`, {
+      const response = await requestJson<PaymentResult>(`/api/v1/tagihan/${tagihanId}/payment`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ method }),
+        body: { method },
+        fallbackMessage: "Instruksi pembayaran gagal dibuat",
       });
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error?.message || "Instruksi pembayaran gagal dibuat");
-      }
-
-      setResult(payload.data as PaymentResult);
+      setResult(response.data);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Instruksi pembayaran gagal dibuat");
     } finally {

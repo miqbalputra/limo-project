@@ -2,6 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import { ArabicTextField, LocalizedContent } from "@/components/localized-content";
+import { resolveLocalizedContent } from "@/lib/localized-content";
+import { formatUiLabel } from "@/lib/ui-labels";
+import { requestJson } from "@/lib/api-json-client";
 
 type Student = { id: string; name: string; nomorInduk: string };
 type ExamQuestion = {
@@ -15,6 +19,7 @@ type ExamQuestion = {
     expectedAnswer: string | null;
     structuredPayload: unknown;
     rubric: unknown;
+    language: string | null;
     direction: string | null;
     options: { label: string; content: string; isCorrect: boolean }[];
   };
@@ -110,16 +115,7 @@ export function HasilUjianForm({
             answers,
           };
 
-      const response = await fetch(submitPath, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
-        throw new Error(payload.error?.message || "Hasil ujian gagal disimpan");
-      }
+      await requestJson(submitPath, { method: "POST", body: payload, fallbackMessage: "Hasil ujian gagal disimpan" });
 
       event.currentTarget.reset();
       router.refresh();
@@ -149,16 +145,21 @@ export function HasilUjianForm({
         {questions.map((question, index) => (
           (() => {
             const initial = initialAnswers[question.id];
+            const optionLocale = resolveLocalizedContent({
+              language: question.bankSoal.language,
+              direction: question.bankSoal.direction,
+              text: question.bankSoal.options.map((option) => option.content).join(" "),
+            });
 
             return (
-          <section key={question.id} className="rounded-xl bg-gray-50 p-4" dir={question.bankSoal.direction === "rtl" ? "rtl" : "ltr"}>
-            <p className="text-theme-sm font-semibold text-gray-500">Soal {index + 1} / {question.bankSoal.type} / Bobot {question.weight}</p>
-            {question.bankSoal.stimulusText ? <p className="mt-2 rounded-lg bg-white p-3 text-theme-sm text-gray-700">{question.bankSoal.stimulusText}</p> : null}
-            {question.bankSoal.mediaUrl ? <p className="mt-2 text-theme-xs font-semibold text-brand-500">Media: {question.bankSoal.mediaUrl}</p> : null}
-            <p className="mt-2 font-semibold text-gray-900">{question.bankSoal.question}</p>
+          <section key={question.id} className="rounded-xl bg-gray-50 p-4">
+            <p className="text-theme-sm font-semibold text-gray-500">Soal {index + 1} / {formatUiLabel(question.bankSoal.type)} / Bobot {question.weight}</p>
+            {question.bankSoal.stimulusText ? <LocalizedContent as="p" text={question.bankSoal.stimulusText} language={question.bankSoal.language} direction={question.bankSoal.direction} className="mt-2 rounded-lg bg-white p-3 text-theme-sm leading-7 text-gray-700">{question.bankSoal.stimulusText}</LocalizedContent> : null}
+            {question.bankSoal.mediaUrl ? <p className="mt-2 text-theme-xs font-semibold text-limo-blue-500">Media: {question.bankSoal.mediaUrl}</p> : null}
+            <LocalizedContent as="p" text={question.bankSoal.question} language={question.bankSoal.language} direction={question.bankSoal.direction} className="mt-2 font-semibold leading-7 text-gray-900">{question.bankSoal.question}</LocalizedContent>
             {question.bankSoal.type === "PILIHAN_GANDA" ? (
-                <select name={`selected-${question.id}`} defaultValue={initial?.selectedOption || ""} className="tailadmin-input mt-3">
-                <option value="">Tidak dijawab</option>
+                <select name={`selected-${question.id}`} defaultValue={initial?.selectedOption || ""} lang={optionLocale.language} dir={optionLocale.direction} className="tailadmin-input mt-3">
+                <option value="" lang="id" dir="ltr">Tidak dijawab</option>
                 {question.bankSoal.options.map((option) => (
                   <option key={option.label} value={option.label}>{option.label}. {option.content}</option>
                 ))}
@@ -167,8 +168,8 @@ export function HasilUjianForm({
               <div className="mt-3 grid gap-2 text-theme-sm text-gray-700 sm:grid-cols-2">
                 {question.bankSoal.options.map((option) => (
                   <label key={option.label} className="rounded-lg bg-white p-3">
-                    <input name={`selected-${question.id}`} type="checkbox" value={option.label} defaultChecked={initial?.selectedOptions?.includes(option.label) || false} className="mr-2 accent-brand-500" />
-                    {option.label}. {option.content}
+                    <input name={`selected-${question.id}`} type="checkbox" value={option.label} defaultChecked={initial?.selectedOptions?.includes(option.label) || false} className="me-2 accent-limo-blue-500" />
+                    {option.label}. <LocalizedContent text={option.content} language={question.bankSoal.language} direction={question.bankSoal.direction}>{option.content}</LocalizedContent>
                   </label>
                 ))}
               </div>
@@ -179,17 +180,17 @@ export function HasilUjianForm({
                 <option value="salah">Salah</option>
               </select>
             ) : ["ISIAN_SINGKAT", "CLOZE"].includes(question.bankSoal.type) ? (
-              <input name={`short-${question.id}`} defaultValue={initial?.shortAnswer || ""} placeholder="Jawaban singkat siswa" className="tailadmin-input mt-3" />
+              <ArabicTextField name={`short-${question.id}`} defaultValue={initial?.shortAnswer || ""} language={question.bankSoal.language} direction="auto" placeholder="Jawaban singkat siswa" className="tailadmin-input mt-3" />
             ) : ["MENJODOHKAN", "URUTAN"].includes(question.bankSoal.type) ? (
               <div className="mt-3 grid gap-3">
-                {question.bankSoal.type === "MENJODOHKAN" ? <MatchingPreview payload={question.bankSoal.structuredPayload} /> : <SequencePreview payload={question.bankSoal.structuredPayload} />}
-                <textarea name={`essay-${question.id}`} defaultValue={initial?.essayAnswer || ""} placeholder="Catatan jawaban siswa, opsional" className="tailadmin-input min-h-20" />
-                <input name={`score-${question.id}`} defaultValue={initial?.essayScore?.toString() || ""} type="number" min={0} step={0.1} placeholder="Skor manual, kosongkan jika perlu review" className="tailadmin-input" />
+                {question.bankSoal.type === "MENJODOHKAN" ? <MatchingPreview payload={question.bankSoal.structuredPayload} language={question.bankSoal.language} direction={question.bankSoal.direction} /> : <SequencePreview payload={question.bankSoal.structuredPayload} language={question.bankSoal.language} direction={question.bankSoal.direction} />}
+                <ArabicTextField as="textarea" name={`essay-${question.id}`} defaultValue={initial?.essayAnswer || ""} language={question.bankSoal.language} direction="auto" placeholder="Catatan jawaban siswa, opsional" className="tailadmin-input min-h-20" />
+                <input name={`score-${question.id}`} defaultValue={initial?.essayScore?.toString() || ""} type="number" min={0} step={0.1} placeholder="Skor manual, kosongkan jika perlu ditinjau" className="tailadmin-input" />
               </div>
             ) : (
               <div className="mt-3 grid gap-3">
-                <textarea name={`essay-${question.id}`} defaultValue={initial?.essayAnswer || ""} placeholder="Jawaban, transkrip, catatan performa, atau hasil tulisan siswa" className="tailadmin-input min-h-24" />
-                {needsManualScore(question.bankSoal.type) ? <input name={`score-${question.id}`} defaultValue={initial?.essayScore?.toString() || ""} type="number" min={0} step={0.1} placeholder="Skor manual, kosongkan jika perlu review" className="tailadmin-input" /> : null}
+                <ArabicTextField as="textarea" name={`essay-${question.id}`} defaultValue={initial?.essayAnswer || ""} language={question.bankSoal.language} direction="auto" placeholder="Jawaban, transkrip, catatan performa, atau hasil tulisan siswa" className="tailadmin-input min-h-24" />
+                {needsManualScore(question.bankSoal.type) ? <input name={`score-${question.id}`} defaultValue={initial?.essayScore?.toString() || ""} type="number" min={0} step={0.1} placeholder="Skor manual, kosongkan jika perlu ditinjau" className="tailadmin-input" /> : null}
               </div>
             )}
           </section>
@@ -204,7 +205,7 @@ export function HasilUjianForm({
   );
 }
 
-function MatchingPreview({ payload }: { payload: unknown }) {
+function MatchingPreview({ payload, language, direction }: { payload: unknown; language: string | null; direction: string | null }) {
   const pairs = getMatchingPairs(payload);
 
   if (pairs.length === 0) {
@@ -215,13 +216,13 @@ function MatchingPreview({ payload }: { payload: unknown }) {
     <div className="rounded-lg bg-white p-3 text-theme-sm text-gray-700">
       <p className="font-semibold text-gray-900">Kunci pasangan</p>
       <ul className="mt-2 grid gap-1">
-        {pairs.map((item, index) => <li key={`${item.left}-${index}`}>{item.left} = {item.right}</li>)}
+        {pairs.map((item, index) => <li key={`${item.left}-${index}`}><LocalizedContent text={item.left} language={language} direction={direction}>{item.left}</LocalizedContent> = <LocalizedContent text={item.right} language={language} direction={direction}>{item.right}</LocalizedContent></li>)}
       </ul>
     </div>
   );
 }
 
-function SequencePreview({ payload }: { payload: unknown }) {
+function SequencePreview({ payload, language, direction }: { payload: unknown; language: string | null; direction: string | null }) {
   const items = getSequenceItems(payload);
 
   if (items.length === 0) {
@@ -231,8 +232,8 @@ function SequencePreview({ payload }: { payload: unknown }) {
   return (
     <div className="rounded-lg bg-white p-3 text-theme-sm text-gray-700">
       <p className="font-semibold text-gray-900">Urutan benar</p>
-      <ol className="mt-2 list-decimal space-y-1 pl-5">
-        {items.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}
+      <ol className="mt-2 list-decimal space-y-1 ps-5">
+        {items.map((item, index) => <li key={`${item}-${index}`}><LocalizedContent text={item} language={language} direction={direction}>{item}</LocalizedContent></li>)}
       </ol>
     </div>
   );
@@ -260,12 +261,12 @@ function ExamTimer({ durationMinutes }: { durationMinutes: number }) {
 
   return (
     <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-theme-sm text-gray-700">
-      <span className="mr-3 font-semibold text-gray-900">Timer {minutes}:{seconds}</span>
-      <button type="button" onClick={() => setIsRunning((value) => !value)} className="font-semibold text-brand-500 hover:text-brand-600">
-        {isRunning ? "Pause" : "Mulai"}
+        <span className="me-3 font-semibold text-gray-900">Pengatur waktu {minutes}:{seconds}</span>
+       <button type="button" onClick={() => setIsRunning((value) => !value)} className="font-semibold text-limo-blue-500 hover:text-limo-blue-600">
+         {isRunning ? "Jeda" : "Mulai"}
       </button>
-      <button type="button" onClick={() => { setIsRunning(false); setRemainingSeconds(initialSeconds); }} className="ml-3 font-semibold text-gray-500 hover:text-gray-700">
-        Reset
+       <button type="button" onClick={() => { setIsRunning(false); setRemainingSeconds(initialSeconds); }} className="ms-3 font-semibold text-gray-500 hover:text-gray-700">
+         Atur ulang
       </button>
     </div>
   );

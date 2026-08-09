@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
+import { requestJson } from "@/lib/api-json-client";
 
 export function UserActions({ userId, active, isSelf }: { userId: string; active: boolean; isSelf: boolean }) {
   const router = useRouter();
@@ -14,9 +15,7 @@ export function UserActions({ userId, active, isSelf }: { userId: string; active
     setError("");
     setIsSubmitting(true);
     try {
-      const response = await fetch(path, { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error?.message || "Aksi gagal");
+      await requestJson(path, { method, body, fallbackMessage: "Aksi gagal" });
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Aksi gagal");

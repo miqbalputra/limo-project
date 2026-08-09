@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
+import { requestJson } from "@/lib/api-json-client";
 
 export function ExamStatusActions({ ujianId, status }: { ujianId: string; status: "DRAFT" | "PUBLISHED" | "ARCHIVED" }) {
   const router = useRouter();
@@ -17,9 +18,7 @@ export function ExamStatusActions({ ujianId, status }: { ujianId: string; status
     setError("");
     setIsSubmitting(true);
     try {
-      const response = await fetch(`/api/v1/ujian/${ujianId}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: nextStatus }) });
-      const payload = await response.json().catch(() => ({})) as { error?: { message?: string } };
-      if (!response.ok) throw new Error(payload.error?.message || "Status ujian gagal diubah");
+      await requestJson(`/api/v1/ujian/${ujianId}/status`, { method: "PATCH", body: { status: nextStatus }, fallbackMessage: "Status ujian gagal diubah" });
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Status ujian gagal diubah");

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { StatusBadge } from "@/components/dashboard/status-badge";
 
 export type GuruStudentHistoryData = {
   kelas: { name: string; program: { name: string } };
@@ -10,20 +11,20 @@ export type GuruStudentHistoryData = {
 
 export function GuruStudentHistory({ history }: { history: GuruStudentHistoryData }) {
   return (
-    <section className="space-y-4 rounded-2xl border border-brand-100 bg-brand-50/50 p-5" aria-labelledby="student-history-title">
+    <section className="tailadmin-card space-y-4 p-5" aria-labelledby="student-history-title">
       <div>
         <h2 id="student-history-title" className="font-semibold text-gray-900">Histori {history.siswa.name}</h2>
         <p className="mt-1 text-theme-sm text-gray-500">{history.siswa.nomorInduk}. Data dibatasi pada kelas {history.kelas.name}.</p>
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
         <HistoryCard title="Presensi" empty="Belum ada presensi">
-          {history.presensi.map((item) => <article key={`${item.sesiKelas.meetingNumber}-${item.sesiKelas.sessionDate.toISOString()}`} className="rounded-xl bg-white p-3"><p className="font-semibold text-gray-900">{item.sesiKelas.meetingNumber}. {item.sesiKelas.topic}</p><p className="text-theme-sm text-gray-500">{formatDate(item.sesiKelas.sessionDate)} / {item.status}</p>{item.note ? <p className="mt-1 text-theme-xs text-gray-500">{item.note}</p> : null}</article>)}
+          {history.presensi.map((item) => <article key={`${item.sesiKelas.meetingNumber}-${item.sesiKelas.sessionDate.toISOString()}`} className="rounded-lg border border-gray-100 bg-gray-50 p-3"><p className="font-semibold text-gray-900">{item.sesiKelas.meetingNumber}. {item.sesiKelas.topic}</p><p className="mt-1 text-theme-sm text-gray-500">{formatDate(item.sesiKelas.sessionDate)}</p><StatusBadge status={item.status} compact />{item.note ? <p className="mt-1 text-theme-xs text-gray-500">{item.note}</p> : null}</article>)}
         </HistoryCard>
         <HistoryCard title="Progres" empty="Belum ada catatan progres">
-          {history.progres.map((item) => <article key={`${item.sesiKelas.meetingNumber}-${item.category || "umum"}`} className="rounded-xl bg-white p-3"><p className="font-semibold text-gray-900">{item.sesiKelas.meetingNumber}. {item.sesiKelas.topic}</p><p className="text-theme-sm text-gray-500">Skor {item.understandingScore}/5 / {item.category || "umum"}</p>{item.publicNote ? <p className="mt-1 text-theme-xs text-gray-500">Wali: {item.publicNote}</p> : null}</article>)}
+          {history.progres.map((item) => <article key={`${item.sesiKelas.meetingNumber}-${item.category || "umum"}`} className="rounded-lg border border-gray-100 bg-gray-50 p-3"><p className="font-semibold text-gray-900">{item.sesiKelas.meetingNumber}. {item.sesiKelas.topic}</p><p className="text-theme-sm text-gray-500">Skor {item.understandingScore}/5 / {item.category || "umum"}</p>{item.publicNote ? <p className="mt-1 text-theme-xs text-gray-500">Wali: {item.publicNote}</p> : null}</article>)}
         </HistoryCard>
         <HistoryCard title="Nilai" empty="Belum ada hasil ujian">
-          {history.hasil.map((item) => <article key={`${item.ujian.title}-${item.updatedAt.toISOString()}`} className="rounded-xl bg-white p-3"><p className="font-semibold text-gray-900">{item.ujian.title}</p><p className="text-theme-sm text-gray-500">{item.status} / Skor {item.totalScore?.toString() ?? "-"}</p><p className="mt-1 text-theme-xs text-gray-400">Diperbarui {formatDate(item.updatedAt)}</p></article>)}
+          {history.hasil.map((item) => <article key={`${item.ujian.title}-${item.updatedAt.toISOString()}`} className="rounded-lg border border-gray-100 bg-gray-50 p-3"><p className="font-semibold text-gray-900">{item.ujian.title}</p><StatusBadge status={item.status} compact /><p className="mt-1 text-theme-sm text-gray-500">Skor {item.totalScore?.toString() ?? "-"}</p><p className="mt-1 text-theme-xs text-gray-400">Diperbarui {formatDate(item.updatedAt)}</p></article>)}
         </HistoryCard>
       </div>
     </section>

@@ -3,18 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { requestJson } from "@/lib/api-json-client";
 
 async function postJson(path: string, body?: Record<string, string>) {
-  const response = await fetch(path, {
-    method: "POST",
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
-    throw new Error(payload.error?.message || "Aksi gagal diproses");
-  }
+  await requestJson(path, { method: "POST", body, fallbackMessage: "Aksi gagal diproses" });
 }
 
 export function PendaftaranActions({ id, disabled }: { id: string; disabled: boolean }) {

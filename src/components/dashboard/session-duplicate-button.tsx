@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { requestJson } from "@/lib/api-json-client";
 
 export function SessionDuplicateButton({ sesiKelasId }: { sesiKelasId: string }) {
   const router = useRouter();
@@ -13,11 +14,7 @@ export function SessionDuplicateButton({ sesiKelasId }: { sesiKelasId: string })
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`/api/v1/guru/sesi/${sesiKelasId}/duplicate`, { method: "POST" });
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
-        throw new Error(payload.error?.message || "Sesi gagal diduplikasi");
-      }
+      await requestJson(`/api/v1/guru/sesi/${sesiKelasId}/duplicate`, { method: "POST", fallbackMessage: "Sesi gagal diduplikasi" });
 
       router.refresh();
     } catch (caught) {

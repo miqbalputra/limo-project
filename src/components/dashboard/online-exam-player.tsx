@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { ArabicTextField, LocalizedContent } from "@/components/localized-content";
 import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
+import { requestJson } from "@/lib/api-json-client";
 import { formatUiLabel } from "@/lib/ui-labels";
 
 type DraftAnswer = {
@@ -97,17 +98,12 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
     setSaveState("saving");
 
     try {
-      const response = await fetch(`/api/v1/wali/attempt/${attempt.id}`, {
+      await requestJson(`/api/v1/wali/attempt/${attempt.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
+        body: { answers },
         keepalive,
+        fallbackMessage: "Draf gagal disimpan",
       });
-      const payload = await response.json().catch(() => ({})) as { error?: { message?: string } };
-
-      if (!response.ok) {
-        throw new Error(payload.error?.message || "Draf gagal disimpan");
-      }
 
       setSaveState("saved");
     } catch (caught) {
@@ -189,16 +185,11 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
     const answers = readAnswers();
 
     try {
-      const response = await fetch(`/api/v1/wali/attempt/${attempt.id}/submit`, {
+      await requestJson(`/api/v1/wali/attempt/${attempt.id}/submit`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
+        body: { answers },
+        fallbackMessage: "Jawaban gagal dikumpulkan",
       });
-      const payload = await response.json().catch(() => ({})) as { error?: { message?: string } };
-
-      if (!response.ok) {
-        throw new Error(payload.error?.message || "Jawaban gagal dikumpulkan");
-      }
 
       router.push(`/wali/tugas/${attempt.siswa.id}`);
       router.refresh();

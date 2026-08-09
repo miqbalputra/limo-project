@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
+import { requestJson } from "@/lib/api-json-client";
 
 type Resource = "program" | "level" | "kelas";
 type GuruOption = { id: string; user: { name: string; email: string } };
@@ -43,13 +44,7 @@ export function MasterDataActions({
     setError("");
     setIsSubmitting(true);
     try {
-      const response = await fetch(path, {
-        method,
-        headers: body ? { "Content-Type": "application/json" } : undefined,
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      const payload = await response.json().catch(() => ({})) as { error?: { message?: string } };
-      if (!response.ok) throw new Error(payload.error?.message || "Aksi gagal diproses");
+      await requestJson(path, { method, body, fallbackMessage: "Aksi gagal diproses" });
       setEditing(false);
       router.refresh();
     } catch (caught) {
