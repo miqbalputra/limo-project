@@ -9,6 +9,9 @@ export const MAYAR_PAYMENT_METHODS = [
   "va/bsi",
   "ewallet/dana",
   "ewallet/gopay",
+  "ewallet/linkaja",
+  "ewallet/shopeepay",
+  "ewallet/jenius",
   "outlet/alfamart",
 ] as const;
 
@@ -23,5 +26,8 @@ export const MAYAR_PAYMENT_METHOD_LABELS: Record<(typeof MAYAR_PAYMENT_METHODS)[
   "va/bsi": "BSI Virtual Account",
   "ewallet/dana": "DANA",
   "ewallet/gopay": "GoPay",
+  "ewallet/linkaja": "LinkAja",
+  "ewallet/shopeepay": "ShopeePay",
+  "ewallet/jenius": "Jenius",
   "outlet/alfamart": "Alfamart",
 };

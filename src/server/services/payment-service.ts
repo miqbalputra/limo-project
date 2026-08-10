@@ -8,6 +8,7 @@ import { canAccessInvoice } from "@/server/policies/access-policy";
 import { createMayarInvoice, isPaidMayarEvent, verifyMayarWebhook } from "@/server/providers/payment/mayar";
 import { notifyAdmins, notifyWaliForStudents } from "@/server/services/notification-service";
 import { MAYAR_PAYMENT_METHODS } from "@/lib/mayar-payment-methods";
+import { formatRupiah } from "@/lib/money";
 
 export async function processMayarWebhook(input: { rawBody: string; secret: string | null }) {
   const event = verifyMayarWebhook(input);
@@ -21,7 +22,7 @@ export async function processMayarWebhook(input: { rawBody: string; secret: stri
   }
 
   const existingPayment = event.referenceIds.length > 0
-    ? await prisma.pembayaran.findFirst({ where: { provider: "mayar", providerReference: { in: event.referenceIds } }, select: { providerReference: true, tagihanId: true, amount: true } })
+    ? await prisma.pembayaran.findFirst({ where: { provider: "mayar", providerReference: { in: event.referenceIds } }, select: { providerReference: true, tagihanId: true, amount: true, status: true } })
     : null;
   if (event.tagihanId && existingPayment && event.tagihanId !== existingPayment.tagihanId) {
     throw new ConflictError("Referensi tagihan pada webhook Mayar tidak konsisten");
@@ -63,17 +64,17 @@ export async function processMayarWebhook(input: { rawBody: string; secret: stri
         create: { tagihanId: tagihan.id, provider: "mayar", providerReference: paymentReference, amount: tagihan.amount, status: "PAID", paidAt, paymentMethod: event.paymentMethod, rawPayload },
       });
       await tx.tagihan.update({ where: { id: tagihan.id }, data: { status: "PAID", paidAt } });
-    } else if (existingPayment && ["expired", "closed"].includes(event.status.toLowerCase())) {
+    } else if (existingPayment && existingPayment.status !== "PAID" && ["expired", "closed"].includes(event.status.toLowerCase())) {
       await tx.pembayaran.update({ where: { providerReference: existingPayment.providerReference }, data: { status: "EXPIRED", rawPayload } });
       if (tagihan.status === "PENDING") {
         await tx.tagihan.update({ where: { id: tagihan.id }, data: { status: "UNPAID" } });
       }
-    } else if (existingPayment && event.status.toLowerCase() === "cancelled") {
+    } else if (existingPayment && existingPayment.status !== "PAID" && event.status.toLowerCase() === "cancelled") {
       await tx.pembayaran.update({ where: { providerReference: existingPayment.providerReference }, data: { status: "CANCELLED", rawPayload } });
       if (tagihan.status === "PENDING") {
         await tx.tagihan.update({ where: { id: tagihan.id }, data: { status: "UNPAID" } });
       }
-    } else if (existingPayment && event.status.toLowerCase() === "failed") {
+    } else if (existingPayment && existingPayment.status !== "PAID" && event.status.toLowerCase() === "failed") {
       await tx.pembayaran.update({ where: { providerReference: existingPayment.providerReference }, data: { status: "FAILED", rawPayload } });
     }
 
@@ -92,7 +93,7 @@ export async function processMayarWebhook(input: { rawBody: string; secret: stri
     await notifyAdmins({
       template: "admin-payment-success",
       subject: "Pembayaran Mayar diterima",
-      body: `Pembayaran tagihan ${tagihan.id} sebesar Rp ${Number(tagihan.amount).toLocaleString("id-ID")} telah diterima melalui Mayar.`,
+      body: `Pembayaran tagihan ${tagihan.id} sebesar ${formatRupiah(Number(tagihan.amount))} telah diterima melalui Mayar.`,
       metadata: { tagihanId: tagihan.id, provider: "mayar", siswaId: tagihan.siswaId },
     });
   }
@@ -145,6 +146,10 @@ export async function createInvoicePayment(actor: Actor, tagihanId: string, inpu
     throw new ConflictError("Tagihan sudah dibayar");
   }
 
+  if (!["UNPAID", "PENDING", "OVERDUE"].includes(tagihan.status)) {
+    throw new ConflictError("Status tagihan belum dapat dibayar melalui Mayar");
+  }
+
   const wali = tagihan.siswa.waliRelations[0]?.waliProfile;
   if (!wali) {
     throw new NotFoundError("Wali untuk tagihan tidak ditemukan");
@@ -155,9 +160,9 @@ export async function createInvoicePayment(actor: Actor, tagihanId: string, inpu
     orderBy: { createdAt: "desc" },
     select: { providerReference: true, rawPayload: true },
   });
-  const existingPayload = existing?.rawPayload && typeof existing.rawPayload === "object" && !Array.isArray(existing.rawPayload) ? existing.rawPayload as { paymentUrl?: string; transactionId?: string; invoiceId?: string } : null;
+  const existingPayload = readMayarPaymentPayload(existing?.rawPayload);
 
-  if (existingPayload?.paymentUrl) {
+  if (existingPayload?.paymentUrl && !isExpiredMayarPaymentPayload(existingPayload) && canReuseMayarPayment(existingPayload, parsed.data.method)) {
     return {
       mode: "redirect" as const,
       provider: "mayar" as const,
@@ -168,6 +173,15 @@ export async function createInvoicePayment(actor: Actor, tagihanId: string, inpu
     };
   }
 
+  if (existing && existingPayload?.paymentUrl && isExpiredMayarPaymentPayload(existingPayload)) {
+    await prisma.$transaction([
+      prisma.pembayaran.update({ where: { providerReference: existing.providerReference }, data: { status: "EXPIRED" } }),
+      prisma.tagihan.updateMany({ where: { id: tagihan.id, status: "PENDING" }, data: { status: "UNPAID" } }),
+    ]);
+  }
+
+  const expiresAt = getMayarExpiry(tagihan.dueDate);
+
   const transaction = await createMayarInvoice({
     tagihanId,
     name: wali.user.name,
@@ -175,9 +189,11 @@ export async function createInvoicePayment(actor: Actor, tagihanId: string, inpu
     mobile: wali.phone || "",
     description: tagihan.description || `${tagihan.jenis} ${tagihan.id}`,
     amount: tagihan.amount.toString(),
-    expiredAt: new Date(tagihan.dueDate.getTime() + 24 * 60 * 60 * 1000 - 1),
+    expiredAt: expiresAt,
     paymentMethod: parsed.data.method,
   });
+
+  const rawPayload = createMayarPaymentPayload(transaction, parsed.data.method);
 
   await prisma.$transaction([
     prisma.pembayaran.upsert({
@@ -186,7 +202,7 @@ export async function createInvoicePayment(actor: Actor, tagihanId: string, inpu
         amount: tagihan.amount,
         status: "PENDING",
         paymentMethod: parsed.data.method,
-        rawPayload: { source: "mayar-api", invoiceId: transaction.invoiceId, transactionId: transaction.transactionId, paymentUrl: transaction.paymentUrl, response: { statusCode: transaction.rawPayload.statusCode, messages: transaction.rawPayload.messages || transaction.rawPayload.message || "" } },
+        rawPayload,
       },
       create: {
         tagihanId: tagihan.id,
@@ -195,7 +211,7 @@ export async function createInvoicePayment(actor: Actor, tagihanId: string, inpu
         amount: tagihan.amount,
         status: "PENDING",
         paymentMethod: parsed.data.method,
-        rawPayload: { source: "mayar-api", invoiceId: transaction.invoiceId, transactionId: transaction.transactionId, paymentUrl: transaction.paymentUrl, response: { statusCode: transaction.rawPayload.statusCode, messages: transaction.rawPayload.messages || transaction.rawPayload.message || "" } },
+        rawPayload,
       },
     }),
     prisma.tagihan.update({ where: { id: tagihan.id }, data: { status: "PENDING" } }),
@@ -292,3 +308,61 @@ const zManualReconcile = z.object({
 const zCreateInvoicePayment = z.object({
   method: z.enum(["all", ...MAYAR_PAYMENT_METHODS] as [string, ...string[]]).default("all"),
 });
+
+type MayarPaymentPayload = {
+  source?: unknown;
+  invoiceId?: unknown;
+  transactionId?: unknown;
+  paymentUrl?: unknown;
+  expiresAt?: unknown;
+  paymentMethod?: unknown;
+};
+
+function readMayarPaymentPayload(payload: unknown): {
+  invoiceId?: string;
+  transactionId?: string;
+  paymentUrl?: string;
+  expiresAt?: string;
+  paymentMethod?: string;
+} | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const value = payload as MayarPaymentPayload;
+  return {
+    ...(typeof value.invoiceId === "string" ? { invoiceId: value.invoiceId } : {}),
+    ...(typeof value.transactionId === "string" ? { transactionId: value.transactionId } : {}),
+    ...(typeof value.paymentUrl === "string" ? { paymentUrl: value.paymentUrl } : {}),
+    ...(typeof value.expiresAt === "string" ? { expiresAt: value.expiresAt } : {}),
+    ...(typeof value.paymentMethod === "string" ? { paymentMethod: value.paymentMethod } : {}),
+  };
+}
+
+function canReuseMayarPayment(payload: { paymentMethod?: string }, requestedMethod: string) {
+  return !payload.paymentMethod || requestedMethod === "all" || payload.paymentMethod === "all" || payload.paymentMethod === requestedMethod;
+}
+
+function isExpiredMayarPaymentPayload(payload: { expiresAt?: string }) {
+  if (!payload.expiresAt) return false;
+  const expiresAt = new Date(payload.expiresAt).getTime();
+  return !Number.isFinite(expiresAt) || expiresAt <= Date.now();
+}
+
+function getMayarExpiry(dueDate: Date) {
+  const dueDateExpiry = dueDate.getTime() + 24 * 60 * 60 * 1000 - 1;
+  const minimumExpiry = Date.now() + 24 * 60 * 60 * 1000;
+  return new Date(Math.max(dueDateExpiry, minimumExpiry));
+}
+
+function createMayarPaymentPayload(transaction: Awaited<ReturnType<typeof createMayarInvoice>>, paymentMethod: string) {
+  return {
+    source: "mayar-api",
+    invoiceId: transaction.invoiceId,
+    transactionId: transaction.transactionId,
+    paymentUrl: transaction.paymentUrl,
+    expiresAt: transaction.expiresAt.toISOString(),
+    paymentMethod,
+    response: {
+      statusCode: transaction.rawPayload.statusCode,
+      messages: transaction.rawPayload.messages || transaction.rawPayload.message || "",
+    },
+  };
+}

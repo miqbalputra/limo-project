@@ -4,6 +4,8 @@ import { getEnv } from "../../env.ts";
 import { ForbiddenError, ProviderError, ValidationError } from "../../errors/application-error.ts";
 import { timingSafeCompareText } from "../../security/crypto.ts";
 
+const MAYAR_REQUEST_TIMEOUT_MS = 15_000;
+
 const mayarCreateResponseSchema = z.object({
   statusCode: z.number(),
   messages: z.string().optional(),
@@ -38,7 +40,7 @@ const mayarWebhookSchema = z.object({
 
 function getBaseUrl() {
   const env = getEnv();
-  return env.MAYAR_BASE_URL || (env.MAYAR_ENV === "production" ? "https://api.mayar.id/hl/v2" : "https://api.mayar.io/hl/v2");
+  return (env.MAYAR_BASE_URL || (env.MAYAR_ENV === "production" ? "https://api.mayar.id/hl/v2" : "https://api.mayar.io/hl/v2")).replace(/\/+$/, "");
 }
 
 function getApiKey() {
@@ -52,6 +54,56 @@ function getApiKey() {
 
 export function isMayarConfigured() {
   return Boolean(getEnv().MAYAR_API_KEY);
+}
+
+function getProviderMessage(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return "";
+  }
+
+  const response = payload as { messages?: unknown; message?: unknown };
+  const message = typeof response.messages === "string" ? response.messages : response.message;
+  return typeof message === "string" ? message.trim().slice(0, 240) : "";
+}
+
+async function requestMayar(path: string, init: RequestInit, action: string) {
+  const url = `${getBaseUrl()}${path}`;
+  const apiKey = getApiKey();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), MAYAR_REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      ...init,
+      cache: "no-store",
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        ...init.headers,
+      },
+    });
+    const payload = await response.json().catch(() => null) as unknown;
+
+    if (!response.ok) {
+      const providerMessage = getProviderMessage(payload);
+      throw new ProviderError(`Mayar gagal ${action} (${response.status})${providerMessage ? `: ${providerMessage}` : ""}`);
+    }
+
+    return payload;
+  } catch (error) {
+    if (error instanceof ProviderError) {
+      throw error;
+    }
+
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new ProviderError(`Mayar tidak merespons saat ${action}`);
+    }
+
+    throw new ProviderError(`Mayar tidak dapat dihubungi saat ${action}`);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function isValidMobile(value: string) {
@@ -72,26 +124,30 @@ export async function createMayarInvoice(input: {
     throw new ValidationError("Nomor WhatsApp Wali belum tersedia atau belum valid", { mobile: ["Nomor WhatsApp Wali wajib diisi untuk membuat invoice Mayar"] });
   }
 
+  const amount = Math.round(Number(input.amount));
+  if (!Number.isSafeInteger(amount) || amount <= 0) {
+    throw new ValidationError("Nominal tagihan belum valid", { amount: ["Nominal tagihan harus berupa bilangan rupiah positif"] });
+  }
+
+  if (!Number.isFinite(input.expiredAt.getTime()) || input.expiredAt.getTime() <= Date.now()) {
+    throw new ValidationError("Waktu kedaluwarsa invoice Mayar tidak valid");
+  }
+
   const paymentMethod = input.paymentMethod && input.paymentMethod !== "all" ? input.paymentMethod : undefined;
-  const response = await fetch(`${getBaseUrl()}/invoices/create`, {
+  const payload = await requestMayar("/invoices/create", {
     method: "POST",
-    headers: { Authorization: `Bearer ${getApiKey()}`, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       name: input.name,
       email: input.email,
       mobile: input.mobile,
       description: input.description,
       expiredAt: input.expiredAt.toISOString(),
-      items: [{ quantity: 1, rate: Math.round(Number(input.amount)), description: input.description }],
+      items: [{ quantity: 1, rate: amount, description: input.description }],
       ...(paymentMethod ? { paymentMethod } : {}),
-      extraData: { tagihanId: input.tagihanId, source: "limo" },
+      extraData: { noCustomer: input.tagihanId, idProd: input.tagihanId, tagihanId: input.tagihanId, source: "limo" },
     }),
-  });
-  const payload = await response.json().catch(() => null) as unknown;
-
-  if (!response.ok) {
-    throw new ProviderError(`Mayar gagal membuat invoice (${response.status})`);
-  }
+  }, "membuat invoice");
 
   const parsed = mayarCreateResponseSchema.safeParse(payload);
   if (!parsed.success) {
@@ -109,14 +165,7 @@ export async function createMayarInvoice(input: {
 }
 
 export async function getMayarInvoice(invoiceId: string) {
-  const response = await fetch(`${getBaseUrl()}/invoices/${encodeURIComponent(invoiceId)}`, {
-    headers: { Authorization: `Bearer ${getApiKey()}` },
-  });
-  const payload = await response.json().catch(() => null) as unknown;
-
-  if (!response.ok) {
-    throw new ProviderError(`Mayar gagal membaca invoice (${response.status})`);
-  }
+  const payload = await requestMayar(`/invoices/${encodeURIComponent(invoiceId)}`, {}, "membaca invoice");
 
   const parsed = mayarInvoiceDetailSchema.safeParse(payload);
   if (!parsed.success) {
@@ -161,17 +210,24 @@ export function verifyMayarWebhook(input: { rawBody: string; secret: string | nu
 
   const data = parsed.data.data;
   const dataString = (key: string) => typeof data[key] === "string" ? data[key] as string : undefined;
-  const numberValue = (key: string) => typeof data[key] === "number" || typeof data[key] === "string" ? Number(data[key]) : undefined;
+  const numberValue = (key: string) => {
+    if (typeof data[key] !== "number" && typeof data[key] !== "string") return undefined;
+    const value = Number(data[key]);
+    return Number.isFinite(value) ? value : undefined;
+  };
   const extraData = data.extraData && typeof data.extraData === "object" && !Array.isArray(data.extraData) ? data.extraData as Record<string, unknown> : undefined;
   const eventId = dataString("id") || dataString("transactionId") || createHash("sha256").update(input.rawBody).digest("hex");
-  const referenceIds = [dataString("id"), dataString("transactionId"), dataString("invoiceId"), dataString("paymentLinkId")].filter((value): value is string => Boolean(value));
+  const referenceIds = [dataString("id"), dataString("transactionId"), dataString("invoiceId"), dataString("paymentLinkId"), dataString("productId")].filter((value): value is string => Boolean(value));
   const tagihanId = typeof extraData?.tagihanId === "string" ? extraData.tagihanId : dataString("tagihanId");
   const merchantId = dataString("merchantId") || dataString("userId");
   const expectedMerchantId = getEnv().MAYAR_MERCHANT_ID;
   if (expectedMerchantId && merchantId !== expectedMerchantId) {
     throw new ForbiddenError("Merchant Mayar pada webhook tidak valid");
   }
-  const updatedAt = dataString("updatedAt") || dataString("paidAt");
+  const updatedAt = data.updatedAt ?? data.paidAt;
+  const paidAt = typeof updatedAt === "number" ? new Date(updatedAt) : typeof updatedAt === "string" ? new Date(updatedAt) : undefined;
+  const transactionStatus = dataString("transactionStatus");
+  const status = transactionStatus || (typeof data.status === "string" ? data.status : data.status === true ? "paid" : data.status === false ? "unpaid" : "");
 
   return {
     event: parsed.data.event,
@@ -181,11 +237,13 @@ export function verifyMayarWebhook(input: { rawBody: string; secret: string | nu
     merchantId,
     amount: numberValue("amount"),
     paymentMethod: dataString("paymentMethod") || dataString("payment_method"),
-    paidAt: updatedAt ? new Date(updatedAt) : undefined,
-    status: typeof data.status === "string" ? data.status : typeof data.transactionStatus === "string" ? data.transactionStatus : data.status === true ? "paid" : "",
+    paidAt,
+    status,
   } satisfies VerifiedMayarEvent;
 }
 
 export function isPaidMayarEvent(input: { event: string; status?: string }) {
-  return input.event === "payment.received" || ["paid", "success", "settlement", "completed"].includes((input.status || "").toLowerCase());
+  const event = input.event.toLowerCase();
+  if (event === "payment.received") return true;
+  return event === "invoice.status" && ["paid", "success", "settlement", "completed"].includes((input.status || "").toLowerCase());
 }

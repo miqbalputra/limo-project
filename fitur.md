@@ -650,6 +650,9 @@ Modul billing mengelola tarif, pembuatan tagihan bulanan, pembayaran melalui May
 - Virtual Account BSI.
 - DANA.
 - GoPay.
+- LinkAja.
+- ShopeePay.
+- Jenius.
 - Alfamart.
 
 Ketersediaan channel tetap mengikuti konfigurasi merchant pada dashboard Mayar.

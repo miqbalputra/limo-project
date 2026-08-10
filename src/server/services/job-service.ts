@@ -143,7 +143,7 @@ export async function reconcilePendingMayarPayments(input: { dryRun?: boolean; l
       id: true,
       tagihanId: true,
       rawPayload: true,
-      tagihan: { select: { id: true, siswaId: true, amount: true } },
+      tagihan: { select: { id: true, siswaId: true, amount: true, status: true } },
     },
   });
 
@@ -203,8 +203,12 @@ export async function reconcilePendingMayarPayments(input: { dryRun?: boolean; l
 
         paid += 1;
       } else if (["expired", "closed", "cancelled"].includes(status)) {
+        const paymentStatus = status === "cancelled" ? "CANCELLED" : "EXPIRED";
         if (!input.dryRun) {
-          await prisma.pembayaran.update({ where: { id: payment.id }, data: { status: "EXPIRED", rawPayload: invoice.rawPayload as object } });
+          await prisma.$transaction([
+            prisma.pembayaran.update({ where: { id: payment.id }, data: { status: paymentStatus, rawPayload: invoice.rawPayload as object } }),
+            ...(payment.tagihan.status === "PENDING" ? [prisma.tagihan.update({ where: { id: payment.tagihanId }, data: { status: "UNPAID" } })] : []),
+          ]);
         }
 
         expired += 1;

@@ -17,6 +17,7 @@ The Wali checkout allows the Mayar V2 payment methods required by the proposal:
 - `qris`
 - `va/bni`, `va/bri`, `va/mandiri`, `va/cimb`, `va/permata`, `va/bjb`, `va/bsi`
 - `ewallet/dana`, `ewallet/gopay`
+- `ewallet/linkaja`, `ewallet/shopeepay`, `ewallet/jenius`
 - `outlet/alfamart`
 
 Mayar must have the selected channel enabled in the merchant dashboard. LIMO sends the method identifier to Mayar's `paymentMethod` field and keeps the returned hosted checkout link; QRIS/VA rendering and channel availability remain controlled by Mayar.
