@@ -31,10 +31,39 @@ case "${DATABASE_URL:-}" in
     ;;
 esac
 
+run_migrations() {
+  attempt=1
+
+  while true; do
+    migration_status=0
+    migration_output="$(npx prisma migrate deploy 2>&1)" || migration_status=$?
+    printf '%s\n' "$migration_output"
+
+    if [ "$migration_status" -eq 0 ]; then
+      return 0
+    fi
+
+    case "$migration_output" in
+      *P1001*|*P1008*|*P1017*|*ECONNREFUSED*|*"Can't reach database server"*|*"Can't connect to MySQL server"*)
+        if [ "$attempt" -ge 30 ]; then
+          echo "Database did not become available after 30 migration attempts." >&2
+          return "$migration_status"
+        fi
+        echo "Database is not ready; retrying migration in 2 seconds ($attempt/30)..." >&2
+        attempt=$((attempt + 1))
+        sleep 2
+        ;;
+      *)
+        return "$migration_status"
+        ;;
+    esac
+  done
+}
+
 if [ "${DOKPLOY_DB_PUSH_ON_START:-false}" = "true" ]; then
   npx prisma db push --accept-data-loss
 else
-  npx prisma migrate deploy
+  run_migrations
 fi
 
 if [ "${DOKPLOY_SEED_ON_START:-false}" = "true" ]; then
