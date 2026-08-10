@@ -14,7 +14,10 @@ Gunakan ini untuk staging/demo client. Jangan pakai data pribadi asli sebelum ha
 ```env
 NODE_ENV=production
 APP_URL=https://limo-demo.example.com
-DATABASE_URL=mysql://USER:PASSWORD@HOST:3306/limo_db
+DB_HOST=database-service-hostname
+DB_NAME=limo_db
+DB_USER=limo
+DB_PASS=replace-with-database-password
 SESSION_SECRET=replace-with-random-secret-minimum-32-chars
 SESSION_COOKIE_NAME=limo_session
 SESSION_ABSOLUTE_DAYS=30
@@ -34,7 +37,7 @@ DOKPLOY_SEED_ON_START=false
 LIMO_ALLOW_DEMO_SEED=false
 ```
 
-Container menjalankan `prisma migrate deploy` otomatis sebelum `npm run start`.
+Container membentuk `DATABASE_URL` dari keempat variable database tersebut, lalu menjalankan `prisma migrate deploy` otomatis sebelum `npm run start`. `DATABASE_URL` tetap dapat digunakan sebagai alternatif dan akan diprioritaskan jika diisi.
 
 Untuk demo sementara, jika migration pernah gagal dan database masih memblokir startup dengan `P3009`, gunakan sementara:
 

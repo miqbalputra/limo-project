@@ -25,6 +25,27 @@ if [ "${DOKPLOY_SQLITE_DEMO:-false}" = "true" ]; then
   exec "$@"
 fi
 
+if [ -z "${DATABASE_URL:-}" ]; then
+  if [ -z "${DB_HOST:-}" ] || [ -z "${DB_NAME:-}" ] || [ -z "${DB_USER:-}" ] || [ -z "${DB_PASS:-}" ]; then
+    echo "Set DATABASE_URL or all of DB_HOST, DB_NAME, DB_USER, and DB_PASS." >&2
+    exit 1
+  fi
+
+  export DATABASE_URL="$(node -e '
+    const host = process.env.DB_HOST.trim();
+    const database = process.env.DB_NAME.trim();
+    if (!/^[a-zA-Z0-9._-]+$/.test(host)) {
+      throw new Error("DB_HOST must be a hostname without protocol or port");
+    }
+    if (!database) {
+      throw new Error("DB_NAME cannot be blank");
+    }
+    const user = encodeURIComponent(process.env.DB_USER);
+    const password = encodeURIComponent(process.env.DB_PASS);
+    process.stdout.write(`mysql://${user}:${password}@${host}:3306/${encodeURIComponent(database)}`);
+  ')"
+fi
+
 case "${DATABASE_URL:-}" in
   mariadb://*)
     export DATABASE_URL="mysql://${DATABASE_URL#mariadb://}"
