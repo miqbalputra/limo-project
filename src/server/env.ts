@@ -85,7 +85,9 @@ const envSchema = z.object({
   PERIODIC_REPORTS_ENABLED: optionalFeatureFlagFromString,
   GUARDIAN_ASSISTED_SUBMISSION_ENABLED: optionalFeatureFlagFromString,
 }).superRefine((env, ctx) => {
-  const enforceProductionSecrets = env.NODE_ENV === "production" && process.env.NEXT_PHASE !== "phase-production-build";
+  const enforceProductionSecrets = env.NODE_ENV === "production"
+    && process.env.NEXT_PHASE !== "phase-production-build"
+    && process.env.DOKPLOY_SQLITE_DEMO !== "true";
 
   if (enforceProductionSecrets && env.NOTIFICATION_PROVIDER === "console") {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["NOTIFICATION_PROVIDER"], message: "Production wajib memakai provider notifikasi nyata, bukan console" });
