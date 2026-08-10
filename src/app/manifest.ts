@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { LIMO_MEDIA_COLORS } from "@/lib/limo-brand";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -8,19 +9,25 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     display: "standalone",
     scope: "/",
-    background_color: "#ffffff",
-    theme_color: "#2372B8",
+    background_color: LIMO_MEDIA_COLORS.white,
+    theme_color: LIMO_MEDIA_COLORS.primary,
     icons: [
       {
-        src: "/icon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
+        src: "/icon-192x192.png",
+        sizes: "192x192",
+        type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
+        src: "/icon-512x512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/icon-maskable-512x512.png",
+        sizes: "512x512",
+        type: "image/png",
         purpose: "maskable",
       },
     ],

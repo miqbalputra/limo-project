@@ -1,14 +1,17 @@
 import { requireActor, requireRole } from "@/server/auth/session";
 import { getWaliExamHistory } from "@/server/services/report-service";
+import { resolveWaliChildId } from "@/server/dal/wali-selector-dal";
 import { DashboardHero, EmptyState, ProgressBar } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
+import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Riwayat Nilai" };
 
-export default async function WaliNilaiPage() {
+export default async function WaliNilaiPage({ searchParams }: { searchParams: Promise<{ anak?: string }> }) {
   const actor = await requireActor();
   requireRole(actor, ["WALI"]);
-  const { children } = await getWaliExamHistory(actor);
+  const { anak } = await searchParams;
+  const { children } = await getWaliExamHistory(actor, await resolveWaliChildId(actor, anak));
   const childrenWithScores = children.filter((child) => child.hasilUjian.length > 0);
   const childrenWithoutScores = children.filter((child) => child.hasilUjian.length === 0);
   const allScores = children.flatMap((child) => child.hasilUjian.map((result) => Number(result.totalScore || 0)));
@@ -57,11 +60,11 @@ export default async function WaliNilaiPage() {
               <article key={child.id} className="tailadmin-card min-w-0 p-5 transition hover:-translate-y-0.5 hover:shadow-theme-sm">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex min-w-0 items-start gap-4">
-                    <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand-50 text-lg font-semibold text-brand-600">{child.name.slice(0, 1).toUpperCase()}</span>
+                      <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-limo-blue-50 text-lg font-semibold text-limo-blue-700">{child.name.slice(0, 1).toUpperCase()}</span>
                     <div className="min-w-0">
-                      <p className="text-theme-xs font-semibold uppercase tracking-wide text-brand-500">{child.nomorInduk} / {child.program.name}</p>
+                       <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-700">{child.nomorInduk} / {child.program.name}</p>
                       <h2 className="mt-1 truncate text-lg font-semibold text-gray-900" title={child.name}>{child.name}</h2>
-                      <p className="mt-1 text-theme-xs text-gray-500">{child.hasilUjian.length} nilai final / status {child.status}</p>
+                       <p className="mt-1 text-theme-xs text-gray-500">{child.hasilUjian.length} nilai final / status {formatUiLabel(child.status)}</p>
                     </div>
                   </div>
                   <span className={`w-fit rounded-full px-3 py-1 text-theme-xs font-semibold ${status.className}`}>{status.label}</span>
@@ -106,7 +109,7 @@ export default async function WaliNilaiPage() {
 
 function ScoreHero({ childCount, resultCount, averageScore, bestScore }: { childCount: number; resultCount: number; averageScore: number | null; bestScore: number | null }) {
   return (
-    <div className="grid min-w-72 grid-cols-4 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs">
+    <div className="grid w-full min-w-0 grid-cols-2 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs sm:grid-cols-4 lg:w-auto lg:min-w-72">
       <ScoreMetric label="Anak" value={childCount} />
       <ScoreMetric label="Hasil" value={resultCount} />
       <ScoreMetric label="Rata-rata" value={averageScore === null ? "-" : averageScore.toFixed(0)} />
@@ -130,7 +133,7 @@ function getScoreStatus(average: number) {
   }
 
   if (average >= 70) {
-    return { label: "Baik", className: "bg-brand-50 text-brand-600" };
+    return { label: "Baik", className: "bg-limo-blue-50 text-limo-blue-700" };
   }
 
   return { label: "Perlu dukungan", className: "bg-warning-50 text-warning-700" };

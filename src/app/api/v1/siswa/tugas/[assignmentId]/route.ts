@@ -9,7 +9,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ assi
   const requestId = getRequestId(request.headers);
   try {
     const actor = await requireActor();
-    return apiOk(await getStudentAssignment(actor, (await params).assignmentId), { requestId });
+    const url = new URL(request.url);
+    return apiOk(await getStudentAssignment(actor, (await params).assignmentId, { remedialId: url.searchParams.get("remedialId") || undefined, revisionRequestId: url.searchParams.get("revisionRequestId") || undefined }), { requestId });
   } catch (error) {
     return apiError(error, { requestId });
   }

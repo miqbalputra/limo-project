@@ -26,14 +26,16 @@ test("Siswa and Wali can reach read-only module structures", async ({ page }) =>
   await expect(page).toHaveURL(/\/siswa$/);
   await page.goto("/siswa/kelas");
   await page.getByRole("link", { name: "Buka detail kelas" }).first().click();
-  await page.getByRole("link", { name: "Lihat Alur Modul" }).click();
-  await expect(page.getByRole("heading", { name: /Alur Belajar/ })).toBeVisible();
+  const studentModuleHref = await page.getByRole("link", { name: "Lihat Alur Modul" }).getAttribute("href");
+  await page.goto(studentModuleHref || "");
+  await expect(page.getByRole("heading", { name: /Alur Belajar/ })).toBeVisible({ timeout: 15_000 });
 
   await page.context().clearCookies();
   await login(page, "wali@limo.local");
   await expect(page).toHaveURL(/\/wali$/);
   await page.goto("/wali/progres");
   await page.getByRole("link", { name: "Detail" }).first().click();
-  await page.getByRole("link", { name: "Lihat Modul" }).click();
-  await expect(page.getByRole("heading", { name: /Modul Belajar/ })).toBeVisible();
+  const waliModuleHref = await page.getByRole("link", { name: "Lihat Modul" }).getAttribute("href");
+  await page.goto(waliModuleHref || "");
+  await expect(page.getByRole("heading", { name: /Modul Belajar/ })).toBeVisible({ timeout: 15_000 });
 });

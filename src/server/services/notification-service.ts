@@ -1,8 +1,26 @@
 import { createHash } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import type { Actor } from "../auth/session.ts";
 import { prisma } from "../db/prisma.ts";
 import { NotFoundError } from "../errors/application-error.ts";
 import { getEnv } from "../env.ts";
+
+type NotificationData = Prisma.NotifikasiCreateArgs["data"];
+
+async function createNotificationIfMissing(data: NotificationData) {
+  if (data.dedupeKey) {
+    const existing = await prisma.notifikasi.findUnique({ where: { dedupeKey: data.dedupeKey }, select: { id: true } });
+    if (existing) return false;
+  }
+
+  try {
+    await prisma.notifikasi.create({ data });
+    return true;
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") return false;
+    throw error;
+  }
+}
 
 export async function notifyWaliForStudents(input: {
   siswaIds: string[];
@@ -48,18 +66,27 @@ export async function notifyWaliForStudents(input: {
 
   let created = 0;
   for (const item of data) {
-    try {
-      await prisma.notifikasi.create({ data: item });
-      created += 1;
-    } catch (error) {
-      if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
-        continue;
-      }
-
-      throw error;
-    }
+    if (await createNotificationIfMissing(item)) created += 1;
   }
 
+  return { created };
+}
+
+export async function notifySiswaForStudents(input: {
+  siswaIds: string[];
+  template: string;
+  subject: string;
+  body: string;
+  metadata?: Record<string, string | number | boolean | null>;
+  dedupeKey?: string;
+}) {
+  const siswaIds = [...new Set(input.siswaIds)];
+  if (siswaIds.length === 0) return { created: 0 };
+  const accounts = await prisma.siswaAccount.findMany({ where: { siswaId: { in: siswaIds }, status: "ACTIVE", siswa: { status: "ACTIVE", deletedAt: null } }, select: { siswaId: true, user: { select: { email: true } } } });
+  let created = 0;
+  for (const account of accounts) {
+    if (await createNotificationIfMissing({ channel: "in_app", template: input.template, recipient: account.user.email, subject: input.subject, body: input.body, dedupeKey: createHash("sha256").update(`${input.template}|${account.siswaId}|${input.dedupeKey || input.body}`).digest("hex"), metadata: { ...input.metadata, siswaId: account.siswaId } })) created += 1;
+  }
   return { created };
 }
 
@@ -76,23 +103,7 @@ export async function notifyAdmins(input: {
   let created = 0;
 
   for (const admin of admins) {
-    try {
-      await prisma.notifikasi.create({
-        data: {
-          channel: "in_app",
-          template: input.template,
-          recipient: admin.email,
-          subject: input.subject,
-          body: input.body,
-          dedupeKey: createHash("sha256").update(`${input.template}|${admin.email}|${input.body}`).digest("hex"),
-          metadata: input.metadata,
-        },
-      });
-      created += 1;
-    } catch (error) {
-      if (error && typeof error === "object" && "code" in error && error.code === "P2002") continue;
-      throw error;
-    }
+    if (await createNotificationIfMissing({ channel: "in_app", template: input.template, recipient: admin.email, subject: input.subject, body: input.body, dedupeKey: createHash("sha256").update(`${input.template}|${admin.email}|${input.body}`).digest("hex"), metadata: input.metadata })) created += 1;
   }
 
   return { created };
@@ -135,26 +146,7 @@ export async function syncGuruPendingNotifications(actor: Actor) {
     ].filter((item) => item.filled < students);
 
     for (const task of pending) {
-      try {
-        await prisma.notifikasi.create({
-          data: {
-            channel: "in_app",
-            template: `guru-pending-${task.type}`,
-            recipient: actor.email,
-            subject: `${task.action} tertunda: ${session.kelas.name}`,
-            body: `${task.label} untuk sesi ${session.meetingNumber}: ${session.topic} baru terisi ${task.filled}/${students} siswa.`,
-            dedupeKey: createHash("sha256").update(`guru-pending-${task.type}|${actor.email}|${session.id}`).digest("hex"),
-            metadata: { sesiKelasId: session.id, taskType: task.type, filled: task.filled, expected: students },
-          },
-        });
-        created += 1;
-      } catch (error) {
-        if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
-          continue;
-        }
-
-        throw error;
-      }
+      if (await createNotificationIfMissing({ channel: "in_app", template: `guru-pending-${task.type}`, recipient: actor.email, subject: `${task.action} tertunda: ${session.kelas.name}`, body: `${task.label} untuk sesi ${session.meetingNumber}: ${session.topic} baru terisi ${task.filled}/${students} siswa.`, dedupeKey: createHash("sha256").update(`guru-pending-${task.type}|${actor.email}|${session.id}`).digest("hex"), metadata: { sesiKelasId: session.id, taskType: task.type, filled: task.filled, expected: students } })) created += 1;
     }
   }
 

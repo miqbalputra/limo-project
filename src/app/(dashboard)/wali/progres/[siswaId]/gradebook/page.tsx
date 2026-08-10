@@ -8,7 +8,7 @@ import { getWaliGradebook } from "@/server/services/gradebook-service";
 import { getStudentSummary } from "@/server/services/report-service";
 import { prisma } from "@/server/db/prisma";
 
-export const metadata = { title: "Gradebook Anak" };
+export const metadata = { title: "Buku Nilai Anak" };
 
 export default async function WaliGradebookPage({ params }: { params: Promise<{ siswaId: string }> }) {
   if (!isFeatureEnabled("gradebookEnabled")) notFound();
@@ -19,5 +19,5 @@ export default async function WaliGradebookPage({ params }: { params: Promise<{ 
   if (!enrollment) notFound();
   const data = await getWaliGradebook(actor, siswaId, enrollment.kelasId);
   const row = data.rows[0];
-  return <main className="space-y-6"><DashboardHero eyebrow={`${siswa.nomorInduk} / ${enrollment.kelas.program.name}`} title={`Nilai ${siswa.name}`} description="Ringkasan gradebook anak secara read-only. Draft dan perubahan internal Guru tidak ditampilkan." actions={<Link href={`/wali/progres/${siswaId}`} className="tailadmin-button-outline px-4 py-2">Kembali ke Progres</Link>} />{row ? <GradebookViewer row={row} weightTotal={data.weightTotal} showSubmissionLinks={false} /> : <EmptyState icon="exam" title="Belum ada nilai published" description="Nilai akan tampil setelah Guru menerbitkan gradebook kelas." />}</main>;
+  return <main className="space-y-6"><DashboardHero eyebrow={`${siswa.nomorInduk} / ${enrollment.kelas.program.name}`} title={`Nilai ${siswa.name}`} description="Ringkasan buku nilai anak dalam mode hanya-baca. Draf dan perubahan internal Guru tidak ditampilkan." actions={<Link href={`/wali/progres/${siswaId}`} className="tailadmin-button-outline px-4 py-2">Kembali ke Progres</Link>} />{row ? <GradebookViewer row={row} weightTotal={data.weightTotal} showSubmissionLinks={false} /> : <EmptyState icon="exam" title="Belum ada nilai yang diterbitkan" description="Nilai akan tampil setelah Guru menerbitkan buku nilai kelas." />}</main>;
 }

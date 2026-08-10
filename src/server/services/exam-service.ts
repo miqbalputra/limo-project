@@ -7,6 +7,7 @@ import { canManageClass } from "@/server/policies/access-policy";
 import { correctHasilUjianSchema, createBankSoalSchema, createUjianSchema, submitHasilUjianSchema, updateUjianStatusSchema } from "@/server/validation/exam";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
 import { syncGradebookForSource } from "@/server/services/gradebook-service";
+import { syncActivityCompletionForExam } from "@/server/services/activity-completion-service";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 
 const optionBasedTypes = new Set(["PILIHAN_GANDA", "MULTI_SELECT"]);
@@ -231,7 +232,7 @@ export async function listUjian(actor: Actor, paginationInput?: PaginationInput)
           id: true,
           order: true,
           weight: true,
-          bankSoal: { select: { id: true, type: true, question: true } },
+          bankSoal: { select: { id: true, type: true, question: true, language: true, direction: true } },
         },
       },
       _count: { select: { results: true, attempts: true } },
@@ -457,6 +458,7 @@ export async function getUjianInputContext(actor: Actor, ujianId: string) {
               expectedAnswer: true,
               structuredPayload: true,
               rubric: true,
+              language: true,
               direction: true,
               options: { orderBy: { order: "asc" }, select: { label: true, content: true, isCorrect: true } },
             },
@@ -506,6 +508,50 @@ export async function listHasilUjian(actor: Actor, options: PaginationInput & { 
   return { items, pagination: paginationMeta };
 }
 
+export async function listEssayReviewQueue(actor: Actor, options: PaginationInput = {}) {
+  if (actor.role !== "GURU") {
+    throw new ForbiddenError();
+  }
+
+  const where = {
+    status: "NEEDS_REVIEW" as const,
+    ujian: { kelas: { status: "ACTIVE" as const, guruProfile: { userId: actor.id } } },
+    answers: { some: { needsReview: true } },
+  };
+  const pagination = resolvePagination(options, 30);
+  const [pendingCount, items] = await Promise.all([
+    prisma.hasilUjian.count({ where }),
+    prisma.hasilUjian.findMany({
+      where,
+      orderBy: [{ updatedAt: "asc" }, { createdAt: "asc" }],
+      skip: pagination.skip,
+      take: pagination.take,
+      select: {
+        id: true,
+        status: true,
+        totalScore: true,
+        createdAt: true,
+        updatedAt: true,
+        siswa: { select: { id: true, name: true, nomorInduk: true } },
+        ujian: { select: { id: true, title: true, kelas: { select: { id: true, name: true, program: { select: { name: true } } } } } },
+        answers: {
+          where: { needsReview: true },
+          orderBy: { ujianSoal: { order: "asc" } },
+          select: {
+            id: true,
+            essayAnswer: true,
+            shortAnswer: true,
+            score: true,
+            bankSoal: { select: { type: true, question: true, language: true, direction: true } },
+          },
+        },
+      },
+    }),
+  ]);
+
+  return { items, pendingCount, pagination: createPaginationMeta(pagination.page, pagination.pageSize, pendingCount) };
+}
+
 export async function getHasilUjianCorrectionContext(actor: Actor, hasilId: string) {
   const hasil = await prisma.hasilUjian.findUnique({
     where: { id: hasilId },
@@ -536,6 +582,7 @@ export async function getHasilUjianCorrectionContext(actor: Actor, hasilId: stri
                   expectedAnswer: true,
                   structuredPayload: true,
                   rubric: true,
+                  language: true,
                   direction: true,
                   options: { orderBy: { order: "asc" }, select: { label: true, content: true, isCorrect: true } },
                 },
@@ -840,6 +887,7 @@ export async function submitHasilUjian(actor: Actor, input: unknown, options: Su
     metadata: { ujianId: ujian.id, hasilUjianId: item.id },
   });
   await syncGradebookForSource("EXAM", ujian.id);
+  await syncActivityCompletionForExam(ujian.id, parsed.data.siswaId);
 
   return { item };
 }

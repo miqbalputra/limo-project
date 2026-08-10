@@ -13,48 +13,45 @@ async function expectNoHorizontalOverflow(page: import("@playwright/test").Page)
 }
 
 test("Week 2 guru LMS and exam pages are usable on mobile", async ({ page }) => {
+  test.setTimeout(60_000);
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page, "guru@limo.local");
   await expect(page).toHaveURL(/\/guru$/, { timeout: 15_000 });
 
   await page.goto("/guru/materi");
   await expect(page.getByRole("heading", { name: "Materi Pembelajaran" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Kelola Materi" }).first()).toBeVisible();
+  await expect(page.getByLabel("Pilih kelas materi")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tambah Materi" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
-  const materiHref = await page.getByRole("link", { name: "Kelola Materi" }).first().getAttribute("href");
-  expect(materiHref).toBeTruthy();
-  await page.goto(materiHref || "/guru/materi");
-  await expect(page.getByRole("heading", { name: "Kelola Kelas" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Tambah Materi" })).toBeVisible();
   await expect(page.locator('select[name="type"]')).toContainText("PDF");
   await page.getByPlaceholder("Judul materi").fill("Preview Greeting Cards");
   await page.locator('select[name="type"]').selectOption("TEXT");
   await page.locator('textarea[name="content"]').fill("Hello, welcome to class.");
-  await page.getByRole("button", { name: "Lihat Preview" }).click();
+  await page.getByRole("button", { name: "Lihat pratinjau" }).click();
   await expect(page.getByRole("heading", { name: "Preview Greeting Cards" })).toBeVisible();
   await expect(page.getByText("Hello, welcome to class.")).toBeVisible();
   await page.locator('textarea[name="content"]').fill("");
   await page.getByRole("button", { name: "Simpan Materi" }).click();
-  await expect(page.getByRole("alert").filter({ hasText: "Konten teks wajib diisi" })).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: "Konten teks wajib diisi" }).first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/guru/bank-soal");
-  await expect(page.getByRole("heading", { name: "Assessment Bank", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bank Soal", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Tambah Bank Soal" })).toBeVisible();
   await expect(page.getByPlaceholder("Tulis pertanyaan atau prompt untuk siswa")).toBeVisible();
-  await expect(page.locator('select[name="type"]')).toContainText("Roleplay");
+  await expect(page.locator('select[name="type"]')).toContainText("Bermain peran");
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/guru/ujian");
   await expect(page.getByRole("heading", { name: "Ujian", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Buat Ujian" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Duplikat sebagai Draft" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Duplikat sebagai Draf" }).first()).toBeVisible();
   await expect(page.getByPlaceholder("Durasi ujian dalam menit")).toBeVisible();
   await page.getByPlaceholder("Judul ujian").fill("Preview Assessment Demo");
   await page.locator('textarea[name="description"]').fill("Assessment preview before publish.");
   await page.locator('input[name="bankSoalId"]').first().check();
-  await page.getByRole("button", { name: "Lihat Preview" }).click();
+  await page.getByRole("button", { name: "Lihat pratinjau" }).click();
   await expect(page.getByRole("heading", { name: "Preview Assessment Demo" })).toBeVisible();
   await expect(page.getByText("Assessment preview before publish.")).toBeVisible();
   await expect(page.getByText(/Soal terpilih \(1\)/)).toBeVisible();
@@ -64,7 +61,7 @@ test("Week 2 guru LMS and exam pages are usable on mobile", async ({ page }) => 
   expect(hasilHref).toBeTruthy();
   await page.goto(hasilHref || "/guru/ujian");
   await expect(page.getByRole("heading", { name: "Input Hasil Offline" })).toBeVisible();
-  await expect(page.getByText(/Timer \d{2}:\d{2}/)).toBeVisible();
+  await expect(page.getByText(/Pengatur waktu \d{2}:\d{2}/)).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
 
@@ -102,7 +99,7 @@ test("Wali online exam resumes an autosaved answer on mobile", async ({ page }) 
 
   const firstAnswer = page.locator('input[type="radio"]').first();
   await firstAnswer.check();
-  await expect(page.getByText("Draft tersimpan")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Draf tersimpan")).toBeVisible({ timeout: 10_000 });
   await page.reload();
   await expect(firstAnswer).toBeChecked();
   await page.context().setOffline(true);

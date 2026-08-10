@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { getHasilUjianCorrectionContext } from "@/server/services/exam-service";
 import { HasilUjianForm, type InitialExamAnswer } from "@/components/dashboard/hasil-ujian-form";
+import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Koreksi Hasil Ujian" };
 
@@ -30,10 +31,10 @@ export default async function GuruKoreksiHasilUjianPage({ params }: { params: Pr
   return (
     <main className="space-y-6">
       <div>
-        <Link href={`/guru/ujian/${ujianId}/hasil`} className="text-theme-sm font-semibold text-brand-500 hover:text-brand-600">Kembali ke hasil ujian</Link>
-        <p className="mt-4 text-theme-sm font-semibold text-brand-500">{hasil.ujian.kelas.program.name} / {hasil.ujian.kelas.name}</p>
+        <Link href={`/guru/ujian/${ujianId}/hasil`} className="text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Kembali ke hasil ujian</Link>
+        <p className="mt-4 text-theme-sm font-semibold text-limo-blue-700">{hasil.ujian.kelas.program.name} / {hasil.ujian.kelas.name}</p>
         <h1 className="mt-1 tailadmin-page-title">Koreksi: {hasil.siswa.name}</h1>
-        <p className="mt-2 tailadmin-muted">{hasil.ujian.title}. Nilai sebelumnya {hasil.totalScore?.toString() ?? "-"}; perubahan akan disimpan sebagai `CORRECTED` dan dicatat di audit log.</p>
+        <p className="mt-2 tailadmin-muted">{hasil.ujian.title}. Nilai sebelumnya {hasil.totalScore?.toString() ?? "-"}; perubahan akan disimpan sebagai {formatUiLabel("CORRECTED")} dan dicatat di log audit.</p>
       </div>
       <HasilUjianForm
         ujianId={hasil.ujian.id}

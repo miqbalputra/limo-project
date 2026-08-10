@@ -4,6 +4,7 @@ import { listKelas, listPrograms } from "@/server/services/master-data-service";
 import { listSiswa, listWaliOptions } from "@/server/services/people-service";
 import { SiswaForm } from "@/components/dashboard/people-forms";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
+import { formatUiLabel, getUiToneClass } from "@/lib/ui-labels";
 
 export const metadata = { title: "Siswa" };
 
@@ -35,11 +36,11 @@ export default async function AdminSiswaPage({ searchParams }: { searchParams: P
          {siswa.length > 0 ? <div className="divide-y divide-gray-100">
           {siswa.map((item) => (
             <article key={item.id} className="grid gap-3 px-5 py-4 lg:grid-cols-[1.1fr_0.8fr_1fr_1fr_100px] lg:items-center lg:gap-4">
-              <div className="flex items-center gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-50 text-theme-sm font-bold text-brand-600">{item.name.slice(0, 1)}</span><div><h3 className="text-theme-sm font-semibold text-gray-800">{item.name}</h3><p className="text-theme-xs text-gray-500">{item.nomorInduk}</p></div></div>
-              <div><span className="rounded-full bg-gray-100 px-2.5 py-1 text-theme-xs font-medium text-gray-600">{item.program.name}</span><p className="mt-2 text-[10px] font-semibold text-success-700">{item.status}</p></div>
+              <div className="flex items-center gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-limo-blue-50 text-theme-sm font-bold text-limo-blue-700">{item.name.slice(0, 1)}</span><div><h3 className="text-theme-sm font-semibold text-gray-800">{item.name}</h3><p className="text-theme-xs text-gray-500">{item.nomorInduk}</p></div></div>
+              <div><span className="rounded-full bg-gray-100 px-2.5 py-1 text-theme-xs font-medium text-gray-600">{item.program.name}</span><p className={`mt-2 text-[10px] font-semibold ${getUiToneClass(item.status).split(" ")[1]}`}>{formatUiLabel(item.status)}</p></div>
               <p className="text-theme-sm text-gray-600">{item.waliRelations.map((relation) => relation.waliProfile.user.name).join(", ") || "Belum ada"}</p>
               <p className="text-theme-sm text-gray-600">{item.enrollments.map((enrollment) => enrollment.kelas.name).join(", ") || "Belum ada"}</p>
-              <Link href={`/admin/siswa/${item.id}`} className="text-theme-sm font-semibold text-brand-500 hover:text-brand-600">Kelola</Link>
+              <Link href={`/admin/siswa/${item.id}`} className="text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Kelola</Link>
             </article>
           ))}
          </div> : <EmptyState icon="student" title="Siswa tidak ditemukan" description="Belum ada siswa yang cocok dengan filter saat ini. Coba ubah pencarian atau status." />}

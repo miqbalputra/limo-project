@@ -1,7 +1,6 @@
 import "server-only";
 
 import type { Actor } from "@/server/auth/session";
-import { getSelectedWaliStudentId } from "@/server/dal/wali-selector-dal";
 import { prisma } from "@/server/db/prisma";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canManageClass } from "@/server/policies/access-policy";
@@ -141,9 +140,8 @@ export async function updateRppStatus(actor: Actor, rppId: string, input: unknow
   return { item };
 }
 
-async function getAllowedStudentIds(actor: Actor) {
+async function getAllowedStudentIds(actor: Actor, selectedStudentId: string | null = null) {
   if (actor.role !== "WALI") throw new ForbiddenError();
-  const selectedStudentId = await getSelectedWaliStudentId(actor);
   const relations = await prisma.waliSiswa.findMany({
     where: { endedAt: null, ...(selectedStudentId ? { siswaId: selectedStudentId } : {}), siswa: { status: "ACTIVE", deletedAt: null }, waliProfile: { userId: actor.id } },
     select: { siswaId: true },
@@ -151,8 +149,8 @@ async function getAllowedStudentIds(actor: Actor) {
   return relations.map((relation) => relation.siswaId);
 }
 
-export async function listWaliRpp(actor: Actor) {
-  const studentIds = await getAllowedStudentIds(actor);
+export async function listWaliRpp(actor: Actor, selectedStudentId: string | null = null) {
+  const studentIds = await getAllowedStudentIds(actor, selectedStudentId);
   if (studentIds.length === 0) return { items: [] };
 
   const items = await prisma.rpp.findMany({

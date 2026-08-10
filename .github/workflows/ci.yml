@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      APP_URL: http://127.0.0.1:3000
+      DATABASE_URL: file:./dev.db
+      SESSION_SECRET: ci-only-session-secret-0123456789abcdef
+      SESSION_COOKIE_NAME: limo_session_ci
+      PRIVATE_STORAGE_PATH: ./.ci/private-storage
+      BACKUP_DIR: ./.ci/backups
+      BACKUP_WEBHOOK_SECRET: ci-only-backup-webhook-secret
+      MAYAR_ENV: sandbox
+      MAYAR_BASE_URL: http://127.0.0.1:9
+      MAYAR_API_KEY: ci-placeholder-mayar-api-key
+      MAYAR_MERCHANT_ID: ci-placeholder-mayar-merchant
+      MAYAR_WEBHOOK_SECRET: ci-placeholder-mayar-webhook-secret
+      NOTIFICATION_PROVIDER: whatsapp
+      LIMO_ALLOW_DEMO_SEED: "true"
+      DOKPLOY_SQLITE_DEMO: "true"
+      STUDENT_PORTAL_ENABLED: "true"
+      LEARNING_MODULES_ENABLED: "true"
+      ASSIGNMENTS_ENABLED: "true"
+      GRADEBOOK_ENABLED: "true"
+      CALENDAR_ENABLED: "true"
+      ACTIVITY_COMPLETION_ENABLED: "true"
+      REMEDIAL_ENABLED: "true"
+      CLASS_DISCUSSION_ENABLED: "true"
+      PERIODIC_REPORTS_ENABLED: "true"
+      GUARDIAN_ASSISTED_SUBMISSION_ENABLED: "false"
+      NEXT_PUBLIC_LIMO_CONTACT_EMAIL: ci@limo.invalid
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare disposable SQLite data
+        run: npm run sqlite:setup
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Verify color tokens
+        run: npm run check:colors
+
+      - name: Build production application
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Install Playwright Chromium and WebKit
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Run normal end-to-end tests
+        run: npm run test:e2e
+
+      - name: Run production PWA end-to-end tests
+        run: npm run test:e2e:pwa
+
+      - name: Upload Playwright artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            playwright-report
+            playwright-report-pwa
+            test-results
+          if-no-files-found: ignore

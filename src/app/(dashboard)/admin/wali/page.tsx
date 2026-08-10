@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { listWali } from "@/server/services/people-service";
 import { WaliForm } from "@/components/dashboard/people-forms";
@@ -21,7 +22,7 @@ export default async function AdminWaliPage({ searchParams }: { searchParams: Pr
       <WaliForm />
       <form method="get" className="tailadmin-card flex flex-col gap-3 p-4 sm:flex-row"><input name="search" defaultValue={search || ""} aria-label="Cari Wali" placeholder="Cari nama atau email Wali" className="tailadmin-input" /><button className="tailadmin-button-primary sm:w-auto">Cari</button></form>
       {items.length > 0 ? <section className="grid gap-4 md:grid-cols-2">
-        {items.map((item) => <article key={item.id} className="tailadmin-card p-5"><h2 className="font-semibold text-gray-900">{item.user.name}</h2><p className="mt-1 text-theme-sm text-gray-500">{item.user.email}</p><p className="mt-1 text-theme-sm text-gray-500">{item._count.siswaRelations} siswa terhubung</p><UserActions userId={item.user.id} active={item.user.status === "ACTIVE"} isSelf={item.user.id === actor.id} /></article>)}
+        {items.map((item) => <article key={item.id} className="tailadmin-card p-5"><h2 className="font-semibold text-gray-900">{item.user.name}</h2><p className="mt-1 text-theme-sm text-gray-500">{item.user.email}</p><p className="mt-1 text-theme-sm text-gray-500">{item._count.siswaRelations} siswa terhubung</p><Link href={`/admin/wali/${item.id}`} className="mt-3 inline-flex text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Lihat profil</Link><UserActions userId={item.user.id} active={item.user.status === "ACTIVE"} isSelf={item.user.id === actor.id} /></article>)}
       </section> : <EmptyState icon="guardian" title="Belum ada Wali" description="Tambahkan akun Wali pertama menggunakan formulir di atas." />}
       <PaginationControls basePath="/admin/wali" page={pagination.page} totalPages={pagination.totalPages} params={{ search }} />
     </main>

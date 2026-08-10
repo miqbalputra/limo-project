@@ -48,19 +48,33 @@ try {
   const guruCalendar = await request(`/api/v1/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, { cookie: guru.cookie });
   assert.equal(guruCalendar.response.status, 200, JSON.stringify(guruCalendar.payload));
   assert.ok(guruCalendar.payload.data.events.some((event) => event.id === `CalendarEvent:${eventId}`));
+  const guruClassCalendar = await request(`/api/v1/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&classId=${encodeURIComponent(kelas.id)}`, { cookie: guru.cookie });
+  assert.equal(guruClassCalendar.response.status, 200, JSON.stringify(guruClassCalendar.payload));
+  assert.ok(guruClassCalendar.payload.data.events.some((event) => event.id === `CalendarEvent:${eventId}`));
   const studentCalendar = await request(`/api/v1/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, { cookie: student.cookie });
   const waliCalendar = await request(`/api/v1/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, { cookie: wali.cookie });
   assert.ok(studentCalendar.payload.data.events.some((event) => event.id === `CalendarEvent:${eventId}`));
   assert.ok(waliCalendar.payload.data.events.some((event) => event.id === `CalendarEvent:${eventId}`));
+  const waliClassCalendar = await request(`/api/v1/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&classId=${encodeURIComponent(kelas.id)}`, { cookie: wali.cookie });
+  assert.equal(waliClassCalendar.response.status, 200, JSON.stringify(waliClassCalendar.payload));
+  assert.ok(waliClassCalendar.payload.data.events.some((event) => event.id === `CalendarEvent:${eventId}`));
+  const otherClass = await prisma.kelas.findFirst({ where: { status: "ACTIVE", id: { not: kelas.id }, guruProfile: { userId: { not: guruUser.id } } }, select: { id: true } });
+  if (otherClass) assert.equal((await request(`/api/v1/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&classId=${encodeURIComponent(otherClass.id)}`, { cookie: guru.cookie })).response.status, 404);
   ok("Calendar derived events and manual announcements are visible within role scope");
+
+  const allClassEvent = await request("/api/v1/calendar/events", { method: "POST", cookie: guru.cookie, body: { title: `Fase 6 all classes ${runId}`, eventType: "ANNOUNCEMENT", startAt: new Date(reminderNow.getTime() + 5 * 24 * 60 * 60 * 1000).toISOString(), visibility: "ALL" } });
+  assert.equal(allClassEvent.response.status, 201, JSON.stringify(allClassEvent.payload));
+  assert.ok(allClassEvent.payload.data.items.length >= 1);
+  ok("Guru can create an agenda for all managed classes or filter one class");
 
   const globalEvent = await request("/api/v1/calendar/events", { method: "POST", cookie: admin.cookie, body: { title: `Fase 6 holiday ${runId}`, eventType: "HOLIDAY", startAt: new Date(reminderNow.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString(), allDay: true, visibility: "ALL" } });
   assert.equal(globalEvent.response.status, 201, JSON.stringify(globalEvent.payload));
   const globalCalendar = await request(`/api/v1/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, { cookie: student.cookie });
   assert.ok(globalCalendar.payload.data.events.some((event) => event.id === `CalendarEvent:${globalEvent.payload.data.item.id}`));
-  const guruGlobalAttempt = await request("/api/v1/calendar/events", { method: "POST", cookie: guru.cookie, body: { title: `Fase 6 invalid global ${runId}`, eventType: "ANNOUNCEMENT", startAt: new Date(reminderNow.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString(), visibility: "ALL" } });
-  assert.equal(guruGlobalAttempt.response.status, 403);
-  ok("Admin can create global events while Guru mutations remain class-scoped");
+  const guruGlobalAttempt = await request("/api/v1/calendar/events", { method: "POST", cookie: guru.cookie, body: { title: `Fase 6 all managed classes ${runId}`, eventType: "ANNOUNCEMENT", startAt: new Date(reminderNow.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString(), visibility: "ALL" } });
+  assert.equal(guruGlobalAttempt.response.status, 201, JSON.stringify(guruGlobalAttempt.payload));
+  assert.ok(guruGlobalAttempt.payload.data.items.every((event) => event.classId));
+  ok("Admin can create global events while Guru agendas expand across managed classes");
 
   const assignment = await request(`/api/v1/guru/kelas/${kelas.id}/tugas`, { method: "POST", cookie: guru.cookie, body: { title: `Fase 6 deadline ${runId}`, instructions: "Selesaikan aktivitas kalender.", submissionType: "ONLINE_TEXT", maxScore: 100, availableFrom: new Date(reminderNow.getTime() - 60 * 60 * 1000).toISOString(), dueAt: dueAt.toISOString(), cutoffAt: new Date(dueAt.getTime() + 24 * 60 * 60 * 1000).toISOString() } });
   assert.equal(assignment.response.status, 201, JSON.stringify(assignment.payload));

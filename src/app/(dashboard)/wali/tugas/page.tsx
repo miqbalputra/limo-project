@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { listWaliTaskChildren } from "@/server/services/online-exam-service";
+import { resolveWaliChildId } from "@/server/dal/wali-selector-dal";
 import { DashboardHero, EmptyState, ProgressBar } from "@/components/dashboard/dashboard-widgets";
 
 export const metadata = { title: "Tugas Anak" };
 
-export default async function WaliTugasPage() {
+export default async function WaliTugasPage({ searchParams }: { searchParams: Promise<{ anak?: string }> }) {
   const actor = await requireActor();
   requireRole(actor, ["WALI"]);
-  const { children } = await listWaliTaskChildren(actor);
+  const { anak } = await searchParams;
+  const { children } = await listWaliTaskChildren(actor, await resolveWaliChildId(actor, anak));
   const totalTasks = children.reduce((sum, child) => sum + child.taskCount, 0);
   const pendingTasks = children.reduce((sum, child) => sum + child.notStartedCount + child.inProgressCount, 0);
   const reviewTasks = children.reduce((sum, child) => sum + child.reviewCount, 0);
@@ -19,7 +21,7 @@ export default async function WaliTugasPage() {
       <DashboardHero
         eyebrow="Belajar di Rumah"
         title="Tugas Anak"
-        description="Pilih anak untuk melihat tugas atau ujian online yang bisa dikerjakan langsung melalui akun wali. Orang tua mendampingi, anak tetap menjawab sendiri."
+        description="Pilih anak untuk melihat tugas atau ujian daring yang bisa dikerjakan langsung melalui akun Wali. Orang tua mendampingi, anak tetap menjawab sendiri."
         aside={<HeroStats total={totalTasks} pending={pendingTasks} review={reviewTasks} final={finalTasks} />}
       />
 
@@ -32,9 +34,9 @@ export default async function WaliTugasPage() {
               <article key={child.id} className="tailadmin-card min-w-0 p-5 transition hover:-translate-y-0.5 hover:shadow-theme-sm">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex min-w-0 gap-4">
-                    <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand-50 text-lg font-semibold text-brand-600">{child.name.slice(0, 1).toUpperCase()}</span>
+                    <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-limo-blue-50 text-lg font-semibold text-limo-blue-700">{child.name.slice(0, 1).toUpperCase()}</span>
                     <div className="min-w-0">
-                      <p className="text-theme-xs font-semibold uppercase tracking-wide text-brand-500">{child.nomorInduk} / {child.program.name}</p>
+                      <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-700">{child.nomorInduk} / {child.program.name}</p>
                       <h2 className="mt-1 truncate text-lg font-semibold text-gray-900" title={child.name}>{child.name}</h2>
                       <p className="mt-1 text-theme-sm text-gray-500">{child.taskCount} tugas tersedia</p>
                     </div>
@@ -45,11 +47,11 @@ export default async function WaliTugasPage() {
                 <div className="mt-5 grid grid-cols-4 gap-2 rounded-2xl bg-gray-50 p-3 text-center">
                   <MiniStat label="Belum" value={child.notStartedCount} />
                   <MiniStat label="Proses" value={child.inProgressCount} />
-                  <MiniStat label="Review" value={child.reviewCount} />
+                  <MiniStat label="Tinjau" value={child.reviewCount} />
                   <MiniStat label="Selesai" value={child.finalCount} />
                 </div>
                 <div className="mt-5">
-                  <div className="mb-2 flex justify-between text-theme-xs text-gray-500"><span>Progress tugas selesai</span><span className="font-semibold text-gray-700">{doneRate}%</span></div>
+                  <div className="mb-2 flex justify-between text-theme-xs text-gray-500"><span>Progres tugas selesai</span><span className="font-semibold text-gray-700">{doneRate}%</span></div>
                   <ProgressBar value={doneRate} tone={doneRate >= 100 ? "success" : "brand"} />
                 </div>
               </article>
@@ -65,11 +67,11 @@ export default async function WaliTugasPage() {
 
 function HeroStats({ total, pending, review, final }: { total: number; pending: number; review: number; final: number }) {
   return (
-    <div className="grid min-w-80 grid-cols-4 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs">
+    <div className="grid w-full min-w-0 grid-cols-2 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs sm:grid-cols-4 lg:w-auto lg:min-w-80">
       <MiniStat label="Total" value={total} />
       <MiniStat label="Perlu" value={pending} />
-      <MiniStat label="Review" value={review} />
-      <MiniStat label="Final" value={final} />
+      <MiniStat label="Tinjau" value={review} />
+      <MiniStat label="Selesai" value={final} />
     </div>
   );
 }

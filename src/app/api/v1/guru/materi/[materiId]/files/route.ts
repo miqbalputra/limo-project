@@ -1,4 +1,4 @@
-import { requireActor } from "@/server/auth/session";
+import { requireActor, requireRole } from "@/server/auth/session";
 import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
 import { ValidationError } from "@/server/errors/application-error";
@@ -16,6 +16,7 @@ export async function POST(request: Request, context: { params: Promise<{ materi
     const env = getEnv();
     assertSameOrigin(request.headers, env.APP_URL);
     const actor = await requireActor();
+    requireRole(actor, ["GURU"]);
     assertRateLimit({
       key: `materi-upload:${actor.id}:${getClientAddress(request.headers)}`,
       limit: 20,

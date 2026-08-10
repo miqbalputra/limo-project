@@ -13,6 +13,20 @@ import {
   submitPendaftaranSchema,
 } from "@/server/validation/pendaftaran";
 
+const pendaftaranStatuses = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "REJECTED", "CANCELLED"] as const;
+export type PendaftaranStatus = (typeof pendaftaranStatuses)[number];
+
+export const PENDAFTARAN_EXPORT_LIMIT = 10_000;
+
+export type PendaftaranListFilters = {
+  search?: string;
+  status?: PendaftaranStatus;
+};
+
+export function parsePendaftaranStatus(value: string | null) {
+  return value && pendaftaranStatuses.includes(value as PendaftaranStatus) ? value as PendaftaranStatus : undefined;
+}
+
 function parseBirthDate(value: string | undefined) {
   if (!value) {
     return undefined;
@@ -157,15 +171,17 @@ export async function lookupPendaftaranStatus(input: unknown, context: { ipAddre
   return { pendaftaran };
 }
 
-export async function listPendaftaran(actor: Actor, paginationInput: PaginationInput = {}) {
+export async function listPendaftaran(actor: Actor, paginationInput: PaginationInput = {}, filters: PendaftaranListFilters = {}) {
   if (actor.role !== "ADMIN") {
     throw new ForbiddenError();
   }
 
   const pagination = resolvePagination(paginationInput, 20);
+  const where = buildPendaftaranWhere(filters);
   const [totalItems, items] = await Promise.all([
-    prisma.pendaftaran.count(),
+    prisma.pendaftaran.count({ where }),
     prisma.pendaftaran.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       skip: pagination.skip,
       take: pagination.take,
@@ -177,7 +193,7 @@ export async function listPendaftaran(actor: Actor, paginationInput: PaginationI
         waliName: true,
         waliEmail: true,
         submittedAt: true,
-        program: { select: { name: true } },
+         program: { select: { name: true, kind: true } },
         files: {
           where: { deletedAt: null },
           select: {
@@ -190,6 +206,88 @@ export async function listPendaftaran(actor: Actor, paginationInput: PaginationI
   ]);
 
   return { items, pagination: createPaginationMeta(pagination.page, pagination.pageSize, totalItems) };
+}
+
+export async function getPendaftaranExportData(actor: Actor, filters: PendaftaranListFilters = {}) {
+  if (actor.role !== "ADMIN") {
+    throw new ForbiddenError();
+  }
+
+  const items = await prisma.pendaftaran.findMany({
+    where: buildPendaftaranWhere(filters),
+    orderBy: { createdAt: "desc" },
+    take: PENDAFTARAN_EXPORT_LIMIT + 1,
+    select: {
+      id: true,
+      kode: true,
+      status: true,
+      studentName: true,
+      studentBirthAt: true,
+      waliName: true,
+      waliEmail: true,
+      waliPhone: true,
+      submittedAt: true,
+      reviewedAt: true,
+      rejectionReason: true,
+      program: { select: { name: true, kind: true } },
+      files: {
+        where: { deletedAt: null },
+        select: { originalName: true },
+      },
+    },
+  });
+
+  return {
+    items: items.slice(0, PENDAFTARAN_EXPORT_LIMIT),
+    truncated: items.length > PENDAFTARAN_EXPORT_LIMIT,
+  };
+}
+
+export async function recordPendaftaranExport(actor: Actor, input: { format: "PDF" | "XLSX"; filters: PendaftaranListFilters; rowCount: number; truncated: boolean }) {
+  if (actor.role !== "ADMIN") {
+    throw new ForbiddenError();
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      actorId: actor.id,
+      action: "PENDAFTARAN_EXPORTED",
+      entityType: "Pendaftaran",
+      metadata: {
+        format: input.format,
+        search: input.filters.search ?? null,
+        status: input.filters.status ?? null,
+        rowCount: input.rowCount,
+        truncated: input.truncated,
+      },
+    },
+  });
+}
+
+function buildPendaftaranWhere(filters: PendaftaranListFilters) {
+  const search = filters.search?.trim().slice(0, 120);
+
+  return {
+    ...(filters.status ? { status: filters.status } : {}),
+    ...(search ? { OR: [{ kode: { contains: search } }, { studentName: { contains: search } }, { waliName: { contains: search } }, { waliEmail: { contains: search } }] } : {}),
+  };
+}
+
+export async function getPendaftaranSummary(actor: Actor) {
+  if (actor.role !== "ADMIN") {
+    throw new ForbiddenError();
+  }
+
+  const [total, submitted, underReview, approved, rejected, cancelled] = await Promise.all([
+    prisma.pendaftaran.count(),
+    prisma.pendaftaran.count({ where: { status: "SUBMITTED" } }),
+    prisma.pendaftaran.count({ where: { status: "UNDER_REVIEW" } }),
+    prisma.pendaftaran.count({ where: { status: "APPROVED" } }),
+    prisma.pendaftaran.count({ where: { status: "REJECTED" } }),
+    prisma.pendaftaran.count({ where: { status: "CANCELLED" } }),
+  ]);
+
+  return { total, submitted, underReview, approved, rejected, cancelled, pending: submitted + underReview };
 }
 
 export async function getPendaftaranDetail(actor: Actor, id: string) {

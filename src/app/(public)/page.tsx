@@ -7,7 +7,7 @@ import Link from "next/link";
 /* ── Data ────────────────────────────────────────────────────── */
 
 const stats = [
-  { value: "2", label: "Program Bahasa", color: "bg-brand-500" },
+  { value: "2", label: "Program Bahasa", color: "bg-limo-blue-500" },
   { value: "3", label: "Role Pengguna", color: "bg-warning-500" },
   { value: "1", label: "Dashboard Terpadu", color: "bg-success-500" },
   { value: "100%", label: "Fokus pada Anak", color: "bg-error-500" },
@@ -44,10 +44,10 @@ const programs = [
     badge: "EN",
     flag: "/flag-english.svg",
     flagAlt: "Bendera Inggris",
-    badgeBg: "bg-brand-50",
-    badgeText: "text-brand-600",
+    badgeBg: "bg-limo-blue-50",
+    badgeText: "text-limo-blue-700",
     label: "Program Bahasa Inggris",
-    buttonClass: "border-brand-600 bg-brand-600 text-white hover:border-brand-700 hover:bg-brand-700 focus-visible:ring-brand-500/25",
+    buttonClass: "border-limo-blue-600 bg-limo-blue-600 text-white hover:border-limo-blue-700 hover:bg-limo-blue-700 focus-visible:ring-limo-blue-500/25",
     features: [
       "Phonics & Daily Speaking Practice",
       "Fun Reading & Storytelling",
@@ -80,7 +80,7 @@ const testimonials = [
     name: "Contoh Wali 1",
     role: "Contoh pengalaman wali",
     initial: "1",
-    color: "bg-brand-100 text-brand-700",
+    color: "bg-limo-blue-100 text-limo-blue-700",
     text: "Alhamdulillah, sejak ikut LIMO Rayyan jadi suka bercakap bahasa Inggris di rumah dan rajin hafal kosakata Arab. Dashboard Wali sangat membantu — saya bisa lihat presensi dan catatan ustazah tiap minggu!",
   },
   {
@@ -101,7 +101,7 @@ const testimonials = [
 
 const regSteps = [
   { num: "1", title: "Isi Form Online", text: "Lengkapi data calon santri dan pilih program — hanya butuh 2 menit." },
-  { num: "2", title: "Review & Verifikasi", text: "Tim LIMO meninjau pendaftaran dan menghubungi wali untuk konfirmasi." },
+  { num: "2", title: "Tinjau & Verifikasi", text: "Tim LIMO meninjau pendaftaran dan menghubungi wali untuk konfirmasi." },
   { num: "3", title: "Placement & Trial", text: "Anak mengikuti pemetaan level singkat yang ramah dan tanpa tekanan." },
   { num: "4", title: "Mulai Kelas & Pantau", text: "Santri masuk kelas dan wali mendapat akses Dashboard Pemantauan." },
 ];
@@ -144,7 +144,7 @@ export default function HomePage() {
         {/* ─── Top Bar ─── */}
         <div className="bg-gray-900 py-2 text-center text-theme-xs text-white sm:text-theme-sm">
           <span className="inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-4">
-            <span className="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase" style={{ background: "var(--color-limo-yellow)", color: "#1a1a1a" }}>
+            <span className="rounded-full bg-limo-yellow-300 px-2.5 py-0.5 text-[10px] font-bold uppercase text-limo-neutral-800">
               Pendaftaran Dibuka
             </span>
             <span className="font-medium">Periode 2026/2027 — Hubungi admin untuk jadwal dan ketersediaan kelas</span>
@@ -162,22 +162,22 @@ export default function HomePage() {
               <Image src="/logo.jpg" width={40} height={40} alt="LIMO" className="h-10 w-10 rounded-lg object-contain" priority />
             </div>
             <div className="hidden min-[420px]:block">
-              <span className="block text-lg font-bold tracking-tight" style={{ color: "var(--color-limo-blue)" }}>LIMO</span>
+              <span className="block text-lg font-bold tracking-tight text-limo-blue-500">LIMO</span>
               <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500">Little Moslems Language Club</span>
             </div>
           </Link>
 
           <nav className="hidden items-center gap-7 text-theme-sm font-medium text-gray-600 lg:flex" aria-label="Navigasi utama">
             {navigationItems.map((item) => (
-              <a key={item} href={`#${item.toLowerCase().replace(" ", "-")}`} className="rounded-sm transition-colors hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40">{item}</a>
+              <a key={item} href={`#${item.toLowerCase().replace(" ", "-")}`} className="rounded-sm transition-colors hover:text-limo-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500/40">{item}</a>
             ))}
           </nav>
 
           <div className="flex items-center gap-2.5">
-            <Link href="/login" className="hidden items-center justify-center rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-theme-sm font-semibold text-gray-800 shadow-theme-xs transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20 sm:inline-flex">
+            <Link href="/login" className="hidden items-center justify-center rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-theme-sm font-semibold text-gray-800 shadow-theme-xs transition hover:border-limo-blue-300 hover:bg-limo-blue-50 hover:text-limo-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-limo-blue-500/15 sm:inline-flex">
               Masuk
             </Link>
-            <Link href="/daftar" className="inline-flex items-center justify-center rounded-lg border border-brand-600 bg-brand-600 px-4 py-2.5 text-theme-sm font-semibold text-white shadow-theme-sm transition hover:border-brand-700 hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/30 active:translate-y-px">
+            <Link href="/daftar" className="inline-flex items-center justify-center rounded-lg border border-limo-blue-600 bg-limo-blue-600 px-4 py-2.5 text-theme-sm font-semibold text-white shadow-theme-sm transition hover:border-limo-blue-700 hover:bg-limo-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-limo-blue-500/30 active:translate-y-px">
               Daftar Sekarang
             </Link>
             <button
@@ -186,7 +186,7 @@ export default function HomePage() {
               aria-expanded={isMobileMenuOpen}
               aria-controls="mobile-navigation"
               onClick={() => setIsMobileMenuOpen((open) => !open)}
-              className="grid size-10 place-items-center rounded-lg border border-gray-300 bg-white text-gray-800 shadow-theme-xs transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20 lg:hidden"
+              className="grid size-10 place-items-center rounded-lg border border-gray-300 bg-white text-gray-800 shadow-theme-xs transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-limo-blue-500/15 lg:hidden"
             >
               <span className="sr-only">Menu</span>
               <span aria-hidden="true" className="grid gap-1.5">
@@ -205,12 +205,12 @@ export default function HomePage() {
                   key={item}
                   href={`#${item.toLowerCase().replace(" ", "-")}`}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="rounded-lg px-3 py-2.5 text-theme-sm font-semibold text-gray-700 transition hover:bg-brand-50 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30"
+                  className="rounded-lg px-3 py-2.5 text-theme-sm font-semibold text-gray-700 transition hover:bg-limo-blue-50 hover:text-limo-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500/30"
                 >
                   {item}
                 </a>
               ))}
-              <Link href="/login" className="mt-2 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-semibold text-gray-800 shadow-theme-xs focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20 sm:hidden">
+              <Link href="/login" className="mt-2 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-semibold text-gray-800 shadow-theme-xs focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-limo-blue-500/15 sm:hidden">
                 Masuk ke Dashboard
               </Link>
             </div>
@@ -223,23 +223,23 @@ export default function HomePage() {
       <section className="relative overflow-hidden bg-white pb-8 pt-12 sm:pb-12 sm:pt-16 lg:pb-16 lg:pt-20">
         {/* Background accents */}
         <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-          <div className="absolute -left-32 top-0 h-[500px] w-[500px] rounded-full opacity-30 blur-3xl" style={{ background: "var(--color-limo-sky)" }} />
-          <div className="absolute -right-24 top-24 h-[400px] w-[400px] rounded-full opacity-20 blur-3xl" style={{ background: "var(--color-limo-yellow)" }} />
-          <div className="absolute bottom-0 left-1/3 h-[300px] w-[300px] rounded-full opacity-15 blur-3xl" style={{ background: "var(--color-limo-green)" }} />
+          <div className="absolute -left-32 top-0 h-[500px] w-[500px] rounded-full bg-limo-sky-300 opacity-30 blur-3xl" />
+          <div className="absolute -right-24 top-24 h-[400px] w-[400px] rounded-full bg-limo-yellow-300 opacity-20 blur-3xl" />
+          <div className="absolute bottom-0 left-1/3 h-[300px] w-[300px] rounded-full bg-limo-green-500 opacity-15 blur-3xl" />
         </div>
 
         <div className="relative mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
           <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:gap-16">
             {/* Left */}
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-25 px-3.5 py-1.5 shadow-theme-xs">
+              <div className="inline-flex items-center gap-2 rounded-full border border-limo-blue-200 bg-limo-blue-50 px-3.5 py-1.5 shadow-theme-xs">
                 <span className="size-2 animate-pulse rounded-full bg-success-500" />
-                <span className="text-theme-xs font-bold uppercase tracking-widest text-brand-700">Pendaftaran Terbuka · Periode 2026/2027</span>
+                <span className="text-theme-xs font-bold uppercase tracking-widest text-limo-blue-700">Pendaftaran Terbuka · Periode 2026/2027</span>
               </div>
 
               <h1 className="mt-6 text-[2.5rem] font-extrabold leading-[1.1] tracking-tight text-gray-900 sm:text-5xl lg:text-[3.5rem]">
                 Tempat Si Kecil Jadi Fasih{" "}
-                <span className="text-brand-500">Bahasa Inggris & Arab</span>{" "}
+                <span className="text-limo-blue-600">Bahasa Inggris & Arab</span>{" "}
                 dengan Adab Islami
               </h1>
 
@@ -248,10 +248,10 @@ export default function HomePage() {
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Link href="/daftar" className="inline-flex items-center justify-center rounded-xl border border-brand-600 bg-brand-600 px-7 py-4 text-theme-sm font-bold text-white shadow-theme-md transition hover:scale-[1.02] hover:border-brand-700 hover:bg-brand-700 hover:shadow-theme-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/30 active:scale-[0.98]">
+                <Link href="/daftar" className="inline-flex items-center justify-center rounded-xl border border-limo-blue-600 bg-limo-blue-600 px-7 py-4 text-theme-sm font-bold text-white shadow-theme-md transition hover:scale-[1.02] hover:border-limo-blue-700 hover:bg-limo-blue-700 hover:shadow-theme-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-limo-blue-500/30 active:scale-[0.98]">
                   Daftarkan Anak Sekarang &rarr;
                 </Link>
-                <Link href="/status-pendaftaran" className="inline-flex items-center justify-center rounded-xl border-2 border-gray-300 bg-white px-5 py-3.5 text-theme-sm font-bold text-gray-900 shadow-theme-xs transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20">
+                <Link href="/status-pendaftaran" className="inline-flex items-center justify-center rounded-xl border-2 border-gray-300 bg-white px-5 py-3.5 text-theme-sm font-bold text-gray-900 shadow-theme-xs transition hover:border-limo-blue-400 hover:bg-limo-blue-50 hover:text-limo-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-limo-blue-500/15">
                   Cek Status Pendaftaran
                 </Link>
               </div>
@@ -259,7 +259,7 @@ export default function HomePage() {
               {/* Trust Metrics */}
               <div className="mt-10 flex flex-wrap items-center gap-6 border-t border-gray-200 pt-7">
                 {[
-                   { val: "2", label: "Program Bahasa", bg: "bg-brand-50", fg: "text-brand-700" },
+                   { val: "2", label: "Program Bahasa", bg: "bg-limo-blue-50", fg: "text-limo-blue-700" },
                    { val: "3", label: "Role Terintegrasi", bg: "bg-warning-50", fg: "text-warning-700" },
                    { val: "Aman", label: "Data Terarah", bg: "bg-success-50", fg: "text-success-700" },
                 ].map((m) => (
@@ -275,7 +275,7 @@ export default function HomePage() {
             <div className="relative mx-auto w-full max-w-md lg:max-w-none">
               {/* Main mascot */}
               <div className="relative flex justify-center">
-                <div className="animate-float rounded-[2rem] p-3" style={{ background: "linear-gradient(135deg, var(--color-limo-sky) 0%, var(--color-brand-50) 100%)" }}>
+                <div className="animate-float rounded-[2rem] bg-gradient-to-br from-limo-sky-300 to-limo-blue-50 p-3">
                   <Image
                     src="/logo.jpg"
                     width={320}
@@ -292,7 +292,7 @@ export default function HomePage() {
                 <p className="text-theme-xs text-gray-400">Pertemuan Hari Ini</p>
                 <p className="mt-0.5 text-theme-sm font-bold text-gray-900">My Family Members</p>
                 <div className="mt-2.5 flex -space-x-1.5">
-                  {["bg-brand-400", "bg-warning-400", "bg-success-500"].map((c, i) => (
+                  {["bg-limo-blue-400", "bg-warning-400", "bg-success-500"].map((c, i) => (
                     <span key={i} className={`grid size-7 place-items-center rounded-full border-2 border-white text-[10px] font-bold text-white ${c}`}>{i + 1}</span>
                   ))}
                 </div>
@@ -330,7 +330,7 @@ export default function HomePage() {
       <section id="keunggulan" className="py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="text-theme-sm font-bold uppercase tracking-widest text-brand-600">Mengapa LIMO?</p>
+            <p className="text-theme-sm font-bold uppercase tracking-widest text-limo-blue-700">Mengapa LIMO?</p>
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
               Mengapa Orang Tua Mempercayakan Anaknya ke LIMO?
             </h2>
@@ -341,8 +341,8 @@ export default function HomePage() {
 
           <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {benefits.map((b, i) => (
-              <article key={i} className="group rounded-3xl border border-gray-200 bg-white p-6 shadow-theme-xs transition duration-300 hover:-translate-y-1 hover:border-brand-300 hover:shadow-theme-md">
-                <div className="grid size-14 place-items-center rounded-2xl bg-brand-50 text-2xl transition duration-300 group-hover:bg-brand-500 group-hover:text-white group-hover:shadow-theme-sm">
+              <article key={i} className="group rounded-3xl border border-gray-200 bg-white p-6 shadow-theme-xs transition duration-300 hover:-translate-y-1 hover:border-limo-blue-300 hover:shadow-theme-md">
+                <div className="grid size-14 place-items-center rounded-2xl bg-limo-blue-50 text-2xl transition duration-300 group-hover:bg-limo-blue-500 group-hover:text-white group-hover:shadow-theme-sm">
                   {b.icon}
                 </div>
                 <h3 className="mt-5 text-lg font-bold text-gray-900">{b.title}</h3>
@@ -357,7 +357,7 @@ export default function HomePage() {
       <section id="program" className="bg-gray-50 py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="text-theme-sm font-bold uppercase tracking-widest text-brand-600">Program LIMO</p>
+            <p className="text-theme-sm font-bold uppercase tracking-widest text-limo-blue-700">Program LIMO</p>
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
               Dua Bahasa, Satu Tujuan Mulia
             </h2>
@@ -407,7 +407,7 @@ export default function HomePage() {
       </section>
 
       {/* ─── Dashboard Wali Preview ─── */}
-      <section className="bg-brand-600 py-20 text-white sm:py-24">
+      <section className="bg-limo-blue-600 py-20 text-white sm:py-24">
         <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
           <div className="grid items-center gap-12 lg:grid-cols-2">
             <div>
@@ -417,7 +417,7 @@ export default function HomePage() {
               <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">
                 Pantau Perkembangan Anak dari Smartphone Anda
               </h2>
-              <p className="mt-5 text-lg leading-relaxed text-brand-100">
+              <p className="mt-5 text-lg leading-relaxed text-limo-blue-100">
                 Setiap pertemuan kelas tercatat rapi: kehadiran, materi, hafalan kosakata, hingga catatan apresiasi dari ustaz/ustazah.
               </p>
               <ul className="mt-8 space-y-3.5">
@@ -428,7 +428,7 @@ export default function HomePage() {
                   "Tagihan SPP & Riwayat Pembayaran",
                 ].map((item) => (
                   <li key={item} className="flex items-center gap-3">
-                    <span className="grid size-6 place-items-center rounded-full text-xs font-bold" style={{ background: "var(--color-limo-yellow)", color: "#1a1a1a" }}>✓</span>
+                    <span className="grid size-6 place-items-center rounded-full bg-limo-yellow-300 text-xs font-bold text-limo-neutral-800">✓</span>
                     <span className="text-theme-sm font-medium">{item}</span>
                   </li>
                 ))}
@@ -450,7 +450,7 @@ export default function HomePage() {
 
               <div className="mt-5 grid grid-cols-2 gap-3">
                 {[
-                   { label: "Kehadiran", val: "-", sub: "Contoh tampilan laporan", bg: "bg-brand-50" },
+                   { label: "Kehadiran", val: "-", sub: "Contoh tampilan laporan", bg: "bg-limo-blue-50" },
                    { label: "Pemahaman", val: "-", sub: "Skor progres 1-5", bg: "bg-warning-50" },
                    { label: "Materi Selesai", val: "-", sub: "Sesuai aktivitas anak", bg: "bg-success-50" },
                    { label: "Nilai Terakhir", val: "-", sub: "Setelah ujian difinalkan", bg: "bg-error-50" },
@@ -465,7 +465,7 @@ export default function HomePage() {
 
               <div className="mt-4 rounded-2xl bg-gray-900 p-4 text-white">
                 <div className="flex items-center justify-between">
-                  <p className="text-theme-xs font-semibold" style={{ color: "var(--color-limo-yellow)" }}>Catatan Pengajar Terbaru</p>
+                  <p className="text-theme-xs font-semibold text-limo-yellow-300">Catatan Pengajar Terbaru</p>
                   <span className="text-[10px] text-gray-400">Pertemuan #10</span>
                 </div>
                 <p className="mt-1.5 text-theme-sm leading-relaxed text-gray-300">
@@ -485,7 +485,7 @@ export default function HomePage() {
       <section id="testimoni" className="bg-gray-25 py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="text-theme-sm font-bold uppercase tracking-widest text-brand-600">Contoh Pengalaman</p>
+            <p className="text-theme-sm font-bold uppercase tracking-widest text-limo-blue-700">Contoh Pengalaman</p>
                <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
                Dirancang untuk Keluarga Muslim
             </h2>
@@ -521,7 +521,7 @@ export default function HomePage() {
           <div className="overflow-hidden rounded-[2rem] bg-gray-900 px-6 py-14 text-white sm:px-12 lg:px-16 lg:py-20">
             <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
               <div>
-                <p className="text-theme-xs font-bold uppercase tracking-widest text-brand-300">Cara Bergabung</p>
+                <p className="text-theme-xs font-bold uppercase tracking-widest text-limo-blue-300">Cara Bergabung</p>
                 <h2 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
                   Pendaftaran Mudah dalam 4 Langkah
                 </h2>
@@ -537,7 +537,7 @@ export default function HomePage() {
                 {regSteps.map((s, i) => (
                   <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
                     <div className="flex items-center gap-3">
-                      <span className="grid size-9 place-items-center rounded-xl text-sm font-extrabold text-gray-900" style={{ background: "var(--color-limo-yellow)" }}>
+                      <span className="grid size-9 place-items-center rounded-xl bg-limo-yellow-300 text-sm font-extrabold text-gray-900">
                         {s.num}
                       </span>
                       <h3 className="text-lg font-bold">{s.title}</h3>
@@ -555,15 +555,15 @@ export default function HomePage() {
       <section id="kontak" className="border-y border-gray-100 bg-white py-16 sm:py-20">
         <div className="mx-auto grid max-w-7xl gap-6 px-5 sm:px-6 lg:grid-cols-[1fr_0.8fr] lg:items-center lg:px-8">
           <div>
-            <p className="text-theme-sm font-bold uppercase tracking-widest text-brand-600">Kontak LIMO</p>
+            <p className="text-theme-sm font-bold uppercase tracking-widest text-limo-blue-700">Kontak LIMO</p>
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">Butuh bantuan memilih program?</h2>
             <p className="mt-4 max-w-2xl text-lg leading-relaxed text-gray-600">Tim Admin LIMO membantu informasi program, placement, jadwal kelas, dan proses pendaftaran melalui kanal resmi berikut.</p>
           </div>
           <div className="tailadmin-card p-6">
             <p className="text-theme-xs font-semibold uppercase tracking-wider text-gray-400">Email Admin</p>
-             {contactEmail ? <a href={`mailto:${contactEmail}`} className="mt-2 block break-all text-xl font-semibold text-brand-600 hover:text-brand-700">{contactEmail}</a> : <p className="mt-2 text-theme-sm font-semibold text-gray-700">Kanal kontak sedang dikonfigurasi</p>}
+             {contactEmail ? <a href={`mailto:${contactEmail}`} className="mt-2 block break-all text-xl font-semibold text-limo-blue-700 hover:text-limo-blue-800">{contactEmail}</a> : <p className="mt-2 text-theme-sm font-semibold text-gray-700">Kanal kontak sedang dikonfigurasi</p>}
             <p className="mt-3 text-theme-sm text-gray-500">Jadwal layanan dan kelas dikonfirmasi oleh Admin setelah data pendaftaran ditinjau.</p>
-            <Link href="/daftar" className="mt-5 inline-flex items-center justify-center rounded-lg bg-brand-600 px-5 py-3 text-theme-sm font-semibold text-white hover:bg-brand-700">Ajukan Pendaftaran</Link>
+            <Link href="/daftar" className="mt-5 inline-flex items-center justify-center rounded-lg bg-limo-blue-600 px-5 py-3 text-theme-sm font-semibold text-white hover:bg-limo-blue-700">Ajukan Pendaftaran</Link>
           </div>
         </div>
       </section>
@@ -572,7 +572,7 @@ export default function HomePage() {
       <section id="faq" className="bg-gray-25 py-20 sm:py-24">
         <div className="mx-auto max-w-3xl px-5 sm:px-6 lg:px-8">
           <div className="text-center">
-            <p className="text-theme-sm font-bold uppercase tracking-widest text-brand-600">FAQ</p>
+            <p className="text-theme-sm font-bold uppercase tracking-widest text-limo-blue-700">FAQ</p>
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
               Pertanyaan yang Sering Diajukan
             </h2>
@@ -587,10 +587,10 @@ export default function HomePage() {
                     type="button"
                     onClick={() => setOpenFaq(isOpen ? null : index)}
                     aria-expanded={isOpen}
-                    className="flex w-full items-center justify-between gap-4 bg-white p-5 text-left text-gray-900 transition hover:bg-brand-25 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-brand-500/20"
+                    className="flex w-full items-center justify-between gap-4 bg-white p-5 text-left text-gray-900 transition hover:bg-limo-blue-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-limo-blue-500/15"
                   >
                     <span className="text-theme-sm font-bold text-gray-900">{faq.q}</span>
-                    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-600 text-sm font-bold transition">
+                    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-limo-blue-50 text-limo-blue-700 text-sm font-bold transition">
                       {isOpen ? "−" : "+"}
                     </span>
                   </button>
@@ -609,12 +609,12 @@ export default function HomePage() {
       {/* ─── Final CTA ─── */}
       <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-          <div className="relative overflow-hidden rounded-[2rem] px-6 py-14 text-center text-white shadow-2xl sm:px-12 lg:py-20" style={{ background: "linear-gradient(135deg, var(--color-limo-blue) 0%, var(--color-brand-500) 50%, #3b5bdb 100%)" }}>
+          <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-limo-blue-600 via-limo-blue-500 to-limo-blue-700 px-6 py-14 text-center text-white shadow-2xl sm:px-12 lg:py-20">
             <div className="pointer-events-none absolute -left-20 -top-20 size-60 rounded-full border border-white/20" />
             <div className="pointer-events-none absolute -bottom-24 -right-16 size-72 rounded-full bg-white/10" />
 
             <div className="relative mx-auto max-w-2xl">
-              <p className="inline-block rounded-full bg-white/20 px-4 py-1.5 text-theme-xs font-bold uppercase tracking-wider" style={{ color: "var(--color-limo-yellow)" }}>
+              <p className="inline-block rounded-full bg-white/20 px-4 py-1.5 text-theme-xs font-bold uppercase tracking-wider text-limo-yellow-300">
                 Masa Depan Cerah Si Kecil
               </p>
               <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">
@@ -624,10 +624,10 @@ export default function HomePage() {
                 Berikan karunia bahasa dan adab terbaik. Daftarkan putra-putri Anda di LIMO — Little Moslems Language Club.
               </p>
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                <Link href="/daftar" className="inline-flex items-center justify-center rounded-xl border-2 border-white bg-white px-7 py-4 text-theme-sm font-bold text-brand-700 shadow-theme-md transition hover:scale-[1.02] hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/40 active:scale-[0.98]">
+                <Link href="/daftar" className="inline-flex items-center justify-center rounded-xl border-2 border-white bg-white px-7 py-4 text-theme-sm font-bold text-limo-blue-700 shadow-theme-md transition hover:scale-[1.02] hover:bg-limo-blue-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/40 active:scale-[0.98]">
                   Daftar Sekarang
                 </Link>
-                <Link href="/status-pendaftaran" className="inline-flex items-center justify-center rounded-xl border-2 border-white bg-brand-800 px-6 py-4 text-theme-sm font-bold text-white shadow-theme-xs transition hover:bg-brand-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/40">
+                <Link href="/status-pendaftaran" className="inline-flex items-center justify-center rounded-xl border-2 border-white bg-limo-blue-800 px-6 py-4 text-theme-sm font-bold text-white shadow-theme-xs transition hover:bg-limo-blue-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/40">
                   Cek Status Pendaftaran
                 </Link>
               </div>
@@ -648,11 +648,11 @@ export default function HomePage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-5 text-theme-sm font-medium text-gray-600">
-              <Link href="/daftar" className="hover:text-brand-500">Pendaftaran</Link>
-              <Link href="/status-pendaftaran" className="hover:text-brand-500">Cek Status</Link>
-              <Link href="/login" className="hover:text-brand-500">Login</Link>
-              <Link href="/kebijakan-privasi" className="hover:text-brand-500">Privasi</Link>
-              <Link href="/syarat-penggunaan" className="hover:text-brand-500">Syarat</Link>
+              <Link href="/daftar" className="hover:text-limo-blue-600">Pendaftaran</Link>
+              <Link href="/status-pendaftaran" className="hover:text-limo-blue-600">Cek Status</Link>
+              <Link href="/login" className="hover:text-limo-blue-600">Login</Link>
+              <Link href="/kebijakan-privasi" className="hover:text-limo-blue-600">Privasi</Link>
+              <Link href="/syarat-penggunaan" className="hover:text-limo-blue-600">Syarat</Link>
             </div>
             <p className="text-theme-xs text-gray-400">© {new Date().getFullYear()} LIMO System</p>
           </div>

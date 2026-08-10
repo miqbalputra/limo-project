@@ -18,6 +18,8 @@ Derived event tidak disimpan ulang. Perubahan deadline assignment langsung terli
 
 `CalendarEvent` hanya dipakai untuk event manual. Event dapat global atau terikat kelas, memiliki visibility `ALL`, `GURU`, `SISWA`, atau `WALI`, dan setiap mutation tercatat pada audit log.
 
+Tampilan kalender memakai grid bulanan bergaya TailAdmin dengan navigasi bulan, detail agenda, dan filter `Semua kelas` atau satu kelas. Guru dapat membuat agenda untuk satu kelas atau memperluasnya ke seluruh kelas yang dikelola; Wali dan Siswa hanya dapat memfilter kelas dalam scope aksesnya.
+
 ## To-do
 
 - Siswa: submission tugas, revisi, dan ujian yang belum selesai.

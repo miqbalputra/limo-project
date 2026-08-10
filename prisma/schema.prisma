@@ -130,6 +130,20 @@ enum ModuleItemType {
   CLASS_SESSION
 }
 
+enum CompletionRuleType {
+  VIEWED
+  SUBMITTED
+  GRADED
+  PASSED
+  MANUAL
+}
+
+enum ActivityCompletionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
 enum AssignmentSubmissionType {
   ONLINE_TEXT
   FILE
@@ -146,6 +160,43 @@ enum AssignmentSubmissionStatus {
   LATE
   NEEDS_REVISION
   GRADED
+}
+
+enum RemedialSourceType {
+  ASSIGNMENT
+  QUIZ
+  EXAM
+  COMPETENCY
+}
+
+enum RemedialStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum RemedialParticipantStatus {
+  ASSIGNED
+  IN_PROGRESS
+  SUBMITTED
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum RemedialScorePolicy {
+  LATEST
+  HIGHEST
+  AVERAGE
+  CAPPED
+}
+
+enum AssignmentRevisionStatus {
+  OPEN
+  SUBMITTED
+  COMPLETED
+  CANCELLED
+  EXPIRED
 }
 
 enum RubricScope {
@@ -301,6 +352,10 @@ model User {
   gradeCategoriesCreated     GradeCategory[]        @relation("GradeCategoryCreator")
   gradeItemsCreated          GradeItem[]            @relation("GradeItemCreator")
   calendarEventsCreated      CalendarEvent[]        @relation("CalendarEventCreator")
+  activityCompletionsMarked  StudentActivityCompletion[] @relation("ActivityCompletionMarker")
+  moduleItemsArchived        ModuleItem[]           @relation("ModuleItemArchiver")
+  remedialsCreated           RemedialAssignment[]   @relation("RemedialCreator")
+  revisionRequestsMade       AssignmentRevisionRequest[] @relation("RevisionRequester")
 }
 
 model Session {
@@ -483,6 +538,10 @@ model Siswa {
   assignmentSubmissions AssignmentSubmission[]
   gradeEntries          GradeEntry[]
   finalGrades           FinalGrade[]
+  activityCompletions   StudentActivityCompletion[]
+  moduleProgress        StudentModuleProgress[]
+  remedialParticipants   RemedialParticipant[]
+  revisionRequests       AssignmentRevisionRequest[]
   tagihan               Tagihan[]
   ujianAttempts         UjianAttempt[]
 }
@@ -525,6 +584,7 @@ model Kelas {
   gradeItems      GradeItem[]
   finalGrades     FinalGrade[]
   calendarEvents  CalendarEvent[]
+  remedialAssignments RemedialAssignment[]
   bankSoal        BankSoal[]
   ujian           Ujian[]
   tarif           Tarif[]
@@ -661,6 +721,7 @@ model LearningModule {
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
   items       ModuleItem[]
+  progress    StudentModuleProgress[]
 
   @@index([kelasId, status, order])
   @@index([createdById, createdAt])
@@ -696,17 +757,78 @@ model ModuleItem {
   titleOverride      String?
   order              Int            @default(0)
   isRequired         Boolean        @default(true)
+  archivedAt         DateTime?
+  archivedById       String?
+  archivedBy         User?          @relation("ModuleItemArchiver", fields: [archivedById], references: [id], onDelete: SetNull)
   availableFrom      DateTime?
   availableUntil     DateTime?
   prerequisiteItemId String?
   prerequisiteItem   ModuleItem?    @relation("ModuleItemPrerequisite", fields: [prerequisiteItemId], references: [id], onDelete: SetNull)
   dependentItems     ModuleItem[]   @relation("ModuleItemPrerequisite")
+  completionRules    CompletionRule[]
+  activityCompletions StudentActivityCompletion[]
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
   @@unique([moduleId, itemType, entityId])
   @@index([moduleId, order])
   @@index([prerequisiteItemId])
+  @@index([archivedAt])
+}
+
+model CompletionRule {
+  id                      String            @id @default(cuid())
+  moduleItemId            String
+  moduleItem              ModuleItem        @relation(fields: [moduleItemId], references: [id], onDelete: Cascade)
+  ruleType                CompletionRuleType
+  minimumScore            Decimal?          @db.Decimal(5, 2)
+  requiredDurationSeconds Int?
+  isRequired              Boolean           @default(true)
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+
+  @@unique([moduleItemId, ruleType])
+  @@index([ruleType, isRequired])
+}
+
+model StudentActivityCompletion {
+  id                String                   @id @default(cuid())
+  studentId         String
+  student           Siswa                    @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  moduleItemId      String
+  moduleItem        ModuleItem               @relation(fields: [moduleItemId], references: [id], onDelete: Restrict)
+  status            ActivityCompletionStatus @default(NOT_STARTED)
+  completedAt       DateTime?
+  completionSource  String?                  @db.VarChar(64)
+  completedByUserId String?
+  completedByUser   User?                    @relation("ActivityCompletionMarker", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  evidenceEntityId  String?
+  lastEvaluatedAt   DateTime?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  @@unique([studentId, moduleItemId])
+  @@index([studentId, status, updatedAt])
+  @@index([moduleItemId, status])
+}
+
+model StudentModuleProgress {
+  id                       String   @id @default(cuid())
+  studentId                String
+  student                  Siswa    @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  moduleId                 String
+  module                   LearningModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  requiredItemCount        Int      @default(0)
+  completedRequiredItemCount Int     @default(0)
+  progressPercentage       Decimal  @db.Decimal(5, 2)
+  completedAt              DateTime?
+  calculatedAt             DateTime @default(now())
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@unique([studentId, moduleId])
+  @@index([studentId, progressPercentage])
+  @@index([moduleId, progressPercentage])
 }
 
 model Assignment {
@@ -733,6 +855,7 @@ model Assignment {
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
   submissions         AssignmentSubmission[]
+  revisionRequests    AssignmentRevisionRequest[]
 
   @@index([kelasId, status, availableFrom])
   @@index([createdById, createdAt])
@@ -758,10 +881,95 @@ model AssignmentSubmission {
   updatedAt     DateTime                   @updatedAt
   files         AssignmentSubmissionFile[]
   grades        SubmissionGrade[]
+  remedialParticipantId String?
+  remedialParticipant   RemedialParticipant? @relation("RemedialSubmission", fields: [remedialParticipantId], references: [id], onDelete: SetNull)
+  revisionRequestId String? @unique
+  revisionRequest   AssignmentRevisionRequest? @relation("RevisionResponseSubmission", fields: [revisionRequestId], references: [id], onDelete: SetNull)
+  openRevisionKey String? @unique
+  revisionSourceRequests AssignmentRevisionRequest[] @relation("RevisionSourceSubmission")
+  originalForRemedials RemedialParticipant[] @relation("RemedialOriginalSubmission")
 
   @@unique([assignmentId, studentId, attemptNumber])
   @@index([assignmentId, status])
   @@index([studentId, assignmentId, createdAt])
+  @@index([remedialParticipantId])
+  @@index([revisionRequestId])
+}
+
+model RemedialAssignment {
+  id            String              @id @default(cuid())
+  sourceType    RemedialSourceType
+  sourceId      String
+  kelasId       String
+  kelas         Kelas               @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  title         String
+  instructions  String              @db.Text
+  availableFrom DateTime?
+  dueAt         DateTime
+  scorePolicy   RemedialScorePolicy @default(LATEST)
+  scoreCap      Decimal?            @db.Decimal(7, 2)
+  status        RemedialStatus      @default(DRAFT)
+  idempotencyKey String?            @unique
+  createdById   String
+  createdBy     User                @relation("RemedialCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  participants  RemedialParticipant[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([kelasId, status, dueAt])
+  @@index([sourceType, sourceId, status])
+  @@index([createdById, createdAt])
+}
+
+model RemedialParticipant {
+  id                String                    @id @default(cuid())
+  remedialId        String
+  remedial          RemedialAssignment        @relation(fields: [remedialId], references: [id], onDelete: Cascade)
+  studentId         String
+  student           Siswa                     @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  reason            String                    @db.Text
+  status            RemedialParticipantStatus @default(ASSIGNED)
+  assignedAt        DateTime                  @default(now())
+  completedAt       DateTime?
+  originalSubmissionId String?
+  originalSubmission   AssignmentSubmission?  @relation("RemedialOriginalSubmission", fields: [originalSubmissionId], references: [id], onDelete: SetNull)
+  originalScore     Decimal?                  @db.Decimal(10, 2)
+  remedialScore     Decimal?                  @db.Decimal(10, 2)
+  effectiveScore    Decimal?                  @db.Decimal(10, 2)
+  resultPublishedAt DateTime?
+  submissions       AssignmentSubmission[]    @relation("RemedialSubmission")
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  @@unique([remedialId, studentId])
+  @@index([studentId, status, updatedAt])
+  @@index([remedialId, status])
+}
+
+model AssignmentRevisionRequest {
+  id                String                   @id @default(cuid())
+  assignmentId      String
+  assignment        Assignment               @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId         String
+  student           Siswa                    @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  sourceSubmissionId String
+  sourceSubmission  AssignmentSubmission    @relation("RevisionSourceSubmission", fields: [sourceSubmissionId], references: [id], onDelete: Restrict)
+  responseSubmission AssignmentSubmission?  @relation("RevisionResponseSubmission")
+  requestedById     String
+  requestedBy       User                     @relation("RevisionRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  reason            String                   @db.Text
+  instructions      String?                  @db.Text
+  dueAt             DateTime?
+  status            AssignmentRevisionStatus @default(OPEN)
+  requestedAt       DateTime                 @default(now())
+  submittedAt       DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  @@index([assignmentId, studentId, status])
+  @@index([sourceSubmissionId, status])
+  @@index([requestedById, createdAt])
 }
 
 model AssignmentSubmissionFile {

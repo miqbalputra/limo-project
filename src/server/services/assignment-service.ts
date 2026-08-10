@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { AssignmentSubmissionType, Prisma } from "@prisma/client";
+import type { AssignmentSubmissionStatus, AssignmentSubmissionType, Prisma } from "@prisma/client";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
@@ -8,6 +8,9 @@ import { isFeatureEnabled, requireFeature } from "@/server/features/feature-flag
 import { canAccessStudent, canManageClass } from "@/server/policies/access-policy";
 import { readPrivateFile, removePrivateFile, storeAssignmentFile, validateAssignmentFile } from "@/server/providers/storage/local-storage";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
+import { syncActivityCompletionForAssignment } from "@/server/services/activity-completion-service";
+import { getOpenRevisionForStudent } from "@/server/services/assignment-revision-service";
+import { getStudentRemedialContext } from "@/server/services/remedial-service";
 import { createAssignmentSchema, saveAssignmentDraftSchema, submitAssignmentSchema, updateAssignmentSchema } from "@/server/validation/assignment";
 
 function requireAssignmentsFeature() {
@@ -25,6 +28,21 @@ function parseDateTime(value: string | undefined, field: string) {
 function assertDateOrder(availableFrom: Date | undefined, dueAt: Date | undefined, cutoffAt: Date | undefined) {
   if (availableFrom && dueAt && dueAt < availableFrom) throw new ValidationError("Tenggat tugas tidak boleh sebelum waktu tersedia", { dueAt: ["Tenggat tugas tidak boleh sebelum waktu tersedia"] });
   if (dueAt && cutoffAt && cutoffAt < dueAt) throw new ValidationError("Cutoff tugas tidak boleh sebelum tenggat", { cutoffAt: ["Cutoff tugas tidak boleh sebelum tenggat"] });
+}
+
+function isUniqueConstraintError(error: unknown) {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2002");
+}
+
+async function withSubmissionAttemptRetry<T>(operation: () => Promise<T>) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!isUniqueConstraintError(error) || attempt === 2) throw error;
+    }
+  }
+  throw new ConflictError("Nomor attempt submission tidak dapat dialokasikan");
 }
 
 async function assertGuruClass(actor: Actor, kelasId: string) {
@@ -226,6 +244,8 @@ export async function listAssignmentSubmissions(actor: Actor, assignmentId: stri
       studentId: true,
       attemptNumber: true,
       status: true,
+      remedialParticipantId: true,
+      revisionRequestId: true,
       onlineText: true,
       externalLink: true,
       submittedAt: true,
@@ -235,6 +255,8 @@ export async function listAssignmentSubmissions(actor: Actor, assignmentId: stri
       createdAt: true,
       updatedAt: true,
       student: { select: { id: true, name: true, nomorInduk: true } },
+      remedialParticipant: { select: { id: true, status: true, remedial: { select: { id: true, title: true, dueAt: true, scorePolicy: true } } } },
+      revisionRequest: { select: { id: true, status: true, reason: true, instructions: true, dueAt: true } },
       files: { select: { id: true, originalName: true, mimeType: true, sizeBytes: true, mediaDuration: true, createdAt: true } },
       grades: { where: { status: "PUBLISHED" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, rawScore: true, score: true, feedbackText: true, status: true, publishedAt: true, criteria: { select: { id: true, criterionId: true, rubricLevelId: true, score: true, comment: true } } } },
     },
@@ -264,16 +286,37 @@ export async function listStudentAssignments(actor: Actor, kelasId: string) {
       status: true,
       publishedAt: true,
       kelas: { select: { id: true, name: true } },
-      submissions: { where: { studentId: siswaId }, orderBy: { attemptNumber: "desc" }, take: 1, select: { id: true, attemptNumber: true, status: true, submittedAt: true, isLate: true, version: true } },
+       submissions: { where: { studentId: siswaId, remedialParticipantId: null, revisionRequestId: null }, orderBy: { attemptNumber: "desc" }, take: 1, select: { id: true, attemptNumber: true, status: true, submittedAt: true, isLate: true, version: true } },
     },
   });
   return { items: items.map((item) => ({ ...item, latestSubmission: item.submissions[0] || null, submissions: undefined })) };
 }
 
-export async function getStudentAssignment(actor: Actor, assignmentId: string) {
+export async function getStudentAssignment(actor: Actor, assignmentId: string, options: { remedialId?: string; revisionRequestId?: string } = {}) {
   const { assignment, siswaId } = await loadPublishedStudentAssignment(actor, assignmentId);
-  const submission = await prisma.assignmentSubmission.findFirst({ where: { assignmentId, studentId: siswaId }, orderBy: { attemptNumber: "desc" }, select: { id: true, attemptNumber: true, status: true, onlineText: true, externalLink: true, submittedAt: true, isLate: true, version: true, draftSavedAt: true, files: { select: { id: true, originalName: true, mimeType: true, sizeBytes: true, mediaDuration: true, createdAt: true } }, grades: { where: { status: "PUBLISHED" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, rawScore: true, score: true, feedbackText: true, status: true, publishedAt: true, criteria: { select: { id: true, criterionId: true, rubricLevelId: true, score: true, comment: true } } } } } });
-  return { assignment, submission: submission ? { ...serializeSubmission(submission)!, publishedGrade: submission.grades[0] || null } : null };
+  const special = await resolveStudentSubmissionContext(actor, assignmentId, siswaId, options);
+  if (special.context && !((special.context.remedialParticipantId && special.remedial) || (special.context.revisionRequestId && special.revision))) throw new NotFoundError("Konteks submission tidak ditemukan");
+  if (special.context) {
+    await withSubmissionAttemptRetry(() => prisma.$transaction(async (tx) => {
+      const ensured = await ensureDraft(tx, assignment, siswaId, actor.id, special.context || undefined);
+      if (special.context?.kind === "REMEDIAL" && special.context.remedialParticipantId && ensured.status === "DRAFT") {
+        await tx.remedialParticipant.updateMany({ where: { id: special.context.remedialParticipantId, status: "ASSIGNED" }, data: { status: "IN_PROGRESS" } });
+      }
+      return ensured;
+    }));
+  }
+  const scope = special.context?.remedialParticipantId
+    ? { remedialParticipantId: special.context.remedialParticipantId }
+    : special.context?.revisionRequestId
+      ? { revisionRequestId: special.context.revisionRequestId }
+      : { remedialParticipantId: null, revisionRequestId: null };
+  const submission = await prisma.assignmentSubmission.findFirst({ where: { assignmentId, studentId: siswaId, ...scope }, orderBy: { attemptNumber: "desc" }, select: { id: true, attemptNumber: true, status: true, onlineText: true, externalLink: true, submittedAt: true, isLate: true, version: true, draftSavedAt: true, remedialParticipantId: true, revisionRequestId: true, files: { select: { id: true, originalName: true, mimeType: true, sizeBytes: true, mediaDuration: true, createdAt: true } }, grades: { where: { status: "PUBLISHED" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, rawScore: true, score: true, feedbackText: true, status: true, publishedAt: true, criteria: { select: { id: true, criterionId: true, rubricLevelId: true, score: true, comment: true } } } } } });
+  return {
+    assignment,
+    submission: submission ? { ...serializeSubmission(submission)!, publishedGrade: submission.grades[0] || null } : null,
+    remedial: special.remedial ? { ...special.remedial.remedial, participantId: special.remedial.id, reason: special.remedial.reason, status: special.remedial.status, originalScore: special.remedial.originalScore, remedialScore: special.remedial.remedialScore, effectiveScore: special.remedial.effectiveScore } : null,
+    revisionRequest: special.revision ? { id: special.revision.id, reason: special.revision.reason, instructions: special.revision.instructions, dueAt: special.revision.dueAt, status: special.revision.status } : null,
+  };
 }
 
 export async function listWaliAssignments(actor: Actor, siswaId: string, kelasId: string) {
@@ -300,7 +343,7 @@ export async function listWaliAssignments(actor: Actor, siswaId: string, kelasId
       allowResubmission: true,
       status: true,
       publishedAt: true,
-      submissions: { where: { studentId: siswaId }, orderBy: { attemptNumber: "desc" }, take: 1, select: { id: true, attemptNumber: true, status: true, submittedAt: true, isLate: true, onlineText: true, externalLink: true, files: { select: { id: true, originalName: true, mimeType: true, sizeBytes: true, mediaDuration: true, createdAt: true } }, grades: { where: { status: "PUBLISHED" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, rawScore: true, score: true, feedbackText: true, status: true, publishedAt: true, criteria: { select: { id: true, criterionId: true, rubricLevelId: true, score: true, comment: true } } } } } },
+       submissions: { where: { studentId: siswaId, remedialParticipantId: null, revisionRequestId: null }, orderBy: { attemptNumber: "desc" }, take: 1, select: { id: true, attemptNumber: true, status: true, submittedAt: true, isLate: true, onlineText: true, externalLink: true, files: { select: { id: true, originalName: true, mimeType: true, sizeBytes: true, mediaDuration: true, createdAt: true } }, grades: { where: { status: "PUBLISHED" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, rawScore: true, score: true, feedbackText: true, status: true, publishedAt: true, criteria: { select: { id: true, criterionId: true, rubricLevelId: true, score: true, comment: true } } } } } },
     },
   });
   return { items: items.map((item) => ({ ...item, latestSubmission: item.submissions[0] ? { ...serializeSubmission(item.submissions[0])!, publishedGrade: item.submissions[0].grades[0] || null } : null, submissions: undefined })) };
@@ -315,6 +358,8 @@ export async function listWaliStudentAssignments(actor: Actor, siswaId: string) 
 }
 
 type AssignmentForSubmission = { id: string; submissionType: AssignmentSubmissionType; maxAttempts: number; allowResubmission: boolean; allowLateSubmission: boolean; dueAt: Date | null; cutoffAt: Date | null };
+type SpecialSubmissionContext = { kind: "REMEDIAL" | "REVISION"; remedialParticipantId?: string; revisionRequestId?: string; dueAt: Date | null; cutoffAt: Date | null };
+type SubmittedSubmission = { id: string; attemptNumber: number; status: AssignmentSubmissionStatus; onlineText: string | null; externalLink: string | null; submittedAt: Date | null; isLate: boolean; version: number; draftSavedAt: Date | null; files: Array<{ id: string; originalName: string; mimeType: string; sizeBytes: bigint; mediaDuration?: number | null; createdAt: Date }> };
 
 function assertSubmissionContent(assignment: AssignmentForSubmission, input: { onlineText?: string; externalLink?: string }, file: File | null, isFinal: boolean) {
   if (["FILE", "IMAGE", "AUDIO", "VIDEO"].includes(assignment.submissionType)) {
@@ -327,66 +372,124 @@ function assertSubmissionContent(assignment: AssignmentForSubmission, input: { o
   if (isFinal && assignment.submissionType === "EXTERNAL_LINK" && !(input.externalLink || "").trim()) throw new ValidationError("Link jawaban wajib diisi");
 }
 
-async function getLatestSubmission(tx: Prisma.TransactionClient, assignmentId: string, studentId: string) {
-  return tx.assignmentSubmission.findFirst({ where: { assignmentId, studentId }, orderBy: { attemptNumber: "desc" }, select: { id: true, attemptNumber: true, status: true, version: true } });
+async function getLatestSubmission(tx: Prisma.TransactionClient, assignmentId: string, studentId: string, context?: SpecialSubmissionContext) {
+  const scope = context?.remedialParticipantId
+    ? { remedialParticipantId: context.remedialParticipantId }
+    : context?.revisionRequestId
+      ? { revisionRequestId: context.revisionRequestId }
+      : { remedialParticipantId: null, revisionRequestId: null };
+  return tx.assignmentSubmission.findFirst({ where: { assignmentId, studentId, ...scope }, orderBy: { attemptNumber: "desc" }, select: { id: true, attemptNumber: true, status: true, version: true } });
 }
 
-async function ensureDraft(tx: Prisma.TransactionClient, assignment: AssignmentForSubmission, studentId: string, actorId: string) {
-  const draft = await tx.assignmentSubmission.findFirst({ where: { assignmentId: assignment.id, studentId, status: "DRAFT" }, orderBy: { attemptNumber: "desc" }, select: { id: true, attemptNumber: true, status: true, version: true } });
+async function ensureDraft(tx: Prisma.TransactionClient, assignment: AssignmentForSubmission, studentId: string, actorId: string, context?: SpecialSubmissionContext) {
+  const scope = context?.remedialParticipantId
+    ? { remedialParticipantId: context.remedialParticipantId }
+    : context?.revisionRequestId
+      ? { revisionRequestId: context.revisionRequestId }
+      : { remedialParticipantId: null, revisionRequestId: null };
+  const draft = await tx.assignmentSubmission.findFirst({ where: { assignmentId: assignment.id, studentId, status: "DRAFT", ...scope }, orderBy: { attemptNumber: "desc" }, select: { id: true, attemptNumber: true, status: true, version: true } });
   if (draft) return draft;
-  const latest = await getLatestSubmission(tx, assignment.id, studentId);
-  if (latest && (!assignment.allowResubmission || latest.attemptNumber >= assignment.maxAttempts)) throw new ConflictError("Submission sudah dikumpulkan dan tidak dapat diulang");
-  return tx.assignmentSubmission.create({ data: { assignmentId: assignment.id, studentId, attemptNumber: (latest?.attemptNumber || 0) + 1, actorUserId: actorId }, select: { id: true, attemptNumber: true, status: true, version: true } });
+  const latest = await getLatestSubmission(tx, assignment.id, studentId, context);
+  if (context && latest && latest.status !== "DRAFT") return latest;
+  const latestOverall = await tx.assignmentSubmission.findFirst({ where: { assignmentId: assignment.id, studentId }, orderBy: { attemptNumber: "desc" }, select: { attemptNumber: true } });
+  if (!context && latest && (!assignment.allowResubmission || latest.attemptNumber >= assignment.maxAttempts)) throw new ConflictError("Submission sudah dikumpulkan dan tidak dapat diulang");
+  return tx.assignmentSubmission.create({ data: { assignmentId: assignment.id, studentId, attemptNumber: (latestOverall?.attemptNumber || 0) + 1, actorUserId: actorId, ...(context?.remedialParticipantId ? { remedialParticipantId: context.remedialParticipantId } : {}), ...(context?.revisionRequestId ? { revisionRequestId: context.revisionRequestId } : {}) }, select: { id: true, attemptNumber: true, status: true, version: true } });
+}
+
+async function resolveStudentSubmissionContext(actor: Actor, assignmentId: string, studentId: string, input: { remedialId?: string; revisionRequestId?: string } = {}) {
+  if (input.remedialId && input.revisionRequestId) throw new ValidationError("Submission tidak dapat memakai remedial dan revisi sekaligus");
+  if (input.remedialId) {
+    const result = await getStudentRemedialContext(actor, input.remedialId, assignmentId);
+    return { context: { kind: "REMEDIAL" as const, remedialParticipantId: result.participant.id, dueAt: result.participant.remedial.dueAt, cutoffAt: result.participant.remedial.dueAt }, remedial: result.participant, revision: null };
+  }
+  if (!isFeatureEnabled("remedialEnabled")) return { context: null, remedial: null, revision: null };
+  const revision = await getOpenRevisionForStudent(studentId, assignmentId);
+  if (!revision) {
+    if (input.revisionRequestId) throw new NotFoundError("Permintaan revisi tidak ditemukan");
+    return { context: null, remedial: null, revision: null };
+  }
+  if (input.revisionRequestId && revision.id !== input.revisionRequestId) throw new NotFoundError("Permintaan revisi tidak ditemukan");
+  if (revision.dueAt && revision.dueAt < new Date()) throw new ConflictError("Deadline revisi sudah lewat");
+  return { context: { kind: "REVISION" as const, revisionRequestId: revision.id, dueAt: revision.dueAt, cutoffAt: revision.dueAt }, remedial: null, revision };
 }
 
 export async function saveAssignmentDraft(actor: Actor, assignmentId: string, input: unknown) {
-  const { assignment, siswaId } = await loadPublishedStudentAssignment(actor, assignmentId);
   const parsed = saveAssignmentDraftSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Draft tugas belum valid", parsed.error.flatten().fieldErrors);
+  const { assignment, siswaId } = await loadPublishedStudentAssignment(actor, assignmentId);
+  const special = await resolveStudentSubmissionContext(actor, assignmentId, siswaId, parsed.data);
   assertSubmissionContent(assignment, parsed.data, null, false);
-  const submission = await prisma.$transaction(async (tx) => {
-    const draft = await ensureDraft(tx, assignment, siswaId, actor.id);
+  const submission = await withSubmissionAttemptRetry(() => prisma.$transaction(async (tx) => {
+    const draft = await ensureDraft(tx, assignment, siswaId, actor.id, special.context || undefined);
+    if (draft.status !== "DRAFT") throw new ConflictError("Submission sudah dikumpulkan dan tidak dapat diubah");
     if (parsed.data.version !== undefined && draft.version !== 0 && parsed.data.version !== draft.version) throw new ConflictError("Draft sudah berubah di tab lain. Muat ulang sebelum menyimpan lagi");
     const updated = await tx.assignmentSubmission.update({ where: { id: draft.id }, data: { onlineText: parsed.data.onlineText || null, externalLink: parsed.data.externalLink || null, actorUserId: actor.id, draftSavedAt: new Date(), version: { increment: 1 } }, select: { id: true, attemptNumber: true, status: true, onlineText: true, externalLink: true, version: true, draftSavedAt: true, submittedAt: true, isLate: true, files: { select: { id: true, originalName: true, mimeType: true, sizeBytes: true, createdAt: true } } } });
+    if (special.context?.kind === "REMEDIAL" && special.context.remedialParticipantId) await tx.remedialParticipant.updateMany({ where: { id: special.context.remedialParticipantId, status: "ASSIGNED" }, data: { status: "IN_PROGRESS" } });
     await tx.auditLog.create({ data: { actorId: actor.id, action: "ASSIGNMENT_DRAFT_SAVED", entityType: "AssignmentSubmission", entityId: draft.id, metadata: { assignmentId, version: updated.version } } });
     return updated;
-  });
+  }));
+  await syncActivityCompletionForAssignment(assignmentId, siswaId);
   return { item: serializeSubmission(submission)! };
 }
 
 export async function submitAssignment(actor: Actor, assignmentId: string, input: { data: unknown; file?: File | null }) {
-  const { assignment, siswaId } = await loadPublishedStudentAssignment(actor, assignmentId);
   const parsed = submitAssignmentSchema.safeParse(input.data);
   if (!parsed.success) throw new ValidationError("Submission tugas belum valid", parsed.error.flatten().fieldErrors);
+  const { assignment, siswaId } = await loadPublishedStudentAssignment(actor, assignmentId);
+  const special = await resolveStudentSubmissionContext(actor, assignmentId, siswaId, parsed.data);
   const file = input.file instanceof File && input.file.size > 0 ? input.file : null;
   assertSubmissionContent(assignment, parsed.data, file, true);
   if (parsed.data.mediaDuration !== undefined && !["AUDIO", "VIDEO"].includes(assignment.submissionType)) throw new ValidationError("Durasi media hanya boleh dikirim untuk tugas audio atau video");
   if (file) validateAssignmentFile({ name: file.name, type: file.type, size: file.size, submissionType: assignment.submissionType });
   const now = new Date();
-  if (assignment.cutoffAt && now > assignment.cutoffAt) throw new ConflictError("Batas cutoff tugas sudah lewat");
-  const isLate = Boolean(assignment.dueAt && now > assignment.dueAt);
+  const cutoffAt = special.context?.cutoffAt ?? assignment.cutoffAt;
+  const dueAt = special.context?.dueAt ?? assignment.dueAt;
+  if (cutoffAt && now > cutoffAt) throw new ConflictError(special.context ? "Batas remedial/revisi sudah lewat" : "Batas cutoff tugas sudah lewat");
+  const isLate = Boolean(!special.context && dueAt && now > dueAt);
+  if (special.context && dueAt && now > dueAt) throw new ConflictError("Deadline remedial/revisi sudah lewat");
   if (isLate && !assignment.allowLateSubmission) throw new ConflictError("Tenggat tugas sudah lewat dan submission terlambat tidak diizinkan");
 
-  const existingLatest = await prisma.assignmentSubmission.findFirst({ where: { assignmentId, studentId: siswaId }, orderBy: { attemptNumber: "desc" }, select: { id: true, attemptNumber: true, status: true, version: true, onlineText: true, externalLink: true, submittedAt: true, isLate: true, files: { select: { id: true, originalName: true, mimeType: true, sizeBytes: true, mediaDuration: true, createdAt: true } } } });
-  if (existingLatest && existingLatest.status !== "DRAFT" && !assignment.allowResubmission) return { item: serializeSubmission(existingLatest)!, idempotent: true };
-  const draft = await prisma.$transaction((tx) => ensureDraft(tx, assignment, siswaId, actor.id));
+  const scope = special.context?.remedialParticipantId
+    ? { remedialParticipantId: special.context.remedialParticipantId }
+    : special.context?.revisionRequestId
+      ? { revisionRequestId: special.context.revisionRequestId }
+      : { remedialParticipantId: null, revisionRequestId: null };
+  const existingLatest = await prisma.assignmentSubmission.findFirst({ where: { assignmentId, studentId: siswaId, ...scope }, orderBy: { attemptNumber: "desc" }, select: { id: true, attemptNumber: true, status: true, version: true, onlineText: true, externalLink: true, submittedAt: true, isLate: true, files: { select: { id: true, originalName: true, mimeType: true, sizeBytes: true, mediaDuration: true, createdAt: true } } } });
+  if (existingLatest && existingLatest.status !== "DRAFT" && (special.context || !assignment.allowResubmission)) {
+    await syncActivityCompletionForAssignment(assignmentId, siswaId);
+    return { item: serializeSubmission(existingLatest)!, idempotent: true };
+  }
+  const draft = await withSubmissionAttemptRetry(() => prisma.$transaction((tx) => ensureDraft(tx, assignment, siswaId, actor.id, special.context || undefined)));
+  if (draft.status !== "DRAFT") {
+    throw new ConflictError("Submission sudah dikumpulkan. Muat ulang sebelum mengirim lagi");
+  }
   if (parsed.data.version !== undefined && draft.version !== 0 && parsed.data.version !== draft.version) throw new ConflictError("Draft sudah berubah di tab lain. Muat ulang sebelum mengirim");
 
   let storedFile: Awaited<ReturnType<typeof storeAssignmentFile>> | undefined;
   if (file) storedFile = await storeAssignmentFile(file, `assignment-submission/${draft.id}`, assignment.submissionType);
+  let submission: SubmittedSubmission;
   try {
-    const submission = await prisma.$transaction(async (tx) => {
+    submission = await prisma.$transaction(async (tx) => {
       const result = await tx.assignmentSubmission.updateMany({ where: { id: draft.id, status: "DRAFT", version: draft.version }, data: { onlineText: parsed.data.onlineText || null, externalLink: parsed.data.externalLink || null, status: isLate ? "LATE" : "SUBMITTED", submittedAt: now, isLate, actorUserId: actor.id, version: { increment: 1 } } });
       if (result.count !== 1) throw new ConflictError("Draft sudah berubah di tab lain. Muat ulang sebelum mengirim");
       if (storedFile) await tx.assignmentSubmissionFile.create({ data: { submissionId: draft.id, storageKey: storedFile.storedName, storagePath: storedFile.storagePath, originalName: storedFile.originalName, mimeType: storedFile.mimeType, sizeBytes: storedFile.sizeBytes, checksum: storedFile.checksumSha256, mediaDuration: parsed.data.mediaDuration ?? null } });
-      await tx.auditLog.create({ data: { actorId: actor.id, action: "ASSIGNMENT_SUBMITTED", entityType: "AssignmentSubmission", entityId: draft.id, metadata: { assignmentId, isLate } } });
+      if (special.context?.kind === "REMEDIAL" && special.context.remedialParticipantId) {
+        const updated = await tx.remedialParticipant.updateMany({ where: { id: special.context.remedialParticipantId, status: { in: ["ASSIGNED", "IN_PROGRESS"] } }, data: { status: "SUBMITTED" } });
+        if (updated.count !== 1) throw new ConflictError("Status remedial sudah berubah. Muat ulang sebelum mengirim");
+      }
+      if (special.context?.kind === "REVISION" && special.context.revisionRequestId) {
+        const updated = await tx.assignmentRevisionRequest.updateMany({ where: { id: special.context.revisionRequestId, status: "OPEN" }, data: { status: "SUBMITTED", submittedAt: new Date() } });
+        if (updated.count !== 1) throw new ConflictError("Status revisi sudah berubah. Muat ulang sebelum mengirim");
+      }
+       await tx.auditLog.create({ data: { actorId: actor.id, action: "ASSIGNMENT_SUBMITTED", entityType: "AssignmentSubmission", entityId: draft.id, metadata: { assignmentId, isLate, submissionContext: special.context?.kind || "ORIGINAL" } } });
       return tx.assignmentSubmission.findUniqueOrThrow({ where: { id: draft.id }, select: { id: true, attemptNumber: true, status: true, onlineText: true, externalLink: true, submittedAt: true, isLate: true, version: true, draftSavedAt: true, files: { select: { id: true, originalName: true, mimeType: true, sizeBytes: true, createdAt: true } } } });
     });
-    return { item: serializeSubmission(submission)!, idempotent: false };
   } catch (error) {
     if (storedFile) await removePrivateFile(storedFile.storagePath);
     throw error;
   }
+  await syncActivityCompletionForAssignment(assignmentId, siswaId);
+  return { item: serializeSubmission(submission)!, idempotent: false };
 }
 
 export async function getAuthorizedAssignmentFile(actor: Actor, fileId: string) {

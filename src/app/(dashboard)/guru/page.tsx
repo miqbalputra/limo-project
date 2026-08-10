@@ -3,9 +3,10 @@ import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import { DashboardHero, EmptyState, MetricCard, ProgressBar, QuickActionCard, SectionHeader } from "@/components/dashboard/dashboard-widgets";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { getActorDashboardContext, getGuruTodayAgenda } from "@/server/dal/actor-dal";
+import { formatUiLabel, getUiToneClass } from "@/lib/ui-labels";
 
 export const metadata = {
-  title: "Guru Dashboard",
+  title: "Dasbor Guru",
 };
 
 export default async function GuruDashboardPage() {
@@ -24,22 +25,22 @@ export default async function GuruDashboardPage() {
   return (
     <div className="space-y-6">
       <DashboardHero
-        eyebrow="Teacher Workspace"
+        eyebrow="Ruang Kerja Mengajar"
         title={`Halo, ${actor.name}`}
         description="Kelola kelas, materi, presensi, progres, dan nilai siswa dari satu ruang kerja yang fokus untuk proses mengajar harian."
         actions={<><Link href="/guru/presensi" className="tailadmin-button-primary gap-2"><DashboardIcon name="presensi" className="size-4" />Input Presensi</Link><Link href="/guru/materi" className="tailadmin-button-outline gap-2"><DashboardIcon name="materials" className="size-4" />Kelola Materi</Link></>}
-        aside={busiestClass ? <div className="rounded-2xl bg-brand-500 px-5 py-4 text-white shadow-theme-lg"><p className="text-theme-xs text-white/70">Kelas teraktif</p><p className="mt-1 text-lg font-semibold">{busiestClass.name}</p><p className="mt-1 text-theme-xs text-white/80">{busiestClass._count.enrollments} siswa aktif</p></div> : null}
+        aside={busiestClass ? <div className="rounded-2xl bg-limo-blue-500 px-5 py-4 text-white shadow-theme-lg"><p className="text-theme-xs text-white/70">Kelas teraktif</p><p className="mt-1 text-lg font-semibold">{busiestClass.name}</p><p className="mt-1 text-theme-xs text-white/80">{busiestClass._count.enrollments} siswa aktif</p></div> : null}
       />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Kelas Aktif" value={context.kelas.length} description="Kelas yang ditugaskan" icon="classes" />
-        <MetricCard label="Siswa Dibimbing" value={totalStudents} description="Total enrollment aktif" icon="student" tone="success" />
+        <MetricCard label="Siswa Dibimbing" value={totalStudents} description="Total siswa aktif" icon="student" tone="success" />
         <MetricCard label="Sesi Kelas" value={totalSessions} description="Pertemuan yang tersedia" icon="presensi" tone="warning" />
         <MetricCard label="Materi & Ujian" value={totalMaterials + totalExams} description={`${totalMaterials} materi, ${totalExams} ujian`} icon="exam" tone="gray" />
       </section>
 
       <section>
-        <SectionHeader title="Agenda Hari Ini" description="Mulai dari sesi yang dijadwalkan hari ini dan selesaikan input yang masih tertunda." action={<Link href="/guru/presensi" className="text-theme-sm font-semibold text-brand-500 hover:text-brand-600">Buka semua sesi</Link>} />
+        <SectionHeader title="Agenda Hari Ini" description="Mulai dari sesi yang dijadwalkan hari ini dan selesaikan input yang masih tertunda." action={<Link href="/guru/presensi" className="text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Buka semua sesi</Link>} />
         {todayAgenda.length > 0 ? (
           <div className="grid gap-4 lg:grid-cols-2">
             {todayAgenda.map((item) => {
@@ -48,17 +49,17 @@ export default async function GuruDashboardPage() {
               const progressReady = students > 0 && item._count.progresBelajar >= students;
 
               return (
-                <article key={item.id} className="tailadmin-card min-w-0 p-5 ring-1 ring-brand-100">
+                <article key={item.id} className="tailadmin-card min-w-0 p-5 ring-1 ring-limo-blue-100">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex min-w-0 gap-4">
-                      <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand-50 text-theme-sm font-semibold text-brand-600">{item.meetingNumber}</span>
+                      <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-limo-blue-50 text-theme-sm font-semibold text-limo-blue-700">{item.meetingNumber}</span>
                       <div className="min-w-0">
-                        <p className="text-theme-xs font-semibold uppercase tracking-wide text-brand-500">{item.kelas.name}</p>
+                        <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-700">{item.kelas.name}</p>
                         <h2 className="mt-1 truncate font-semibold text-gray-900" title={item.topic}>{item.topic}</h2>
                         <p className="mt-1 text-theme-xs text-gray-500">{formatAgendaTime(item.sessionDate)} / {students} siswa aktif</p>
                       </div>
                     </div>
-                    <span className={`w-fit rounded-full px-3 py-1 text-theme-xs font-semibold ${item.status === "FINAL" ? "bg-success-50 text-success-700" : "bg-warning-50 text-warning-700"}`}>{item.status === "FINAL" ? "Final" : "Draft"}</span>
+                    <span className={`w-fit rounded-full px-3 py-1 text-theme-xs font-semibold ${getUiToneClass(item.status)}`}>{formatUiLabel(item.status)}</span>
                   </div>
 
                   <div className="mt-5 grid gap-2 sm:grid-cols-2">
@@ -83,7 +84,7 @@ export default async function GuruDashboardPage() {
       </section>
 
       <section>
-        <SectionHeader title="Kelas Saya" description="Pantau kesiapan belajar setiap kelas dan lanjutkan pekerjaan guru dengan cepat." action={<Link href="/guru/kelas" className="text-theme-sm font-semibold text-brand-500 hover:text-brand-600">Lihat semua</Link>} />
+        <SectionHeader title="Kelas Saya" description="Pantau kesiapan belajar setiap kelas dan lanjutkan pekerjaan guru dengan cepat." action={<Link href="/guru/kelas" className="text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Lihat semua</Link>} />
         {context.kelas.length > 0 ? (
           <div className="grid gap-4 lg:grid-cols-2">
             {context.kelas.map((kelas) => {
@@ -92,7 +93,7 @@ export default async function GuruDashboardPage() {
                 <article key={kelas.id} className="tailadmin-card p-5 transition hover:-translate-y-0.5 hover:shadow-theme-sm">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <p className="text-theme-xs font-semibold uppercase tracking-wide text-brand-500">{kelas.program.name} / {kelas.level.name}</p>
+                      <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-700">{kelas.program.name} / {kelas.level.name}</p>
                       <h2 className="mt-1 font-semibold text-gray-900">{kelas.name}</h2>
                       <p className="mt-2 text-theme-sm text-gray-500">{kelas.scheduleNote || "Jadwal belum dicatat"}</p>
                     </div>
@@ -123,7 +124,7 @@ export default async function GuruDashboardPage() {
       <section>
         <SectionHeader title="Akses Mengajar" description="Shortcut untuk pekerjaan yang paling sering dipakai guru." />
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <QuickActionCard href="/guru/materi" icon="materials" label="Materi" description="Buat teks, PDF, gambar, dan link video." />
+          <QuickActionCard href="/guru/materi" icon="materials" label="Materi" description="Buat teks, PDF, gambar, dan tautan video." />
           <QuickActionCard href="/guru/bank-soal" icon="exam" label="Bank Soal" description="Siapkan soal PG dan esai untuk kelas." />
           <QuickActionCard href="/guru/ujian" icon="exam" label="Ujian" description="Atur evaluasi, durasi, dan input hasil." />
           <QuickActionCard href="/guru/progres" icon="progress" label="Progres" description="Catat pemahaman dan catatan wali." />

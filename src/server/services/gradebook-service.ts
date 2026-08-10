@@ -4,9 +4,10 @@ import { createHash } from "node:crypto";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
-import { requireFeature } from "@/server/features/feature-flags";
+import { isFeatureEnabled, requireFeature } from "@/server/features/feature-flags";
 import { canAccessStudent, canManageClass } from "@/server/policies/access-policy";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
+import { applyRemedialScorePolicy } from "@/server/services/remedial-score-policy";
 import { gradeCategorySchema, gradeEntrySchema, gradeItemSchema, publishFinalGradesSchema, updateGradeCategorySchema, updateGradeCategoryStatusSchema, updateGradeItemStatusSchema } from "@/server/validation/gradebook";
 
 const sourceTypes = ["ASSIGNMENT", "QUIZ", "EXAM", "MANUAL", "ATTENDANCE", "PROGRESS"] as const;
@@ -16,7 +17,7 @@ type SourceEntry = {
   studentId: string;
   rawScore: number | null;
   normalizedScore: number | null;
-  status: "MISSING" | "SUBMITTED" | "GRADED" | "FINAL";
+  status: "MISSING" | "SUBMITTED" | "GRADED" | "REMEDIAL" | "FINAL";
   isLate: boolean;
   feedbackSummary: string | null;
   sourceVersion: string | null;
@@ -204,10 +205,12 @@ async function buildAssignmentSourceEntries(classId: string, sourceId: string, i
     select: {
       id: true,
       maxScore: true,
-      submissions: {
-        orderBy: [{ studentId: "asc" }, { attemptNumber: "desc" }],
+       submissions: {
+         where: { remedialParticipantId: null, revisionRequestId: null },
+         orderBy: [{ studentId: "asc" }, { attemptNumber: "desc" }],
         select: {
-          studentId: true,
+         studentId: true,
+         remedialParticipantId: true,
           status: true,
           isLate: true,
           grades: { where: { status: "PUBLISHED" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, score: true, feedbackText: true, updatedAt: true } },
@@ -216,12 +219,26 @@ async function buildAssignmentSourceEntries(classId: string, sourceId: string, i
     },
   });
   if (!assignment) throw new NotFoundError("Assignment sumber tidak ditemukan");
+  const remedialParticipants = isFeatureEnabled("remedialEnabled")
+    ? await prisma.remedialParticipant.findMany({ where: { remedial: { sourceType: "ASSIGNMENT", sourceId, status: "PUBLISHED" }, status: { notIn: ["CANCELLED", "EXPIRED"] } }, orderBy: { createdAt: "desc" }, select: { id: true, studentId: true, status: true, originalScore: true, remedial: { select: { scorePolicy: true, scoreCap: true } }, submissions: { orderBy: { attemptNumber: "desc" }, take: 1, select: { grades: { where: { status: "PUBLISHED" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, score: true, updatedAt: true } } } } } })
+    : [];
   const studentIds = await getActiveStudentIds(classId);
   const latest = new Map<string, (typeof assignment.submissions)[number]>();
-  for (const submission of assignment.submissions) if (!latest.has(submission.studentId)) latest.set(submission.studentId, submission);
+  for (const submission of assignment.submissions) if (!submission.remedialParticipantId && !latest.has(submission.studentId)) latest.set(submission.studentId, submission);
+  const remedialByStudent = new Map<string, (typeof remedialParticipants)[number]>();
+  for (const participant of remedialParticipants) if (!remedialByStudent.has(participant.studentId)) remedialByStudent.set(participant.studentId, participant);
   return studentIds.map((studentId) => {
     const submission = latest.get(studentId);
     const grade = submission?.grades[0];
+    const remedial = remedialByStudent.get(studentId);
+     const baseNormalized = remedial ? (remedial.originalScore === null ? null : Number(remedial.originalScore)) : grade && grade.score !== null ? normalize(Number(grade.score), Number(assignment.maxScore) || itemMaxScore) : null;
+    const remedialGrade = remedial?.submissions[0]?.grades[0];
+    const remedialNormalized = remedialGrade && remedialGrade.score !== null ? normalize(Number(remedialGrade.score), Number(assignment.maxScore) || itemMaxScore) : null;
+    if (remedial) {
+      const effectiveNormalized = applyRemedialScorePolicy({ policy: remedial.remedial.scorePolicy, originalScore: baseNormalized, remedialScore: remedialNormalized, scoreCap: remedial.remedial.scoreCap === null ? null : Number(remedial.remedial.scoreCap) });
+      if (effectiveNormalized !== null) return { studentId, rawScore: (effectiveNormalized / 100) * Number(assignment.maxScore), normalizedScore: effectiveNormalized, status: "REMEDIAL", isLate: Boolean(submission?.isLate), feedbackSummary: remedialGrade ? "Nilai efektif remedial" : "Remedial belum selesai; nilai awal dipertahankan", sourceVersion: `remedial:${remedial.id}:${remedialGrade?.id || remedial.status}` };
+      if (remedial.status === "SUBMITTED" || remedial.status === "IN_PROGRESS" || remedial.status === "ASSIGNED") return { studentId, rawScore: null, normalizedScore: null, status: "SUBMITTED", isLate: false, feedbackSummary: "Menunggu penyelesaian remedial", sourceVersion: `remedial:${remedial.id}:${remedial.status}` };
+    }
     if (grade && grade.score !== null) return { studentId, rawScore: Number(grade.score), normalizedScore: normalize(Number(grade.score), Number(assignment.maxScore) || itemMaxScore), status: "GRADED", isLate: Boolean(submission?.isLate), feedbackSummary: grade.feedbackText, sourceVersion: `${grade.id}:${grade.updatedAt.toISOString()}` };
     if (submission && submission.status !== "DRAFT") return { studentId, rawScore: null, normalizedScore: null, status: "SUBMITTED", isLate: Boolean(submission.isLate || submission.status === "LATE"), feedbackSummary: null, sourceVersion: `submission:${submission.studentId}:${submission.status}` };
     return { studentId, rawScore: null, normalizedScore: null, status: "MISSING", isLate: false, feedbackSummary: null, sourceVersion: null };
@@ -251,7 +268,7 @@ export async function syncGradeItemById(itemId: string) {
   await prisma.$transaction(async (tx) => {
     for (const entry of sourceEntries) {
       const previous = existingByStudent.get(entry.studentId);
-      if (previous && ["EXEMPT", "REMEDIAL"].includes(previous.status)) continue;
+       if (previous && previous.status === "EXEMPT") continue;
       await tx.gradeEntry.upsert({ where: { gradeItemId_studentId: { gradeItemId: itemId, studentId: entry.studentId } }, create: { gradeItemId: itemId, studentId: entry.studentId, rawScore: entry.rawScore, normalizedScore: entry.normalizedScore, status: entry.status, isLate: entry.isLate, feedbackSummary: entry.feedbackSummary, sourceVersion: entry.sourceVersion }, update: { rawScore: entry.rawScore, normalizedScore: entry.normalizedScore, status: entry.status, isLate: entry.isLate, feedbackSummary: entry.feedbackSummary, sourceVersion: entry.sourceVersion } });
     }
   });

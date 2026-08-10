@@ -20,7 +20,7 @@ export default async function GuruInputProgresPage({ params }: { params: Promise
         title={`Input Progres: ${sesi.meetingNumber}. ${sesi.topic}`}
          description="Catat pemahaman dan catatan belajar siswa. Perubahan progres tidak mengubah presensi."
          actions={<><Link href="/guru/progres" className="tailadmin-button-outline px-4 py-2">Kembali ke Progres</Link>{sesi.status === "DRAFT" ? <FinalizeSessionButton sesiKelasId={sesi.id} /> : null}</>}
-        aside={<div className="rounded-2xl bg-brand-50 px-5 py-4 text-center"><p className="text-3xl font-semibold text-brand-600">{students.length}</p><p className="mt-1 text-theme-xs font-semibold text-brand-600">Siswa aktif</p></div>}
+        aside={<div className="rounded-2xl bg-limo-blue-50 px-5 py-4 text-center"><p className="text-3xl font-semibold text-limo-blue-700">{students.length}</p><p className="mt-1 text-theme-xs font-semibold text-limo-blue-700">Siswa aktif</p></div>}
       />
        <PresensiProgresForm sesiKelasId={sesi.id} students={students} mode="progres" readOnly={sesi.status !== "DRAFT"} />
     </main>

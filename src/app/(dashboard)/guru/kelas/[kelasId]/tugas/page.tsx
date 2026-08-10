@@ -25,7 +25,7 @@ export default async function GuruAssignmentsPage({ params }: { params: Promise<
 
   return (
     <main className="space-y-6">
-      <DashboardHero eyebrow={`${kelas.program.name} / ${kelas.level.name}`} title={`Tugas ${kelas.name}`} description="Buat tugas harian terpisah dari ujian, atur waktu dan attempt, lalu pantau status submission Siswa." actions={<><Link href={`/guru/kelas/${kelasId}`} className="tailadmin-button-outline px-4 py-2">Kembali ke Kelas</Link><Link href={`/guru/kelas/${kelasId}/modul`} className="tailadmin-button-outline px-4 py-2">Buka Modul</Link></>} />
+      <DashboardHero eyebrow={`${kelas.program.name} / ${kelas.level.name}`} title={`Tugas ${kelas.name}`} description="Buat tugas harian terpisah dari ujian, atur waktu dan percobaan, lalu pantau status pengumpulan tugas Siswa." actions={<><Link href={`/guru/kelas/${kelasId}`} className="tailadmin-button-outline px-4 py-2">Kembali ke Kelas</Link><Link href={`/guru/kelas/${kelasId}/modul`} className="tailadmin-button-outline px-4 py-2">Buka Modul</Link></>} />
       <RubricManager initialRubrics={rubrics.items.map(serializeRubric)} />
       <AssignmentBuilder kelasId={kelasId} initialAssignments={items.map(serializeAssignment)} rubrics={rubrics.items.map(serializeRubric)} />
     </main>

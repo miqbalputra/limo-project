@@ -11,6 +11,7 @@ import { requireActor, requireRole } from "@/server/auth/session";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { listKelas, listPrograms } from "@/server/services/master-data-service";
 import { getSiswa, listWaliOptions } from "@/server/services/people-service";
+import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Detail Siswa" };
 
@@ -28,7 +29,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   return (
     <main className="space-y-6">
       <div>
-        <Link href="/admin/siswa" className="text-theme-sm font-semibold text-brand-500">Kembali ke daftar siswa</Link>
+        <Link href="/admin/siswa" className="text-theme-sm font-semibold text-limo-blue-700">Kembali ke daftar siswa</Link>
         <h1 className="mt-2 tailadmin-page-title">{item.name}</h1>
         <p className="mt-1 tailadmin-muted">{item.nomorInduk} / {item.program.name}</p>
       </div>
@@ -58,7 +59,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
         {item.enrollments.map((entry) => (
           <div key={entry.id} className="border-b border-gray-100 px-5 py-4 last:border-0">
             <p className="text-theme-sm font-semibold text-gray-800">{entry.kelas.name}</p>
-            <p className="text-theme-xs text-gray-500">{entry.status} / {entry.startDate.toISOString().slice(0, 10)} - {entry.endDate?.toISOString().slice(0, 10) || "sekarang"}</p>
+            <p className="text-theme-xs text-gray-500">{formatUiLabel(entry.status)} / {entry.startDate.toISOString().slice(0, 10)} - {entry.endDate?.toISOString().slice(0, 10) || "sekarang"}</p>
           </div>
         ))}
       </section>

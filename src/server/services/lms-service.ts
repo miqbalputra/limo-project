@@ -3,7 +3,7 @@ import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canManageClass } from "@/server/policies/access-policy";
-import { createMateriSchema, createSesiKelasSchema, updateMateriStatusSchema } from "@/server/validation/lms";
+import { cancelSesiKelasSchema, createMateriSchema, createSesiKelasSchema, updateMateriStatusSchema, updateSesiKelasSchema } from "@/server/validation/lms";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 
 function parseDate(value: string) {
@@ -15,6 +15,41 @@ async function assertCanManageClass(actor: Actor, kelasId: string) {
 
   if (!allowed) {
     throw new ForbiddenError("Anda tidak memiliki akses mengelola kelas ini");
+  }
+}
+
+async function getSessionMutationScope(actor: Actor, kelasId: string) {
+  if (actor.role === "ADMIN") {
+    return "ADMIN_OVERRIDE" as const;
+  }
+
+  if (actor.role !== "GURU") {
+    throw new ForbiddenError("Hanya Guru pemilik kelas atau Admin yang dapat mengelola sesi");
+  }
+
+  await assertCanManageClass(actor, kelasId);
+  return "GURU_OWNER" as const;
+}
+
+function getSessionAuditAction(scope: "ADMIN_OVERRIDE" | "GURU_OWNER", action: "CREATED" | "DUPLICATED" | "UPDATED" | "CANCELLED") {
+  return scope === "ADMIN_OVERRIDE" ? `SESI_KELAS_ADMIN_OVERRIDE_${action}` : `SESI_KELAS_${action}`;
+}
+
+function requireSessionOverrideReason(status: string, scope: "ADMIN_OVERRIDE" | "GURU_OWNER", reason: string | undefined) {
+  if (status === "CANCELLED") {
+    throw new ConflictError("Sesi yang dibatalkan tidak dapat diubah");
+  }
+
+  if (status !== "FINAL") {
+    return;
+  }
+
+  if (scope !== "ADMIN_OVERRIDE") {
+    throw new ConflictError("Sesi final terkunci. Hubungi Admin bila perlu dilakukan override.");
+  }
+
+  if (!reason?.trim()) {
+    throw new ValidationError("Alasan override wajib diisi untuk sesi yang sudah final", { reason: ["Alasan override wajib diisi untuk sesi yang sudah final"] });
   }
 }
 
@@ -82,6 +117,58 @@ export async function listSesiKelas(actor: Actor, kelasId: string, paginationInp
   return { items, pagination: paginationMeta };
 }
 
+export type SessionWorkspaceFilters = PaginationInput & {
+  kelasId?: string;
+  status?: "DRAFT" | "FINAL" | "CANCELLED";
+};
+
+export async function listSessionWorkspace(actor: Actor, input: SessionWorkspaceFilters = {}) {
+  if (actor.role !== "ADMIN" && actor.role !== "GURU") {
+    throw new ForbiddenError();
+  }
+
+  if (input.kelasId && actor.role === "GURU") {
+    await assertCanManageClass(actor, input.kelasId);
+  }
+
+  const where = {
+    ...(input.kelasId ? { kelasId: input.kelasId } : {}),
+    ...(input.status ? { status: input.status } : {}),
+    kelas: actor.role === "ADMIN"
+      ? { status: "ACTIVE" as const }
+      : { status: "ACTIVE" as const, guruProfile: { userId: actor.id } },
+  };
+  const pagination = resolvePagination(input, 30);
+  const [totalItems, items] = await Promise.all([
+    prisma.sesiKelas.count({ where }),
+    prisma.sesiKelas.findMany({
+      where,
+      orderBy: [{ sessionDate: "desc" }, { meetingNumber: "desc" }],
+      skip: pagination.skip,
+      take: pagination.take,
+      select: {
+        id: true,
+        meetingNumber: true,
+        topic: true,
+        sessionDate: true,
+        status: true,
+        kelas: {
+          select: {
+            id: true,
+            name: true,
+            program: { select: { name: true } },
+            level: { select: { name: true } },
+            guruProfile: { select: { user: { select: { name: true } } } },
+          },
+        },
+        _count: { select: { presensi: true, progresBelajar: true, materi: true } },
+      },
+    }),
+  ]);
+
+  return { items, pagination: createPaginationMeta(pagination.page, pagination.pageSize, totalItems) };
+}
+
 export async function listGuruSchedule(actor: Actor, from: Date, to: Date) {
   if (actor.role !== "GURU") {
     throw new ForbiddenError();
@@ -122,7 +209,7 @@ export async function createSesiKelas(actor: Actor, input: unknown) {
     throw new ValidationError("Data sesi kelas belum valid", parsed.error.flatten().fieldErrors);
   }
 
-  await assertCanManageClass(actor, parsed.data.kelasId);
+  const scope = await getSessionMutationScope(actor, parsed.data.kelasId);
 
   const item = await prisma.sesiKelas.create({
     data: {
@@ -141,7 +228,13 @@ export async function createSesiKelas(actor: Actor, input: unknown) {
   });
 
   await prisma.auditLog.create({
-    data: { actorId: actor.id, action: "SESI_KELAS_CREATED", entityType: "SesiKelas", entityId: item.id },
+    data: {
+      actorId: actor.id,
+      action: getSessionAuditAction(scope, "CREATED"),
+      entityType: "SesiKelas",
+      entityId: item.id,
+      metadata: { kelasId: parsed.data.kelasId, meetingNumber: item.meetingNumber, ownership: scope },
+    },
   });
 
   return { item };
@@ -166,7 +259,7 @@ export async function duplicateSesiKelas(actor: Actor, sesiKelasId: string) {
     throw new NotFoundError("Sesi kelas tidak ditemukan");
   }
 
-  await assertCanManageClass(actor, source.kelasId);
+  const scope = await getSessionMutationScope(actor, source.kelasId);
   const latest = await prisma.sesiKelas.aggregate({ where: { kelasId: source.kelasId }, _max: { meetingNumber: true } });
   const meetingNumber = (latest._max.meetingNumber || 0) + 1;
 
@@ -203,10 +296,10 @@ export async function duplicateSesiKelas(actor: Actor, sesiKelasId: string) {
     await tx.auditLog.create({
       data: {
         actorId: actor.id,
-        action: "SESI_KELAS_DUPLICATED",
+        action: getSessionAuditAction(scope, "DUPLICATED"),
         entityType: "SesiKelas",
         entityId: duplicate.id,
-        metadata: { sourceSesiKelasId: source.id, materialCount: source.materi.length },
+        metadata: { sourceSesiKelasId: source.id, materialCount: source.materi.length, ownership: scope },
       },
     });
 
@@ -220,6 +313,87 @@ export async function duplicateSesiKelas(actor: Actor, sesiKelasId: string) {
   });
 
   return { item: { ...item, materialCount: source.materi.length } };
+}
+
+export async function updateSesiKelas(actor: Actor, sesiKelasId: string, input: unknown) {
+  const parsed = updateSesiKelasSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new ValidationError("Data sesi kelas belum valid", parsed.error.flatten().fieldErrors);
+  }
+
+  const existing = await prisma.sesiKelas.findUnique({
+    where: { id: sesiKelasId },
+    select: { id: true, kelasId: true, meetingNumber: true, topic: true, sessionDate: true, status: true },
+  });
+  if (!existing) {
+    throw new NotFoundError("Sesi kelas tidak ditemukan");
+  }
+
+  const scope = await getSessionMutationScope(actor, existing.kelasId);
+  requireSessionOverrideReason(existing.status, scope, parsed.data.reason || undefined);
+  const sessionDate = parseDate(parsed.data.sessionDate);
+  const item = await prisma.sesiKelas.update({
+    where: { id: sesiKelasId },
+    data: { meetingNumber: parsed.data.meetingNumber, topic: parsed.data.topic, sessionDate },
+    select: { id: true, meetingNumber: true, topic: true, sessionDate: true, status: true },
+  }).catch((error: unknown) => {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+      throw new ConflictError("Nomor pertemuan sudah ada untuk kelas ini");
+    }
+    throw error;
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      actorId: actor.id,
+      action: getSessionAuditAction(scope, "UPDATED"),
+      entityType: "SesiKelas",
+      entityId: sesiKelasId,
+      reason: parsed.data.reason || undefined,
+      metadata: {
+        ownership: scope,
+        before: { meetingNumber: existing.meetingNumber, topic: existing.topic, sessionDate: existing.sessionDate.toISOString() },
+        after: { meetingNumber: item.meetingNumber, topic: item.topic, sessionDate: item.sessionDate.toISOString() },
+      },
+    },
+  });
+
+  return { item };
+}
+
+export async function cancelSesiKelas(actor: Actor, sesiKelasId: string, input: unknown = {}) {
+  const parsed = cancelSesiKelasSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new ValidationError("Pembatalan sesi belum valid", parsed.error.flatten().fieldErrors);
+  }
+
+  const existing = await prisma.sesiKelas.findUnique({
+    where: { id: sesiKelasId },
+    select: { id: true, kelasId: true, meetingNumber: true, topic: true, status: true },
+  });
+  if (!existing) {
+    throw new NotFoundError("Sesi kelas tidak ditemukan");
+  }
+
+  const scope = await getSessionMutationScope(actor, existing.kelasId);
+  requireSessionOverrideReason(existing.status, scope, parsed.data.reason || undefined);
+  const item = await prisma.sesiKelas.update({
+    where: { id: sesiKelasId },
+    data: { status: "CANCELLED" },
+    select: { id: true, status: true },
+  });
+  await prisma.auditLog.create({
+    data: {
+      actorId: actor.id,
+      action: getSessionAuditAction(scope, "CANCELLED"),
+      entityType: "SesiKelas",
+      entityId: sesiKelasId,
+      reason: parsed.data.reason || undefined,
+      metadata: { ownership: scope, meetingNumber: existing.meetingNumber, topic: existing.topic },
+    },
+  });
+
+  return { item };
 }
 
 export async function listMateri(actor: Actor, kelasId: string, paginationInput?: PaginationInput) {
@@ -241,6 +415,7 @@ export async function listMateri(actor: Actor, kelasId: string, paginationInput?
         status: true,
         language: true,
         direction: true,
+        content: true,
         order: true,
         videoUrl: true,
         files: {

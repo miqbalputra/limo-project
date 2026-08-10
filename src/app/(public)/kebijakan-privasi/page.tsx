@@ -6,7 +6,7 @@ export default function PrivacyPolicyPage() {
   return (
     <main className="min-h-screen bg-gray-50 px-5 py-12 sm:px-6">
       <article className="mx-auto max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 shadow-theme-xs sm:p-10">
-        <Link href="/" className="text-theme-sm font-semibold text-brand-500">Kembali ke beranda</Link>
+        <Link href="/" className="text-theme-sm font-semibold text-limo-blue-700">Kembali ke beranda</Link>
         <h1 className="mt-5 text-3xl font-semibold text-gray-900">Kebijakan Privasi</h1>
         <p className="mt-2 text-theme-sm text-gray-500">Terakhir diperbarui: 22 Juli 2026</p>
         <div className="mt-8 space-y-6 text-theme-sm leading-7 text-gray-700">

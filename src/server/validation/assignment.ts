@@ -28,6 +28,8 @@ export const saveAssignmentDraftSchema = z.object({
   onlineText: z.string().max(50000).optional().or(z.literal("")),
   externalLink: optionalHttpUrl,
   version: z.coerce.number().int().min(0).optional(),
+  remedialId: z.string().trim().min(1).max(191).optional(),
+  revisionRequestId: z.string().trim().min(1).max(191).optional(),
 });
 
 export const submitAssignmentSchema = z.object({
@@ -35,4 +37,6 @@ export const submitAssignmentSchema = z.object({
   externalLink: optionalHttpUrl,
   version: z.coerce.number().int().min(0).optional(),
   mediaDuration: optionalMediaDuration,
+  remedialId: z.string().trim().min(1).max(191).optional(),
+  revisionRequestId: z.string().trim().min(1).max(191).optional(),
 });

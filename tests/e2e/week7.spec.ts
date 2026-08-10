@@ -14,8 +14,8 @@ test("Guru can open the Gradebook manager from class detail", async ({ page }) =
   await expect(page).toHaveURL(/\/guru$/);
   await page.goto("/guru/kelas");
   await page.getByRole("link", { name: "Kelola Kelas" }).first().click();
-  await page.getByRole("link", { name: "Buka Gradebook" }).click();
-  await expect(page.getByRole("heading", { name: /Gradebook/ }).first()).toBeVisible();
+  await page.getByRole("link", { name: "Buka Buku Nilai" }).click();
+  await expect(page.getByRole("heading", { name: /Buku Nilai/ }).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Kategori dan item" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
 });
@@ -34,7 +34,7 @@ test("Siswa and Wali can open read-only Gradebook views", async ({ page }) => {
   await expect(page).toHaveURL(/\/wali$/);
   await page.goto("/wali/progres");
   await page.getByRole("link", { name: "Detail" }).first().click();
-  await page.getByRole("link", { name: "Gradebook" }).click();
+  await page.getByRole("link", { name: "Buku Nilai" }).click();
   await expect(page.getByRole("heading", { name: /Nilai/ }).first()).toBeVisible();
 });
 
@@ -60,9 +60,17 @@ test("Siswa and Wali cannot see a Guru's unpublished calculated grade", async ({
         headers: { "Content-Type": "application/json" },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
-      const payload = await response.json();
+      const raw = await response.text();
+      let payload: { data?: { item?: { id?: string } }; error?: unknown };
+      try {
+        payload = JSON.parse(raw) as typeof payload;
+      } catch {
+        throw new Error(`${path} returned ${response.status} (${response.headers.get("content-type")}): ${raw.slice(0, 240)}`);
+      }
       if (!response.ok) throw new Error(`${path} returned ${response.status}: ${JSON.stringify(payload)}`);
-      return payload.data.item;
+      const item = payload.data?.item;
+      if (!item) throw new Error(`${path} returned ${response.status} without a data.item payload`);
+      return item;
     }
 
     const category = await request(`/api/v1/guru/kelas/${classId}/gradebook/categories`, { name: `R5 E2E draft ${Date.now()}`, weight: 100, order: 0 });

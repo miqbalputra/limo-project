@@ -3,6 +3,7 @@ import { requireActor, requireRole } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { DashboardHero, EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
+import { withWaliChildContext } from "@/lib/wali-selector";
 
 export const metadata = { title: "Profil Wali" };
 
@@ -34,7 +35,7 @@ export default async function WaliProfilPage() {
         title="Profil"
         description="Pastikan data akun dan relasi anak sudah sesuai. Data kontak dipakai admin LIMO untuk komunikasi penting terkait kelas, progres, dan tagihan."
         actions={<Link href="/ubah-password" className="tailadmin-button-primary gap-2"><DashboardIcon name="lock" className="size-4" />Ubah Password</Link>}
-        aside={<div className="grid size-20 place-items-center rounded-3xl bg-brand-50 text-3xl font-semibold text-brand-600 shadow-theme-xs">{actor.name.slice(0, 1).toUpperCase()}</div>}
+        aside={<div className="grid size-20 place-items-center rounded-3xl bg-limo-blue-50 text-3xl font-semibold text-limo-blue-700 shadow-theme-xs">{actor.name.slice(0, 1).toUpperCase()}</div>}
       />
 
       <section className="grid gap-4 lg:grid-cols-3">
@@ -75,16 +76,16 @@ export default async function WaliProfilPage() {
           {profile?.siswaRelations.length ? profile.siswaRelations.map((relation) => (
             <article key={relation.siswa.id} className="min-w-0 rounded-2xl bg-gray-50 p-4">
               <div className="flex min-w-0 items-start gap-3">
-                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-theme-sm font-semibold text-brand-600 shadow-theme-xs">{relation.siswa.name.slice(0, 1).toUpperCase()}</span>
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-theme-sm font-semibold text-limo-blue-700 shadow-theme-xs">{relation.siswa.name.slice(0, 1).toUpperCase()}</span>
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-gray-900" title={relation.siswa.name}>{relation.siswa.name}</p>
                   <p className="mt-1 truncate text-theme-sm text-gray-500">{relation.siswa.nomorInduk} / {relation.siswa.program.name}</p>
-                  <p className="mt-1 text-theme-xs font-semibold text-brand-500">{relation.relationship || "Wali"}{relation.isPrimary ? " / Utama" : ""}</p>
+                  <p className="mt-1 text-theme-xs font-semibold text-limo-blue-700">{relation.relationship || "Wali"}{relation.isPrimary ? " / Utama" : ""}</p>
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Link href={`/wali/progres/${relation.siswa.id}`} className="tailadmin-button-primary px-3 py-2">Progres</Link>
-                <Link href="/wali/nilai" className="tailadmin-button-outline px-3 py-2">Nilai</Link>
+                <Link href={withWaliChildContext("/wali/nilai", relation.siswa.id)} className="tailadmin-button-outline px-3 py-2">Nilai</Link>
               </div>
             </article>
           )) : <EmptyState icon="student" title="Belum ada anak terhubung" description="Hubungi admin LIMO jika akun wali seharusnya sudah terhubung dengan anak." />}

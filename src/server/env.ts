@@ -79,6 +79,8 @@ const envSchema = z.object({
   ASSIGNMENTS_ENABLED: optionalFeatureFlagFromString,
   GRADEBOOK_ENABLED: optionalFeatureFlagFromString,
   CALENDAR_ENABLED: optionalFeatureFlagFromString,
+  ACTIVITY_COMPLETION_ENABLED: optionalFeatureFlagFromString,
+  REMEDIAL_ENABLED: optionalFeatureFlagFromString,
   CLASS_DISCUSSION_ENABLED: optionalFeatureFlagFromString,
   PERIODIC_REPORTS_ENABLED: optionalFeatureFlagFromString,
   GUARDIAN_ASSISTED_SUBMISSION_ENABLED: optionalFeatureFlagFromString,

@@ -21,7 +21,7 @@ export default async function AdminLevelPage() {
       {levels.length > 0 ? <section className="tailadmin-card overflow-hidden">
         {levels.map((level) => (
           <article key={level.id} className="border-b border-gray-200 p-5 last:border-b-0">
-            <p className="text-theme-sm font-semibold text-brand-500">{level.program.name}</p>
+            <p className="text-theme-sm font-semibold text-limo-blue-700">{level.program.name}</p>
             <h2 className="mt-1 font-semibold text-gray-900">{level.order}. {level.name}</h2>
             <p className="mt-2 text-theme-sm text-gray-500">{level._count.kelas} kelas</p>
             <MasterDataActions resource="level" id={level.id} name={level.name} order={level.order} description={level.description || ""} archived={!level.isActive} />

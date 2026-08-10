@@ -5,10 +5,13 @@ import type { Prisma } from "@prisma/client";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
-import { requireFeature } from "@/server/features/feature-flags";
+import { isFeatureEnabled, requireFeature } from "@/server/features/feature-flags";
 import { canAccessStudent, canManageClass } from "@/server/policies/access-policy";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
 import { syncGradebookForSource } from "@/server/services/gradebook-service";
+import { syncActivityCompletionForAssignment } from "@/server/services/activity-completion-service";
+import { markRevisionCompleted } from "@/server/services/assignment-revision-service";
+import { syncRemedialResultsForAssignment } from "@/server/services/remedial-service";
 import { createRubricSchema, attachRubricSchema, saveSubmissionGradeSchema, updateRubricSchema, updateRubricStatusSchema } from "@/server/validation/rubric";
 
 type RubricSnapshot = {
@@ -129,7 +132,7 @@ export async function attachRubricToAssignment(actor: Actor, assignmentId: strin
 
 async function getSubmissionContext(actor: Actor, submissionId: string) {
   requireRubricFeature();
-  const submission = await prisma.assignmentSubmission.findUnique({ where: { id: submissionId }, select: { id: true, studentId: true, status: true, assignment: { select: { id: true, title: true, kelasId: true, maxScore: true, rubricSnapshot: true } }, student: { select: { id: true, name: true, nomorInduk: true } }, files: { select: { id: true, originalName: true, mimeType: true, sizeBytes: true, mediaDuration: true, createdAt: true } }, grades: { orderBy: { createdAt: "desc" }, select: { id: true, rawScore: true, score: true, feedbackText: true, status: true, correctionReason: true, publishedAt: true, createdAt: true, criteria: { select: { id: true, criterionId: true, rubricLevelId: true, score: true, comment: true } } } } } });
+  const submission = await prisma.assignmentSubmission.findUnique({ where: { id: submissionId }, select: { id: true, studentId: true, status: true, remedialParticipantId: true, revisionRequestId: true, assignment: { select: { id: true, title: true, kelasId: true, maxScore: true, rubricSnapshot: true } }, student: { select: { id: true, name: true, nomorInduk: true } }, files: { select: { id: true, originalName: true, mimeType: true, sizeBytes: true, mediaDuration: true, createdAt: true } }, grades: { orderBy: { createdAt: "desc" }, select: { id: true, rawScore: true, score: true, feedbackText: true, status: true, correctionReason: true, publishedAt: true, createdAt: true, criteria: { select: { id: true, criterionId: true, rubricLevelId: true, score: true, comment: true } } } } } });
   if (!submission) throw new NotFoundError("Submission tidak ditemukan");
   await assertGuruClass(actor, submission.assignment.kelasId);
   if (submission.status === "DRAFT") throw new ConflictError("Submission belum dikumpulkan");
@@ -203,7 +206,10 @@ export async function publishSubmissionGrade(actor: Actor, submissionId: string,
   });
   await notifyStudentGrade(submission.studentId, submission.assignment.title, published.id, published.score);
   await notifyWaliForStudents({ siswaIds: [submission.studentId], template: "assignment-grade-published", subject: `Feedback tugas: ${submission.assignment.title}`, body: `Nilai dan feedback tugas ${submission.assignment.title} sudah tersedia untuk anak.`, dedupeKey: published.id, metadata: { gradeId: published.id, assignmentId: submission.assignment.id } });
+  if (submission.revisionRequestId && isFeatureEnabled("remedialEnabled")) await markRevisionCompleted(submission.revisionRequestId, actor.id);
+  if (isFeatureEnabled("remedialEnabled")) await syncRemedialResultsForAssignment(submission.assignment.id, submission.studentId, actor.id);
   await syncGradebookForSource("ASSIGNMENT", submission.assignment.id);
+  await syncActivityCompletionForAssignment(submission.assignment.id, submission.studentId);
   return { item: published };
 }
 

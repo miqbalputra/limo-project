@@ -1,9 +1,15 @@
+import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { listKelas, listPrograms } from "@/server/services/master-data-service";
-import { listTagihan, listTarif } from "@/server/services/billing-service";
+import { getTagihanSummary, listTagihan, listTarif } from "@/server/services/billing-service";
 import { isMayarConfigured } from "@/server/providers/payment/mayar";
-import { GenerateInvoiceForm, ReconcilePaymentButton, TarifForm } from "@/components/dashboard/billing-forms";
+import { GenerateInvoiceForm, TarifForm } from "@/components/dashboard/billing-forms";
+import { AdminBillingWorkspace, type AdminBillingInvoice } from "@/components/dashboard/admin-billing-workspace";
+import { DashboardHero, SectionHeader } from "@/components/dashboard/dashboard-widgets";
+import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
+import { Money } from "@/components/dashboard/money";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
+import { tagihanStatusSchema } from "@/server/validation/billing";
 
 export const metadata = { title: "Tagihan" };
 
@@ -14,40 +20,87 @@ export default async function AdminTagihanPage({ searchParams }: { searchParams:
   const page = Number(Array.isArray(params.page) ? params.page[0] : params.page) || 1;
   const search = String(Array.isArray(params.search) ? params.search[0] || "" : params.search || "").trim();
   const requestedStatus = String(Array.isArray(params.status) ? params.status[0] || "" : params.status || "");
-  const status = ["UNPAID", "PENDING", "PAID", "OVERDUE", "CANCELLED", "REFUNDED"].includes(requestedStatus) ? requestedStatus as "UNPAID" | "PENDING" | "PAID" | "OVERDUE" | "CANCELLED" | "REFUNDED" : undefined;
-  const [{ items: tagihan, pagination: tagihanPagination }, { items: tarif }, { items: programs }, { items: kelas }] = await Promise.all([
+  const parsedStatus = tagihanStatusSchema.safeParse(requestedStatus);
+  const status = parsedStatus.success ? parsedStatus.data : undefined;
+  const [{ items: tagihan, pagination: tagihanPagination }, { items: tarif }, { items: programs }, { items: kelas }, summary] = await Promise.all([
     listTagihan(actor, { page, pageSize: 20 }, { search, status }),
     listTarif(actor),
     listPrograms(actor),
     listKelas(actor),
+    getTagihanSummary(actor),
   ]);
   const mayarConfigured = isMayarConfigured();
 
   return (
     <main className="space-y-6">
-      <div><h1 className="tailadmin-page-title">Tagihan</h1><p className="mt-2 tailadmin-muted">Kelola tarif, generate tagihan bulanan, pantau histori pembayaran, dan rekonsiliasi Mayar.</p></div>
-      <section className={`rounded-2xl border p-4 ${mayarConfigured ? "border-success-200 bg-success-50" : "border-warning-200 bg-warning-50"}`}>
-        <p className={`text-theme-sm font-semibold ${mayarConfigured ? "text-success-800" : "text-warning-800"}`}>Payment Gateway: Mayar {mayarConfigured ? "aktif" : "belum dikonfigurasi"}</p>
-        <p className={`mt-1 text-theme-xs ${mayarConfigured ? "text-success-700" : "text-warning-700"}`}>Wali dapat membayar melalui checkout Mayar dengan QRIS, Virtual Account, dan kanal yang aktif pada dashboard merchant Mayar.</p>
+      <DashboardHero
+        eyebrow="Administrasi / Keuangan"
+        title="Tagihan"
+        description="Kelola tarif, buat tagihan, dan pantau arus pembayaran LIMO dengan tampilan yang ringkas untuk keputusan cepat."
+        actions={<><a href="#invoice-tools" className="tailadmin-button-primary gap-2"><DashboardIcon name="billing" className="size-4" />Kelola tagihan</a><Link href="/admin/pembayaran" className="tailadmin-button-outline gap-2"><DashboardIcon name="billing" className="size-4" />Ledger pembayaran</Link><Link href="/admin/laporan" className="tailadmin-button-outline gap-2"><DashboardIcon name="audit" className="size-4" />Lihat laporan</Link></>}
+        aside={<div className="w-full min-w-0 rounded-2xl bg-gray-950 px-5 py-4 text-white shadow-theme-lg lg:w-auto lg:min-w-64"><div className="flex items-center justify-between gap-4"><div><p className="text-theme-xs text-white/50">Gerbang pembayaran</p><p className="mt-1 text-lg font-semibold">Mayar</p></div><span className={`size-3 rounded-full ${mayarConfigured ? "bg-success-400" : "bg-warning-400"}`} /></div><p className="mt-3 text-theme-xs text-white/65">{mayarConfigured ? "Pembayaran siap digunakan Wali." : "Kunci API belum dikonfigurasi."}</p></div>}
+      />
+
+      <section className={`rounded-2xl border p-4 sm:flex sm:items-center sm:justify-between sm:gap-6 ${mayarConfigured ? "border-success-200 bg-success-50" : "border-warning-200 bg-warning-50"}`} aria-label="Status gerbang pembayaran">
+        <div className="flex items-start gap-3"><span className={`mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg ${mayarConfigured ? "bg-success-100 text-success-700" : "bg-warning-100 text-warning-700"}`}><DashboardIcon name="billing" className="size-4" /></span><div><p className={`text-theme-sm font-semibold ${mayarConfigured ? "text-success-800" : "text-warning-800"}`}>Gerbang Pembayaran: Mayar {mayarConfigured ? "aktif" : "belum dikonfigurasi"}</p><p className={`mt-1 text-theme-xs leading-5 ${mayarConfigured ? "text-success-700" : "text-warning-700"}`}>Wali dapat membayar melalui Mayar dengan QRIS, Akun Virtual, dan kanal yang aktif pada dasbor pedagang Mayar.</p></div></div>
+        <span className={`mt-3 inline-flex w-fit shrink-0 rounded-full px-3 py-1 text-[10px] font-semibold sm:mt-0 ${mayarConfigured ? "bg-white text-success-700" : "bg-white text-warning-700"}`}>{mayarConfigured ? "Siap menerima pembayaran" : "Perlu konfigurasi"}</span>
       </section>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <TarifForm programs={programs.map((p) => ({ id: p.id, name: p.name }))} kelas={kelas.map((k) => ({ id: k.id, name: `${k.program.name} - ${k.name}` }))} />
-        <GenerateInvoiceForm />
-      </div>
-      <section className="grid gap-4 lg:grid-cols-2">
-          <div className="tailadmin-card p-5"><h2 className="font-semibold text-gray-900">Tarif</h2>{tarif.length > 0 ? <div className="mt-4 space-y-3">{tarif.map((item) => <article key={item.id} className="rounded-xl bg-gray-50 p-3"><div className="flex items-start justify-between gap-3"><p className="font-semibold text-gray-800">{item.name}</p><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${item.isActive ? "bg-success-50 text-success-700" : "bg-gray-100 text-gray-500"}`}>{item.isActive ? "Aktif" : "Arsip"}</span></div><p className="text-theme-sm text-gray-500">Rp {item.amount.toString()} / {item.program?.name || item.kelas?.name}</p><p className="mt-1 text-theme-xs text-gray-400">Berlaku {formatDate(item.effectiveFrom)}{item.effectiveTo ? ` - ${formatDate(item.effectiveTo)}` : ""}</p></article>)}</div> : <p className="mt-4 text-theme-sm text-gray-500">Belum ada tarif. Tambahkan tarif melalui formulir di atas.</p>}</div>
-          <div className="tailadmin-card p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold text-gray-900">Tagihan Terbaru</h2><p className="mt-1 text-theme-xs text-gray-500">Filter tagihan dan lihat histori transaksi Mayar.</p></div><form method="get" className="flex flex-wrap gap-2"><input name="search" defaultValue={search} aria-label="Cari tagihan" placeholder="Cari siswa / nomor induk" className="tailadmin-input w-48 py-2" /><select name="status" defaultValue={status || ""} aria-label="Filter status tagihan" className="tailadmin-input w-40 py-2"><option value="">Semua status</option><option value="UNPAID">Belum dibayar</option><option value="PENDING">Menunggu</option><option value="PAID">Lunas</option><option value="OVERDUE">Lewat tempo</option><option value="CANCELLED">Dibatalkan</option></select><button className="tailadmin-button-outline px-3 py-2">Filter</button></form></div>{tagihan.length > 0 ? <div className="mt-4 space-y-3">{tagihan.map((item) => <article key={item.id} className="rounded-xl bg-gray-50 p-3"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-semibold text-gray-800">{item.siswa.name}</p><p className="text-theme-xs text-gray-500">{item.siswa.nomorInduk} / {item.jenis} {item.periode.toISOString().slice(0, 7)}</p></div><span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-gray-600">{item.status}</span></div><p className="mt-2 text-theme-sm text-gray-500">Rp {item.amount.toString()} / jatuh tempo {formatDate(item.dueDate)}</p>{item.paymentHistory.length > 0 ? <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3"><p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-400">Histori Pembayaran</p><div className="mt-2 space-y-1">{item.paymentHistory.map((payment) => <p key={payment.id} className="text-theme-xs text-gray-600">{payment.provider.toUpperCase()} / {formatPaymentMethod(payment.paymentMethod)} / {payment.status}{payment.paidAt ? ` / ${formatDate(payment.paidAt)}` : ""}</p>)}</div></div> : <p className="mt-2 text-theme-xs text-gray-400">Belum ada transaksi payment gateway.</p>}<ReconcilePaymentButton tagihanId={item.id} disabled={item.status === "PAID"} /></article>)}</div> : <p className="mt-4 text-theme-sm text-gray-500">Belum ada tagihan sesuai filter.</p>}</div>
+
+      <AdminBillingWorkspace
+        invoices={tagihan.map(serializeInvoice)}
+        summary={summary}
+        search={search}
+        status={status}
+      />
+
+      <section id="invoice-tools" className="space-y-4">
+        <SectionHeader title="Pusat operasional" description="Siapkan tarif dan buat tagihan bulanan tanpa meninggalkan halaman keuangan." />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <TarifForm programs={programs.map((program) => ({ id: program.id, name: program.name }))} kelas={kelas.map((item) => ({ id: item.id, name: `${item.program.name} - ${item.name}` }))} />
+          <GenerateInvoiceForm />
+        </div>
       </section>
-      <PaginationControls basePath="/admin/tagihan" page={tagihanPagination.page} totalPages={tagihanPagination.totalPages} />
+
+      <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <article id="tariff-catalog" className="tailadmin-card overflow-hidden">
+          <div className="border-b border-gray-100 px-5 py-4 sm:px-6"><div className="flex items-center justify-between gap-3"><div><p className="text-theme-xs font-semibold uppercase tracking-[0.16em] text-limo-blue-700">Daftar tarif</p><h2 className="mt-1 font-semibold text-gray-900">Tarif aktif</h2><p className="mt-1 text-theme-xs text-gray-500">Tarif digunakan saat tagihan bulanan dibuat.</p></div><span className="rounded-full bg-limo-blue-50 px-2.5 py-1 text-[10px] font-semibold text-limo-blue-700">{tarif.filter((item) => item.isActive).length} aktif</span></div></div>
+          {tarif.length > 0 ? <div className="divide-y divide-gray-100">{tarif.map((item) => <div key={item.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold text-gray-800">{item.name}</p><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${item.isActive ? "bg-success-50 text-success-700" : "bg-gray-100 text-gray-500"}`}>{item.isActive ? "Aktif" : "Arsip"}</span></div><p className="mt-1 text-theme-sm text-gray-500">{item.program?.name || item.kelas?.name || "Semua program"}</p><p className="mt-1 text-theme-xs text-gray-400">Berlaku {formatDate(item.effectiveFrom)}{item.effectiveTo ? ` sampai ${formatDate(item.effectiveTo)}` : ""}</p></div><p className="shrink-0 text-lg font-semibold text-gray-900"><Money value={Number(item.amount)} /><span className="ml-1 text-theme-xs font-normal text-gray-400">/ bulan</span></p></div>)}</div> : <p className="px-6 py-10 text-center text-theme-sm text-gray-500">Belum ada tarif. Tambahkan tarif melalui formulir di atas.</p>}
+        </article>
+        <article className="tailadmin-card p-5 sm:p-6"><p className="text-theme-xs font-semibold uppercase tracking-[0.16em] text-limo-blue-700">Alur pembayaran</p><h2 className="mt-1 font-semibold text-gray-900">Alur pembayaran yang aman</h2><div className="mt-5 space-y-4">{[["01", "Siapkan tarif", "Pastikan tarif aktif sudah terkait program atau kelas."], ["02", "Tinjau tagihan", "Gunakan pratinjau untuk mengecek jumlah siswa sebelum membuat tagihan."], ["03", "Konfirmasi pembayaran", "Status lunas hanya berubah setelah webhook atau rekonsiliasi admin." ]].map(([number, title, description]) => <div key={number} className="flex gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-lg bg-gray-900 text-[10px] font-bold text-white">{number}</span><div><p className="text-theme-sm font-semibold text-gray-800">{title}</p><p className="mt-1 text-theme-xs leading-5 text-gray-500">{description}</p></div></div>)}</div><Link href="#invoice-tools" className="mt-6 inline-flex text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Mulai dari pusat operasional -&gt;</Link></article>
+      </section>
+
+      <PaginationControls basePath="/admin/tagihan" page={tagihanPagination.page} totalPages={tagihanPagination.totalPages} params={{ search: search || undefined, status }} />
     </main>
   );
 }
 
-function formatDate(value: Date) {
-  return value.toISOString().slice(0, 10);
+function serializeInvoice(item: Awaited<ReturnType<typeof listTagihan>>["items"][number]): AdminBillingInvoice {
+  return {
+    id: item.id,
+    period: item.periode.toISOString(),
+    jenis: item.jenis,
+    description: item.description,
+    amount: Number(item.amount),
+    status: item.status,
+    dueDate: item.dueDate.toISOString(),
+    paidAt: item.paidAt?.toISOString() ?? null,
+    siswa: item.siswa,
+    paymentUrl: item.paymentUrl,
+    paymentAvailable: item.paymentAvailable,
+    paymentHistoryCount: item.paymentHistoryCount,
+    paymentHistory: item.paymentHistory.map((payment) => ({
+      id: payment.id,
+      provider: payment.provider,
+      providerReference: payment.providerReference,
+      amount: Number(payment.amount),
+      status: payment.status,
+      paymentMethod: payment.paymentMethod,
+      paidAt: payment.paidAt?.toISOString() ?? null,
+      createdAt: payment.createdAt.toISOString(),
+    })),
+  };
 }
 
-function formatPaymentMethod(value: string | null) {
-  if (!value) return "Checkout";
-  return value.replace("va/", "VA ").replace("ewallet/", "").replace("outlet/", "").toUpperCase();
+function formatDate(value: Date) {
+  return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Jakarta" }).format(value);
 }

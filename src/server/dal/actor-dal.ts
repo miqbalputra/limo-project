@@ -1,10 +1,9 @@
 import "server-only";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
-import { getSelectedWaliStudentId } from "@/server/dal/wali-selector-dal";
 import { getJakartaDayRange, getJakartaMonthRange } from "@/server/time/jakarta";
 
-export async function getActorDashboardContext(actor: Actor) {
+export async function getActorDashboardContext(actor: Actor, selectedStudentId: string | null = null) {
   if (actor.role === "ADMIN") {
     const month = getJakartaMonthRange();
     const [studentCount, teacherCount, guardianCount, pendingRegistrations, openInvoiceCount, overdueInvoiceCount, paidInvoiceTotal, openInvoiceTotal, attendanceTotal, attendancePresent, progressAverage, examCount, publishedMaterialCount] = await Promise.all([
@@ -75,7 +74,6 @@ export async function getActorDashboardContext(actor: Actor) {
     };
   }
 
-  const selectedStudentId = await getSelectedWaliStudentId(actor);
   const profile = await prisma.waliProfile.findUnique({
     where: { userId: actor.id },
     select: {

@@ -519,7 +519,7 @@ Belum ada completion rule, activity completion, module progress, checklist, sour
 
 ### Fase 8: Remedial dan Revisi
 
-Belum ada model remedial, participant, score policy, flow assignment remedial, kalender remedial, atau UI. Koreksi ujian existing bukan pengganti sistem remedial.
+Implemented for assignment sources. `RemedialAssignment`, `RemedialParticipant`, score policy `LATEST/HIGHEST/AVERAGE/CAPPED`, participant-scoped submission context, revision request, Gradebook effective score, calendar `REMEDIAL_DUE`, To-do, reminder, notifications, and Guru/Siswa/Wali UI are available. QUIZ, EXAM, and COMPETENCY remedial sources remain explicitly deferred because their existing attempt flows are not compatible yet.
 
 ### Fase 9: Pengumuman dan Ruang Tanya Jawab
 

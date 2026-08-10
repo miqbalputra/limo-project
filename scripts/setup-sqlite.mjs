@@ -5,7 +5,13 @@ import { prepareSqliteSchema } from "./prepare-sqlite-schema.mjs";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const prismaCli = path.join(rootDir, "node_modules", "prisma", "build", "index.js");
-const env = { ...process.env, DATABASE_URL: "file:./dev.db" };
+const databaseUrl = process.env.LIMO_SQLITE_DATABASE_URL || "file:./dev.db";
+
+if (!databaseUrl.startsWith("file:")) {
+  throw new Error("LIMO_SQLITE_DATABASE_URL harus menunjuk ke database SQLite file:.");
+}
+
+const env = { ...process.env, DATABASE_URL: databaseUrl, LIMO_ALLOW_DEMO_SEED: "true" };
 
 function run(command, args) {
   const result = spawnSync(command, args, {
@@ -21,8 +27,8 @@ function run(command, args) {
 
 await prepareSqliteSchema();
 run(process.execPath, [prismaCli, "validate", "--schema", "prisma/schema.sqlite.prisma"]);
-run(process.execPath, [prismaCli, "db", "push", "--schema", "prisma/schema.sqlite.prisma", "--skip-generate"]);
+run(process.execPath, [prismaCli, "db", "push", "--schema", "prisma/schema.sqlite.prisma", "--skip-generate", "--accept-data-loss"]);
 run(process.execPath, [prismaCli, "generate", "--schema", "prisma/schema.sqlite.prisma"]);
 run(process.execPath, ["--experimental-strip-types", "prisma/seed.ts"]);
 
-console.log("SQLite local database is ready at prisma/dev.db");
+console.log(`SQLite local database is ready at ${databaseUrl}`);

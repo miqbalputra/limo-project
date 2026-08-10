@@ -5,6 +5,7 @@ import { PresensiProgresForm } from "@/components/dashboard/attendance-progress-
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import { FinalizeSessionButton } from "@/components/dashboard/finalize-session-button";
+import { formatUiLabel, getUiToneClass } from "@/lib/ui-labels";
 
 export const metadata = { title: "Input Presensi" };
 
@@ -15,6 +16,7 @@ export default async function GuruInputPresensiPage({ params }: { params: Promis
   const { sesi, students } = await getSessionRoster(actor, sesiKelasId);
   const presensiFilled = students.filter((student) => student.presensi && student.presensi.length > 0).length;
   const progressFilled = students.filter((student) => student.progresBelajar && student.progresBelajar.length > 0).length;
+  const presenceStatuses = ["HADIR", "TERLAMBAT", "SAKIT", "IZIN", "ALPA"] as const;
 
   return (
     <main className="space-y-6">
@@ -23,9 +25,15 @@ export default async function GuruInputPresensiPage({ params }: { params: Promis
         title={`${sesi.meetingNumber}. ${sesi.topic}`}
          description="Catat kehadiran siswa untuk sesi ini. Perubahan presensi tidak mengubah progres belajar."
          actions={<><Link href="/guru/presensi" className="tailadmin-button-outline px-4 py-2">Kembali</Link>{sesi.status === "DRAFT" ? <><button form="presensi-form" type="submit" className="tailadmin-button-primary gap-2 px-4 py-2"><DashboardIcon name="presensi" className="size-4" />Simpan Presensi</button><FinalizeSessionButton sesiKelasId={sesi.id} /></> : null}</>}
-        aside={<div className="grid min-w-72 grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs"><MiniStat label="Siswa" value={students.length} /><MiniStat label="Presensi" value={presensiFilled} /><MiniStat label="Progres" value={progressFilled} /></div>}
+        aside={<div className="grid w-full min-w-0 grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs lg:w-auto lg:min-w-72"><MiniStat label="Siswa" value={students.length} /><MiniStat label="Presensi" value={presensiFilled} /><MiniStat label="Progres" value={progressFilled} /></div>}
       />
-       <PresensiProgresForm sesiKelasId={sesi.id} students={students} mode="presensi" readOnly={sesi.status !== "DRAFT"} />
+      <section aria-label="Ringkasan status presensi" className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {presenceStatuses.map((status) => {
+          const count = students.filter((student) => student.presensi?.[0]?.status === status).length;
+          return <div key={status} className={`rounded-xl px-4 py-3 text-center ${getUiToneClass(status)}`}><p className="text-xl font-semibold">{count}</p><p className="mt-1 text-theme-xs font-semibold">{formatUiLabel(status)}</p></div>;
+        })}
+      </section>
+      <PresensiProgresForm sesiKelasId={sesi.id} students={students} mode="presensi" readOnly={sesi.status !== "DRAFT"} />
     </main>
   );
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { notoNaskhArabic } from "@/app/fonts";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import "./globals.css";
 
@@ -26,7 +27,13 @@ export const metadata: Metadata = {
     description: "Program Bahasa Inggris dan Bahasa Arab ramah anak.",
     images: ["/opengraph-image"],
   },
-  icons: { icon: "/icon.svg", apple: "/icon.svg" },
+  icons: {
+    icon: [
+      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512x512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({
@@ -35,7 +42,7 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="id">
+    <html lang="id" className={notoNaskhArabic.variable}>
       <body>
         {children}
         <ServiceWorkerRegister />

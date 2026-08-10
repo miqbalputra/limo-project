@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import { formatUiLabel } from "@/lib/ui-labels";
 
 type RegistrationResult = {
   pendaftaran: {
@@ -94,12 +95,12 @@ export function PendaftaranForm() {
 
   return (
     <div className="mx-auto min-h-screen max-w-3xl px-6 py-12">
-      <Link href="/" className="text-theme-sm font-semibold text-brand-500">
+      <Link href="/" className="text-theme-sm font-semibold text-limo-blue-700">
         Kembali ke beranda
       </Link>
       <h1 className="mt-6 tailadmin-page-title">Pendaftaran Online</h1>
       <p className="mt-3 tailadmin-muted">
-        Isi data calon siswa dan wali. Dokumen pendukung akan ditambahkan setelah storage privat aktif.
+        Isi data calon siswa dan wali. Lampirkan dokumen pendukung dalam format PDF, JPG, atau PNG.
       </p>
 
       <form onSubmit={onSubmit} className="tailadmin-card mt-8 space-y-5 p-6">
@@ -173,14 +174,14 @@ export function PendaftaranForm() {
         </label>
 
         <label className="block text-theme-sm font-medium text-gray-700">
-          Dokumen Pendukung
+          Dokumen atau Foto Pendukung
           <input
             name="document"
             type="file"
-            accept="application/pdf,image/jpeg,image/png"
+            accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
             className="mt-2 w-full rounded-lg border border-dashed border-gray-300 px-4 py-3 text-theme-sm outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-theme-sm file:font-semibold"
           />
-          <span className="mt-2 block text-theme-xs text-gray-500">Opsional. Format PDF, JPG, atau PNG. Maksimal 10 MB.</span>
+          <span className="mt-2 block text-theme-xs text-gray-500">Opsional. Format PDF, JPG/JPEG, atau PNG. Maksimal 10 MB.</span>
         </label>
 
         <button
@@ -224,7 +225,7 @@ export function StatusPendaftaranForm() {
 
   return (
     <div className="mx-auto min-h-screen max-w-3xl px-6 py-12">
-      <Link href="/" className="text-theme-sm font-semibold text-brand-500">
+      <Link href="/" className="text-theme-sm font-semibold text-limo-blue-700">
         Kembali ke beranda
       </Link>
       <h1 className="mt-6 tailadmin-page-title">Cek Status Pendaftaran</h1>
@@ -262,7 +263,7 @@ export function StatusPendaftaranForm() {
 
       {result ? (
         <section className="tailadmin-card mt-6 p-6">
-          <p className="text-theme-sm font-semibold text-brand-500">{result.pendaftaran.kode}</p>
+          <p className="text-theme-sm font-semibold text-limo-blue-700">{result.pendaftaran.kode}</p>
           <h2 className="mt-2 text-theme-xl font-bold text-gray-900">{result.pendaftaran.studentName}</h2>
           <dl className="mt-4 grid gap-3 text-theme-sm text-gray-700 sm:grid-cols-2">
             <div>
@@ -271,7 +272,7 @@ export function StatusPendaftaranForm() {
             </div>
             <div>
               <dt className="font-semibold">Status</dt>
-              <dd>{result.pendaftaran.status}</dd>
+              <dd>{formatUiLabel(result.pendaftaran.status)}</dd>
             </div>
           </dl>
           {result.pendaftaran.rejectionReason ? (

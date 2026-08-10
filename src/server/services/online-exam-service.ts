@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
-import { getSelectedWaliStudentId } from "@/server/dal/wali-selector-dal";
+import { syncActivityCompletionForExam } from "@/server/services/activity-completion-service";
 
 const onlineDeliveryModes = ["ONLINE_VIA_WALI", "BOTH"];
 
@@ -77,9 +77,8 @@ function onlineExamWhere(siswaId: string) {
   };
 }
 
-export async function listWaliTaskChildren(actor: Actor) {
+export async function listWaliTaskChildren(actor: Actor, selectedStudentId: string | null = null) {
   const profile = await getWaliProfile(actor);
-  const selectedStudentId = await getSelectedWaliStudentId(actor);
   const relations = await prisma.waliSiswa.findMany({
     where: { waliProfileId: profile.id, endedAt: null, ...(selectedStudentId ? { siswaId: selectedStudentId } : {}) },
     orderBy: { siswa: { name: "asc" } },
@@ -273,6 +272,7 @@ export async function getWaliAttemptContext(actor: Actor, attemptId: string) {
                   question: true,
                   stimulusText: true,
                   mediaUrl: true,
+                  language: true,
                   direction: true,
                   options: { orderBy: { order: "asc" }, select: { label: true, content: true } },
                 },
@@ -472,6 +472,8 @@ export async function submitWaliAttempt(actor: Actor, attemptId: string, input: 
 
     return hasil;
   });
+
+  await syncActivityCompletionForExam(attempt.ujianId, attempt.siswaId);
 
   return { item };
 }

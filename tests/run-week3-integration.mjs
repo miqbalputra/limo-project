@@ -47,15 +47,15 @@ try {
 
   const adminDashboard = await request("/admin", { cookie: admin.cookie });
   assert.equal(adminDashboard.response.status, 200);
-  assert.match(String(adminDashboard.payload), /Admin Command Center/);
+  assert.match(String(adminDashboard.payload), /Ringkasan Operasional/);
   assert.match(String(adminDashboard.payload), /Tagihan Terbuka/);
   assert.match(String(adminDashboard.payload), /Kehadiran Bulan Ini/);
   ok("Admin dashboard exposes operational billing and academic summaries");
 
   const adminBilling = await request("/admin/tagihan?status=PAID", { cookie: admin.cookie });
   assert.equal(adminBilling.response.status, 200);
-  assert.match(String(adminBilling.payload), /Payment Gateway: Mayar/);
-  assert.match(String(adminBilling.payload), /Histori Pembayaran|Belum ada transaksi payment gateway/);
+  assert.match(String(adminBilling.payload), /Gerbang Pembayaran: Mayar/);
+  assert.match(String(adminBilling.payload), /Histori pembayaran|Belum ada transaksi/);
   ok("Admin billing page exposes Mayar status, filters, and payment history");
 
   const guruDashboard = await request("/guru", { cookie: guru.cookie });
@@ -77,7 +77,7 @@ try {
   const guruSchedule = await request("/guru/jadwal", { cookie: guru.cookie });
   assert.equal(guruSchedule.response.status, 200);
   assert.match(String(guruSchedule.payload), /Jadwal Kelas/);
-  assert.match(String(guruSchedule.payload), /Family Members/);
+  assert.match(String(guruSchedule.payload), /Agenda Kalender/);
   ok("Guru schedule calendar shows scoped class sessions");
 
   const adminReport = await request("/admin/laporan?from=2026-08-01&to=2026-08-31", { cookie: admin.cookie });
@@ -87,6 +87,39 @@ try {
   assert.match(String(adminReport.payload), /2026-08-31/);
   ok("Admin report page accepts a filtered reporting period");
 
+  const exportRegistrationEmail = `week3-export-${runId}@example.test`;
+  const exportRegistration = await request("/api/v1/pendaftaran", {
+    method: "POST",
+    body: {
+      programKind: "ENGLISH",
+      studentName: `Export Student ${runId}`,
+      studentBirthDate: "2018-02-14",
+      waliName: `Export Guardian ${runId}`,
+      waliEmail: exportRegistrationEmail,
+      waliPhone: "081234567892",
+    },
+  });
+  assert.equal(exportRegistration.response.status, 201, JSON.stringify(exportRegistration.payload));
+  const exportSearch = encodeURIComponent(`Export Student ${runId}`);
+  const pendaftaranPdf = await fetch(`${baseUrl}/api/v1/admin/pendaftaran/export/pdf?search=${exportSearch}&status=SUBMITTED`, { headers: { Cookie: admin.cookie } });
+  const pendaftaranPdfBytes = new Uint8Array(await pendaftaranPdf.arrayBuffer());
+  assert.equal(pendaftaranPdf.status, 200);
+  assert.match(pendaftaranPdf.headers.get("content-type") || "", /application\/pdf/);
+  assert.match(pendaftaranPdf.headers.get("content-disposition") || "", /limo-pendaftaran-\d{4}-\d{2}-\d{2}\.pdf/);
+  assert.equal(String.fromCharCode(...pendaftaranPdfBytes.slice(0, 4)), "%PDF");
+
+  const pendaftaranExcel = await fetch(`${baseUrl}/api/v1/admin/pendaftaran/export/excel?search=${exportSearch}&status=SUBMITTED`, { headers: { Cookie: admin.cookie } });
+  const pendaftaranExcelBytes = new Uint8Array(await pendaftaranExcel.arrayBuffer());
+  assert.equal(pendaftaranExcel.status, 200);
+  assert.match(pendaftaranExcel.headers.get("content-type") || "", /spreadsheetml/);
+  assert.match(pendaftaranExcel.headers.get("content-disposition") || "", /limo-pendaftaran-\d{4}-\d{2}-\d{2}\.xlsx/);
+  assert.equal(String.fromCharCode(...pendaftaranExcelBytes.slice(0, 2)), "PK");
+  ok("Admin pendaftaran PDF and XLSX downloads honor search/status filters");
+
+  const forbiddenPendaftaranExcel = await fetch(`${baseUrl}/api/v1/admin/pendaftaran/export/excel?search=${exportSearch}`, { headers: { Cookie: wali.cookie } });
+  assert.equal(forbiddenPendaftaranExcel.status, 403);
+  ok("Wali cannot access Admin pendaftaran XLSX");
+
   const reportCsv = await request("/api/v1/admin/laporan/export?from=2026-08-01&to=2026-08-31", { cookie: admin.cookie });
   assert.equal(reportCsv.response.status, 200);
   assert.match(reportCsv.response.headers.get("content-type") || "", /text\/csv/);
@@ -94,6 +127,21 @@ try {
   assert.match(String(reportCsv.payload), /Laporan Operasional LIMO/);
   assert.match(String(reportCsv.payload), /"Siswa","Nomor Induk","Program"/);
   ok("Admin report CSV contains period and student columns");
+
+  const reportPdf = await fetch(`${baseUrl}/api/v1/admin/laporan/export/pdf?from=2026-08-01&to=2026-08-31`, { headers: { Cookie: admin.cookie } });
+  const reportPdfBytes = new Uint8Array(await reportPdf.arrayBuffer());
+  assert.equal(reportPdf.status, 200);
+  assert.match(reportPdf.headers.get("content-type") || "", /application\/pdf/);
+  assert.match(reportPdf.headers.get("content-disposition") || "", /limo-laporan-2026-08-01-2026-08-31\.pdf/);
+  assert.equal(String.fromCharCode(...reportPdfBytes.slice(0, 4)), "%PDF");
+
+  const reportExcel = await fetch(`${baseUrl}/api/v1/admin/laporan/export/excel?from=2026-08-01&to=2026-08-31`, { headers: { Cookie: admin.cookie } });
+  const reportExcelBytes = new Uint8Array(await reportExcel.arrayBuffer());
+  assert.equal(reportExcel.status, 200);
+  assert.match(reportExcel.headers.get("content-type") || "", /spreadsheetml/);
+  assert.match(reportExcel.headers.get("content-disposition") || "", /limo-laporan-2026-08-01-2026-08-31\.xlsx/);
+  assert.equal(String.fromCharCode(...reportExcelBytes.slice(0, 2)), "PK");
+  ok("Admin report PDF and Excel downloads contain valid file signatures");
 
   const auditCsv = await request("/api/v1/admin/audit/export?search=LOGIN", { cookie: admin.cookie });
   assert.equal(auditCsv.response.status, 200);
@@ -121,9 +169,38 @@ try {
   });
   const sessionEnrollments = await prisma.kelasSiswa.findMany({ where: { kelasId: sesi.kelasId, status: "ACTIVE" }, select: { siswaId: true } });
 
+  const billingTestYear = 3000 + (Date.now() % 6000);
+  const draftPeriodText = `${billingTestYear}-01`;
+  const draftPeriod = new Date(`${draftPeriodText}-01T00:00:00.000Z`);
+  const draftJenis = `W3-DRAFT-${runId}`;
+  const draftInvoice = await prisma.tagihan.upsert({
+    where: { siswaId_periode_jenis: { siswaId: enrollment.siswaId, periode: draftPeriod, jenis: draftJenis } },
+    update: { amount: 123456, status: "DRAFT", dueDate: new Date(`${draftPeriodText}-10T00:00:00.000Z`), description: `DRAFT filter ${runId}` },
+    create: { siswaId: enrollment.siswaId, periode: draftPeriod, jenis: draftJenis, description: `DRAFT filter ${runId}`, amount: 123456, status: "DRAFT", dueDate: new Date(`${draftPeriodText}-10T00:00:00.000Z`) },
+    select: { id: true },
+  });
+  const draftTagihan = await request("/api/v1/tagihan?status=DRAFT", { cookie: admin.cookie });
+  assert.equal(draftTagihan.response.status, 200, JSON.stringify(draftTagihan.payload));
+  assert.ok(draftTagihan.payload.data.items.some((item) => item.id === draftInvoice.id));
+  assert.ok(draftTagihan.payload.data.items.every((item) => item.status === "DRAFT"));
+  const draftBillingPage = await request("/admin/tagihan?status=DRAFT", { cookie: admin.cookie });
+  assert.equal(draftBillingPage.response.status, 200);
+  assert.match(String(draftBillingPage.payload), new RegExp(draftJenis));
+
+  const previewPeriodText = `${billingTestYear}-02`;
+  const previewPeriod = new Date(`${previewPeriodText}-01T00:00:00.000Z`);
+  const previewJenis = `W3-PREVIEW-${runId}`;
+  const invoiceCountBeforePreview = await prisma.tagihan.count({ where: { periode: previewPeriod, jenis: previewJenis } });
+  const invoicePreview = await request("/api/v1/admin/tagihan/generate", { method: "POST", cookie: admin.cookie, body: { period: previewPeriodText, dueDate: `${previewPeriodText}-10`, jenis: previewJenis } });
+  assert.equal(invoicePreview.response.status, 200, JSON.stringify(invoicePreview.payload));
+  assert.equal(invoicePreview.payload.data.dryRun, true);
+  const invoiceCountAfterPreview = await prisma.tagihan.count({ where: { periode: previewPeriod, jenis: previewJenis } });
+  assert.equal(invoiceCountAfterPreview, invoiceCountBeforePreview);
+  ok("Admin billing honors DRAFT query state and default preview does not create invoices");
+
   const guruClassPage = await request(`/guru/kelas/${sesi.kelasId}`, { cookie: guru.cookie });
   assert.equal(guruClassPage.response.status, 200);
-  assert.match(String(guruClassPage.payload), /Roster Siswa/);
+  assert.match(String(guruClassPage.payload), /Daftar siswa/);
   assert.match(String(guruClassPage.payload), /Ahmad Dev/);
   assert.match(String(guruClassPage.payload), /Cari nama atau nomor induk/);
   ok("Guru class detail exposes a scoped searchable student roster");
@@ -183,14 +260,15 @@ try {
   const presensi = await request("/api/v1/presensi", {
     method: "POST",
     cookie: guru.cookie,
-    body: { sesiKelasId: sesi.id, items: sessionEnrollments.map(({ siswaId }) => ({ siswaId, status: "HADIR", note: "Week 3 acceptance" })) },
+    body: { sesiKelasId: sesi.id, items: sessionEnrollments.map(({ siswaId }) => ({ siswaId, status: siswaId === enrollment.siswaId ? "TERLAMBAT" : "HADIR", note: "Week 3 acceptance" })) },
   });
   assert.equal(presensi.response.status, 200, JSON.stringify(presensi.payload));
   const attendanceAfterSubmit = await prisma.presensi.findUniqueOrThrow({
     where: { siswaId_sesiKelasId: { siswaId: enrollment.siswaId, sesiKelasId: sesi.id } },
     select: { status: true, note: true },
   });
-  ok("Guru can submit attendance per session");
+  assert.equal(attendanceAfterSubmit.status, "TERLAMBAT");
+  ok("Guru can submit attendance per session, including TERLAMBAT");
 
   const progres = await request("/api/v1/progres", {
     method: "POST",
@@ -240,6 +318,24 @@ try {
   assert.equal(waliTagihan.response.status, 200);
   assert.match(String(waliTagihan.payload), /Mayar|QRIS|Virtual Account|Buat Instruksi Bayar/);
   ok("Wali billing page shows payment gateway instructions");
+
+  const waliInvoice = await prisma.tagihan.findFirstOrThrow({
+    where: { siswa: { waliRelations: { some: { waliProfile: { user: { email: "wali@limo.local" } } } } }, pembayaran: { some: {} } },
+    select: { id: true, siswaId: true, pembayaran: { orderBy: { createdAt: "desc" }, take: 1, select: { providerReference: true } } },
+  });
+  const scopedWaliTagihan = await request(`/api/v1/tagihan?anak=${waliInvoice.siswaId}`, { cookie: wali.cookie });
+  assert.equal(scopedWaliTagihan.response.status, 200, JSON.stringify(scopedWaliTagihan.payload));
+  assert.ok(scopedWaliTagihan.payload.data.items.every((item) => item.siswa.id === waliInvoice.siswaId));
+  const waliInvoiceFromApi = scopedWaliTagihan.payload.data.items.find((item) => item.id === waliInvoice.id);
+  assert.ok(waliInvoiceFromApi);
+  assert.ok(waliInvoiceFromApi.paymentHistoryCount >= 1);
+  assert.equal(typeof waliInvoiceFromApi.paymentHistory[0].amount, "number");
+  assert.equal("rawPayload" in waliInvoiceFromApi.paymentHistory[0], false);
+  assert.equal(waliInvoiceFromApi.paymentHistory[0].providerReference, waliInvoice.pembayaran[0].providerReference);
+  const scopedWaliBillingPage = await request(`/wali/tagihan?anak=${waliInvoice.siswaId}`, { cookie: wali.cookie });
+  assert.equal(scopedWaliBillingPage.response.status, 200);
+  assert.match(String(scopedWaliBillingPage.payload), /Riwayat transaksi/);
+  ok("Wali billing API scopes data and retains safe payment history");
 
   if (String(waliTagihan.payload).includes("Buat Instruksi Bayar")) {
     const tagihan = await prisma.tagihan.findFirstOrThrow({

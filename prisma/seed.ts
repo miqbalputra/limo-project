@@ -1,9 +1,19 @@
-import { HasilUjianStatus, JobStatus, MateriType, NotificationStatus, PembayaranStatus, PendaftaranStatus, PresensiStatus, Prisma, PrismaClient, ProgramKind, PublishStatus, SesiStatus, SiswaAccountStatus, SoalType, TagihanStatus, UserRole, UserStatus } from "@prisma/client";
+import { AssignmentSubmissionType, HasilUjianStatus, JobStatus, MateriType, NotificationStatus, PembayaranStatus, PendaftaranStatus, PresensiStatus, Prisma, PrismaClient, ProgramKind, PublishStatus, SesiStatus, SiswaAccountStatus, SoalType, TagihanStatus, UserRole, UserStatus } from "@prisma/client";
 import argon2 from "argon2";
 
 const prisma = new PrismaClient();
 
 const DEV_PASSWORD = "password-dev-only";
+
+function assertDemoSeedAllowed() {
+  if (process.env.LIMO_ALLOW_DEMO_SEED !== "true") {
+    throw new Error("Demo seed diblokir. Set LIMO_ALLOW_DEMO_SEED=true hanya untuk database development atau demo yang disposable.");
+  }
+
+  if (process.env.NODE_ENV === "production" && process.env.DOKPLOY_SQLITE_DEMO !== "true") {
+    throw new Error("Demo seed tidak boleh dijalankan pada database production. Gunakan hanya DOKPLOY_SQLITE_DEMO=true untuk demo disposable.");
+  }
+}
 
 async function createDevPasswordHash() {
   return argon2.hash(DEV_PASSWORD, {
@@ -135,6 +145,7 @@ async function upsertUjian(input: {
 }
 
 async function main() {
+  assertDemoSeedAllowed();
   const devPasswordHash = await createDevPasswordHash();
 
   const admin = await prisma.user.upsert({
@@ -603,8 +614,29 @@ async function main() {
   await upsertMateri({ kelasId: kelas.id, sesiKelasId: sesiBeginner2.id, type: MateriType.VIDEO_LINK, status: PublishStatus.PUBLISHED, title: "Video Colors Song", content: "Video latihan warna untuk anak.", videoUrl: "https://www.youtube.com/watch?v=qhOTU8_1Af4", language: "en", direction: "ltr", order: 2, createdById: guruUser.id });
   await upsertMateri({ kelasId: kelas.id, sesiKelasId: sesiBeginner3.id, type: MateriType.PDF, status: PublishStatus.DRAFT, title: "Worksheet Family Members", content: "Materi PDF demo. Upload file worksheet melalui tombol upload materi untuk mencoba private file storage.", language: "en", direction: "ltr", order: 3, createdById: guruUser.id });
   await upsertMateri({ kelasId: englishIntermediateClass.id, sesiKelasId: sesiIntermediate.id, type: MateriType.IMAGE, status: PublishStatus.PUBLISHED, title: "Daily Routine Poster", content: "Materi gambar demo untuk poster aktivitas harian.", language: "en", direction: "ltr", order: 1, createdById: guruUser.id });
-  await upsertMateri({ kelasId: arabicBeginnerClass.id, sesiKelasId: sesiArabic.id, type: MateriType.TEXT, status: PublishStatus.PUBLISHED, title: "Sapaan Bahasa Arab", content: "السلام عليكم، صباح الخير، مساء الخير", language: "ar", direction: "rtl", order: 1, createdById: guruArabicUser.id });
+  await upsertMateri({ kelasId: arabicBeginnerClass.id, sesiKelasId: sesiArabic.id, type: MateriType.TEXT, status: PublishStatus.PUBLISHED, title: "Sapaan Bahasa Arab", content: "السلام عليكم يا Bilal. في درس LIMO A1 نتدرّب على: صباح الخير، مساء الخير.", language: "ar", direction: "rtl", order: 1, createdById: guruArabicUser.id });
   await upsertMateri({ kelasId: arabicBeginnerClass.id, sesiKelasId: sesiArabic2.id, type: MateriType.VIDEO_LINK, status: PublishStatus.PUBLISHED, title: "Video Angka Arab", content: "Latihan angka Arab 1 sampai 10.", videoUrl: "https://www.youtube.com/watch?v=8ioZ1fWFK58", language: "ar", direction: "rtl", order: 2, createdById: guruArabicUser.id });
+
+  const assignmentData = {
+    instructions: "Tulis dua kalimat sederhana untuk memperkenalkan anggota keluargamu.",
+    submissionType: AssignmentSubmissionType.ONLINE_TEXT,
+    maxScore: 100,
+    availableFrom: new Date("2026-07-01T00:00:00.000Z"),
+    dueAt: new Date("2026-12-31T23:59:59.000Z"),
+    cutoffAt: new Date("2027-01-02T23:59:59.000Z"),
+    maxAttempts: 2,
+    allowLateSubmission: true,
+    allowResubmission: true,
+    status: PublishStatus.PUBLISHED,
+    createdById: guruUser.id,
+    publishedAt: new Date("2026-07-01T00:00:00.000Z"),
+  };
+  const seededAssignment = await prisma.assignment.findFirst({ where: { kelasId: kelas.id, title: "Family Introduction Demo" }, select: { id: true } });
+  if (seededAssignment) {
+    await prisma.assignment.update({ where: { id: seededAssignment.id }, data: assignmentData });
+  } else {
+    await prisma.assignment.create({ data: { kelasId: kelas.id, title: "Family Introduction Demo", ...assignmentData } });
+  }
 
   for (const input of [
     { sesiKelasId: sesiBeginner.id, siswaId: siswaA.id, status: PresensiStatus.HADIR },

@@ -10,6 +10,14 @@ export const createSesiKelasSchema = z.object({
   sessionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
+export const updateSesiKelasSchema = createSesiKelasSchema.omit({ kelasId: true }).extend({
+  reason: z.string().trim().min(8).max(500).optional().or(z.literal("")),
+});
+
+export const cancelSesiKelasSchema = z.object({
+  reason: z.string().trim().min(8).max(500).optional().or(z.literal("")),
+});
+
 export const createMateriSchema = z.object({
   kelasId: z.string().min(8).max(64),
   sesiKelasId: z.string().min(8).max(64).optional().or(z.literal("")),

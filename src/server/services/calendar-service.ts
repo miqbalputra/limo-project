@@ -1,11 +1,12 @@
 import "server-only";
 
 import type { Actor } from "@/server/auth/session";
+import { withWaliChildContext } from "@/lib/wali-selector";
 import { prisma } from "@/server/db/prisma";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
-import { requireFeature } from "@/server/features/feature-flags";
+import { isFeatureEnabled, requireFeature } from "@/server/features/feature-flags";
 import { canManageClass } from "@/server/policies/access-policy";
-import { getJakartaDayRange } from "@/server/time/jakarta";
+import { formatJakartaPeriod, getJakartaMonthRange } from "@/server/time/jakarta";
 import { calendarRangeSchema, createCalendarEventSchema, parseInputDate, updateCalendarEventSchema } from "@/server/validation/calendar";
 
 const calendarTypes = ["CLASS_SESSION", "MODULE_RELEASE", "ASSIGNMENT_DUE", "QUIZ_DUE", "EXAM", "REMEDIAL_DUE", "HOLIDAY", "ANNOUNCEMENT"] as const;
@@ -34,13 +35,35 @@ type Scope = {
   enrollmentWindows: Map<string, Array<{ startDate: Date; endDate: Date | null }>>;
 };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 function requireCalendarFeature() {
   requireFeature("calendarEnabled", "Kalender dan To-do belum diaktifkan");
 }
 
 export function getDefaultCalendarRange() {
-  const range = getJakartaDayRange(-7, 28);
+  const range = getCalendarGridRange();
   return { from: range.start, to: range.end };
+}
+
+export function getCalendarGridRange(monthValue?: string) {
+  const month = monthValue || formatJakartaPeriod();
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new ValidationError("Bulan kalender belum valid");
+  const monthDate = new Date(`${month}-01T00:00:00+07:00`);
+  const monthRange = getJakartaMonthRange(monthDate);
+  const weekday = new Date(Date.UTC(monthRange.year, monthRange.month - 1, 1)).getUTCDay();
+  const leadingDays = (weekday + 6) % 7;
+  const start = new Date(monthRange.start.getTime() - leadingDays * DAY_MS);
+  return { start, end: new Date(start.getTime() + 42 * DAY_MS), month };
+}
+
+export function resolveCalendarPageRange(input: { month?: string; from?: string; to?: string }) {
+  if (input.month) return getCalendarGridRange(input.month);
+  if (input.from || input.to) {
+    const range = resolveCalendarRange(input);
+    return { start: range.from, end: range.to, month: formatJakartaPeriod(range.from) };
+  }
+  return getCalendarGridRange();
 }
 
 export function resolveCalendarRange(input: unknown) {
@@ -56,15 +79,19 @@ export function resolveCalendarRange(input: unknown) {
   return { from, to };
 }
 
-async function getScope(actor: Actor): Promise<Scope> {
+async function getScope(actor: Actor, selectedClassId?: string, selectedWaliStudentId?: string | null): Promise<Scope> {
   if (actor.role === "ADMIN") {
     const classes = await prisma.kelas.findMany({ where: { status: "ACTIVE" }, select: { id: true } });
-    return { classIds: classes.map((item) => item.id), studentIds: [], enrollmentWindows: new Map() };
+    const classIds = classes.map((item) => item.id);
+    if (selectedClassId && !classIds.includes(selectedClassId)) throw new NotFoundError("Kelas kalender tidak ditemukan");
+    return { classIds: selectedClassId ? [selectedClassId] : classIds, studentIds: [], enrollmentWindows: new Map() };
   }
 
   if (actor.role === "GURU") {
     const classes = await prisma.kelas.findMany({ where: { status: "ACTIVE", guruProfile: { userId: actor.id } }, select: { id: true } });
-    return { classIds: classes.map((item) => item.id), studentIds: [], enrollmentWindows: new Map() };
+    const classIds = classes.map((item) => item.id);
+    if (selectedClassId && !classIds.includes(selectedClassId)) throw new NotFoundError("Kelas kalender tidak ditemukan");
+    return { classIds: selectedClassId ? [selectedClassId] : classIds, studentIds: [], enrollmentWindows: new Map() };
   }
 
   let studentIds: string[];
@@ -74,7 +101,7 @@ async function getScope(actor: Actor): Promise<Scope> {
     studentIds = [account.siswaId];
   } else if (actor.role === "WALI") {
     const relations = await prisma.waliSiswa.findMany({ where: { waliProfile: { userId: actor.id }, endedAt: null, siswa: { status: "ACTIVE", deletedAt: null } }, select: { siswaId: true } });
-    studentIds = relations.map((item) => item.siswaId);
+    studentIds = selectedWaliStudentId ? relations.filter((item) => item.siswaId === selectedWaliStudentId).map((item) => item.siswaId) : relations.map((item) => item.siswaId);
   } else {
     throw new ForbiddenError("Role belum didukung kalender");
   }
@@ -85,7 +112,9 @@ async function getScope(actor: Actor): Promise<Scope> {
     const key = `${enrollment.siswaId}:${enrollment.kelasId}`;
     enrollmentWindows.set(key, [...(enrollmentWindows.get(key) || []), { startDate: enrollment.startDate, endDate: enrollment.endDate }]);
   }
-  return { classIds: [...new Set(enrollments.map((item) => item.kelasId))], studentIds, enrollmentWindows };
+  const classIds = [...new Set(enrollments.map((item) => item.kelasId))];
+  if (selectedClassId && !classIds.includes(selectedClassId)) throw new NotFoundError("Kelas kalender tidak ditemukan");
+  return { classIds: selectedClassId ? [selectedClassId] : classIds, studentIds, enrollmentWindows };
 }
 
 function isWithinEnrollment(scope: Scope, classId: string, startAt: Date) {
@@ -104,10 +133,12 @@ function eventHref(actor: Actor, eventType: CalendarType, sourceId: string, clas
     if (eventType === "CLASS_SESSION") return `/guru/presensi/${sourceId}`;
     if (eventType === "ASSIGNMENT_DUE") return `/guru/tugas/${sourceId}/submissions`;
     if (eventType === "EXAM") return `/guru/ujian/${sourceId}/hasil`;
+    if (eventType === "REMEDIAL_DUE") return classId ? `/guru/kelas/${classId}/remedial` : "/guru/kalender";
     return classId ? `/guru/kelas/${classId}/modul` : "/guru/kalender";
   }
   if (actor.role === "SISWA") {
     if (eventType === "ASSIGNMENT_DUE") return `/siswa/tugas/${sourceId}`;
+    if (eventType === "REMEDIAL_DUE") return "/siswa/remedial";
     return classId ? `/siswa/kelas/${classId}` : "/siswa/kalender";
   }
   if (actor.role === "WALI") return "/wali/progres";
@@ -121,7 +152,9 @@ function addEvent(events: CalendarEventDto[], actor: Actor, input: Omit<Calendar
 export async function listCalendarEvents(actor: Actor, input: unknown = {}) {
   requireCalendarFeature();
   const { from, to } = resolveCalendarRange(input);
-  const scope = await getScope(actor);
+  const classId = input && typeof input === "object" && "classId" in input && typeof input.classId === "string" && input.classId.trim() ? input.classId.trim() : undefined;
+  const selectedWaliStudentId = input && typeof input === "object" && "siswaId" in input && typeof input.siswaId === "string" && input.siswaId.trim() ? input.siswaId.trim() : undefined;
+  const scope = await getScope(actor, classId, selectedWaliStudentId);
   const includeDrafts = actor.role === "GURU" || actor.role === "ADMIN";
   const classWhere = { in: scope.classIds };
   const [classes, sessions, modules, assignments, exams, manualEvents] = await Promise.all([
@@ -132,6 +165,9 @@ export async function listCalendarEvents(actor: Actor, input: unknown = {}) {
     prisma.ujian.findMany({ where: { kelasId: classWhere, status: includeDrafts ? { not: "ARCHIVED" } : "PUBLISHED" }, orderBy: { examDate: "asc" }, select: { id: true, kelasId: true, title: true, description: true, status: true, examDate: true, availableFrom: true, availableUntil: true, durationMinutes: true, kelas: { select: { name: true } } } }),
     prisma.calendarEvent.findMany({ where: { startAt: { lt: to }, OR: [{ endAt: null }, { endAt: { gte: from } }], visibility: { in: visibilityForRole(actor) }, AND: [{ OR: [{ classId: null }, { classId: classWhere }] }] }, orderBy: { startAt: "asc" }, select: { id: true, classId: true, title: true, description: true, eventType: true, startAt: true, endAt: true, allDay: true, visibility: true, kelas: { select: { name: true } } } }),
   ]);
+  const remedials = isFeatureEnabled("remedialEnabled")
+    ? await prisma.remedialAssignment.findMany({ where: { kelasId: classWhere, status: "PUBLISHED", dueAt: { gte: from, lt: to }, ...(scope.studentIds.length > 0 ? { participants: { some: { studentId: { in: scope.studentIds }, status: { notIn: ["CANCELLED", "EXPIRED"] } } } } : {}) }, orderBy: { dueAt: "asc" }, select: { id: true, kelasId: true, title: true, instructions: true, status: true, dueAt: true, kelas: { select: { name: true } } } })
+    : [];
 
   const classNames = new Map(classes.map((item) => [item.id, item.name]));
   const events: CalendarEventDto[] = [];
@@ -153,13 +189,17 @@ export async function listCalendarEvents(actor: Actor, input: unknown = {}) {
     if (!startAt || startAt < from || startAt >= to || !isWithinEnrollment(scope, item.kelasId, startAt)) continue;
     addEvent(events, actor, { id: `Ujian:${item.id}`, eventType: "EXAM", title: `Ujian: ${item.title}`, description: item.description, startAt, endAt: new Date(startAt.getTime() + Math.max(item.durationMinutes, 1) * 60 * 1000), allDay: false, visibility: "ALL", classId: item.kelasId, className: item.kelas.name, sourceType: "Ujian", sourceId: item.id, status: item.status });
   }
+  for (const item of remedials) {
+    if (!isWithinEnrollment(scope, item.kelasId, item.dueAt)) continue;
+    addEvent(events, actor, { id: `RemedialAssignment:${item.id}`, eventType: "REMEDIAL_DUE", title: `Deadline remedial: ${item.title}`, description: item.instructions, startAt: item.dueAt, endAt: new Date(item.dueAt.getTime() + 30 * 60 * 1000), allDay: false, visibility: "ALL", classId: item.kelasId, className: item.kelas.name, sourceType: "RemedialAssignment", sourceId: item.id, status: item.status });
+  }
   for (const item of manualEvents) {
     if (item.classId && (!scope.classIds.includes(item.classId) || !isWithinEnrollment(scope, item.classId, item.startAt))) continue;
     addEvent(events, actor, { id: `CalendarEvent:${item.id}`, eventType: item.eventType, title: item.title, description: item.description, startAt: item.startAt, endAt: item.endAt, allDay: item.allDay, visibility: item.visibility, classId: item.classId, className: item.classId ? classNames.get(item.classId) || item.kelas?.name || null : null, sourceType: "CalendarEvent", sourceId: item.id, status: null });
   }
 
   events.sort((left, right) => left.startAt.getTime() - right.startAt.getTime() || left.title.localeCompare(right.title));
-  return { from, to, events };
+  return { from, to, events: actor.role === "WALI" && selectedWaliStudentId ? events.map((event) => ({ ...event, href: withWaliChildContext(event.href, selectedWaliStudentId) })) : events };
 }
 
 export async function listCalendarEventClasses(actor: Actor) {
@@ -168,11 +208,17 @@ export async function listCalendarEventClasses(actor: Actor) {
   return { items: await prisma.kelas.findMany({ where: actor.role === "ADMIN" ? { status: "ACTIVE" } : { status: "ACTIVE", guruProfile: { userId: actor.id } }, orderBy: { name: "asc" }, select: { id: true, name: true } }) };
 }
 
+export async function listCalendarFilterClasses(actor: Actor, selectedWaliStudentId: string | null = null) {
+  requireCalendarFeature();
+  const scope = await getScope(actor, undefined, selectedWaliStudentId);
+  return { items: await prisma.kelas.findMany({ where: { id: { in: scope.classIds } }, orderBy: { name: "asc" }, select: { id: true, name: true } }) };
+}
+
 async function assertCalendarEventManager(actor: Actor, classId: string | null) {
   requireCalendarFeature();
   if (actor.role === "ADMIN") return;
   if (actor.role !== "GURU") throw new ForbiddenError("Hanya Guru atau Admin dapat mengelola event kalender");
-  if (!classId || !(await canManageClass(actor, classId))) throw new ForbiddenError("Anda tidak memiliki akses mengelola event kelas ini");
+  if (classId && !(await canManageClass(actor, classId))) throw new ForbiddenError("Anda tidak memiliki akses mengelola event kelas ini");
 }
 
 export async function createCalendarEvent(actor: Actor, input: unknown) {
@@ -180,6 +226,12 @@ export async function createCalendarEvent(actor: Actor, input: unknown) {
   if (!parsed.success) throw new ValidationError("Data event kalender belum valid", parsed.error.flatten().fieldErrors);
   const classId = parsed.data.classId || null;
   await assertCalendarEventManager(actor, classId);
+  let targetClassIds: Array<string | null> = [classId];
+  if (actor.role === "GURU" && !classId) {
+    const classes = await prisma.kelas.findMany({ where: { status: "ACTIVE", guruProfile: { userId: actor.id } }, select: { id: true } });
+    if (classes.length === 0) throw new ValidationError("Guru belum memiliki kelas aktif untuk agenda ini");
+    targetClassIds = classes.map((item) => item.id);
+  }
   if (classId) {
     const kelas = await prisma.kelas.findFirst({ where: { id: classId, status: "ACTIVE" }, select: { id: true } });
     if (!kelas) throw new NotFoundError("Kelas kalender tidak ditemukan");
@@ -188,11 +240,15 @@ export async function createCalendarEvent(actor: Actor, input: unknown) {
   const endAt = parsed.data.endAt ? parseInputDate(parsed.data.endAt) : null;
   if (!startAt || (parsed.data.endAt && !endAt)) throw new ValidationError("Waktu event kalender belum valid");
   const item = await prisma.$transaction(async (tx) => {
-    const event = await tx.calendarEvent.create({ data: { classId, title: parsed.data.title, description: parsed.data.description || null, eventType: parsed.data.eventType, startAt, endAt, allDay: parsed.data.allDay, visibility: parsed.data.visibility, createdById: actor.id }, select: { id: true, title: true, eventType: true, startAt: true, classId: true } });
-    await tx.auditLog.create({ data: { actorId: actor.id, action: "CALENDAR_EVENT_CREATED", entityType: "CalendarEvent", entityId: event.id, metadata: { classId, eventType: event.eventType } } });
-    return event;
+    const events = [];
+    for (const targetClassId of targetClassIds) {
+      const event = await tx.calendarEvent.create({ data: { classId: targetClassId, title: parsed.data.title, description: parsed.data.description || null, eventType: parsed.data.eventType, startAt, endAt, allDay: parsed.data.allDay, visibility: parsed.data.visibility, createdById: actor.id }, select: { id: true, title: true, eventType: true, startAt: true, classId: true } });
+      await tx.auditLog.create({ data: { actorId: actor.id, action: "CALENDAR_EVENT_CREATED", entityType: "CalendarEvent", entityId: event.id, metadata: { classId: targetClassId, eventType: event.eventType } } });
+      events.push(event);
+    }
+    return events;
   });
-  return { item };
+  return { item: item[0], items: item };
 }
 
 export async function deleteCalendarEvent(actor: Actor, eventId: string) {

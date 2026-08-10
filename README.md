@@ -32,6 +32,8 @@ npm run dev
 
 Database lokal dibuat di `prisma/dev.db`. Jangan membuat migration SQLite; migration production tetap dibuat dari `prisma/schema.prisma` saat MariaDB tersedia.
 
+Demo seed diblokir secara default. `npm run sqlite:setup` mengaktifkannya hanya untuk database SQLite development; untuk seed MariaDB lokal, set `LIMO_ALLOW_DEMO_SEED=true` secara eksplisit sebelum menjalankan `npm run prisma:seed`.
+
 ### MariaDB
 
 1. Salin `.env.example` menjadi `.env`.

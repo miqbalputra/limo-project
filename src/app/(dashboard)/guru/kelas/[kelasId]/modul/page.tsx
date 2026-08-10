@@ -21,7 +21,7 @@ export default async function GuruLearningModulesPage({ params }: { params: Prom
       <DashboardHero
         eyebrow={kelas ? `${kelas.program.name} / ${kelas.level.name}` : "Pembelajaran terstruktur"}
         title={kelas ? `Modul ${kelas.name}` : "Modul Pembelajaran"}
-        description="Susun materi, sesi, dan ujian menjadi alur belajar yang dapat dijadwalkan dan dipantau tanpa menghapus materi existing."
+        description="Susun materi, sesi, dan ujian menjadi alur belajar yang dapat dijadwalkan dan dipantau tanpa menghapus materi yang sudah ada."
         actions={<Link href={`/guru/kelas/${kelasId}`} className="tailadmin-button-outline px-4 py-2">Kembali ke Kelas</Link>}
       />
       <LearningModuleBuilder kelasId={kelasId} initialModules={items.map(serializeModule)} options={serializeOptions(options)} />
@@ -44,6 +44,7 @@ function serializeModule(module: Awaited<ReturnType<typeof listGuruModules>>["it
       ...item,
       availableFrom: item.availableFrom?.toISOString() || null,
       availableUntil: item.availableUntil?.toISOString() || null,
+      completionRules: item.completionRules?.map((rule) => ({ ...rule, minimumScore: rule.minimumScore === null ? null : Number(rule.minimumScore) })) || [],
     })),
   };
 }

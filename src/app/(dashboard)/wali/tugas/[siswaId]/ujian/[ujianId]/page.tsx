@@ -20,7 +20,7 @@ export default async function WaliExamInstructionPage({ params }: { params: Prom
         title={ujian.title}
         description="Baca instruksi sebelum memulai. Orang tua mendampingi penggunaan perangkat, anak tetap menjawab sendiri."
         actions={<><Link href={`/wali/tugas/${siswa.id}`} className="tailadmin-button-outline px-4 py-2">Kembali</Link><StartExamAttemptButton siswaId={siswa.id} ujianId={ujian.id} /></>}
-        aside={<div className="grid min-w-72 grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs"><MiniStat label="Soal" value={ujian._count.questions} /><MiniStat label="Menit" value={ujian.durationMinutes} /><MiniStat label="Attempt" value={ujian.maxAttempts} /></div>}
+        aside={<div className="grid w-full min-w-0 grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs lg:w-auto lg:min-w-72"><MiniStat label="Soal" value={ujian._count.questions} /><MiniStat label="Menit" value={ujian.durationMinutes} /><MiniStat label="Percobaan" value={ujian.maxAttempts} /></div>}
       />
 
       <section className="grid gap-4 lg:grid-cols-3">
@@ -31,13 +31,13 @@ export default async function WaliExamInstructionPage({ params }: { params: Prom
             <Checklist text="Anak sudah siap mengerjakan." />
             <Checklist text="Koneksi internet stabil." />
             <Checklist text="Orang tua hanya mendampingi." />
-            <Checklist text="Jawaban tidak bisa diubah setelah submit." />
+            <Checklist text="Jawaban tidak dapat diubah setelah dikirim." />
           </div>
         </article>
         <article className="tailadmin-card p-5">
           <span className="grid size-12 place-items-center rounded-2xl bg-warning-50 text-warning-700"><DashboardIcon name="exam" className="size-6" /></span>
           <h2 className="mt-4 font-semibold text-gray-900">Catatan</h2>
-          <p className="mt-3 text-theme-sm leading-6 text-gray-500">Jika ada soal writing/esai, hasil akan menunggu review guru sebelum nilai final tampil.</p>
+          <p className="mt-3 text-theme-sm leading-6 text-gray-500">Jika ada soal isian atau esai, hasil akan menunggu peninjauan Guru sebelum nilai final tampil.</p>
           {ujian.availableUntil ? <p className="mt-4 rounded-2xl bg-gray-50 p-3 text-theme-xs text-gray-500">Batas tersedia: {ujian.availableUntil.toISOString().slice(0, 10)}</p> : null}
         </article>
       </section>

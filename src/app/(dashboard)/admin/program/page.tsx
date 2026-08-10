@@ -3,6 +3,7 @@ import { listPrograms } from "@/server/services/master-data-service";
 import { ProgramForm } from "@/components/dashboard/master-data-forms";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { MasterDataActions } from "@/components/dashboard/master-data-actions";
+import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Program" };
 
@@ -21,7 +22,7 @@ export default async function AdminProgramPage() {
       {items.length > 0 ? <section className="grid gap-4 md:grid-cols-2">
         {items.map((program) => (
           <article key={program.id} className="tailadmin-card p-5">
-            <p className="text-theme-sm font-semibold text-brand-500">{program.kind}</p>
+            <p className="text-theme-sm font-semibold text-limo-blue-700">{formatUiLabel(program.kind)}</p>
             <h2 className="mt-1 text-lg font-semibold text-gray-900">{program.name}</h2>
             <p className="mt-2 text-theme-sm text-gray-500">{program.description || "Belum ada deskripsi."}</p>
             <p className="mt-3 text-theme-sm text-gray-500">{program._count.levels} level, {program._count.kelas} kelas, {program._count.siswa} siswa</p>

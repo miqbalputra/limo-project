@@ -1,77 +1,27 @@
 import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { getClassSummary } from "@/server/services/report-service";
-import { listMateri, listSesiKelas } from "@/server/services/lms-service";
-import { MateriFileUpload, MateriForm, SesiKelasForm } from "@/components/dashboard/lms-forms";
 import { GuruRoster } from "@/components/dashboard/guru-roster";
-import { PaginationControls } from "@/components/dashboard/pagination-controls";
-import { SessionDuplicateButton } from "@/components/dashboard/session-duplicate-button";
-import { MaterialStatusActions } from "@/components/dashboard/material-status-actions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 
 export const metadata = { title: "Kelola Kelas" };
 
-export default async function GuruKelasDetailPage({ params, searchParams }: { params: Promise<{ kelasId: string }>; searchParams: Promise<{ sesiPage?: string; materiPage?: string }> }) {
+export default async function GuruKelasDetailPage({ params }: { params: Promise<{ kelasId: string }> }) {
   const actor = await requireActor();
   requireRole(actor, ["GURU"]);
   const { kelasId } = await params;
-  const { sesiPage, materiPage } = await searchParams;
-  const [{ items: sesiOptions }, { items: sesi, pagination: sesiPagination }, { items: materi, pagination: materiPagination }, summary] = await Promise.all([
-    listSesiKelas(actor, kelasId),
-    listSesiKelas(actor, kelasId, { page: Number(sesiPage) || 1, pageSize: 20 }),
-    listMateri(actor, kelasId, { page: Number(materiPage) || 1, pageSize: 20 }),
-    getClassSummary(actor, kelasId),
-  ]);
+  const summary = await getClassSummary(actor, kelasId);
 
   return (
     <main className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="tailadmin-page-title">Kelola Kelas</h1>
-          <p className="mt-2 tailadmin-muted">Buat sesi kelas dan materi pembelajaran. Data hanya tersedia untuk kelas aktif yang ditugaskan kepada Anda.</p>
+          <p className="mt-2 tailadmin-muted">Tinjau roster dan akses workspace terpisah untuk sesi serta materi. Data hanya tersedia untuk kelas aktif yang ditugaskan kepada Anda.</p>
         </div>
-        <div className="flex flex-wrap gap-2"><Link href={`/guru/kelas/${kelasId}/modul`} className="tailadmin-button-primary w-fit px-4 py-2">Susun Modul</Link>{isFeatureEnabled("assignmentsEnabled") ? <Link href={`/guru/kelas/${kelasId}/tugas`} className="tailadmin-button-outline w-fit px-4 py-2">Kelola Tugas</Link> : null}{isFeatureEnabled("gradebookEnabled") ? <Link href={`/guru/kelas/${kelasId}/gradebook`} className="tailadmin-button-outline w-fit px-4 py-2">Buka Gradebook</Link> : null}</div>
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <SesiKelasForm kelasId={kelasId} />
-        <MateriForm kelasId={kelasId} sesiOptions={sesiOptions.map((item) => ({ id: item.id, label: `${item.meetingNumber}. ${item.topic}` }))} />
+        <div className="flex flex-wrap gap-2"><Link href={`/guru/sesi?kelasId=${kelasId}`} className="tailadmin-button-primary w-fit px-4 py-2">Kelola Sesi</Link><Link href={`/guru/materi?kelasId=${kelasId}`} className="tailadmin-button-outline w-fit px-4 py-2">Kelola Materi</Link><Link href={`/guru/kelas/${kelasId}/modul`} className="tailadmin-button-outline w-fit px-4 py-2">Susun Modul</Link><Link href={`/guru/kelas/${kelasId}/progres`} className="tailadmin-button-outline w-fit px-4 py-2">Progres Aktivitas</Link>{isFeatureEnabled("assignmentsEnabled") ? <Link href={`/guru/kelas/${kelasId}/tugas`} className="tailadmin-button-outline w-fit px-4 py-2">Kelola Tugas</Link> : null}{isFeatureEnabled("remedialEnabled") && isFeatureEnabled("assignmentsEnabled") ? <Link href={`/guru/kelas/${kelasId}/remedial`} className="tailadmin-button-outline w-fit px-4 py-2">Remedial</Link> : null}{isFeatureEnabled("gradebookEnabled") ? <Link href={`/guru/kelas/${kelasId}/gradebook`} className="tailadmin-button-outline w-fit px-4 py-2">Buka Buku Nilai</Link> : null}</div>
       </div>
       <GuruRoster kelasId={kelasId} rows={summary.rows} />
-      <section className="grid gap-4 lg:grid-cols-2">
-        <div className="tailadmin-card p-5">
-          <h2 className="font-semibold text-gray-900">Sesi</h2>
-          <div className="mt-4 space-y-3">
-            {sesi.map((item) => <article key={item.id} className="rounded-xl bg-gray-50 p-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-gray-900">{item.meetingNumber}. {item.topic}</p><p className="text-theme-sm text-gray-500">{new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeZone: "Asia/Jakarta" }).format(item.sessionDate)} / {item.status}</p></div><SessionDuplicateButton sesiKelasId={item.id} /></div></article>)}
-            <PaginationControls basePath={`/guru/kelas/${kelasId}`} pageParam="sesiPage" page={sesiPagination.page} totalPages={sesiPagination.totalPages} params={{ materiPage }} />
-          </div>
-        </div>
-        <div className="tailadmin-card p-5">
-          <h2 className="font-semibold text-gray-900">Materi</h2>
-          <div className="mt-4 space-y-3">
-            {materi.map((item) => (
-              <article key={item.id} className="rounded-xl bg-gray-50 p-3" dir={item.direction === "rtl" ? "rtl" : "ltr"}>
-                <p className="font-semibold text-gray-900">{item.title}</p>
-                <p className="text-theme-sm text-gray-500">
-                  {item.type} / {item.status}{item.sesiKelas ? ` / Pertemuan ${item.sesiKelas.meetingNumber}: ${item.sesiKelas.topic}` : " / Umum"}
-                </p>
-                {item.videoUrl ? <a href={item.videoUrl} className="mt-2 block text-theme-sm font-semibold text-brand-500 hover:text-brand-600" target="_blank" rel="noreferrer">Buka video</a> : null}
-                {item.files.length > 0 ? (
-                  <div className="mt-2 space-y-1">
-                    {item.files.map((file) => (
-                      <a key={file.id} href={`/api/v1/files/${file.id}`} className="block text-theme-sm font-semibold text-brand-500 hover:text-brand-600">
-                        {file.originalName}
-                      </a>
-                    ))}
-                  </div>
-                ) : null}
-                 <MateriFileUpload materiId={item.id} />
-                 <MaterialStatusActions materiId={item.id} status={item.status} />
-              </article>
-            ))}
-            <PaginationControls basePath={`/guru/kelas/${kelasId}`} pageParam="materiPage" page={materiPagination.page} totalPages={materiPagination.totalPages} params={{ sesiPage }} />
-          </div>
-        </div>
-      </section>
     </main>
   );
 }

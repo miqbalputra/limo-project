@@ -2,15 +2,13 @@ import "server-only";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ForbiddenError, NotFoundError } from "@/server/errors/application-error";
-import { getSelectedWaliStudentId } from "@/server/dal/wali-selector-dal";
 import { readPrivateFile } from "@/server/providers/storage/local-storage";
 
-async function getAllowedStudentIds(actor: Actor) {
+async function getAllowedStudentIds(actor: Actor, selectedStudentId: string | null = null) {
   if (actor.role !== "WALI") {
     throw new ForbiddenError();
   }
 
-  const selectedStudentId = await getSelectedWaliStudentId(actor);
   const relations = await prisma.waliSiswa.findMany({
     where: { endedAt: null, ...(selectedStudentId ? { siswaId: selectedStudentId } : {}), waliProfile: { userId: actor.id } },
     select: { siswaId: true },
@@ -26,8 +24,8 @@ function publishedMaterialWhere(studentIds: string[]) {
   };
 }
 
-export async function listWaliMateri(actor: Actor) {
-  const studentIds = await getAllowedStudentIds(actor);
+export async function listWaliMateri(actor: Actor, selectedStudentId: string | null = null) {
+  const studentIds = await getAllowedStudentIds(actor, selectedStudentId);
 
   if (studentIds.length === 0) {
     return { items: [] };
@@ -46,7 +44,18 @@ export async function listWaliMateri(actor: Actor) {
       language: true,
       direction: true,
       files: { where: { deletedAt: null }, select: { id: true, originalName: true, mimeType: true, sizeBytes: true } },
-      kelas: { select: { id: true, name: true, program: { select: { name: true } }, level: { select: { name: true } } } },
+      kelas: {
+        select: {
+          id: true,
+          name: true,
+          program: { select: { name: true } },
+          level: { select: { name: true } },
+          enrollments: {
+            where: { status: "ACTIVE", siswaId: { in: studentIds } },
+            select: { siswa: { select: { id: true, name: true, nomorInduk: true } } },
+          },
+        },
+      },
       sesiKelas: { select: { meetingNumber: true, topic: true, sessionDate: true } },
     },
   });

@@ -25,7 +25,7 @@ export function GuruRoster({ kelasId, rows }: { kelasId: string; rows: GuruRoste
     <section className="tailadmin-card p-5" aria-labelledby="guru-roster-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 id="guru-roster-title" className="font-semibold text-gray-900">Roster Siswa</h2>
+          <h2 id="guru-roster-title" className="font-semibold text-gray-900">Daftar siswa</h2>
           <p className="mt-1 text-theme-sm text-gray-500">Ringkasan siswa aktif pada kelas ini. Data tetap dibatasi oleh kelas Guru.</p>
         </div>
         <label className="w-full sm:max-w-xs">
@@ -47,9 +47,9 @@ export function GuruRoster({ kelasId, rows }: { kelasId: string; rows: GuruRoste
           {filteredRows.map((row) => (
             <article key={row.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
               <div className="flex min-w-0 items-start gap-3">
-                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-theme-sm font-semibold text-brand-600">{row.name.slice(0, 1).toUpperCase()}</span>
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-limo-blue-50 text-theme-sm font-semibold text-limo-blue-600">{row.name.slice(0, 1).toUpperCase()}</span>
                 <div className="min-w-0">
-                  <h3 className="truncate font-semibold text-gray-900" title={row.name}><Link href={`/guru/kelas/${kelasId}/ringkasan?siswaId=${encodeURIComponent(row.id)}`} className="hover:text-brand-600">{row.name}</Link></h3>
+                  <h3 className="truncate font-semibold text-gray-900" title={row.name}><Link href={`/guru/kelas/${kelasId}/ringkasan?siswaId=${encodeURIComponent(row.id)}`} className="hover:text-limo-blue-600">{row.name}</Link></h3>
                   <p className="text-theme-sm text-gray-500">{row.nomorInduk}</p>
                 </div>
               </div>

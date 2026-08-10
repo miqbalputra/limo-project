@@ -75,7 +75,7 @@ export async function getStudentDashboard(actor: Actor) {
       where: { kelasId: { in: kelasIds }, status: "PUBLISHED" },
       orderBy: [{ updatedAt: "desc" }, { order: "asc" }],
       take: 6,
-      select: { id: true, title: true, type: true, updatedAt: true, kelas: { select: { id: true, name: true } } },
+      select: { id: true, title: true, type: true, language: true, direction: true, updatedAt: true, kelas: { select: { id: true, name: true } } },
     }),
     prisma.ujian.findMany({
       where: {
@@ -92,7 +92,7 @@ export async function getStudentDashboard(actor: Actor) {
       where: { kelasId: { in: kelasIds }, status: "PUBLISHED", OR: [{ availableFrom: null }, { availableFrom: { lte: now } }] },
       orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }],
       take: 5,
-      select: { id: true, title: true, submissionType: true, maxScore: true, dueAt: true, kelas: { select: { id: true, name: true } }, submissions: { where: { studentId: account.siswa.id }, orderBy: { attemptNumber: "desc" }, take: 1, select: { id: true, status: true, attemptNumber: true } } },
+       select: { id: true, title: true, submissionType: true, maxScore: true, dueAt: true, kelas: { select: { id: true, name: true } }, submissions: { where: { studentId: account.siswa.id, remedialParticipantId: null, revisionRequestId: null }, orderBy: { attemptNumber: "desc" }, take: 1, select: { id: true, status: true, attemptNumber: true } } },
     }),
     prisma.hasilUjian.findMany({
       where: { siswaId: account.siswa.id, status: { in: ["FINAL", "CORRECTED"] } },
@@ -151,7 +151,7 @@ export async function getStudentClass(actor: Actor, kelasId: string) {
 
   const [kelas, materials, sessions, exams] = await Promise.all([
     prisma.kelas.findUnique({ where: { id: kelasId }, select: { id: true, name: true, scheduleNote: true, program: { select: { name: true, kind: true } }, level: { select: { name: true } } } }),
-    prisma.materi.findMany({ where: { kelasId, status: "PUBLISHED" }, orderBy: [{ order: "asc" }, { updatedAt: "desc" }], select: { id: true, title: true, type: true, content: true, videoUrl: true, updatedAt: true } }),
+    prisma.materi.findMany({ where: { kelasId, status: "PUBLISHED" }, orderBy: [{ order: "asc" }, { updatedAt: "desc" }], select: { id: true, title: true, type: true, content: true, videoUrl: true, language: true, direction: true, updatedAt: true } }),
     prisma.sesiKelas.findMany({ where: { kelasId, status: { not: "CANCELLED" } }, orderBy: { sessionDate: "desc" }, take: 10, select: { id: true, meetingNumber: true, topic: true, sessionDate: true, status: true } }),
     prisma.ujian.findMany({ where: { kelasId, status: "PUBLISHED" }, orderBy: [{ examDate: "asc" }, { createdAt: "desc" }], select: { id: true, title: true, examDate: true, durationMinutes: true, deliveryMode: true } }),
   ]);

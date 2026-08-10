@@ -5,7 +5,7 @@ import { getCurrentActor } from "@/server/auth/session";
 import { getNavigationForRole } from "@/components/dashboard/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { listDashboardNotifications, syncGuruPendingNotifications } from "@/server/services/notification-service";
-import { getSelectedWaliStudentId, listWaliSelectorChildren } from "@/server/dal/wali-selector-dal";
+import { listWaliSelectorChildren } from "@/server/dal/wali-selector-dal";
 
 export const metadata: Metadata = {
   robots: {
@@ -27,7 +27,6 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   }
   const notifications = await listDashboardNotifications(actor);
   const waliChildren = actor.role === "WALI" ? await listWaliSelectorChildren(actor) : undefined;
-  const selectedWaliChildId = actor.role === "WALI" ? await getSelectedWaliStudentId(actor) : null;
 
-  return <DashboardShell actor={actor} navigation={navigation} notifications={notifications} waliChildren={waliChildren} selectedWaliChildId={selectedWaliChildId}>{children}</DashboardShell>;
+  return <DashboardShell actor={actor} navigation={navigation} notifications={notifications} waliChildren={waliChildren}>{children}</DashboardShell>;
 }

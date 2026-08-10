@@ -3,7 +3,7 @@ import "server-only";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ForbiddenError } from "@/server/errors/application-error";
-import { requireFeature } from "@/server/features/feature-flags";
+import { isFeatureEnabled, requireFeature } from "@/server/features/feature-flags";
 
 export type TodoStatus = "OPEN" | "OVERDUE" | "DONE";
 export type TodoPriority = "HIGH" | "NORMAL" | "LOW";
@@ -58,9 +58,10 @@ async function getStudentTodo(actor: Actor, now: Date) {
   const enrollments = await prisma.kelasSiswa.findMany({ where: { siswaId: account.siswaId, status: "ACTIVE", kelas: { status: "ACTIVE" } }, select: { kelasId: true, startDate: true, endDate: true, kelas: { select: { name: true } } } });
   const classIds = enrollments.map((item) => item.kelasId);
   const [assignments, exams] = await Promise.all([
-    prisma.assignment.findMany({ where: { kelasId: { in: classIds }, status: "PUBLISHED", OR: [{ availableFrom: null }, { availableFrom: { lte: now } }] }, orderBy: { dueAt: "asc" }, select: { id: true, kelasId: true, title: true, dueAt: true, submissions: { where: { studentId: account.siswaId }, orderBy: { attemptNumber: "desc" }, take: 1, select: { status: true } }, kelas: { select: { name: true } } } }),
+    prisma.assignment.findMany({ where: { kelasId: { in: classIds }, status: "PUBLISHED", OR: [{ availableFrom: null }, { availableFrom: { lte: now } }] }, orderBy: { dueAt: "asc" }, select: { id: true, kelasId: true, title: true, dueAt: true, submissions: { where: { studentId: account.siswaId, remedialParticipantId: null, revisionRequestId: null }, orderBy: { attemptNumber: "desc" }, take: 1, select: { status: true } }, kelas: { select: { name: true } } } }),
     prisma.ujian.findMany({ where: { kelasId: { in: classIds }, status: "PUBLISHED" }, orderBy: { examDate: "asc" }, select: { id: true, kelasId: true, title: true, examDate: true, availableFrom: true, availableUntil: true, results: { where: { siswaId: account.siswaId, status: { in: ["FINAL", "CORRECTED"] } }, take: 1, select: { id: true } }, attempts: { where: { siswaId: account.siswaId }, orderBy: { updatedAt: "desc" }, take: 1, select: { status: true } }, kelas: { select: { name: true } } } }),
   ]);
+  const remedials = isFeatureEnabled("remedialEnabled") ? await prisma.remedialParticipant.findMany({ where: { studentId: account.siswaId, status: { notIn: ["CANCELLED", "COMPLETED", "EXPIRED", "SUBMITTED"] }, remedial: { status: "PUBLISHED", kelasId: { in: classIds }, OR: [{ availableFrom: null }, { availableFrom: { lte: now } }] } }, orderBy: { remedial: { dueAt: "asc" } }, select: { id: true, studentId: true, status: true, remedial: { select: { id: true, sourceId: true, kelasId: true, title: true, dueAt: true, kelas: { select: { name: true } } } } } }) : [];
   const items: TodoItem[] = [];
   for (const assignment of assignments) {
     const submissionStatus = assignment.submissions[0]?.status || null;
@@ -75,6 +76,10 @@ async function getStudentTodo(actor: Actor, now: Date) {
     const status = todoStatus(done, dueAt, now);
     items.push({ key: `Ujian:${exam.id}:${account.siswaId}`, kind: "EXAM", title: `Ikuti ujian: ${exam.title}`, description: exam.kelas.name, entityType: "Ujian", entityId: exam.id, classId: exam.kelasId, siswaId: account.siswaId, childName: null, dueAt, status, isOverdue: status === "OVERDUE", priority: priority(status, dueAt, now), href: `/siswa/kelas/${exam.kelasId}` });
   }
+  for (const remedial of remedials) {
+    const status = todoStatus(false, remedial.remedial.dueAt, now);
+    items.push({ key: `Remedial:${remedial.id}`, kind: "REMEDIAL", title: `Kerjakan remedial: ${remedial.remedial.title}`, description: remedial.remedial.kelas.name, entityType: "RemedialAssignment", entityId: remedial.remedial.id, classId: remedial.remedial.kelasId, siswaId: account.siswaId, childName: null, dueAt: remedial.remedial.dueAt, status, isOverdue: status === "OVERDUE", priority: priority(status, remedial.remedial.dueAt, now), href: `/siswa/tugas/${remedial.remedial.sourceId}?remedialId=${remedial.id}` });
+  }
   return todoResult(actor, items, now);
 }
 
@@ -86,10 +91,11 @@ async function getWaliTodo(actor: Actor, now: Date) {
   const enrollmentKeys = new Set(enrollments.map((item) => `${item.siswaId}:${item.kelasId}`));
   const classIds = [...new Set(enrollments.map((item) => item.kelasId))];
   const [assignments, exams, sessions] = await Promise.all([
-    prisma.assignment.findMany({ where: { kelasId: { in: classIds }, status: "PUBLISHED" }, orderBy: { dueAt: "asc" }, select: { id: true, kelasId: true, title: true, dueAt: true, submissions: { where: { studentId: { in: studentIds } }, orderBy: [{ studentId: "asc" }, { attemptNumber: "desc" }], select: { studentId: true, status: true } }, kelas: { select: { name: true } } } }),
+    prisma.assignment.findMany({ where: { kelasId: { in: classIds }, status: "PUBLISHED" }, orderBy: { dueAt: "asc" }, select: { id: true, kelasId: true, title: true, dueAt: true, submissions: { where: { studentId: { in: studentIds }, remedialParticipantId: null, revisionRequestId: null }, orderBy: [{ studentId: "asc" }, { attemptNumber: "desc" }], select: { studentId: true, status: true } }, kelas: { select: { name: true } } } }),
     prisma.ujian.findMany({ where: { kelasId: { in: classIds }, status: "PUBLISHED" }, orderBy: { examDate: "asc" }, select: { id: true, kelasId: true, title: true, examDate: true, availableFrom: true, availableUntil: true, results: { where: { siswaId: { in: studentIds }, status: { in: ["FINAL", "CORRECTED"] } }, select: { siswaId: true } }, kelas: { select: { name: true } } } }),
     prisma.sesiKelas.findMany({ where: { kelasId: { in: classIds }, sessionDate: { gte: now }, status: { not: "CANCELLED" } }, orderBy: { sessionDate: "asc" }, take: 20, select: { id: true, kelasId: true, topic: true, sessionDate: true, kelas: { select: { name: true } } } }),
   ]);
+  const remedials = isFeatureEnabled("remedialEnabled") ? await prisma.remedialParticipant.findMany({ where: { studentId: { in: studentIds }, status: { notIn: ["CANCELLED", "COMPLETED", "EXPIRED", "SUBMITTED"] }, remedial: { status: "PUBLISHED", kelasId: { in: classIds }, OR: [{ availableFrom: null }, { availableFrom: { lte: now } }] } }, orderBy: { remedial: { dueAt: "asc" } }, select: { id: true, studentId: true, status: true, remedial: { select: { id: true, sourceId: true, kelasId: true, title: true, dueAt: true, kelas: { select: { name: true } } } } } }) : [];
   const items: TodoItem[] = [];
   for (const assignment of assignments) {
     const latestByStudent = new Map<string, string>();
@@ -116,6 +122,11 @@ async function getWaliTodo(actor: Actor, now: Date) {
       if (!enrollmentKeys.has(`${studentId}:${session.kelasId}`)) continue;
       items.push({ key: `SesiKelas:${session.id}:${studentId}`, kind: "CLASS_SESSION", title: `Jadwal ${childNames.get(studentId)}: ${session.topic}`, description: session.kelas.name, entityType: "SesiKelas", entityId: session.id, classId: session.kelasId, siswaId: studentId, childName: childNames.get(studentId) || null, dueAt: session.sessionDate, status: "OPEN", isOverdue: false, priority: "LOW", href: `/wali/progres/${studentId}` });
     }
+  }
+  for (const remedial of remedials) {
+    if (!enrollmentKeys.has(`${remedial.studentId}:${remedial.remedial.kelasId}`)) continue;
+    const status = todoStatus(false, remedial.remedial.dueAt, now);
+    items.push({ key: `Remedial:${remedial.id}`, kind: "REMEDIAL", title: `Remedial ${childNames.get(remedial.studentId)}: ${remedial.remedial.title}`, description: remedial.remedial.kelas.name, entityType: "RemedialAssignment", entityId: remedial.remedial.id, classId: remedial.remedial.kelasId, siswaId: remedial.studentId, childName: childNames.get(remedial.studentId) || null, dueAt: remedial.remedial.dueAt, status, isOverdue: status === "OVERDUE", priority: priority(status, remedial.remedial.dueAt, now), href: `/wali/progres/${remedial.studentId}/remedial` });
   }
   return todoResult(actor, items, now);
 }

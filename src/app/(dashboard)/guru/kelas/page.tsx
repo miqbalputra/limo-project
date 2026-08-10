@@ -33,15 +33,15 @@ export default async function GuruKelasPage() {
         <section className="grid gap-4 xl:grid-cols-2">
           {items.map((item) => {
             const readiness = Math.min(100, Math.round(((item._count.sessions > 0 ? 50 : 0) + (item._count.materi > 0 ? 30 : 0) + (item._count.enrollments > 0 ? 20 : 0))));
-            const status = readiness >= 80 ? { label: "Siap mengajar", className: "bg-success-50 text-success-700" } : readiness >= 50 ? { label: "Perlu dilengkapi", className: "bg-warning-50 text-warning-700" } : { label: "Setup awal", className: "bg-error-50 text-error-700" };
+            const status = readiness >= 80 ? { label: "Siap mengajar", className: "bg-success-50 text-success-700" } : readiness >= 50 ? { label: "Perlu dilengkapi", className: "bg-warning-50 text-warning-700" } : { label: "Penyiapan awal", className: "bg-error-50 text-error-700" };
 
             return (
               <article key={item.id} className="tailadmin-card min-w-0 p-5 transition hover:-translate-y-0.5 hover:shadow-theme-sm">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex min-w-0 gap-4">
-                    <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand-50 text-brand-600"><DashboardIcon name="classes" className="size-6" /></span>
+                    <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-limo-blue-50 text-limo-blue-700"><DashboardIcon name="classes" className="size-6" /></span>
                     <div className="min-w-0">
-                      <p className="text-theme-xs font-semibold uppercase tracking-wide text-brand-500">{item.program.name} / {item.level.name}</p>
+                      <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-700">{item.program.name} / {item.level.name}</p>
                       <h2 className="mt-1 truncate text-lg font-semibold text-gray-900" title={item.name}>{item.name}</h2>
                       <p className="mt-1 text-theme-sm text-gray-500">{item._count.enrollments} siswa aktif</p>
                     </div>
@@ -79,7 +79,7 @@ export default async function GuruKelasPage() {
 
 function ClassHero({ totalClasses, totalStudents, totalSessions }: { totalClasses: number; totalStudents: number; totalSessions: number }) {
   return (
-    <div className="grid w-full grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs sm:min-w-72">
+    <div className="grid w-full min-w-0 grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs lg:w-auto lg:min-w-72">
       <MiniStat label="Kelas" value={totalClasses} />
       <MiniStat label="Siswa" value={totalStudents} />
       <MiniStat label="Sesi" value={totalSessions} />
@@ -89,7 +89,7 @@ function ClassHero({ totalClasses, totalStudents, totalSessions }: { totalClasse
 
 function SummaryCard({ label, value, helper, icon, tone }: { label: string; value: number; helper: string; icon: "classes" | "student" | "materials"; tone: "brand" | "success" | "warning" }) {
   const classes = {
-    brand: "bg-brand-50 text-brand-600",
+    brand: "bg-limo-blue-50 text-limo-blue-700",
     success: "bg-success-50 text-success-700",
     warning: "bg-warning-50 text-warning-700",
   }[tone];

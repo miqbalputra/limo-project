@@ -12,56 +12,139 @@
   --text-theme-xs--line-height: 18px;
   --text-theme-sm: 14px;
   --text-theme-sm--line-height: 20px;
+  --text-theme-lg: 18px;
+  --text-theme-lg--line-height: 28px;
   --text-theme-xl: 20px;
   --text-theme-xl--line-height: 30px;
   --text-title-sm: 24px;
   --text-title-sm--line-height: 32px;
-  --color-brand-25: #f2f7ff;
-  --color-brand-50: #ecf3ff;
-  --color-brand-100: #dde9ff;
-  --color-brand-300: #9cb9ff;
-  --color-brand-400: #7592ff;
-  --color-brand-500: #465fff;
-  --color-brand-600: #3641f5;
-  --color-brand-700: #2a31d8;
-  --color-brand-800: #252dae;
-  --color-brand-900: #262e89;
-  --color-gray-25: #fcfcfd;
-  --color-gray-50: #f9fafb;
-  --color-gray-100: #f2f4f7;
-  --color-gray-200: #e4e7ec;
-  --color-gray-300: #d0d5dd;
-  --color-gray-400: #98a2b3;
-  --color-gray-500: #667085;
-  --color-gray-600: #475467;
-  --color-gray-700: #344054;
-  --color-gray-800: #1d2939;
-  --color-gray-900: #101828;
-  --color-gray-950: #0c111d;
-  --color-success-50: #ecfdf3;
-  --color-success-500: #12b76a;
-  --color-success-700: #027a48;
-  --color-error-50: #fef3f2;
-  --color-error-500: #f04438;
-  --color-error-700: #b42318;
-  --color-warning-50: #fffaeb;
-  --color-warning-500: #f79009;
-  --color-warning-700: #b54708;
-  --shadow-theme-xs: 0px 1px 2px 0px rgba(16, 24, 40, 0.05);
-  --shadow-theme-sm: 0px 1px 3px 0px rgba(16, 24, 40, 0.1), 0px 1px 2px 0px rgba(16, 24, 40, 0.06);
-  --shadow-theme-md: 0px 4px 8px -2px rgba(16, 24, 40, 0.1), 0px 2px 4px -2px rgba(16, 24, 40, 0.06);
-  --shadow-focus-ring: 0px 0px 0px 4px rgba(70, 95, 255, 0.12);
+  --text-title-md: 30px;
+  --text-title-md--line-height: 38px;
+
+  /* LIMO tonal ramps. Text should use blue 500+, sky/red 600+, yellow/green 700+, or neutral 500+. */
+  --color-limo-blue-50: #F6FBFF;
+  --color-limo-blue-100: #E5F2FF;
+  --color-limo-blue-200: #C2E0FF;
+  --color-limo-blue-300: #91C3F6;
+  --color-limo-blue-400: #5D9DDC;
+  --color-limo-blue-500: #2372B8;
+  --color-limo-blue-600: #0E5D9D;
+  --color-limo-blue-700: #044980;
+  --color-limo-blue-800: #033761;
+  --color-limo-blue-900: #042847;
+  --color-limo-sky-50: #F4FBFF;
+  --color-limo-sky-100: #E0F4FE;
+  --color-limo-sky-200: #BCE5FA;
+  --color-limo-sky-300: #94D3F2;
+  --color-limo-sky-400: #65BAE1;
+  --color-limo-sky-500: #0F99C9;
+  --color-limo-sky-600: #00769D;
+  --color-limo-sky-700: #005876;
+  --color-limo-sky-800: #003E54;
+  --color-limo-sky-900: #002B3C;
+  --color-limo-red-50: #FFF8F7;
+  --color-limo-red-100: #FFEBE8;
+  --color-limo-red-200: #FFCFC9;
+  --color-limo-red-300: #FFABA1;
+  --color-limo-red-400: #FF7B71;
+  --color-limo-red-500: #F73F3D;
+  --color-limo-red-600: #C92326;
+  --color-limo-red-700: #9E151A;
+  --color-limo-red-800: #76080E;
+  --color-limo-red-900: #540A0B;
+  --color-limo-yellow-50: #FDFBED;
+  --color-limo-yellow-100: #F8F3D1;
+  --color-limo-yellow-200: #F7EBA9;
+  --color-limo-yellow-300: #F9E06C;
+  --color-limo-yellow-400: #E3BE1F;
+  --color-limo-yellow-500: #BD9600;
+  --color-limo-yellow-600: #997200;
+  --color-limo-yellow-700: #7B5600;
+  --color-limo-yellow-800: #5E3E04;
+  --color-limo-yellow-900: #462D0B;
+  --color-limo-green-50: #F4FDF6;
+  --color-limo-green-100: #E1F7E6;
+  --color-limo-green-200: #BAEAC6;
+  --color-limo-green-300: #85DB9E;
+  --color-limo-green-400: #52CF7F;
+  --color-limo-green-500: #09C467;
+  --color-limo-green-600: #009D51;
+  --color-limo-green-700: #00773C;
+  --color-limo-green-800: #00572A;
+  --color-limo-green-900: #043E1D;
+  --color-limo-neutral-25: #FEFEFE;
+  --color-limo-neutral-50: #FAFAFA;
+  --color-limo-neutral-100: #F3F3F3;
+  --color-limo-neutral-200: #E1E1E1;
+  --color-limo-neutral-300: #CACACA;
+  --color-limo-neutral-400: #9E9E9E;
+  --color-limo-neutral-500: #747474;
+  --color-limo-neutral-600: #525252;
+  --color-limo-neutral-700: #353535;
+  --color-limo-neutral-800: #1F1F1F;
+  --color-limo-neutral-900: #0F0F0F;
+  --color-limo-neutral-950: #090909;
+
+  /* Semantic status aliases keep operational states aligned to the LIMO palette. */
+  --color-gray-25: var(--color-limo-neutral-25);
+  --color-gray-50: var(--color-limo-neutral-50);
+  --color-gray-100: var(--color-limo-neutral-100);
+  --color-gray-200: var(--color-limo-neutral-200);
+  --color-gray-300: var(--color-limo-neutral-300);
+  --color-gray-400: var(--color-limo-neutral-400);
+  --color-gray-500: var(--color-limo-neutral-500);
+  --color-gray-600: var(--color-limo-neutral-600);
+  --color-gray-700: var(--color-limo-neutral-700);
+  --color-gray-800: var(--color-limo-neutral-800);
+  --color-gray-900: var(--color-limo-neutral-900);
+  --color-gray-950: var(--color-limo-neutral-950);
+  --color-success-50: var(--color-limo-green-50);
+  --color-success-100: var(--color-limo-green-100);
+  --color-success-200: var(--color-limo-green-200);
+  --color-success-300: var(--color-limo-green-300);
+  --color-success-400: var(--color-limo-green-400);
+  --color-success-500: var(--color-limo-green-500);
+  --color-success-600: var(--color-limo-green-600);
+  --color-success-700: var(--color-limo-green-700);
+  --color-success-800: var(--color-limo-green-800);
+  --color-success-900: var(--color-limo-green-900);
+  --color-error-50: var(--color-limo-red-50);
+  --color-error-100: var(--color-limo-red-100);
+  --color-error-200: var(--color-limo-red-200);
+  --color-error-300: var(--color-limo-red-300);
+  --color-error-400: var(--color-limo-red-400);
+  --color-error-500: var(--color-limo-red-500);
+  --color-error-600: var(--color-limo-red-600);
+  --color-error-700: var(--color-limo-red-700);
+  --color-error-800: var(--color-limo-red-800);
+  --color-error-900: var(--color-limo-red-900);
+  --color-warning-50: var(--color-limo-yellow-50);
+  --color-warning-100: var(--color-limo-yellow-100);
+  --color-warning-200: var(--color-limo-yellow-200);
+  --color-warning-300: var(--color-limo-yellow-300);
+  --color-warning-400: var(--color-limo-yellow-400);
+  --color-warning-500: var(--color-limo-yellow-500);
+  --color-warning-600: var(--color-limo-yellow-600);
+  --color-warning-700: var(--color-limo-yellow-700);
+  --color-warning-800: var(--color-limo-yellow-800);
+  --color-warning-900: var(--color-limo-yellow-900);
+  --shadow-theme-xs: 0px 1px 2px 0px rgb(31 31 31 / 0.05);
+  --shadow-theme-sm: 0px 1px 3px 0px rgb(31 31 31 / 0.1), 0px 1px 2px 0px rgb(31 31 31 / 0.06);
+  --shadow-theme-md: 0px 4px 8px -2px rgb(31 31 31 / 0.1), 0px 2px 4px -2px rgb(31 31 31 / 0.06);
+  --shadow-theme-lg: 0px 12px 16px -4px rgb(31 31 31 / 0.08), 0px 4px 6px -2px rgb(31 31 31 / 0.03);
+  --shadow-theme-xl: 0px 20px 24px -4px rgb(31 31 31 / 0.08), 0px 8px 8px -4px rgb(31 31 31 / 0.03);
+  --shadow-focus-ring: 0px 0px 0px 4px rgb(35 114 184 / 0.18);
 }
 
 :root {
-  --color-limo-blue: #2372b8;
-  --color-limo-sky: #94d3f2;
-  --color-limo-red: #f73f3d;
-  --color-limo-yellow: #f9e06c;
-  --color-limo-green: #09c467;
-  --color-limo-neutral: #f3f3f3;
-  --color-foreground: #162033;
-  --color-background: #ffffff;
+  --color-limo-blue: var(--color-limo-blue-500);
+  --color-limo-sky: var(--color-limo-sky-300);
+  --color-limo-red: var(--color-limo-red-500);
+  --color-limo-yellow: var(--color-limo-yellow-300);
+  --color-limo-green: var(--color-limo-green-500);
+  --color-limo-neutral: var(--color-limo-neutral-100);
+  --color-foreground: var(--color-limo-neutral-800);
+  --color-background: var(--color-limo-neutral-50);
 }
 
 * {
@@ -85,11 +168,28 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  background: var(--color-gray-50);
+  background: var(--color-limo-neutral-50);
 }
 
-[dir="rtl"] {
+.localized-content {
+  text-align: start;
+  unicode-bidi: isolate;
+}
+
+.localized-content > bdi {
+  unicode-bidi: isolate;
+}
+
+.localized-text-field {
+  text-align: start;
+  unicode-bidi: plaintext;
+}
+
+.localized-content-arabic,
+.localized-content[lang="ar"],
+.localized-text-field[lang="ar"] {
   font-family:
+    var(--font-arabic),
     "Noto Naskh Arabic",
     "Amiri",
     serif;
@@ -117,11 +217,11 @@ body {
   input,
   select,
   textarea {
-    @apply text-theme-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:ring-brand-500/10 focus:border-brand-300;
+    @apply text-theme-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:ring-limo-blue-500/15 focus:border-limo-blue-300;
   }
 
   :focus-visible {
-    outline: 3px solid rgba(70, 95, 255, 0.35);
+    outline: 3px solid rgb(35 114 184 / 0.45);
     outline-offset: 2px;
   }
 }
@@ -142,7 +242,7 @@ body {
 }
 
 @utility menu-item-active {
-  @apply bg-brand-50 text-brand-500;
+  @apply bg-limo-blue-50 text-limo-blue-700;
 }
 
 @utility menu-item-inactive {
@@ -154,11 +254,11 @@ body {
 }
 
 @utility menu-item-icon-active {
-  @apply text-brand-500;
+  @apply text-limo-blue-700;
 }
 
 @utility tailadmin-card {
-  @apply rounded-2xl border border-gray-200 bg-white shadow-theme-xs;
+  @apply rounded-xl border border-gray-200 bg-white shadow-theme-xs;
 }
 
 @utility tailadmin-page-title {
@@ -170,15 +270,19 @@ body {
 }
 
 @utility tailadmin-button-primary {
-  @apply inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-300;
+  @apply inline-flex items-center justify-center rounded-lg bg-limo-blue-500 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition-colors hover:bg-limo-blue-600 disabled:cursor-not-allowed disabled:bg-limo-blue-300;
 }
 
 @utility tailadmin-button-outline {
   @apply inline-flex items-center justify-center rounded-lg bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50;
 }
 
+@utility tailadmin-button-secondary {
+  @apply inline-flex items-center justify-center rounded-lg bg-limo-blue-50 px-4 py-2.5 text-theme-sm font-medium text-limo-blue-700 ring-1 ring-inset ring-limo-blue-200 transition-colors hover:bg-limo-blue-100 disabled:cursor-not-allowed disabled:opacity-50;
+}
+
 @utility tailadmin-input {
-  @apply w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-theme-sm text-gray-800 shadow-theme-xs outline-none transition placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10;
+  @apply w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-theme-sm text-gray-800 shadow-theme-xs outline-none transition placeholder:text-gray-400 focus:border-limo-blue-300 focus:ring-3 focus:ring-limo-blue-500/15;
 }
 
 @utility tailadmin-alert-error {
@@ -194,20 +298,6 @@ body {
 }
 
 /* ── LIMO Landing Page Animations ── */
-
-@theme {
-  --color-brand-200: #bdd0ff;
-  --color-success-100: #d1fadf;
-  --color-success-800: #05603a;
-  --color-warning-100: #feefcd;
-  --color-warning-200: #fedf89;
-  --color-warning-300: #fec84b;
-  --color-warning-400: #fdb022;
-  --color-warning-800: #93370d;
-  --color-error-100: #fee4e2;
-  --shadow-theme-lg: 0px 12px 16px -4px rgba(16, 24, 40, 0.08), 0px 4px 6px -2px rgba(16, 24, 40, 0.03);
-  --shadow-theme-xl: 0px 20px 24px -4px rgba(16, 24, 40, 0.08), 0px 8px 8px -4px rgba(16, 24, 40, 0.03);
-}
 
 @keyframes limo-float {
   0%, 100% { transform: translateY(0px); }
@@ -243,4 +333,35 @@ body {
 
 @utility glass-card {
   @apply bg-white/80 backdrop-blur-xl border border-white/40;
+}
+
+/* Keep dashboard surfaces quiet and let data hierarchy carry the visual weight. */
+@layer utilities {
+  #dashboard-content .rounded-2xl {
+    border-radius: 0.75rem;
+  }
+
+  #dashboard-content .rounded-3xl {
+    border-radius: 1rem;
+  }
+
+  #dashboard-content .rounded-2xl.border-limo-blue-100,
+  #dashboard-content .rounded-xl.border-limo-blue-100 {
+    border-color: var(--color-gray-200);
+    background-color: var(--color-gray-50);
+  }
+
+  #dashboard-content .tailadmin-card:hover {
+    transform: none;
+    border-color: var(--color-gray-200);
+  }
+
+  #dashboard-content table thead {
+    background-color: var(--color-gray-50);
+  }
+
+  #dashboard-content table th {
+    color: var(--color-gray-500);
+    font-weight: 600;
+  }
 }

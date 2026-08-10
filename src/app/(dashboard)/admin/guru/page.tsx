@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { listGuru } from "@/server/services/people-service";
 import { GuruForm } from "@/components/dashboard/people-forms";
@@ -21,7 +22,7 @@ export default async function AdminGuruPage({ searchParams }: { searchParams: Pr
       <GuruForm />
       <form method="get" className="tailadmin-card flex flex-col gap-3 p-4 sm:flex-row"><input name="search" defaultValue={search || ""} aria-label="Cari Guru" placeholder="Cari nama atau email Guru" className="tailadmin-input" /><button className="tailadmin-button-primary sm:w-auto">Cari</button></form>
       {items.length > 0 ? <section className="grid gap-4 md:grid-cols-2">
-        {items.map((item) => <article key={item.id} className="tailadmin-card p-5"><h2 className="font-semibold text-gray-900">{item.user.name}</h2><p className="mt-1 text-theme-sm text-gray-500">{item.user.email}</p><p className="mt-1 text-theme-sm text-gray-500">{item._count.kelas} kelas</p><UserActions userId={item.user.id} active={item.user.status === "ACTIVE"} isSelf={item.user.id === actor.id} /></article>)}
+        {items.map((item) => <article key={item.id} className="tailadmin-card p-5"><h2 className="font-semibold text-gray-900">{item.user.name}</h2><p className="mt-1 text-theme-sm text-gray-500">{item.user.email}</p><p className="mt-1 text-theme-sm text-gray-500">{item._count.kelas} kelas</p><Link href={`/admin/guru/${item.id}`} className="mt-3 inline-flex text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Lihat profil</Link><UserActions userId={item.user.id} active={item.user.status === "ACTIVE"} isSelf={item.user.id === actor.id} /></article>)}
       </section> : <EmptyState icon="teacher" title="Belum ada Guru" description="Tambahkan akun Guru pertama menggunakan formulir di atas." />}
       <PaginationControls basePath="/admin/guru" page={pagination.page} totalPages={pagination.totalPages} params={{ search }} />
     </main>

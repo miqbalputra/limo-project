@@ -1,15 +1,18 @@
 import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { getActorDashboardContext } from "@/server/dal/actor-dal";
+import { resolveWaliChildId } from "@/server/dal/wali-selector-dal";
 import { DashboardHero, EmptyState, ProgressBar } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
+import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Progres Anak" };
 
-export default async function WaliProgresPage() {
+export default async function WaliProgresPage({ searchParams }: { searchParams: Promise<{ anak?: string }> }) {
   const actor = await requireActor();
   requireRole(actor, ["WALI"]);
-  const context = await getActorDashboardContext(actor);
+  const { anak } = await searchParams;
+  const context = await getActorDashboardContext(actor, await resolveWaliChildId(actor, anak));
   const children = context.role === "WALI" ? context.children : [];
   const progressScores = children.flatMap((child) => child.progresBelajar.map((item) => item.understandingScore));
   const examScores = children.flatMap((child) => child.hasilUjian.map((item) => Number(item.totalScore || 0)));
@@ -43,11 +46,11 @@ export default async function WaliProgresPage() {
               <article key={child.id} className="tailadmin-card min-w-0 p-5 transition hover:-translate-y-0.5 hover:shadow-theme-sm">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex min-w-0 gap-4">
-                    <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand-50 text-lg font-semibold text-brand-600">{child.name.slice(0, 1).toUpperCase()}</span>
+                    <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-limo-blue-50 text-lg font-semibold text-limo-blue-700">{child.name.slice(0, 1).toUpperCase()}</span>
                     <div className="min-w-0">
-                      <p className="text-theme-xs font-semibold uppercase tracking-wide text-brand-500">{child.nomorInduk} / {child.program.name}</p>
+                      <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-700">{child.nomorInduk} / {child.program.name}</p>
                       <h2 className="mt-1 truncate text-lg font-semibold text-gray-900" title={child.name}>{child.name}</h2>
-                      <p className="mt-1 text-theme-xs text-gray-500">Status siswa: {child.status}</p>
+                      <p className="mt-1 text-theme-xs text-gray-500">Status siswa: {formatUiLabel(child.status)}</p>
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
@@ -101,7 +104,7 @@ function getProgressStatus(progress: number | null, attendanceRate: number | nul
     return { label: "Perlu perhatian", className: "bg-warning-50 text-warning-700" };
   }
 
-  return { label: "Berkembang", className: "bg-brand-50 text-brand-600" };
+  return { label: "Berkembang", className: "bg-limo-blue-50 text-limo-blue-700" };
 }
 
 function InactiveChildren({ title, description, items }: { title: string; description: string; items: { id: string; name: string; nomorInduk: string; program: { name: string } }[] }) {
@@ -116,7 +119,7 @@ function InactiveChildren({ title, description, items }: { title: string; descri
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((child) => (
-          <Link key={child.id} href={`/wali/progres/${child.id}`} className="min-w-0 rounded-2xl border border-gray-100 bg-gray-50 p-3 transition hover:border-brand-200 hover:bg-brand-50/40">
+              <Link key={child.id} href={`/wali/progres/${child.id}`} className="min-w-0 rounded-xl border border-gray-200 bg-white p-3 transition hover:bg-gray-25 hover:shadow-theme-xs">
             <p className="truncate text-theme-sm font-semibold text-gray-900" title={child.name}>{child.name}</p>
             <p className="mt-1 truncate text-theme-xs text-gray-500">{child.nomorInduk} / {child.program.name}</p>
           </Link>
@@ -128,7 +131,7 @@ function InactiveChildren({ title, description, items }: { title: string; descri
 
 function HeroStats({ childCount, averageProgress, averageScore }: { childCount: number; averageProgress: number | null; averageScore: number | null }) {
   return (
-    <div className="grid min-w-64 grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs">
+    <div className="grid w-full min-w-0 grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs lg:w-auto lg:min-w-64">
       <SmallMetric label="Anak" value={childCount} helper="Terhubung" />
       <SmallMetric label="Progres" value={averageProgress === null ? "-" : averageProgress.toFixed(1)} helper="Rata-rata" />
       <SmallMetric label="Nilai" value={averageScore === null ? "-" : averageScore.toFixed(0)} helper="Rata-rata" />

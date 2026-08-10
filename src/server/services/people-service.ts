@@ -14,7 +14,9 @@ import {
   siswaListSchema,
   siswaWaliSchema,
   transferSiswaSchema,
+  updateGuruSchema,
   updateSiswaSchema,
+  updateWaliSchema,
 } from "@/server/validation/master-data";
 
 function requireAdmin(actor: Actor) {
@@ -109,6 +111,52 @@ export async function createGuru(actor: Actor, input: unknown) {
   return { item };
 }
 
+export async function getGuru(actor: Actor, id: string) {
+  requireAdmin(actor);
+  const item = await prisma.guruProfile.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      phone: true,
+      address: true,
+      createdAt: true,
+      updatedAt: true,
+      user: { select: { id: true, name: true, email: true, status: true } },
+      kelas: {
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, status: true, program: { select: { name: true } }, level: { select: { name: true } }, _count: { select: { enrollments: { where: { status: "ACTIVE" } } } } },
+      },
+    },
+  });
+  if (!item) throw new NotFoundError("Profil guru tidak ditemukan");
+  return { item };
+}
+
+export async function updateGuru(actor: Actor, id: string, input: unknown) {
+  requireAdmin(actor);
+  const parsed = updateGuruSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Data guru belum valid", parsed.error.flatten().fieldErrors);
+
+  const existing = await prisma.guruProfile.findUnique({ where: { id }, select: { id: true, userId: true } });
+  if (!existing) throw new NotFoundError("Profil guru tidak ditemukan");
+  const email = normalizeEmail(parsed.data.email);
+  const duplicate = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  if (duplicate && duplicate.id !== existing.userId) throw new ConflictError("Email sudah digunakan akun lain");
+
+  const item = await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: existing.userId }, data: { name: parsed.data.name, email } });
+    const profile = await tx.guruProfile.update({
+      where: { id },
+      data: { phone: parsed.data.phone || null, address: parsed.data.address || null },
+      select: { id: true, phone: true, address: true, user: { select: { name: true, email: true } } },
+    });
+    await tx.auditLog.create({ data: { actorId: actor.id, action: "GURU_UPDATED", entityType: "GuruProfile", entityId: id } });
+    return profile;
+  });
+
+  return { item };
+}
+
 export async function listWali(actor: Actor, input: PaginationInput & { search?: string } = {}) {
   requireAdmin(actor);
 
@@ -187,6 +235,66 @@ export async function createWali(actor: Actor, input: unknown) {
   return { item };
 }
 
+export async function getWali(actor: Actor, id: string) {
+  requireAdmin(actor);
+  const item = await prisma.waliProfile.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      phone: true,
+      address: true,
+      createdAt: true,
+      updatedAt: true,
+      user: { select: { id: true, name: true, email: true, status: true } },
+      siswaRelations: {
+        where: { endedAt: null },
+        orderBy: [{ isPrimary: "desc" }, { siswa: { name: "asc" } }],
+        select: {
+          id: true,
+          relationship: true,
+          isPrimary: true,
+          siswa: {
+            select: {
+              id: true,
+              name: true,
+              nomorInduk: true,
+              program: { select: { name: true } },
+              enrollments: { where: { status: "ACTIVE" }, select: { kelas: { select: { name: true } } } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!item) throw new NotFoundError("Profil wali tidak ditemukan");
+  return { item };
+}
+
+export async function updateWali(actor: Actor, id: string, input: unknown) {
+  requireAdmin(actor);
+  const parsed = updateWaliSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Data wali belum valid", parsed.error.flatten().fieldErrors);
+
+  const existing = await prisma.waliProfile.findUnique({ where: { id }, select: { id: true, userId: true } });
+  if (!existing) throw new NotFoundError("Profil wali tidak ditemukan");
+  const email = normalizeEmail(parsed.data.email);
+  const duplicate = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  if (duplicate && duplicate.id !== existing.userId) throw new ConflictError("Email sudah digunakan akun lain");
+
+  const item = await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: existing.userId }, data: { name: parsed.data.name, email } });
+    const profile = await tx.waliProfile.update({
+      where: { id },
+      data: { phone: parsed.data.phone || null, address: parsed.data.address || null },
+      select: { id: true, phone: true, address: true, user: { select: { name: true, email: true } } },
+    });
+    await tx.auditLog.create({ data: { actorId: actor.id, action: "WALI_UPDATED", entityType: "WaliProfile", entityId: id } });
+    return profile;
+  });
+
+  return { item };
+}
+
 export async function listSiswa(actor: Actor, input: unknown = {}) {
   requireAdmin(actor);
   const parsed = siswaListSchema.safeParse(input);
@@ -211,10 +319,11 @@ export async function listSiswa(actor: Actor, input: unknown = {}) {
       take: pageSize,
       select: {
         id: true,
-        nomorInduk: true,
-        name: true,
-        status: true,
-        program: { select: { id: true, name: true } },
+         nomorInduk: true,
+         name: true,
+         status: true,
+         createdAt: true,
+         program: { select: { id: true, name: true } },
         waliRelations: {
           where: { endedAt: null },
           select: { waliProfile: { select: { id: true, user: { select: { name: true, email: true } } } } },

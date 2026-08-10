@@ -16,6 +16,10 @@ if [ "${DOKPLOY_SQLITE_DEMO:-false}" = "true" ]; then
   npx prisma db push --schema prisma/schema.sqlite.prisma --skip-generate
   npx prisma generate --schema prisma/schema.sqlite.prisma
   if [ "${DOKPLOY_SEED_ON_START:-true}" = "true" ]; then
+    if [ "${LIMO_ALLOW_DEMO_SEED:-false}" != "true" ]; then
+      echo "Refusing demo seed: set LIMO_ALLOW_DEMO_SEED=true for an explicit disposable demo."
+      exit 1
+    fi
     npm run prisma:seed
   fi
   exec "$@"
@@ -34,7 +38,8 @@ else
 fi
 
 if [ "${DOKPLOY_SEED_ON_START:-false}" = "true" ]; then
-  npm run prisma:seed
+  echo "Refusing demo seed in the production database path. Use DOKPLOY_SQLITE_DEMO=true for a disposable demo."
+  exit 1
 fi
 
 exec "$@"

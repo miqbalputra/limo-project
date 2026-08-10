@@ -3,8 +3,9 @@ import { prisma } from "@/server/db/prisma";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { createPaginationMeta, resolvePagination } from "@/server/pagination";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
+import { formatUiLabel } from "@/lib/ui-labels";
 
-export const metadata = { title: "Audit Log" };
+export const metadata = { title: "Log Audit" };
 
 export default async function AdminAuditPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const actor = await requireActor();
@@ -49,13 +50,13 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
     <main className="space-y-6">
       <div>
         <p className="text-theme-sm font-medium text-gray-500">Administrasi Sistem</p>
-        <h1 className="mt-1 tailadmin-page-title">Audit Log</h1>
-        <p className="mt-2 tailadmin-muted">Riwayat 100 aktivitas terbaru untuk approval, auth, data siswa, LMS, ujian, presensi, dan pembayaran.</p>
+        <h1 className="mt-1 tailadmin-page-title">Log Audit</h1>
+        <p className="mt-2 tailadmin-muted">Riwayat 100 aktivitas terbaru untuk persetujuan, autentikasi, data siswa, LMS, ujian, presensi, dan pembayaran.</p>
       </div>
 
       <section className="grid gap-4 md:grid-cols-4">
         <Metric label="Total Ditampilkan" value={String(items.length)} />
-        <Metric label="Auth" value={String(items.filter((item) => item.action.includes("LOGIN") || item.action.includes("PASSWORD") || item.action.includes("USER")).length)} />
+        <Metric label="Autentikasi" value={String(items.filter((item) => item.action.includes("LOGIN") || item.action.includes("PASSWORD") || item.action.includes("USER")).length)} />
         <Metric label="Akademik" value={String(items.filter((item) => ["Materi", "BankSoal", "Ujian", "HasilUjian", "SesiKelas"].includes(item.entityType)).length)} />
         <Metric label="Operasional" value={String(items.filter((item) => ["Siswa", "Pendaftaran", "Tagihan", "Pembayaran"].includes(item.entityType)).length)} />
       </section>
@@ -78,7 +79,7 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
         <div className="hidden grid-cols-[170px_1fr_1fr_130px] gap-4 border-b border-gray-200 bg-gray-50 px-5 py-3 text-theme-xs font-semibold uppercase tracking-wide text-gray-500 lg:grid">
           <span>Waktu</span>
           <span>Aksi</span>
-          <span>Actor</span>
+           <span>Pelaku</span>
           <span>Entitas</span>
         </div>
          {items.length > 0 ? <div className="divide-y divide-gray-100">
@@ -89,16 +90,16 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
                  <p className="text-theme-xs text-gray-500">{item.ipAddress || "IP tidak tercatat"}</p>
                </div>
                <div>
-                 <span className="inline-flex rounded-full bg-brand-50 px-3 py-1 text-theme-xs font-semibold text-brand-600">{item.action}</span>
+                  <span className="inline-flex rounded-full bg-limo-blue-50 px-3 py-1 text-theme-xs font-semibold text-limo-blue-700">{formatUiLabel(item.action, item.action)}</span>
                  {item.reason ? <p className="mt-2 text-theme-sm text-gray-600">{item.reason}</p> : null}
                  {formatMetadata(item.metadata) ? <p className="mt-2 break-all rounded-lg bg-gray-50 p-2 text-theme-xs text-gray-500">{formatMetadata(item.metadata)}</p> : null}
                </div>
                <div>
-                 <p className="text-theme-sm font-semibold text-gray-900">{item.actor?.name ?? "System"}</p>
-                 <p className="text-theme-xs text-gray-500">{item.actor?.email ?? "system"}{item.actor ? ` / ${item.actor.role}` : ""}</p>
+                  <p className="text-theme-sm font-semibold text-gray-900">{item.actor?.name ?? "Sistem"}</p>
+                  <p className="text-theme-xs text-gray-500">{item.actor?.email ?? "sistem"}{item.actor ? ` / ${formatUiLabel(item.actor.role)}` : ""}</p>
                </div>
                <div>
-                 <p className="text-theme-sm font-semibold text-gray-900">{item.entityType}</p>
+                  <p className="text-theme-sm font-semibold text-gray-900">{formatUiLabel(item.entityType, item.entityType)}</p>
                  <p className="break-all text-theme-xs text-gray-500">{item.entityId ?? "-"}</p>
                </div>
              </article>

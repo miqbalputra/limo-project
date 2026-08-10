@@ -3,7 +3,6 @@ import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ForbiddenError, NotFoundError } from "@/server/errors/application-error";
 import { canAccessStudent, canManageClass } from "@/server/policies/access-policy";
-import { getSelectedWaliStudentId } from "@/server/dal/wali-selector-dal";
 
 type StudentSummaryOptions = {
   attendanceFrom?: Date;
@@ -84,6 +83,7 @@ export async function getStudentSummary(actor: Actor, siswaId: string, options: 
     if (item.status === "ALPA") row.alpa += 1;
     return result;
   }, {}));
+
   const attendanceTimeline = presensiRows.map((item) => ({
     status: item.status,
     note: item.note,
@@ -92,25 +92,23 @@ export async function getStudentSummary(actor: Actor, siswaId: string, options: 
     topic: item.sesiKelas.topic,
   }));
 
-
   return {
     siswa,
     attendance: Object.fromEntries(presensi.map((item) => [item.status, item._count.status])),
     averageProgress,
     averageScore,
-    attendanceTimeline,
     monthlyAttendance,
+    attendanceTimeline,
     progressTimeline: progres,
     examResults: hasil,
   };
 }
 
-export async function getWaliExamHistory(actor: Actor) {
+export async function getWaliExamHistory(actor: Actor, selectedStudentId: string | null = null) {
   if (actor.role !== "WALI") {
     throw new ForbiddenError();
   }
 
-  const selectedStudentId = await getSelectedWaliStudentId(actor);
   const children = await prisma.waliSiswa.findMany({
     where: { endedAt: null, ...(selectedStudentId ? { siswaId: selectedStudentId } : {}), waliProfile: { userId: actor.id } },
     orderBy: { siswa: { name: "asc" } },

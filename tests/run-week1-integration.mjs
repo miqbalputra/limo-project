@@ -113,6 +113,18 @@ try {
   assert.equal(validUploadResult.response.status, 201, JSON.stringify(validUploadResult.payload));
   assert.equal(typeof validUploadResult.payload.data.file.sizeBytes, "string");
   const fileId = validUploadResult.payload.data.file.id;
+  const validJpgUpload = new FormData();
+  validJpgUpload.set("kode", registered.kode);
+  validJpgUpload.set("waliEmail", registrationEmail);
+  validJpgUpload.set("file", new File([Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0x00])], "foto.jpg", { type: "image/jpeg" }));
+  const validJpgUploadResult = await request(`/api/v1/pendaftaran/${registered.id}/files`, { method: "POST", body: validJpgUpload });
+  assert.equal(validJpgUploadResult.response.status, 201, JSON.stringify(validJpgUploadResult.payload));
+  const validPngUpload = new FormData();
+  validPngUpload.set("kode", registered.kode);
+  validPngUpload.set("waliEmail", registrationEmail);
+  validPngUpload.set("file", new File([Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], "foto.png", { type: "image/png" }));
+  const validPngUploadResult = await request(`/api/v1/pendaftaran/${registered.id}/files`, { method: "POST", body: validPngUpload });
+  assert.equal(validPngUploadResult.response.status, 201, JSON.stringify(validPngUploadResult.payload));
   const unauthorizedFile = await request(`/api/v1/files/${fileId}`, { cookie: wali.cookie });
   assert.equal(unauthorizedFile.response.status, 403);
   const adminFile = await request(`/api/v1/files/${fileId}`, { cookie: admin.cookie });

@@ -56,8 +56,8 @@ function AuthShell({ children, variant = "signin" }: { children: React.ReactNode
         </div>
       </section>
 
-      <aside className="relative hidden min-h-screen overflow-hidden bg-[#101828] px-12 py-16 text-white lg:flex lg:flex-col lg:items-center lg:justify-center">
-        <div className="absolute -left-20 top-16 size-72 rounded-full bg-brand-500/20 blur-3xl" />
+      <aside className="relative hidden min-h-screen overflow-hidden bg-gray-900 px-12 py-16 text-white lg:flex lg:flex-col lg:items-center lg:justify-center">
+        <div className="absolute -left-20 top-16 size-72 rounded-full bg-limo-blue-500/20 blur-3xl" />
         <div className="absolute -right-20 bottom-12 size-80 rounded-full bg-success-500/15 blur-3xl" />
         <div className="absolute left-12 top-12 grid grid-cols-6 gap-2 opacity-20" aria-hidden="true">
           {Array.from({ length: 36 }).map((_, index) => <span key={index} className="size-1 rounded-full bg-white" />)}
@@ -174,7 +174,7 @@ export function LoginForm() {
         </div>
 
         <div className="flex justify-end">
-          <Link href="/lupa-password" className="text-theme-sm font-medium text-brand-500 hover:text-brand-600">Lupa password?</Link>
+          <Link href="/lupa-password" className="text-theme-sm font-medium text-limo-blue-700 hover:text-limo-blue-800">Lupa kata sandi?</Link>
         </div>
 
         <button
@@ -186,7 +186,7 @@ export function LoginForm() {
         </button>
       </form>
 
-       <p className="mt-6 text-center text-theme-sm text-gray-500">Belum punya akun? <Link href="/daftar" className="font-medium text-brand-500 hover:text-brand-600">Daftar siswa baru</Link></p>
+       <p className="mt-6 text-center text-theme-sm text-gray-500">Belum punya akun? <Link href="/daftar" className="font-medium text-limo-blue-700 hover:text-limo-blue-800">Daftar siswa baru</Link></p>
     </AuthShell>
   );
 }
@@ -241,7 +241,7 @@ export function ForgotPasswordForm() {
            {isSubmitting ? "Memproses..." : "Kirim Instruksi Reset"}
         </button>
       </form>
-       <p className="mt-6 text-center text-theme-sm text-gray-500">Ingat password? <Link href="/login" className="font-medium text-brand-500 hover:text-brand-600">Kembali ke login</Link></p>
+       <p className="mt-6 text-center text-theme-sm text-gray-500">Ingat kata sandi? <Link href="/login" className="font-medium text-limo-blue-700 hover:text-limo-blue-800">Kembali ke login</Link></p>
     </AuthShell>
   );
 }
@@ -318,7 +318,7 @@ function ResetPasswordInner() {
           {isSubmitting ? "Memproses..." : "Reset Password"}
         </button>
       </form>
-       <p className="mt-6 text-center text-theme-sm text-gray-500">Ingat password? <Link href="/login" className="font-medium text-brand-500 hover:text-brand-600">Kembali ke login</Link></p>
+       <p className="mt-6 text-center text-theme-sm text-gray-500">Ingat kata sandi? <Link href="/login" className="font-medium text-limo-blue-700 hover:text-limo-blue-800">Kembali ke login</Link></p>
     </AuthShell>
   );
 }

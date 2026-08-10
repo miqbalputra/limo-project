@@ -3,15 +3,21 @@ import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import { DashboardHero, EmptyState, MetricCard, ProgressBar, QuickActionCard, SectionHeader } from "@/components/dashboard/dashboard-widgets";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { getActorDashboardContext } from "@/server/dal/actor-dal";
+import { resolveWaliChildId } from "@/server/dal/wali-selector-dal";
+import { withWaliChildContext } from "@/lib/wali-selector";
+import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = {
-  title: "Wali Dashboard",
+  title: "Beranda Wali",
 };
 
-export default async function WaliDashboardPage() {
+export default async function WaliDashboardPage({ searchParams }: { searchParams: Promise<{ anak?: string }> }) {
   const actor = await requireActor();
   requireRole(actor, ["WALI"]);
-  const context = await getActorDashboardContext(actor);
+  const { anak } = await searchParams;
+  const selectedChildId = await resolveWaliChildId(actor, anak);
+  const context = await getActorDashboardContext(actor, selectedChildId);
+  const waliHref = (href: string) => withWaliChildContext(href, selectedChildId);
 
   if (context.role !== "WALI") return null;
 
@@ -36,10 +42,10 @@ export default async function WaliDashboardPage() {
   return (
     <div className="space-y-6">
       <DashboardHero
-        eyebrow="Parent Portal"
+        eyebrow="Pantauan Anak"
         title={`Halo, ${actor.name}`}
         description="Pantau perkembangan anak, presensi, nilai, dan tagihan dari satu dashboard yang sederhana untuk orang tua."
-        actions={<><Link href="/wali/tugas" className="tailadmin-button-primary gap-2"><DashboardIcon name="exam" className="size-4" />Tugas Anak</Link><Link href="/wali/progres" className="tailadmin-button-outline gap-2"><DashboardIcon name="progress" className="size-4" />Lihat Progres</Link><Link href="/wali/tagihan" className="tailadmin-button-outline gap-2"><DashboardIcon name="billing" className="size-4" />Cek Tagihan</Link></>}
+        actions={<><Link href={waliHref("/wali/tugas")} className="tailadmin-button-primary gap-2"><DashboardIcon name="exam" className="size-4" />Tugas Anak</Link><Link href={waliHref("/wali/progres")} className="tailadmin-button-outline gap-2"><DashboardIcon name="progress" className="size-4" />Lihat Progres</Link><Link href={waliHref("/wali/tagihan")} className="tailadmin-button-outline gap-2"><DashboardIcon name="billing" className="size-4" />Cek Tagihan</Link></>}
         aside={<div className="rounded-2xl bg-gray-900 px-5 py-4 text-left text-white shadow-theme-lg"><p className="text-theme-xs text-white/60">Rata-rata nilai</p><p className="mt-1 text-3xl font-semibold">{averageScore ?? "-"}</p><p className="mt-1 text-theme-xs text-white/70">dari nilai final anak</p></div>}
       />
 
@@ -57,7 +63,7 @@ export default async function WaliDashboardPage() {
               <h2 className="font-semibold text-warning-800">Perlu Perhatian</h2>
               <p className="mt-1 text-theme-sm text-warning-700">Ada tagihan aktif, presensi rendah, atau progres yang perlu dipantau lebih dekat.</p>
             </div>
-            <Link href="/wali/tagihan" className="tailadmin-button-primary px-4 py-2">Cek Tagihan</Link>
+            <Link href={waliHref("/wali/tagihan")} className="tailadmin-button-primary px-4 py-2">Cek Tagihan</Link>
           </div>
           <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {childrenNeedingAttention.slice(0, 6).map((child) => (
@@ -71,7 +77,7 @@ export default async function WaliDashboardPage() {
       ) : null}
 
       <section>
-        <SectionHeader title="Ringkasan Anak" description="Pilih kartu anak untuk melihat progres belajar, presensi, nilai, dan tagihan yang relevan." action={children.length > 0 ? <Link href="/wali/progres" className="text-theme-sm font-semibold text-brand-500 hover:text-brand-600">Semua progres</Link> : null} />
+        <SectionHeader title="Ringkasan Anak" description="Pilih kartu anak untuk melihat progres belajar, presensi, nilai, dan tagihan yang relevan." action={children.length > 0 ? <Link href={waliHref("/wali/progres")} className="text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Semua progres</Link> : null} />
         {children.length > 0 ? (
           <div className="grid gap-4 lg:grid-cols-2">
             {children.map((child) => {
@@ -85,11 +91,11 @@ export default async function WaliDashboardPage() {
                 <article key={child.id} className="tailadmin-card min-w-0 p-5 transition hover:-translate-y-0.5 hover:shadow-theme-sm">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex min-w-0 gap-4">
-                      <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand-50 text-lg font-semibold text-brand-600">{child.name.slice(0, 1).toUpperCase()}</span>
+                      <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-limo-blue-50 text-lg font-semibold text-limo-blue-700">{child.name.slice(0, 1).toUpperCase()}</span>
                       <div className="min-w-0">
-                      <p className="text-theme-xs font-semibold uppercase tracking-wide text-brand-500">{child.program.name} / {child.nomorInduk}</p>
+                      <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-700">{child.program.name} / {child.nomorInduk}</p>
                       <h2 className="mt-1 truncate font-semibold text-gray-900" title={child.name}>{child.name}</h2>
-                      <p className="mt-2 text-theme-sm text-gray-500">Status siswa: {child.status}</p>
+                      <p className="mt-2 text-theme-sm text-gray-500">Status siswa: {formatUiLabel(child.status)}</p>
                       </div>
                     </div>
                     <span className={`w-fit rounded-full px-3 py-1 text-theme-xs font-semibold ${child.tagihan.length > 0 ? "bg-error-50 text-error-700" : "bg-success-50 text-success-700"}`}>{child.tagihan.length > 0 ? `${child.tagihan.length} tagihan aktif` : "Lunas"}</span>
@@ -106,8 +112,8 @@ export default async function WaliDashboardPage() {
                   <p className="mt-4 line-clamp-2 rounded-2xl bg-gray-50 p-3 text-theme-sm leading-6 text-gray-500">{latestNote || "Belum ada catatan terbaru dari guru."}</p>
                   <div className="mt-5 flex flex-wrap gap-2">
                     <Link href={`/wali/progres/${child.id}`} className="tailadmin-button-primary px-3 py-2">Detail Progres</Link>
-                    <Link href="/wali/nilai" className="tailadmin-button-outline px-3 py-2">Nilai</Link>
-                    <Link href="/wali/tagihan" className="tailadmin-button-outline px-3 py-2">Tagihan</Link>
+                    <Link href={withWaliChildContext("/wali/nilai", child.id)} className="tailadmin-button-outline px-3 py-2">Nilai</Link>
+                    <Link href={withWaliChildContext("/wali/tagihan", child.id)} className="tailadmin-button-outline px-3 py-2">Tagihan</Link>
                   </div>
                 </article>
               );
@@ -121,11 +127,11 @@ export default async function WaliDashboardPage() {
       <section>
         <SectionHeader title="Akses Orang Tua" description="Menu penting untuk memantau perkembangan anak tanpa harus mencari satu per satu." />
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <QuickActionCard href="/wali/tugas" icon="exam" label="Tugas Anak" description="Ujian online yang bisa dikerjakan dari akun wali." />
-          <QuickActionCard href="/wali/progres" icon="progress" label="Progres Anak" description="Grafik pemahaman, catatan guru, dan trend belajar." />
-          <QuickActionCard href="/wali/presensi" icon="presensi" label="Presensi" description="Rekap kehadiran dan kedisiplinan belajar." />
-          <QuickActionCard href="/wali/nilai" icon="exam" label="Nilai" description="Riwayat hasil ujian dan evaluasi final." />
-          <QuickActionCard href="/wali/tagihan" icon="billing" label="Tagihan" description="Status pembayaran dan instruksi Mayar." />
+          <QuickActionCard href={waliHref("/wali/tugas")} icon="exam" label="Tugas Anak" description="Ujian online yang bisa dikerjakan dari akun wali." />
+          <QuickActionCard href={waliHref("/wali/progres")} icon="progress" label="Progres Anak" description="Grafik pemahaman, catatan guru, dan trend belajar." />
+          <QuickActionCard href={waliHref("/wali/presensi")} icon="presensi" label="Presensi" description="Rekap kehadiran dan kedisiplinan belajar." />
+          <QuickActionCard href={waliHref("/wali/nilai")} icon="exam" label="Nilai" description="Riwayat hasil ujian dan evaluasi final." />
+          <QuickActionCard href={waliHref("/wali/tagihan")} icon="billing" label="Tagihan" description="Status pembayaran dan instruksi Mayar." />
         </div>
       </section>
     </div>

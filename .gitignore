@@ -2,6 +2,7 @@
 node_modules/
 coverage/
 playwright-report/
+playwright-report-pwa/
 test-results/
 .env
 .env*.local

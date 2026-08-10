@@ -31,6 +31,7 @@ SMTP_FROM=no-reply@limo.example.com
 SMTP_USER=no-reply@limo.example.com
 SMTP_PASSWORD=replace-with-smtp-password
 DOKPLOY_SEED_ON_START=false
+LIMO_ALLOW_DEMO_SEED=false
 ```
 
 Container menjalankan `prisma migrate deploy` otomatis sebelum `npm run start`.
@@ -49,6 +50,7 @@ Jika butuh demo paling cepat dan MariaDB masih bermasalah, aktifkan SQLite demo 
 DOKPLOY_SQLITE_DEMO=true
 SQLITE_DATABASE_URL=file:/app/data/limo-demo.db
 DOKPLOY_SEED_ON_START=true
+LIMO_ALLOW_DEMO_SEED=true
 ```
 
 Tambahkan persistent volume `/app/data` jika data demo perlu bertahan saat redeploy. Mode ini hanya untuk demo sementara.
@@ -64,13 +66,14 @@ Gunakan `docker-compose.dokploy.yml` jika ingin app dan MariaDB dikelola bersama
 
 ## Seed Demo
 
-Jika database masih kosong dan butuh akun demo, set sementara:
+Jika database demo SQLite masih kosong dan butuh akun demo, set sementara:
 
 ```env
 DOKPLOY_SEED_ON_START=true
+LIMO_ALLOW_DEMO_SEED=true
 ```
 
-Set kembali ke `false` setelah deploy pertama berhasil.
+Seed demo tidak dapat berjalan pada jalur database production/MariaDB. Gunakan hanya bersama `DOKPLOY_SQLITE_DEMO=true`, lalu set kembali kedua flag ke `false` setelah demo siap.
 
 Akun seed:
 

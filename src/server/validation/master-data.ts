@@ -39,6 +39,9 @@ export const createWaliSchema = z.object({
   address: z.string().trim().max(1000).optional().or(z.literal("")),
 });
 
+export const updateGuruSchema = createGuruSchema;
+export const updateWaliSchema = createWaliSchema;
+
 export const createSiswaSchema = z.object({
   nomorInduk: z.string().trim().min(3).max(64),
   name: z.string().trim().min(2).max(120),

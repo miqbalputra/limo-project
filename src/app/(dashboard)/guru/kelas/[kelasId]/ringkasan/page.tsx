@@ -15,7 +15,7 @@ export default async function GuruKelasRingkasanPage({ params, searchParams }: {
   return (
     <main className="space-y-6">
       <div>
-        <p className="text-theme-sm font-semibold text-brand-500">{summary.kelas.program.name} / {summary.kelas.level.name}</p>
+        <p className="text-theme-sm font-semibold text-limo-blue-700">{summary.kelas.program.name} / {summary.kelas.level.name}</p>
         <h1 className="mt-1 tailadmin-page-title">Ringkasan {summary.kelas.name}</h1>
       </div>
       {studentHistory ? <GuruStudentHistory history={studentHistory} /> : null}
@@ -42,7 +42,7 @@ function BarValue({ value, label, max }: { value: number | null; label: string; 
   return (
     <div>
       <p className="mb-1 text-theme-sm font-semibold text-gray-700">{label}</p>
-      <div className="h-2 rounded-full bg-gray-100"><div className="h-2 rounded-full bg-brand-500" style={{ width: `${percent}%` }} /></div>
+      <div className="h-2 rounded-full bg-gray-100"><div className="h-2 rounded-full bg-limo-blue-500" style={{ width: `${percent}%` }} /></div>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@
 import { requireFeature } from "@/server/features/feature-flags";
 import { canAccessStudent, canManageClass } from "@/server/policies/access-policy";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
+import { ensureDefaultCompletionRule } from "@/server/services/activity-completion-service";
 import { addModuleItemSchema, createLearningModuleSchema, reorderModuleItemsSchema, updateLearningModuleSchema } from "@/server/validation/learning-module";
 
 type SupportedModuleItemType = "MATERIAL" | "ASSIGNMENT" | "EXAM" | "CLASS_SESSION";
@@ -50,6 +51,7 @@ const moduleSelect = {
     updatedAt: true,
     kelas: { select: { id: true, name: true, program: { select: { name: true } }, level: { select: { name: true } } } },
     items: {
+      where: { archivedAt: null },
       orderBy: [{ order: "asc" }, { createdAt: "asc" }],
       select: {
         id: true,
@@ -58,6 +60,7 @@ const moduleSelect = {
         titleOverride: true,
         order: true,
         isRequired: true,
+        completionRules: { orderBy: { createdAt: "asc" }, select: { id: true, ruleType: true, minimumScore: true, requiredDurationSeconds: true, isRequired: true } },
         availableFrom: true,
         availableUntil: true,
         prerequisiteItemId: true,
@@ -73,19 +76,22 @@ async function getModule(moduleId: string) {
   return prisma.learningModule.findUnique({ where: { id: moduleId }, select: moduleSelect });
 }
 
-async function decorateItems(items: ModuleItemRecord[], now = new Date()) {
+async function decorateItems(items: ModuleItemRecord[], now = new Date(), studentId?: string) {
   const materialIds = items.filter((item) => item.itemType === "MATERIAL").map((item) => item.entityId);
   const assignmentIds = items.filter((item) => item.itemType === "ASSIGNMENT").map((item) => item.entityId);
   const examIds = items.filter((item) => item.itemType === "EXAM").map((item) => item.entityId);
   const sessionIds = items.filter((item) => item.itemType === "CLASS_SESSION").map((item) => item.entityId);
-  const [materials, assignments, exams, sessions] = await Promise.all([
-    prisma.materi.findMany({ where: { id: { in: materialIds } }, select: { id: true, title: true, status: true } }),
+  const prerequisiteIds = items.map((item) => item.prerequisiteItemId).filter((item): item is string => Boolean(item));
+  const [materials, assignments, exams, sessions, prerequisiteCompletions] = await Promise.all([
+    prisma.materi.findMany({ where: { id: { in: materialIds } }, select: { id: true, title: true, status: true, language: true, direction: true } }),
     prisma.assignment.findMany({ where: { id: { in: assignmentIds } }, select: { id: true, title: true, status: true } }),
     prisma.ujian.findMany({ where: { id: { in: examIds } }, select: { id: true, title: true, status: true } }),
     prisma.sesiKelas.findMany({ where: { id: { in: sessionIds } }, select: { id: true, topic: true, status: true, meetingNumber: true } }),
+    studentId ? prisma.studentActivityCompletion.findMany({ where: { studentId, moduleItemId: { in: prerequisiteIds } }, select: { moduleItemId: true, status: true } }) : Promise.resolve([]),
   ]);
-  const targets = new Map<string, { title: string; status: string }>();
-  materials.forEach((item) => targets.set(`MATERIAL:${item.id}`, { title: item.title, status: item.status }));
+  const completedPrerequisites = new Set(prerequisiteCompletions.filter((item) => item.status === "COMPLETED").map((item) => item.moduleItemId));
+  const targets = new Map<string, { title: string; status: string; language?: string | null; direction?: string | null }>();
+  materials.forEach((item) => targets.set(`MATERIAL:${item.id}`, { title: item.title, status: item.status, language: item.language, direction: item.direction }));
   assignments.forEach((item) => targets.set(`ASSIGNMENT:${item.id}`, { title: item.title, status: item.status }));
   exams.forEach((item) => targets.set(`EXAM:${item.id}`, { title: item.title, status: item.status }));
   sessions.forEach((item) => targets.set(`CLASS_SESSION:${item.id}`, { title: `Pertemuan ${item.meetingNumber}: ${item.topic}`, status: item.status }));
@@ -95,27 +101,29 @@ async function decorateItems(items: ModuleItemRecord[], now = new Date()) {
     const availableFrom = !item.availableFrom || item.availableFrom <= now;
     const availableUntil = !item.availableUntil || item.availableUntil >= now;
     const targetPublished = item.itemType === "CLASS_SESSION" ? Boolean(target && target.status !== "CANCELLED") : target?.status === "PUBLISHED";
+    const prerequisiteCompleted = !item.prerequisiteItemId || completedPrerequisites.has(item.prerequisiteItemId);
     return {
       ...item,
+      ...(item.itemType === "MATERIAL" ? { language: target?.language ?? null, direction: target?.direction ?? null } : {}),
       title: item.titleOverride || target?.title || "Aktivitas tidak ditemukan",
       targetStatus: target?.status || "MISSING",
       targetPublished: Boolean(targetPublished),
-      isAvailable: availableFrom && availableUntil && !item.prerequisiteItemId && Boolean(targetPublished),
+      isAvailable: availableFrom && availableUntil && prerequisiteCompleted && Boolean(targetPublished),
       isScheduled: !availableFrom,
       isExpired: !availableUntil,
-      isLockedByPrerequisite: Boolean(item.prerequisiteItemId),
+      isLockedByPrerequisite: Boolean(item.prerequisiteItemId) && !prerequisiteCompleted,
     };
   });
 }
 
-async function decorateModule(module: ModuleRecord) {
-  return { ...module, items: await decorateItems(module.items) };
+async function decorateModule(module: ModuleRecord, studentId?: string) {
+  return { ...module, items: await decorateItems(module.items, new Date(), studentId) };
 }
 
 export async function listModuleItemOptions(actor: Actor, kelasId: string) {
   await assertGuruClass(actor, kelasId);
   const [materials, assignments, exams, sessions] = await Promise.all([
-    prisma.materi.findMany({ where: { kelasId }, orderBy: [{ order: "asc" }, { title: "asc" }], select: { id: true, title: true, status: true } }),
+    prisma.materi.findMany({ where: { kelasId }, orderBy: [{ order: "asc" }, { title: "asc" }], select: { id: true, title: true, status: true, language: true, direction: true } }),
     prisma.assignment.findMany({ where: { kelasId }, orderBy: [{ createdAt: "desc" }], select: { id: true, title: true, status: true } }),
     prisma.ujian.findMany({ where: { kelasId }, orderBy: [{ createdAt: "desc" }], select: { id: true, title: true, status: true } }),
     prisma.sesiKelas.findMany({ where: { kelasId }, orderBy: [{ meetingNumber: "asc" }], select: { id: true, meetingNumber: true, topic: true, status: true } }),
@@ -222,7 +230,7 @@ export async function addModuleItem(actor: Actor, moduleId: string, input: unkno
   const availableFrom = parseDateTime(parsed.data.availableFrom, "availableFrom");
   const availableUntil = parseDateTime(parsed.data.availableUntil, "availableUntil");
   assertDateOrder(availableFrom, availableUntil);
-  const maxOrder = await prisma.moduleItem.aggregate({ where: { moduleId }, _max: { order: true } });
+  const maxOrder = await prisma.moduleItem.aggregate({ where: { moduleId, archivedAt: null }, _max: { order: true } });
   const item = await prisma.$transaction(async (tx) => {
     const created = await tx.moduleItem.create({
       data: {
@@ -241,6 +249,7 @@ export async function addModuleItem(actor: Actor, moduleId: string, input: unkno
     await tx.auditLog.create({ data: { actorId: actor.id, action: "LEARNING_MODULE_ITEM_ADDED", entityType: "ModuleItem", entityId: created.id, metadata: { moduleId, itemType: supportedItemType, entityId: parsed.data.entityId } } });
     return created;
   });
+  await ensureDefaultCompletionRule(item.id);
   return { item };
 }
 
@@ -256,7 +265,7 @@ async function assertEntityBelongsToClass(kelasId: string, itemType: SupportedMo
 }
 
 async function assertPrerequisite(moduleId: string, prerequisiteItemId: string) {
-  const prerequisite = await prisma.moduleItem.findFirst({ where: { id: prerequisiteItemId, moduleId }, select: { id: true, prerequisiteItemId: true } });
+  const prerequisite = await prisma.moduleItem.findFirst({ where: { id: prerequisiteItemId, moduleId, archivedAt: null }, select: { id: true, prerequisiteItemId: true } });
   if (!prerequisite) throw new NotFoundError("Prasyarat harus berasal dari modul yang sama");
   const seen = new Set<string>();
   let cursor: string | null = prerequisite.id;
@@ -273,11 +282,11 @@ export async function deleteModuleItem(actor: Actor, moduleId: string, itemId: s
   const learningModule = await prisma.learningModule.findUnique({ where: { id: moduleId }, select: { kelasId: true } });
   if (!learningModule) throw new NotFoundError("Modul tidak ditemukan");
   await assertGuruClass(actor, learningModule.kelasId);
-  const item = await prisma.moduleItem.findFirst({ where: { id: itemId, moduleId }, select: { id: true } });
+  const item = await prisma.moduleItem.findFirst({ where: { id: itemId, moduleId, archivedAt: null }, select: { id: true } });
   if (!item) throw new NotFoundError("Aktivitas modul tidak ditemukan");
   await prisma.$transaction([
-    prisma.moduleItem.delete({ where: { id: itemId } }),
-    prisma.auditLog.create({ data: { actorId: actor.id, action: "LEARNING_MODULE_ITEM_REMOVED", entityType: "ModuleItem", entityId: itemId, metadata: { moduleId } } }),
+    prisma.moduleItem.update({ where: { id: itemId }, data: { archivedAt: new Date(), archivedById: actor.id } }),
+    prisma.auditLog.create({ data: { actorId: actor.id, action: "LEARNING_MODULE_ITEM_ARCHIVED", entityType: "ModuleItem", entityId: itemId, metadata: { moduleId } } }),
   ]);
   return { success: true };
 }
@@ -289,7 +298,7 @@ export async function reorderModuleItems(actor: Actor, moduleId: string, input: 
   const learningModule = await prisma.learningModule.findUnique({ where: { id: moduleId }, select: { kelasId: true } });
   if (!learningModule) throw new NotFoundError("Modul tidak ditemukan");
   await assertGuruClass(actor, learningModule.kelasId);
-  const existing = await prisma.moduleItem.findMany({ where: { moduleId }, select: { id: true } });
+  const existing = await prisma.moduleItem.findMany({ where: { moduleId, archivedAt: null }, select: { id: true } });
   const existingIds = new Set(existing.map((item) => item.id));
   if (existingIds.size !== parsed.data.itemIds.length || parsed.data.itemIds.some((id) => !existingIds.has(id)) || new Set(parsed.data.itemIds).size !== parsed.data.itemIds.length) {
     throw new ValidationError("Urutan harus memuat seluruh aktivitas modul tepat satu kali");
@@ -345,7 +354,7 @@ export async function listStudentModules(actor: Actor, kelasId: string) {
   const siswaId = await assertStudentClass(actor, kelasId);
   await publishDueLearningModules();
   const modules = await prisma.learningModule.findMany({ where: { kelasId, status: "PUBLISHED", OR: [{ releaseAt: null }, { releaseAt: { lte: new Date() } }] }, orderBy: [{ order: "asc" }, { createdAt: "asc" }], select: moduleSelect });
-  return { siswaId, items: await Promise.all(modules.map((module) => decorateModule(module))) };
+  return { siswaId, items: await Promise.all(modules.map((module) => decorateModule(module, siswaId))) };
 }
 
 export async function listWaliModules(actor: Actor, siswaId: string, kelasId: string) {
@@ -355,7 +364,7 @@ export async function listWaliModules(actor: Actor, siswaId: string, kelasId: st
   if (!enrollment) throw new NotFoundError("Kelas tidak ditemukan");
   await publishDueLearningModules();
   const modules = await prisma.learningModule.findMany({ where: { kelasId, status: "PUBLISHED", OR: [{ releaseAt: null }, { releaseAt: { lte: new Date() } }] }, orderBy: [{ order: "asc" }, { createdAt: "asc" }], select: moduleSelect });
-  return { items: await Promise.all(modules.map((module) => decorateModule(module))) };
+  return { items: await Promise.all(modules.map((module) => decorateModule(module, siswaId))) };
 }
 
 export async function listWaliStudentModules(actor: Actor, siswaId: string) {
