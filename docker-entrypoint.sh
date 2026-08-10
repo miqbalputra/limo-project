@@ -25,9 +25,9 @@ if [ "${DOKPLOY_SQLITE_DEMO:-false}" = "true" ]; then
   exec "$@"
 fi
 
-if [ -z "${DATABASE_URL:-}" ]; then
+if [ -n "${DB_HOST:-}" ] || [ -n "${DB_NAME:-}" ] || [ -n "${DB_USER:-}" ] || [ -n "${DB_PASS:-}" ]; then
   if [ -z "${DB_HOST:-}" ] || [ -z "${DB_NAME:-}" ] || [ -z "${DB_USER:-}" ] || [ -z "${DB_PASS:-}" ]; then
-    echo "Set DATABASE_URL or all of DB_HOST, DB_NAME, DB_USER, and DB_PASS." >&2
+    echo "When using split database settings, set all of DB_HOST, DB_NAME, DB_USER, and DB_PASS." >&2
     exit 1
   fi
 
@@ -44,6 +44,12 @@ if [ -z "${DATABASE_URL:-}" ]; then
     const password = encodeURIComponent(process.env.DB_PASS);
     process.stdout.write(`mysql://${user}:${password}@${host}:3306/${encodeURIComponent(database)}`);
   ')"
+  echo "Using split database settings for ${DB_HOST}:3306/${DB_NAME}."
+elif [ -z "${DATABASE_URL:-}" ]; then
+  echo "Set DATABASE_URL or all of DB_HOST, DB_NAME, DB_USER, and DB_PASS." >&2
+  exit 1
+else
+  echo "Using DATABASE_URL for database settings."
 fi
 
 case "${DATABASE_URL:-}" in

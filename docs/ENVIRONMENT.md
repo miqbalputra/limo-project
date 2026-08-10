@@ -6,7 +6,7 @@ Dokumen ini menjelaskan variable yang dibutuhkan aplikasi LIMO. Jangan menaruh s
 |---|---:|---|
 | `NODE_ENV` | Ya | `development`, `test`, atau `production` |
 | `APP_URL` | Ya | Origin aplikasi, misalnya `https://limo.example.com` |
-| `DATABASE_URL` | Alternatif | MySQL/MariaDB connection string Prisma; diprioritaskan jika diisi |
+| `DATABASE_URL` | Alternatif | MySQL/MariaDB connection string Prisma; digunakan jika variable `DB_*` tidak diisi |
 | `DB_HOST` | Ya* | Host database; wajib bersama `DB_NAME`, `DB_USER`, dan `DB_PASS` jika `DATABASE_URL` tidak diisi |
 | `DB_NAME` | Ya* | Nama database |
 | `DB_USER` | Ya* | User database |

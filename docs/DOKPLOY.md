@@ -37,7 +37,7 @@ DOKPLOY_SEED_ON_START=false
 LIMO_ALLOW_DEMO_SEED=false
 ```
 
-Container membentuk `DATABASE_URL` dari keempat variable database tersebut, lalu menjalankan `prisma migrate deploy` otomatis sebelum `npm run start`. `DATABASE_URL` tetap dapat digunakan sebagai alternatif dan akan diprioritaskan jika diisi.
+Container membentuk `DATABASE_URL` dari keempat variable database tersebut, lalu menjalankan `prisma migrate deploy` otomatis sebelum `npm run start`. Jika variable `DB_*` dan `DATABASE_URL` sama-sama tersedia, keempat variable `DB_*` diprioritaskan untuk mencegah URL lama terpakai.
 
 Untuk demo sementara, jika migration pernah gagal dan database masih memblokir startup dengan `P3009`, gunakan sementara:
 
