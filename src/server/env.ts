@@ -45,6 +45,7 @@ const optionalFeatureFlagFromString = z
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  LIMO_DEMO_MODE: optionalBooleanFromString,
   APP_URL: z.string().url(),
   DATABASE_URL: z.string().min(1),
   SESSION_SECRET: z.string().min(32),
@@ -87,6 +88,7 @@ const envSchema = z.object({
 }).superRefine((env, ctx) => {
   const enforceProductionSecrets = env.NODE_ENV === "production"
     && process.env.NEXT_PHASE !== "phase-production-build"
+    && !env.LIMO_DEMO_MODE
     && process.env.DOKPLOY_SQLITE_DEMO !== "true";
 
   if (enforceProductionSecrets && env.NOTIFICATION_PROVIDER === "console") {

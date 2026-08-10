@@ -39,6 +39,15 @@ LIMO_ALLOW_DEMO_SEED=false
 
 Container membentuk `DATABASE_URL` dari keempat variable database tersebut, lalu menjalankan `prisma migrate deploy` otomatis sebelum `npm run start`. Jika variable `DB_*` dan `DATABASE_URL` sama-sama tersedia, keempat variable `DB_*` diprioritaskan untuk mencegah URL lama terpakai.
 
+Untuk demo dengan MySQL/MariaDB yang belum mengaktifkan Mayar dan provider notifikasi eksternal, gunakan:
+
+```env
+LIMO_DEMO_MODE=true
+NOTIFICATION_PROVIDER=console
+```
+
+Mode ini hanya untuk demo/staging tanpa data pribadi atau transaksi nyata. Gunakan `LIMO_DEMO_MODE=false` dan konfigurasi integrasi sebenarnya sebelum production.
+
 Untuk demo sementara, jika migration pernah gagal dan database masih memblokir startup dengan `P3009`, gunakan sementara:
 
 ```env

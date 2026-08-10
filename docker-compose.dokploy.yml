@@ -9,6 +9,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
+      LIMO_DEMO_MODE: ${LIMO_DEMO_MODE:-false}
       APP_URL: ${APP_URL}
       DATABASE_URL: mysql://${MARIADB_USER}:${MARIADB_PASSWORD}@mariadb:3306/${MARIADB_DATABASE}
       SESSION_SECRET: ${SESSION_SECRET}
