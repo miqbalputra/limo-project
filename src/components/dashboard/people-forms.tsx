@@ -18,12 +18,13 @@ function useSubmit(path: string, method: "POST" | "PATCH" = "POST", resetOnSucce
 
   async function submit(event: FormEvent<HTMLFormElement>, pick: (_formData: FormData) => Record<string, string>) {
     event.preventDefault();
+    const form = event.currentTarget;
     setError("");
     setIsSubmitting(true);
 
     try {
-      await postJson(path, pick(new FormData(event.currentTarget)), method);
-      if (resetOnSuccess) event.currentTarget.reset();
+      await postJson(path, pick(new FormData(form)), method);
+      if (resetOnSuccess) form.reset();
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Data gagal disimpan");
