@@ -6,7 +6,8 @@ Gunakan checklist ini sebelum production/UAT staging.
 
 - [ ] `NODE_ENV=production`.
 - [ ] `APP_URL` memakai HTTPS domain final.
-- [ ] `DATABASE_URL` mengarah MariaDB private/local.
+- [ ] `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, dan `DB_PASS` mengarah ke Internal Credentials database Dokploy.
+- [ ] Database berada pada service Dokploy terpisah dan tidak memiliki external port.
 - [ ] `SESSION_SECRET` acak minimal 32 karakter.
 - [ ] `PRIVATE_STORAGE_PATH` di luar repository dan di luar `public/`.
 - [ ] `MAYAR_ENV`, `MAYAR_API_KEY`, `MAYAR_MERCHANT_ID`, dan `MAYAR_WEBHOOK_SECRET` sesuai sandbox/production.
@@ -20,6 +21,7 @@ Gunakan checklist ini sebelum production/UAT staging.
 - [ ] `npx prisma generate` berhasil.
 - [ ] `npx prisma migrate deploy` berhasil.
 - [ ] Seed development tidak dijalankan di production.
+- [ ] Admin production dibuat melalui `npm run admin:bootstrap`, lalu variable bootstrap dihapus.
 - [ ] Volume `BACKUP_DIR` persistent dan hanya dapat diakses service yang diperlukan.
 
 ## Build
@@ -42,6 +44,7 @@ Gunakan checklist ini sebelum production/UAT staging.
 ## Smoke Test
 
 - [ ] `/api/health` 200.
+- [ ] `/api/health/ready` 200 dengan environment, database, dan private storage `ok`.
 - [ ] Login Admin berhasil.
 - [ ] Pendaftaran publik berhasil.
 - [ ] Upload dokumen berhasil dan tidak tersedia lewat URL public.

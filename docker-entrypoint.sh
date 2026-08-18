@@ -34,17 +34,21 @@ if [ -n "${DB_HOST:-}" ] || [ -n "${DB_NAME:-}" ] || [ -n "${DB_USER:-}" ] || [ 
   export DATABASE_URL="$(node -e '
     const host = process.env.DB_HOST.trim();
     const database = process.env.DB_NAME.trim();
+    const port = (process.env.DB_PORT || "3306").trim();
     if (!/^[a-zA-Z0-9._-]+$/.test(host)) {
       throw new Error("DB_HOST must be a hostname without protocol or port");
     }
     if (!database) {
       throw new Error("DB_NAME cannot be blank");
     }
+    if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) {
+      throw new Error("DB_PORT must be an integer between 1 and 65535");
+    }
     const user = encodeURIComponent(process.env.DB_USER);
     const password = encodeURIComponent(process.env.DB_PASS);
-    process.stdout.write(`mysql://${user}:${password}@${host}:3306/${encodeURIComponent(database)}`);
+    process.stdout.write(`mysql://${user}:${password}@${host}:${port}/${encodeURIComponent(database)}`);
   ')"
-  echo "Using split database settings for ${DB_HOST}:3306/${DB_NAME}."
+  echo "Using split database settings for ${DB_HOST}:${DB_PORT:-3306}/${DB_NAME}."
 elif [ -z "${DATABASE_URL:-}" ]; then
   echo "Set DATABASE_URL or all of DB_HOST, DB_NAME, DB_USER, and DB_PASS." >&2
   exit 1

@@ -1,6 +1,6 @@
 # Deployment Runbook
 
-Runbook ini mengikuti arsitektur satu aplikasi Next.js di belakang Nginx + PM2 + MariaDB lokal/private. Untuk staging/demo berbasis Dokploy, gunakan `docs/DOKPLOY.md`.
+Runbook ini mengikuti arsitektur satu aplikasi Next.js di belakang Nginx + PM2 + MariaDB lokal/private. Untuk deployment berbasis Dokploy dengan database terpisah, gunakan `docs/DOKPLOY.md`.
 
 ## Persiapan VPS
 
