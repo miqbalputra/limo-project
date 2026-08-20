@@ -26,6 +26,7 @@ Dokumen ini menjelaskan variable yang dibutuhkan aplikasi LIMO. Jangan menaruh s
 | `MAYAR_API_KEY` | Untuk payment | API key Mayar, tidak boleh `NEXT_PUBLIC_` |
 | `MAYAR_MERCHANT_ID` | Production | Merchant/user ID yang divalidasi dari webhook Mayar |
 | `MAYAR_WEBHOOK_SECRET` | Production | Secret webhook yang dikonfigurasi di endpoint LIMO |
+| `PAYMENT_CONFIG_ENCRYPTION_KEY` | Saat menyimpan gateway di dashboard | Base64 key 32-byte untuk enkripsi credential Mayar/Pakasir di database; harus stabil dan tidak boleh disimpan di Git |
 | `NOTIFICATION_PROVIDER` | Ya | `console` untuk development, `email` atau `n8n` untuk production. Production tidak boleh memakai `console` |
 | `N8N_EMAIL_WEBHOOK_URL` | Jika n8n | Webhook n8n untuk delivery email |
 | `N8N_WHATSAPP_WEBHOOK_URL` | Jika n8n | Webhook n8n untuk delivery WhatsApp/GOWA |

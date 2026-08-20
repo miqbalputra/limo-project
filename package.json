@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "check:colors": "node scripts/check-color-tokens.mjs",
     "test": "node --experimental-strip-types tests/run-unit.mjs",
+    "test:payment": "node --experimental-strip-types tests/run-payment-gateway.mjs",
     "test:e2e": "node scripts/run-e2e-isolated.mjs",
     "test:e2e:direct": "playwright test",
     "test:e2e:pwa": "playwright test --config=playwright.pwa.config.ts",
@@ -41,6 +42,7 @@
     "notifications:retry": "node --experimental-strip-types scripts/retry-notifications.ts",
     "reminders:send": "node --experimental-strip-types scripts/send-deadline-reminders.ts",
     "mayar:reconcile": "node --experimental-strip-types scripts/reconcile-mayar-payments.ts",
+    "pakasir:reconcile": "node --experimental-strip-types scripts/reconcile-pakasir-payments.ts",
     "backup:create": "node --experimental-strip-types scripts/backup.ts",
     "backup:restore": "node --experimental-strip-types scripts/restore.ts"
   },

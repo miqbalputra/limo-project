@@ -65,6 +65,7 @@ const envSchema = z.object({
   MAYAR_API_KEY: z.string().optional().default(""),
   MAYAR_MERCHANT_ID: z.string().optional().default(""),
   MAYAR_WEBHOOK_SECRET: z.string().optional().default(""),
+  PAYMENT_CONFIG_ENCRYPTION_KEY: z.string().optional().default(""),
   NOTIFICATION_PROVIDER: z.enum(["console", "email", "whatsapp", "n8n"]).default("console"),
   N8N_EMAIL_WEBHOOK_URL: z.string().url().optional().or(z.literal("")),
   N8N_WHATSAPP_WEBHOOK_URL: z.string().url().optional().or(z.literal("")),
@@ -93,18 +94,6 @@ const envSchema = z.object({
 
   if (enforceProductionSecrets && env.NOTIFICATION_PROVIDER === "console") {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["NOTIFICATION_PROVIDER"], message: "Production wajib memakai provider notifikasi nyata, bukan console" });
-  }
-
-  if (enforceProductionSecrets && !env.MAYAR_API_KEY) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["MAYAR_API_KEY"], message: "MAYAR_API_KEY wajib diisi di production" });
-  }
-
-  if (enforceProductionSecrets && !env.MAYAR_WEBHOOK_SECRET) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["MAYAR_WEBHOOK_SECRET"], message: "MAYAR_WEBHOOK_SECRET wajib diisi di production" });
-  }
-
-  if (enforceProductionSecrets && !env.MAYAR_MERCHANT_ID) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["MAYAR_MERCHANT_ID"], message: "MAYAR_MERCHANT_ID wajib diisi di production" });
   }
 
   if (env.NOTIFICATION_PROVIDER === "email") {

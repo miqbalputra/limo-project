@@ -310,6 +310,11 @@ enum PembayaranStatus {
   REFUNDED
 }
 
+enum PaymentGatewayProvider {
+  MAYAR
+  PAKASIR
+}
+
 enum NotificationStatus {
   PENDING
   SENT
@@ -443,6 +448,23 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([actorId, createdAt])
+}
+
+model PaymentGatewayConfig {
+  id                   String                  @id @default(cuid())
+  provider             PaymentGatewayProvider @unique
+  enabled              Boolean                 @default(false)
+  isPrimary            Boolean                 @default(false)
+  environment          String                  @default("sandbox") @db.VarChar(32)
+  publicConfig         Json?
+  encryptedCredentials String?                 @db.Text
+  lastTestedAt         DateTime?
+  lastTestStatus       String?                 @db.VarChar(32)
+  lastTestMessage      String?                 @db.Text
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  @@index([enabled, isPrimary])
 }
 
 model Program {

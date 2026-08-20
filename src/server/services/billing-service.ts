@@ -4,7 +4,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from "../errors/applic
 import { canAccessInvoice } from "../policies/access-policy.ts";
 import { createTarifSchema, generateInvoiceSchema, type PembayaranStatusValue, type TagihanStatusValue } from "../validation/billing.ts";
 import { notifyWaliForStudents } from "./notification-service.ts";
-import { isMayarConfigured } from "../providers/payment/mayar.ts";
+import { getActivePaymentGateways } from "./payment-gateway-service.ts";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "../pagination.ts";
 
 function requireAdmin(actor: Actor) {
@@ -130,6 +130,8 @@ export async function createTarif(actor: Actor, input: unknown) {
 }
 
 export async function listTagihan(actor: Actor, paginationInput: PaginationInput = {}, filters: TagihanListFilters = {}, selectedStudentId: string | null = null) {
+  const activePaymentGateways = await getActivePaymentGateways();
+  const activePaymentProviders = activePaymentGateways.map((gateway) => gateway.provider);
   const where = actor.role === "ADMIN"
     ? {
         ...(filters.status ? { status: filters.status } : {}),
@@ -172,13 +174,15 @@ export async function listTagihan(actor: Actor, paginationInput: PaginationInput
 
   return {
     items: items.map(({ pembayaran, _count, ...item }) => {
-      const latestMayarPayment = pembayaran.find((payment) => payment.provider === "mayar");
+      const latestPayment = pembayaran.find((payment) => getPaymentUrl(payment.rawPayload));
       return {
         ...item,
-        paymentUrl: getPaymentUrl(latestMayarPayment?.rawPayload),
+        paymentUrl: getPaymentUrl(latestPayment?.rawPayload),
+        paymentProvider: latestPayment?.provider || null,
         paymentHistory: pembayaran.map(({ rawPayload: _rawPayload, ...payment }) => ({ ...payment, amount: Number(payment.amount) })),
         paymentHistoryCount: _count.pembayaran,
-        paymentAvailable: isMayarConfigured(),
+        paymentAvailable: activePaymentProviders.length > 0,
+        availablePaymentProviders: activePaymentProviders,
       };
     }),
     pagination: createPaginationMeta(pagination.page, pagination.pageSize, totalItems),

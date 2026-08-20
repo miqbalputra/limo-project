@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { listKelas, listPrograms } from "@/server/services/master-data-service";
 import { getTagihanSummary, listTagihan, listTarif } from "@/server/services/billing-service";
-import { isMayarConfigured } from "@/server/providers/payment/mayar";
+import { listPaymentGatewaySettings } from "@/server/services/payment-gateway-service";
 import { GenerateInvoiceForm, TarifForm } from "@/components/dashboard/billing-forms";
 import { AdminBillingWorkspace, type AdminBillingInvoice } from "@/components/dashboard/admin-billing-workspace";
 import { DashboardHero, SectionHeader } from "@/components/dashboard/dashboard-widgets";
@@ -22,14 +22,16 @@ export default async function AdminTagihanPage({ searchParams }: { searchParams:
   const requestedStatus = String(Array.isArray(params.status) ? params.status[0] || "" : params.status || "");
   const parsedStatus = tagihanStatusSchema.safeParse(requestedStatus);
   const status = parsedStatus.success ? parsedStatus.data : undefined;
-  const [{ items: tagihan, pagination: tagihanPagination }, { items: tarif }, { items: programs }, { items: kelas }, summary] = await Promise.all([
+  const [{ items: tagihan, pagination: tagihanPagination }, { items: tarif }, { items: programs }, { items: kelas }, summary, gatewaySettings] = await Promise.all([
     listTagihan(actor, { page, pageSize: 20 }, { search, status }),
     listTarif(actor),
     listPrograms(actor),
     listKelas(actor),
     getTagihanSummary(actor),
+    listPaymentGatewaySettings(actor),
   ]);
-  const mayarConfigured = isMayarConfigured();
+  const activeGatewaySettings = gatewaySettings.filter((item) => item.enabled && item.apiKeyConfigured);
+  const gatewayLabel = activeGatewaySettings.length > 0 ? activeGatewaySettings.map((item) => item.provider === "mayar" ? "Mayar" : "Pakasir").join(" + ") : "Belum dikonfigurasi";
 
   return (
     <main className="space-y-6">
@@ -37,13 +39,13 @@ export default async function AdminTagihanPage({ searchParams }: { searchParams:
         eyebrow="Administrasi / Keuangan"
         title="Tagihan"
         description="Kelola tarif, buat tagihan, dan pantau arus pembayaran LIMO dengan tampilan yang ringkas untuk keputusan cepat."
-        actions={<><a href="#invoice-tools" className="tailadmin-button-primary gap-2"><DashboardIcon name="billing" className="size-4" />Kelola tagihan</a><Link href="/admin/pembayaran" className="tailadmin-button-outline gap-2"><DashboardIcon name="billing" className="size-4" />Ledger pembayaran</Link><Link href="/admin/laporan" className="tailadmin-button-outline gap-2"><DashboardIcon name="audit" className="size-4" />Lihat laporan</Link></>}
-        aside={<div className="w-full min-w-0 rounded-2xl bg-gray-950 px-5 py-4 text-white shadow-theme-lg lg:w-auto lg:min-w-64"><div className="flex items-center justify-between gap-4"><div><p className="text-theme-xs text-white/50">Gerbang pembayaran</p><p className="mt-1 text-lg font-semibold">Mayar</p></div><span className={`size-3 rounded-full ${mayarConfigured ? "bg-success-400" : "bg-warning-400"}`} /></div><p className="mt-3 text-theme-xs text-white/65">{mayarConfigured ? "Pembayaran siap digunakan Wali." : "Kunci API belum dikonfigurasi."}</p></div>}
+        actions={<><a href="#invoice-tools" className="tailadmin-button-primary gap-2"><DashboardIcon name="billing" className="size-4" />Kelola tagihan</a><Link href="/admin/pembayaran" className="tailadmin-button-outline gap-2"><DashboardIcon name="billing" className="size-4" />Ledger pembayaran</Link><Link href="/admin/pembayaran/pengaturan" className="tailadmin-button-outline gap-2"><DashboardIcon name="billing" className="size-4" />Atur gateway</Link><Link href="/admin/laporan" className="tailadmin-button-outline gap-2"><DashboardIcon name="audit" className="size-4" />Lihat laporan</Link></>}
+        aside={<div className="w-full min-w-0 rounded-2xl bg-gray-950 px-5 py-4 text-white shadow-theme-lg lg:w-auto lg:min-w-64"><div className="flex items-center justify-between gap-4"><div><p className="text-theme-xs text-white/50">Gerbang pembayaran</p><p className="mt-1 text-lg font-semibold">{gatewayLabel}</p></div><span className={`size-3 rounded-full ${activeGatewaySettings.length > 0 ? "bg-success-400" : "bg-warning-400"}`} /></div><p className="mt-3 text-theme-xs text-white/65">{activeGatewaySettings.length > 0 ? "Pembayaran siap digunakan Wali." : "Belum ada gateway aktif."}</p></div>}
       />
 
-      <section className={`rounded-2xl border p-4 sm:flex sm:items-center sm:justify-between sm:gap-6 ${mayarConfigured ? "border-success-200 bg-success-50" : "border-warning-200 bg-warning-50"}`} aria-label="Status gerbang pembayaran">
-        <div className="flex items-start gap-3"><span className={`mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg ${mayarConfigured ? "bg-success-100 text-success-700" : "bg-warning-100 text-warning-700"}`}><DashboardIcon name="billing" className="size-4" /></span><div><p className={`text-theme-sm font-semibold ${mayarConfigured ? "text-success-800" : "text-warning-800"}`}>Gerbang Pembayaran: Mayar {mayarConfigured ? "aktif" : "belum dikonfigurasi"}</p><p className={`mt-1 text-theme-xs leading-5 ${mayarConfigured ? "text-success-700" : "text-warning-700"}`}>Wali dapat membayar melalui Mayar dengan QRIS, Akun Virtual, dan kanal yang aktif pada dasbor pedagang Mayar.</p></div></div>
-        <span className={`mt-3 inline-flex w-fit shrink-0 rounded-full px-3 py-1 text-[10px] font-semibold sm:mt-0 ${mayarConfigured ? "bg-white text-success-700" : "bg-white text-warning-700"}`}>{mayarConfigured ? "Siap menerima pembayaran" : "Perlu konfigurasi"}</span>
+      <section className={`rounded-2xl border p-4 sm:flex sm:items-center sm:justify-between sm:gap-6 ${activeGatewaySettings.length > 0 ? "border-success-200 bg-success-50" : "border-warning-200 bg-warning-50"}`} aria-label="Status gerbang pembayaran">
+        <div className="flex items-start gap-3"><span className={`mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg ${activeGatewaySettings.length > 0 ? "bg-success-100 text-success-700" : "bg-warning-100 text-warning-700"}`}><DashboardIcon name="billing" className="size-4" /></span><div><p className={`text-theme-sm font-semibold ${activeGatewaySettings.length > 0 ? "text-success-800" : "text-warning-800"}`}>Gerbang Pembayaran: {gatewayLabel}</p><p className={`mt-1 text-theme-xs leading-5 ${activeGatewaySettings.length > 0 ? "text-success-700" : "text-warning-700"}`}>Wali dapat memilih gateway aktif dari halaman pembayaran. Atur kanal dan credential melalui pengaturan integrasi.</p></div></div>
+        <span className={`mt-3 inline-flex w-fit shrink-0 rounded-full px-3 py-1 text-[10px] font-semibold sm:mt-0 ${activeGatewaySettings.length > 0 ? "bg-white text-success-700" : "bg-white text-warning-700"}`}>{activeGatewaySettings.length > 0 ? "Siap menerima pembayaran" : "Perlu konfigurasi"}</span>
       </section>
 
       <AdminBillingWorkspace
@@ -86,7 +88,9 @@ function serializeInvoice(item: Awaited<ReturnType<typeof listTagihan>>["items"]
     paidAt: item.paidAt?.toISOString() ?? null,
     siswa: item.siswa,
     paymentUrl: item.paymentUrl,
+    paymentProvider: item.paymentProvider,
     paymentAvailable: item.paymentAvailable,
+    availablePaymentProviders: item.availablePaymentProviders,
     paymentHistoryCount: item.paymentHistoryCount,
     paymentHistory: item.paymentHistory.map((payment) => ({
       id: payment.id,

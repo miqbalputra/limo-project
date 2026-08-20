@@ -31,7 +31,9 @@ export type AdminBillingInvoice = {
   paidAt: string | null;
   siswa: { name: string; nomorInduk: string };
   paymentUrl: string | null;
+  paymentProvider: "mayar" | "pakasir" | string | null;
   paymentAvailable: boolean;
+  availablePaymentProviders: ("mayar" | "pakasir")[];
   paymentHistoryCount: number;
   paymentHistory: {
     id: string;

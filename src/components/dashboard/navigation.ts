@@ -25,6 +25,7 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
       { label: "Berkas Materi", href: "/admin/file-manager", icon: "materials", section: "Akademik" },
       { label: "Tagihan", href: "/admin/tagihan", icon: "billing", section: "Administrasi" },
       { label: "Pembayaran", href: "/admin/pembayaran", icon: "billing", section: "Administrasi" },
+      { label: "Integrasi Pembayaran", href: "/admin/pembayaran/pengaturan", icon: "billing", section: "Administrasi" },
      { label: "Laporan", href: "/admin/laporan", icon: "audit", section: "Administrasi" },
      { label: "Pengguna", href: "/admin/users", icon: "users", section: "Administrasi" },
     { label: "Audit", href: "/admin/audit", icon: "audit", section: "Administrasi" },

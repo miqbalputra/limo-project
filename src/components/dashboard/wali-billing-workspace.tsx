@@ -32,7 +32,9 @@ export type WaliBillingInvoice = {
   paidAt: string | null;
   siswa: { name: string; nomorInduk: string };
   paymentUrl: string | null;
+  paymentProvider: "mayar" | "pakasir" | string | null;
   paymentAvailable: boolean;
+  availablePaymentProviders: ("mayar" | "pakasir")[];
   paymentHistoryCount: number;
   paymentHistory: {
     id: string;
@@ -402,6 +404,8 @@ function WaliInvoiceCard({ item }: { item: WaliBillingInvoice }) {
         <PaymentButton
           tagihanId={item.id}
           initialPaymentUrl={item.paymentUrl}
+          initialPaymentProvider={item.paymentProvider === "mayar" || item.paymentProvider === "pakasir" ? item.paymentProvider : null}
+          availableProviders={item.availablePaymentProviders}
           disabled={false}
         />
       ) : isPayable ? (

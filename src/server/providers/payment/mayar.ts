@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getEnv } from "../../env.ts";
 import { ForbiddenError, ProviderError, ValidationError } from "../../errors/application-error.ts";
 import { timingSafeCompareText } from "../../security/crypto.ts";
+import type { PaymentCreationInput, PaymentGatewayRuntimeConfig } from "./types.ts";
 
 const MAYAR_REQUEST_TIMEOUT_MS = 15_000;
 
@@ -38,13 +39,14 @@ const mayarWebhookSchema = z.object({
   data: z.record(z.string(), z.unknown()),
 });
 
-function getBaseUrl() {
+function getBaseUrl(config?: PaymentGatewayRuntimeConfig) {
+  if (config?.baseUrl) return config.baseUrl.replace(/\/+$/, "");
   const env = getEnv();
   return (env.MAYAR_BASE_URL || (env.MAYAR_ENV === "production" ? "https://api.mayar.id/hl/v2" : "https://api.mayar.io/hl/v2")).replace(/\/+$/, "");
 }
 
-function getApiKey() {
-  const apiKey = getEnv().MAYAR_API_KEY;
+function getApiKey(config?: PaymentGatewayRuntimeConfig) {
+  const apiKey = config?.apiKey || getEnv().MAYAR_API_KEY;
   if (!apiKey) {
     throw new ValidationError("MAYAR_API_KEY belum dikonfigurasi");
   }
@@ -66,9 +68,9 @@ function getProviderMessage(payload: unknown) {
   return typeof message === "string" ? message.trim().slice(0, 240) : "";
 }
 
-async function requestMayar(path: string, init: RequestInit, action: string) {
-  const url = `${getBaseUrl()}${path}`;
-  const apiKey = getApiKey();
+async function requestMayar(path: string, init: RequestInit, action: string, config?: PaymentGatewayRuntimeConfig) {
+  const url = `${getBaseUrl(config)}${path}`;
+  const apiKey = getApiKey(config);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), MAYAR_REQUEST_TIMEOUT_MS);
 
@@ -110,16 +112,7 @@ function isValidMobile(value: string) {
   return value.replace(/[\s-]/g, "").length >= 8;
 }
 
-export async function createMayarInvoice(input: {
-  tagihanId: string;
-  name: string;
-  email: string;
-  mobile: string;
-  description: string;
-  amount: number | string;
-  expiredAt: Date;
-  paymentMethod?: string;
-}) {
+export async function createMayarInvoice(input: PaymentCreationInput, config?: PaymentGatewayRuntimeConfig) {
   if (!isValidMobile(input.mobile)) {
     throw new ValidationError("Nomor WhatsApp Wali belum tersedia atau belum valid", { mobile: ["Nomor WhatsApp Wali wajib diisi untuk membuat invoice Mayar"] });
   }
@@ -147,7 +140,7 @@ export async function createMayarInvoice(input: {
       ...(paymentMethod ? { paymentMethod } : {}),
       extraData: { noCustomer: input.tagihanId, idProd: input.tagihanId, tagihanId: input.tagihanId, source: "limo" },
     }),
-  }, "membuat invoice");
+  }, "membuat invoice", config);
 
   const parsed = mayarCreateResponseSchema.safeParse(payload);
   if (!parsed.success) {
@@ -159,13 +152,14 @@ export async function createMayarInvoice(input: {
     invoiceId: parsed.data.data.id,
     transactionId: parsed.data.data.transactionId,
     paymentUrl: parsed.data.data.link,
+    paymentMethod: paymentMethod || "all",
     expiresAt: parsed.data.data.expiredAt ? new Date(parsed.data.data.expiredAt) : input.expiredAt,
     rawPayload: parsed.data,
   };
 }
 
-export async function getMayarInvoice(invoiceId: string) {
-  const payload = await requestMayar(`/invoices/${encodeURIComponent(invoiceId)}`, {}, "membaca invoice");
+export async function getMayarInvoice(invoiceId: string, config?: PaymentGatewayRuntimeConfig) {
+  const payload = await requestMayar(`/invoices/${encodeURIComponent(invoiceId)}`, {}, "membaca invoice", config);
 
   const parsed = mayarInvoiceDetailSchema.safeParse(payload);
   if (!parsed.success) {
@@ -190,8 +184,8 @@ export type VerifiedMayarEvent = {
   status: string;
 };
 
-export function verifyMayarWebhook(input: { rawBody: string; secret: string | null }) {
-  const expectedSecret = getEnv().MAYAR_WEBHOOK_SECRET;
+export function verifyMayarWebhook(input: { rawBody: string; secret: string | null }, config?: PaymentGatewayRuntimeConfig) {
+  const expectedSecret = config?.webhookSecret || getEnv().MAYAR_WEBHOOK_SECRET;
   if (expectedSecret && (!input.secret || !timingSafeCompareText(expectedSecret, input.secret))) {
     throw new ValidationError("Secret webhook Mayar tidak valid");
   }
@@ -220,7 +214,7 @@ export function verifyMayarWebhook(input: { rawBody: string; secret: string | nu
   const referenceIds = [dataString("id"), dataString("transactionId"), dataString("invoiceId"), dataString("paymentLinkId"), dataString("productId")].filter((value): value is string => Boolean(value));
   const tagihanId = typeof extraData?.tagihanId === "string" ? extraData.tagihanId : dataString("tagihanId");
   const merchantId = dataString("merchantId") || dataString("userId");
-  const expectedMerchantId = getEnv().MAYAR_MERCHANT_ID;
+  const expectedMerchantId = config?.merchantId || getEnv().MAYAR_MERCHANT_ID;
   if (expectedMerchantId && merchantId !== expectedMerchantId) {
     throw new ForbiddenError("Merchant Mayar pada webhook tidak valid");
   }
@@ -240,6 +234,11 @@ export function verifyMayarWebhook(input: { rawBody: string; secret: string | nu
     paidAt,
     status,
   } satisfies VerifiedMayarEvent;
+}
+
+export async function testMayarConnection(config: PaymentGatewayRuntimeConfig) {
+  await requestMayar("/invoices?page=1&pageSize=1", {}, "menguji koneksi", config);
+  return { success: true, message: "Koneksi Mayar berhasil diverifikasi tanpa membuat transaksi." };
 }
 
 export function isPaidMayarEvent(input: { event: string; status?: string }) {

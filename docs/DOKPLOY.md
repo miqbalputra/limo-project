@@ -146,12 +146,19 @@ MAYAR_BASE_URL=
 MAYAR_API_KEY=isi-credential-mayar-production
 MAYAR_MERCHANT_ID=isi-merchant-id
 MAYAR_WEBHOOK_SECRET=isi-secret-webhook-mayar
+PAYMENT_CONFIG_ENCRYPTION_KEY=isi-base64-key-32-byte
 ```
 
 Atur webhook Mayar ke endpoint:
 
 ```text
 https://limo.example.com/api/v1/webhooks/mayar
+```
+
+Setelah deploy, konfigurasi Mayar dan/atau Pakasir melalui menu Admin → Pembayaran → Integrasi Pembayaran. `PAYMENT_CONFIG_ENCRYPTION_KEY` wajib stabil karena digunakan untuk membuka credential yang disimpan dari dashboard. URL webhook Pakasir tersedia pada halaman yang sama:
+
+```text
+https://limo.example.com/api/v1/webhooks/pakasir?secret=<PAKASIR_WEBHOOK_SECRET>
 ```
 
 ### 5.4 Notifikasi

@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { prisma } from "../db/prisma.ts";
 import { deliverNotification } from "../providers/notification/notifier.ts";
 import { getMayarInvoice, isPaidMayarEvent } from "../providers/payment/mayar.ts";
+import { getPakasirTransaction, isPaidPakasirEvent } from "../providers/payment/pakasir.ts";
+import { getPaymentGatewayRuntimeConfig } from "./payment-gateway-service.ts";
 import { notifyAdmins } from "./notification-service.ts";
 export { sendDeadlineReminders } from "./reminder-service.ts";
 
@@ -134,6 +136,8 @@ export async function retryPendingNotifications(input: { dryRun?: boolean; limit
 }
 
 export async function reconcilePendingMayarPayments(input: { dryRun?: boolean; limit?: number } = {}) {
+  const mayarConfig = await getPaymentGatewayRuntimeConfig("mayar");
+  if (!mayarConfig) return { checked: 0, paid: 0, expired: 0, skipped: 0, failed: 0, errors: ["Konfigurasi Mayar belum tersedia"] };
   const limit = Math.min(Math.max(input.limit ?? 50, 1), 200);
   const payments = await prisma.pembayaran.findMany({
     where: { provider: "mayar", status: "PENDING" },
@@ -168,7 +172,7 @@ export async function reconcilePendingMayarPayments(input: { dryRun?: boolean; l
     checked += 1;
 
     try {
-      const invoice = await getMayarInvoice(invoiceId);
+      const invoice = await getMayarInvoice(invoiceId, mayarConfig);
       const status = invoice.status.toLowerCase();
 
       if (isPaidMayarEvent({ event: "invoice.status", status })) {
@@ -192,7 +196,7 @@ export async function reconcilePendingMayarPayments(input: { dryRun?: boolean; l
             prisma.tagihan.update({ where: { id: payment.tagihanId }, data: { status: "PAID", paidAt } }),
           ]);
 
-           await enqueuePaymentSuccessNotifications(payment.tagihan.siswaId, payment.tagihanId);
+           await enqueuePaymentSuccessNotifications(payment.tagihan.siswaId, payment.tagihanId, "mayar");
            await notifyAdmins({
              template: "admin-payment-success",
              subject: "Pembayaran Mayar diterima",
@@ -239,7 +243,62 @@ export async function reconcilePendingMayarPayments(input: { dryRun?: boolean; l
   return { checked, paid, expired, skipped, failed, errors, dryRun: Boolean(input.dryRun) };
 }
 
-async function enqueuePaymentSuccessNotifications(siswaId: string, tagihanId: string) {
+export async function reconcilePendingPakasirPayments(input: { dryRun?: boolean; limit?: number } = {}) {
+  const limit = Math.min(Math.max(input.limit ?? 50, 1), 200);
+  const pakasirConfig = await getPaymentGatewayRuntimeConfig("pakasir");
+  if (!pakasirConfig) return { checked: 0, paid: 0, expired: 0, skipped: 0, failed: 0, errors: ["Konfigurasi Pakasir belum tersedia"] };
+  const payments = await prisma.pembayaran.findMany({
+    where: { provider: "pakasir", status: "PENDING" },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+    select: { id: true, tagihanId: true, providerReference: true, tagihan: { select: { id: true, siswaId: true, amount: true, status: true } } },
+  });
+  let checked = 0;
+  let paid = 0;
+  let expired = 0;
+  let skipped = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  for (const payment of payments) {
+    checked += 1;
+    try {
+      const transaction = await getPakasirTransaction({ orderId: payment.providerReference, amount: payment.tagihan.amount.toString() }, pakasirConfig);
+      const status = transaction.status.toLowerCase();
+      if (isPaidPakasirEvent(status)) {
+        if (Number(payment.tagihan.amount) !== Number(transaction.amount)) throw new Error(`Nominal transaksi ${payment.providerReference} tidak sesuai tagihan`);
+        if (!input.dryRun) {
+          const paidAt = transaction.completed_at ? new Date(transaction.completed_at) : new Date();
+          await prisma.$transaction([
+            prisma.pembayaran.update({ where: { id: payment.id }, data: { status: "PAID", paidAt, paymentMethod: transaction.payment_method, rawPayload: transaction.rawPayload as object } }),
+            prisma.tagihan.update({ where: { id: payment.tagihanId }, data: { status: "PAID", paidAt } }),
+          ]);
+          await enqueuePaymentSuccessNotifications(payment.tagihan.siswaId, payment.tagihanId, "pakasir");
+          await notifyAdmins({ template: "admin-payment-success", subject: "Pembayaran Pakasir diterima", body: `Pembayaran tagihan ${payment.tagihanId} telah dikonfirmasi oleh rekonsiliasi Pakasir.`, metadata: { tagihanId: payment.tagihanId, provider: "pakasir", source: "reconciliation" } });
+        }
+        paid += 1;
+      } else if (["expired", "cancelled", "failed"].includes(status)) {
+        const paymentStatus = status === "cancelled" ? "CANCELLED" : status === "failed" ? "FAILED" : "EXPIRED";
+        if (!input.dryRun) {
+          await prisma.$transaction([
+            prisma.pembayaran.update({ where: { id: payment.id }, data: { status: paymentStatus, rawPayload: transaction.rawPayload as object } }),
+            ...(payment.tagihan.status === "PENDING" && paymentStatus !== "FAILED" ? [prisma.tagihan.update({ where: { id: payment.tagihanId }, data: { status: "UNPAID" } })] : []),
+          ]);
+        }
+        expired += 1;
+      } else {
+        skipped += 1;
+      }
+    } catch (error) {
+      failed += 1;
+      errors.push(`${payment.tagihanId}: ${error instanceof Error ? error.message : "Gagal membaca transaksi Pakasir"}`);
+    }
+  }
+
+  return { checked, paid, expired, skipped, failed, errors, dryRun: Boolean(input.dryRun) };
+}
+
+async function enqueuePaymentSuccessNotifications(siswaId: string, tagihanId: string, provider: "mayar" | "pakasir") {
   const relations = await prisma.waliSiswa.findMany({
     where: { siswaId, endedAt: null },
     select: { siswaId: true, waliProfile: { select: { phone: true, user: { select: { email: true } } } } },
@@ -250,7 +309,7 @@ async function enqueuePaymentSuccessNotifications(siswaId: string, tagihanId: st
       const recipient = channel === "email" ? relation.waliProfile.user.email : relation.waliProfile.phone;
       if (!recipient) continue;
 
-      const body = `Pembayaran tagihan ${tagihanId} telah diterima melalui Mayar.`;
+      const body = `Pembayaran tagihan ${tagihanId} telah diterima melalui ${provider === "mayar" ? "Mayar" : "Pakasir"}.`;
       try {
         await prisma.notifikasi.create({
           data: {
@@ -260,7 +319,7 @@ async function enqueuePaymentSuccessNotifications(siswaId: string, tagihanId: st
             subject: "Pembayaran tagihan diterima",
             body,
             dedupeKey: createHash("sha256").update(`payment-success|${channel}|${recipient}|${body}`).digest("hex"),
-            metadata: { tagihanId, provider: "mayar", source: "reconciliation", siswaId: relation.siswaId },
+            metadata: { tagihanId, provider, source: "reconciliation", siswaId: relation.siswaId },
           },
         });
       } catch (error) {

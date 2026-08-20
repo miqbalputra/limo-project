@@ -44,7 +44,9 @@ function serializeInvoice(item: Awaited<ReturnType<typeof listTagihan>>["items"]
     paidAt: item.paidAt?.toISOString() ?? null,
     siswa: item.siswa,
     paymentUrl: item.paymentUrl,
+    paymentProvider: item.paymentProvider,
     paymentAvailable: item.paymentAvailable,
+    availablePaymentProviders: item.availablePaymentProviders,
     paymentHistoryCount: item.paymentHistoryCount,
     paymentHistory: item.paymentHistory.map((payment) => ({
       id: payment.id,
