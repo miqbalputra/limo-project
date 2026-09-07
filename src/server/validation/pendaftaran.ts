@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const submitPendaftaranSchema = z.object({
-  programKind: z.enum(["ENGLISH", "ARABIC"]),
+  programKind: z.enum(["ENGLISH", "ARABIC", "ARABIC_KIDS", "NAHWU", "MATH_ACADEMIC_SUPPORT"]),
   studentName: z.string().trim().min(2).max(120),
   studentBirthDate: z
     .string()

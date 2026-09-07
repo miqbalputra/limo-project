@@ -20,6 +20,8 @@ export async function listPrograms(actor: Actor) {
       name: true,
       kind: true,
       description: true,
+      registrationAvailability: true,
+      registrationNote: true,
       isActive: true,
       _count: {
         select: {
@@ -47,8 +49,9 @@ export async function createProgram(actor: Actor, input: unknown) {
       name: parsed.data.name,
       kind: parsed.data.kind,
       description: parsed.data.description || undefined,
+      registrationAvailability: "OPEN",
     },
-    select: { id: true, name: true, kind: true },
+    select: { id: true, name: true, kind: true, registrationAvailability: true },
   });
 
   await prisma.auditLog.create({
@@ -69,7 +72,7 @@ export async function updateProgram(actor: Actor, id: string, input: unknown) {
   if (!parsed.success) throw new ValidationError("Data program belum valid", parsed.error.flatten().fieldErrors);
   const existing = await prisma.program.findUnique({ where: { id }, select: { id: true } });
   if (!existing) throw new NotFoundError("Program tidak ditemukan");
-  const item = await prisma.program.update({ where: { id }, data: { name: parsed.data.name, description: parsed.data.description || null }, select: { id: true, name: true, kind: true, isActive: true } });
+  const item = await prisma.program.update({ where: { id }, data: { name: parsed.data.name, description: parsed.data.description || null, ...(parsed.data.registrationAvailability ? { registrationAvailability: parsed.data.registrationAvailability } : {}), registrationNote: parsed.data.registrationNote || null }, select: { id: true, name: true, kind: true, isActive: true, registrationAvailability: true, registrationNote: true } });
   await prisma.auditLog.create({ data: { actorId: actor.id, action: "PROGRAM_UPDATED", entityType: "Program", entityId: id } });
   return { item };
 }

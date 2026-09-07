@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { formatUiLabel } from "@/lib/ui-labels";
 
 type RegistrationResult = {
@@ -25,6 +25,15 @@ type StatusResult = {
   };
 };
 
+type PublicProgram = {
+  id: string;
+  name: string;
+  kind: string;
+  description?: string | null;
+  registrationAvailability: "OPEN" | "LIMITED_SLOTS" | "FULL" | "COMING_SOON";
+  registrationNote?: string | null;
+};
+
 type ApiEnvelope<T> = {
   data?: T;
   error?: { message?: string };
@@ -41,9 +50,25 @@ async function readApi<T>(response: Response) {
 }
 
 export function PendaftaranForm() {
+  const [programs, setPrograms] = useState<PublicProgram[]>([]);
+  const [selectedKind, setSelectedKind] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<RegistrationResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/v1/public/programs")
+      .then((response) => response.json() as Promise<ApiEnvelope<{ items: PublicProgram[] }>>)
+      .then((payload) => {
+        const items = payload.data?.items ?? [];
+        setPrograms(items);
+        setSelectedKind(items.find((item) => item.registrationAvailability !== "COMING_SOON")?.kind ?? "");
+      })
+      .catch(() => setPrograms([]));
+  }, []);
+
+  const selectablePrograms = useMemo(() => programs.filter((program) => program.registrationAvailability !== "COMING_SOON"), [programs]);
+  const selectedProgram = selectablePrograms.find((program) => program.kind === selectedKind) ?? selectablePrograms[0];
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -118,11 +143,19 @@ export function PendaftaranForm() {
           <select
             name="programKind"
             required
+            value={selectedKind}
+            onChange={(event) => setSelectedKind(event.target.value)}
             className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 outline-none"
           >
-            <option value="ENGLISH">Bahasa Inggris</option>
-            <option value="ARABIC">Bahasa Arab</option>
+            <option value="" disabled>{programs.length ? "Pilih program" : "Memuat program..."}</option>
+            {selectablePrograms.map((program) => (
+              <option key={program.id} value={program.kind}>
+                {program.name}{program.registrationAvailability === "LIMITED_SLOTS" ? " — Slot terbatas" : program.registrationAvailability === "FULL" ? " — Waiting list" : ""}
+              </option>
+            ))}
           </select>
+          {selectedProgram?.registrationAvailability === "FULL" ? <span className="mt-2 block text-theme-xs font-semibold text-warning-700">Program penuh. Pendaftaran akan masuk sebagai waiting list.</span> : null}
+          {selectedProgram?.registrationNote ? <span className="mt-1 block text-theme-xs text-gray-500">{selectedProgram.registrationNote}</span> : null}
         </label>
 
         <label className="block text-theme-sm font-medium text-gray-700">
@@ -189,7 +222,7 @@ export function PendaftaranForm() {
           disabled={isSubmitting}
           className="tailadmin-button-primary w-full py-3"
         >
-          {isSubmitting ? "Mengirim..." : "Kirim Pendaftaran"}
+          {isSubmitting ? "Mengirim..." : selectedProgram?.registrationAvailability === "FULL" ? "Join the Waiting List" : "Kirim Pendaftaran"}
         </button>
       </form>
     </div>

@@ -66,7 +66,9 @@ export function ProgramForm() {
       <input id="program-name" name="name" required aria-label="Nama program" placeholder="Nama program" className="tailadmin-input" />
       <select name="kind" required aria-label="Jenis program" className="tailadmin-input">
         <option value="ENGLISH">Bahasa Inggris</option>
-        <option value="ARABIC">Bahasa Arab</option>
+        <option value="ARABIC_KIDS">Arabic for Kids</option>
+        <option value="NAHWU">Nahwu</option>
+        <option value="MATH_ACADEMIC_SUPPORT">Math & Academic Support for Akhwat</option>
       </select>
       <textarea name="description" aria-label="Deskripsi program" placeholder="Deskripsi" className="tailadmin-input" />
       <SubmitButton isSubmitting={isSubmitting} label="Simpan Program" />

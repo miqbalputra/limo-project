@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const createProgramSchema = z.object({
   name: z.string().trim().min(2).max(120),
-  kind: z.enum(["ENGLISH", "ARABIC"]),
+  kind: z.enum(["ENGLISH", "ARABIC", "ARABIC_KIDS", "NAHWU", "MATH_ACADEMIC_SUPPORT"]),
   description: z.string().trim().max(1000).optional().or(z.literal("")),
 });
 
@@ -21,7 +21,11 @@ export const createKelasSchema = z.object({
   scheduleNote: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
-export const updateProgramSchema = createProgramSchema.pick({ name: true, description: true });
+export const registrationAvailabilitySchema = z.enum(["OPEN", "LIMITED_SLOTS", "FULL", "COMING_SOON"]);
+export const updateProgramSchema = createProgramSchema.pick({ name: true, description: true }).extend({
+  registrationAvailability: registrationAvailabilitySchema.optional(),
+  registrationNote: z.string().trim().max(500).optional().or(z.literal("")),
+});
 export const updateLevelSchema = createLevelSchema.pick({ name: true, order: true, description: true });
 export const updateKelasSchema = createKelasSchema.pick({ name: true, guruProfileId: true, scheduleNote: true });
 

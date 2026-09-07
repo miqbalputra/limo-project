@@ -1,5 +1,7 @@
 import { AssignmentSubmissionType, HasilUjianStatus, JobStatus, MateriType, NotificationStatus, PembayaranStatus, PendaftaranStatus, PresensiStatus, Prisma, PrismaClient, ProgramKind, PublishStatus, SesiStatus, SiswaAccountStatus, SoalType, TagihanStatus, UserRole, UserStatus } from "@prisma/client";
 import argon2 from "argon2";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 
 const prisma = new PrismaClient();
 
@@ -144,6 +146,73 @@ async function upsertUjian(input: {
     : prisma.ujian.create({ data: { kelasId: input.kelasId, title: input.title, ...data } });
 }
 
+function resolveHeroStorageRoot() {
+  const configured = process.env.PRIVATE_STORAGE_PATH || "./storage/private";
+  return path.resolve(path.isAbsolute(configured) ? configured : path.join(process.cwd(), configured));
+}
+
+function heroPlaceholderSvg(label: string, variant: "desktop" | "mobile") {
+  const width = variant === "desktop" ? 1600 : 720;
+  const height = variant === "desktop" ? 900 : 1280;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#044980"/>
+      <stop offset="0.55" stop-color="#0E5D9D"/>
+      <stop offset="1" stop-color="#2372B8"/>
+    </linearGradient>
+  </defs>
+  <rect width="${width}" height="${height}" fill="url(#bg)"/>
+  <circle cx="${width * 0.82}" cy="${height * 0.2}" r="${height * 0.16}" fill="#F9E06C" opacity="0.28"/>
+  <circle cx="${width * 0.12}" cy="${height * 0.85}" r="${height * 0.2}" fill="#94D3F2" opacity="0.22"/>
+  <text x="50%" y="47%" fill="#FFFFFF" font-family="Georgia, serif" font-size="${height * 0.075}" font-weight="700" text-anchor="middle">${label}</text>
+  <text x="50%" y="58%" fill="#F9E06C" font-family="Georgia, serif" font-size="${height * 0.035}" text-anchor="middle">LIMO ACADEMY</text>
+  <text x="50%" y="66%" fill="#C2E0FF" font-family="Georgia, serif" font-size="${height * 0.022}" text-anchor="middle">Bridging The World, Benefiting The Ummah</text>
+</svg>`;
+}
+
+async function writeHeroPlaceholder(variant: "desktop" | "mobile", label: string) {
+  const dir = path.join(resolveHeroStorageRoot(), "hero", variant);
+  await mkdir(dir, { recursive: true });
+  const file = `seed-${variant}-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.svg`;
+  const storagePath = path.join(dir, file);
+  await writeFile(storagePath, heroPlaceholderSvg(label, variant), { flag: "w" });
+  return { storagePath, mimeType: "image/svg+xml" };
+}
+
+async function seedHeroSlides() {
+  const count = await prisma.heroSlide.count();
+  if (count > 0) return;
+
+  const slides = [
+    { label: "Main Hero", eyebrow: "LIMO ACADEMY", title: "Bridging The World, Benefiting The Ummah", description: "Membuka wawasan anak terhadap dunia, sembari menumbuhkan ilmu, iman, dan karakter dari dalam diri mereka.", ctaLabel: "Explore LIMO", ctaHref: "#experience" },
+    { label: "Limo Experience", eyebrow: "LIMO EXPERIENCE", title: "How's learning at LIMO?", description: "Di LIMO, belajar itu menyenangkan, nyaman, dan stress-free.", ctaLabel: "See the experience", ctaHref: "#why-choose-limo" },
+    { label: "Testimonial", eyebrow: "WHAT DO THEY THINK ABOUT LIMO?", title: "What parents say about LIMO", description: "Lihat bagaimana pengalaman parents dan students ketika belajar di LIMO.", ctaLabel: "Read testimonials", ctaHref: "#testimonials" },
+    { label: "Program", eyebrow: "EXPLORE LIMO", title: "Discover the programs designed to help every learner grow.", description: "English, Arabic, Nahwu, dan Academic Support untuk tujuan belajar yang berbeda.", ctaLabel: "Explore programs", ctaHref: "#programs" },
+  ];
+
+  for (const [index, slide] of slides.entries()) {
+    const desktop = await writeHeroPlaceholder("desktop", slide.label);
+    const mobile = await writeHeroPlaceholder("mobile", slide.label);
+    await prisma.heroSlide.create({
+      data: {
+        sortOrder: index,
+        isActive: true,
+        eyebrow: slide.eyebrow,
+        title: slide.title,
+        description: slide.description,
+        ctaLabel: slide.ctaLabel,
+        ctaHref: slide.ctaHref,
+        altText: `LIMO Academy — ${slide.label}`,
+        desktopImagePath: desktop.storagePath,
+        mobileImagePath: mobile.storagePath,
+        desktopImageMimeType: desktop.mimeType,
+        mobileImageMimeType: mobile.mimeType,
+      },
+    });
+  }
+}
+
 async function main() {
   assertDemoSeedAllowed();
   const devPasswordHash = await createDevPasswordHash();
@@ -183,26 +252,46 @@ async function main() {
     update: {
       kind: ProgramKind.ENGLISH,
       isActive: true,
+      registrationAvailability: "OPEN",
+      description: "Program bahasa Inggris LIMO dari preschool hingga dewasa.",
     },
     create: {
       name: "Bahasa Inggris",
       kind: ProgramKind.ENGLISH,
-      description: "Program bahasa Inggris LIMO.",
+      description: "Program bahasa Inggris LIMO dari preschool hingga dewasa.",
+      registrationAvailability: "OPEN",
     },
   });
 
-  const arabicProgram = await prisma.program.upsert({
-    where: { name: "Bahasa Arab" },
+  const arabicKidsProgram = await prisma.program.upsert({
+    where: { name: "Arabic for Kids" },
     update: {
-      kind: ProgramKind.ARABIC,
+      kind: ProgramKind.ARABIC_KIDS,
       isActive: true,
+      registrationAvailability: "OPEN",
     },
     create: {
-      name: "Bahasa Arab",
-      kind: ProgramKind.ARABIC,
-      description: "Program bahasa Arab LIMO.",
+      name: "Arabic for Kids",
+      kind: ProgramKind.ARABIC_KIDS,
+      description: "Program Bahasa Arab untuk anak usia sekolah dasar.",
+      registrationAvailability: "OPEN",
     },
   });
+
+  await prisma.program.upsert({
+    where: { name: "Nahwu" },
+    update: { kind: ProgramKind.NAHWU, isActive: true, registrationAvailability: "OPEN" },
+    create: { name: "Nahwu", kind: ProgramKind.NAHWU, description: "Program dasar ilmu Nahwu untuk usia 10 tahun hingga dewasa.", registrationAvailability: "OPEN" },
+  });
+
+  await prisma.program.upsert({
+    where: { name: "Math & Academic Support for Akhwat" },
+    update: { kind: ProgramKind.MATH_ACADEMIC_SUPPORT, isActive: true, registrationAvailability: "OPEN" },
+    create: { name: "Math & Academic Support for Akhwat", kind: ProgramKind.MATH_ACADEMIC_SUPPORT, description: "Program Matematika dan bimbingan akademik untuk peserta didik perempuan.", registrationAvailability: "OPEN" },
+  });
+
+  // Legasi: program "Bahasa Arab" (kind ARABIC) tidak lagi ditampilkan sebagai program tersendiri.
+  await prisma.program.updateMany({ where: { kind: ProgramKind.ARABIC }, data: { isActive: false } });
 
   const englishBeginner = await prisma.level.upsert({
     where: {
@@ -222,13 +311,13 @@ async function main() {
   await prisma.level.upsert({
     where: {
       programId_name: {
-        programId: arabicProgram.id,
+        programId: arabicKidsProgram.id,
         name: "Dasar",
       },
     },
     update: { order: 1, isActive: true },
     create: {
-      programId: arabicProgram.id,
+      programId: arabicKidsProgram.id,
       name: "Dasar",
       order: 1,
     },
@@ -241,9 +330,9 @@ async function main() {
   });
 
   const arabicBeginner = await prisma.level.upsert({
-    where: { programId_name: { programId: arabicProgram.id, name: "Pemula" } },
+    where: { programId_name: { programId: arabicKidsProgram.id, name: "Pemula" } },
     update: { order: 2, isActive: true },
-    create: { programId: arabicProgram.id, name: "Pemula", order: 2 },
+    create: { programId: arabicKidsProgram.id, name: "Pemula", order: 2 },
   });
 
   const guruUser = await prisma.user.upsert({
@@ -327,7 +416,7 @@ async function main() {
   const arabicBeginnerClass = await prisma.kelas.upsert({
     where: {
       programId_levelId_name: {
-        programId: arabicProgram.id,
+        programId: arabicKidsProgram.id,
         levelId: arabicBeginner.id,
         name: "Arabic Pemula A",
       },
@@ -335,7 +424,7 @@ async function main() {
     update: { guruProfileId: guruArabicProfile.id, scheduleNote: "Ahad pagi" },
     create: {
       name: "Arabic Pemula A",
-      programId: arabicProgram.id,
+      programId: arabicKidsProgram.id,
       levelId: arabicBeginner.id,
       guruProfileId: guruArabicProfile.id,
       scheduleNote: "Ahad pagi",
@@ -406,12 +495,12 @@ async function main() {
 
   const siswaC = await prisma.siswa.upsert({
     where: { nomorInduk: "LIMO-DEV-003" },
-    update: { name: "Bilal Pratama", programId: arabicProgram.id },
+    update: { name: "Bilal Pratama", programId: arabicKidsProgram.id },
     create: {
       nomorInduk: "LIMO-DEV-003",
       name: "Bilal Pratama",
       birthAt: new Date("2016-02-12T00:00:00.000Z"),
-      programId: arabicProgram.id,
+      programId: arabicKidsProgram.id,
     },
   });
 
@@ -428,12 +517,12 @@ async function main() {
 
   const siswaE = await prisma.siswa.upsert({
     where: { nomorInduk: "LIMO-DEV-005" },
-    update: { name: "Omar Fadhlan", programId: arabicProgram.id },
+    update: { name: "Omar Fadhlan", programId: arabicKidsProgram.id },
     create: {
       nomorInduk: "LIMO-DEV-005",
       name: "Omar Fadhlan",
       birthAt: new Date("2015-11-21T00:00:00.000Z"),
-      programId: arabicProgram.id,
+      programId: arabicKidsProgram.id,
     },
   });
 
@@ -547,7 +636,7 @@ async function main() {
 
   const registrationInputs = [
     { kode: "REG-DEMO-001", status: PendaftaranStatus.SUBMITTED, studentName: "Hana Putri", waliName: "Bapak Yusuf", waliEmail: "yusuf.demo@example.com", programId: englishProgram.id, submittedAt: new Date("2026-07-18T03:00:00.000Z") },
-    { kode: "REG-DEMO-002", status: PendaftaranStatus.UNDER_REVIEW, studentName: "Zaid Ibrahim", waliName: "Ibu Farah", waliEmail: "farah.demo@example.com", programId: arabicProgram.id, submittedAt: new Date("2026-07-19T04:30:00.000Z") },
+    { kode: "REG-DEMO-002", status: PendaftaranStatus.UNDER_REVIEW, studentName: "Zaid Ibrahim", waliName: "Ibu Farah", waliEmail: "farah.demo@example.com", programId: arabicKidsProgram.id, submittedAt: new Date("2026-07-19T04:30:00.000Z") },
     { kode: "REG-DEMO-003", status: PendaftaranStatus.APPROVED, studentName: "Nadia Rahma", waliName: "Ibu Rina", waliEmail: "wali.demo@limo.local", programId: englishProgram.id, submittedAt: new Date("2026-07-15T02:00:00.000Z"), approvedSiswaId: siswaD.id, reviewedAt: new Date("2026-07-16T02:30:00.000Z"), reviewedById: admin.id },
     { kode: "REG-DEMO-004", status: PendaftaranStatus.REJECTED, studentName: "Rayyan Demo", waliName: "Bapak Fahmi", waliEmail: "fahmi.demo@example.com", programId: englishProgram.id, submittedAt: new Date("2026-07-13T02:00:00.000Z"), rejectionReason: "Jadwal belum sesuai dengan pilihan wali.", reviewedAt: new Date("2026-07-14T02:30:00.000Z"), reviewedById: admin.id },
   ];
@@ -685,7 +774,7 @@ async function main() {
   let monthlyArabicTarif = await prisma.tarif.findFirst({ where: { name: "SPP Bulanan Demo Arabic" } });
   if (!monthlyArabicTarif) {
     monthlyArabicTarif = await prisma.tarif.create({
-      data: { name: "SPP Bulanan Demo Arabic", programId: arabicProgram.id, amount: "350000", effectiveFrom: new Date("2026-07-01T00:00:00.000Z") },
+      data: { name: "SPP Bulanan Demo Arabic", programId: arabicKidsProgram.id, amount: "350000", effectiveFrom: new Date("2026-07-01T00:00:00.000Z") },
     });
   }
 
@@ -1179,6 +1268,8 @@ async function main() {
       { name: "demo-notification-retry", status: JobStatus.FAILED, startedAt: new Date("2026-08-01T00:10:00.000Z"), finishedAt: new Date("2026-08-01T00:10:04.000Z"), successCount: 3, skippedCount: 0, failedCount: 1, errorMessage: "Provider WhatsApp demo belum dikonfigurasi", metadata: { provider: "console" } },
     ],
   });
+
+  await seedHeroSlides();
 
   console.log(`Seed completed. Dev users use password: ${DEV_PASSWORD}. Admin user: ${admin.email}`);
 }

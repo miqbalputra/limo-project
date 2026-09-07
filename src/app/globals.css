@@ -314,6 +314,62 @@ body {
   50% { transform: scale(1.04); }
 }
 
+@keyframes limo-fade-slide {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@utility animate-fade-slide {
+  animation: limo-fade-slide 0.4s ease-out both;
+}
+
+@keyframes limo-progress {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+@utility animate-progress {
+  animation: limo-progress 6s linear forwards;
+}
+
+@keyframes limo-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@utility animate-marquee {
+  animation: limo-marquee 70s linear infinite;
+}
+
+@keyframes limo-icon-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-5px) rotate(-3deg); }
+}
+
+@utility animate-icon-float {
+  animation: limo-icon-float 5s ease-in-out infinite;
+}
+
+@keyframes limo-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-8deg); }
+  75% { transform: rotate(8deg); }
+}
+
+@utility animate-wiggle {
+  animation: limo-wiggle 0.5s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-slide,
+  .animate-progress,
+  .animate-marquee,
+  .animate-icon-float,
+  .animate-wiggle {
+    animation: none;
+  }
+}
+
 @keyframes limo-shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }

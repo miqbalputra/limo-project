@@ -74,13 +74,18 @@ export async function submitPendaftaran(input: unknown, context: { ipAddress?: s
       kind: parsed.data.programKind,
       isActive: true,
     },
-    select: { id: true, name: true },
+    select: { id: true, name: true, registrationAvailability: true, registrationNote: true },
   });
 
   if (!program) {
     throw new ValidationError("Program yang dipilih belum tersedia");
   }
 
+  if (program.registrationAvailability === "COMING_SOON") {
+    throw new ValidationError(program.registrationNote || "Program ini segera dibuka. Silakan hubungi admin untuk informasi terbaru.");
+  }
+
+  const isWaitingList = program.registrationAvailability === "FULL";
   const duplicate = await prisma.pendaftaran.findFirst({
     where: {
       waliEmail,
@@ -102,6 +107,7 @@ export async function submitPendaftaran(input: unknown, context: { ipAddress?: s
       data: {
         kode,
         status: "SUBMITTED",
+        isWaitingList,
         programId: program.id,
         studentName: parsed.data.studentName,
         studentBirthAt: parseBirthDate(parsed.data.studentBirthDate),
@@ -115,6 +121,7 @@ export async function submitPendaftaran(input: unknown, context: { ipAddress?: s
         kode: true,
         status: true,
         studentName: true,
+        isWaitingList: true,
         waliEmail: true,
         createdAt: true,
       },
@@ -193,6 +200,7 @@ export async function listPendaftaran(actor: Actor, paginationInput: PaginationI
         waliName: true,
         waliEmail: true,
         submittedAt: true,
+        isWaitingList: true,
          program: { select: { name: true, kind: true } },
         files: {
           where: { deletedAt: null },
@@ -229,6 +237,7 @@ export async function getPendaftaranExportData(actor: Actor, filters: Pendaftara
       submittedAt: true,
       reviewedAt: true,
       rejectionReason: true,
+      isWaitingList: true,
       program: { select: { name: true, kind: true } },
       files: {
         where: { deletedAt: null },

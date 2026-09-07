@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Kitab Nahwu">
+  <rect x="8" y="6" width="32" height="36" rx="4" fill="#0E5D9D"/>
+  <rect x="12" y="6" width="4" height="36" fill="#044980"/>
+  <text x="28" y="21" fill="#F9E06C" font-family="serif" font-size="11" font-weight="700" text-anchor="middle" direction="rtl">نحو</text>
+  <rect x="20" y="26" width="14" height="2.4" rx="1.2" fill="#ffffff" opacity=".9"/>
+  <rect x="20" y="31" width="10" height="2.4" rx="1.2" fill="#ffffff" opacity=".7"/>
+</svg>

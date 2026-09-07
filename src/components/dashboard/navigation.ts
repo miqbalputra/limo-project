@@ -18,6 +18,7 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
     { label: "Wali", href: "/admin/wali", icon: "guardian", section: "Operasional" },
     { label: "Guru", href: "/admin/guru", icon: "teacher", section: "Operasional" },
      { label: "Program", href: "/admin/program", icon: "program", section: "Akademik" },
+    { label: "Hero Carousel", href: "/admin/hero-carousel", icon: "materials", section: "Konten" },
       { label: "Level", href: "/admin/level", icon: "levels", section: "Akademik" },
       { label: "Kelas", href: "/admin/kelas", icon: "classes", section: "Akademik" },
       { label: "Jadwal/Sesi", href: "/admin/jadwal", icon: "calendar", section: "Akademik" },

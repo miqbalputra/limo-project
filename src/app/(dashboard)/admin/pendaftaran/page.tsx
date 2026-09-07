@@ -129,7 +129,7 @@ function RegistrationCard({ item }: { item: Awaited<ReturnType<typeof listPendaf
               <Link href={`/admin/pendaftaran/${item.id}`} className="truncate text-base font-semibold text-gray-900 hover:text-limo-blue-700">{item.studentName}</Link>
               <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${statusStyles[status]}`}>{statusLabels[status]}</span>
             </div>
-            <p className="mt-1 text-theme-xs text-gray-500">{item.kode} / {item.program.name} / {item.program.kind === "ARABIC" ? "Bahasa Arab" : "Bahasa Inggris"}</p>
+            <p className="mt-1 text-theme-xs text-gray-500">{item.kode} / {item.program.name}{item.isWaitingList ? " · Waiting List" : ""}</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 xl:justify-end">

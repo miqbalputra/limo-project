@@ -27,6 +27,9 @@ export default async function AdminPendaftaranDetailPage({ params }: { params: P
           <Info label="Tanggal lahir" value={pendaftaran.studentBirthAt ? formatDate(pendaftaran.studentBirthAt) : "Belum diisi"} />
           <Info label="Program" value={`${pendaftaran.program.name} (${formatUiLabel(pendaftaran.program.kind)})`} />
           <Info label="Status" value={formatUiLabel(pendaftaran.status)} />
+          {pendaftaran.isWaitingList ? (
+            <div className="flex flex-wrap justify-between gap-3 border-b border-gray-100 pb-2 text-theme-sm"><span className="text-gray-500">Waiting List</span><span className="inline-flex items-center gap-1.5 rounded-full bg-warning-50 px-2.5 py-0.5 text-theme-xs font-bold text-warning-700">Ya — menunggu slot</span></div>
+          ) : null}
         </InfoCard>
         <InfoCard title="Data Wali">
           <Info label="Nama" value={pendaftaran.waliName} />

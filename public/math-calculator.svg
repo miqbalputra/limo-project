@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Kalkulator Matematika">
+  <rect x="9" y="5" width="30" height="38" rx="5" fill="#005876"/>
+  <rect x="13" y="9" width="22" height="9" rx="2" fill="#94D3F2"/>
+  <g fill="#F9E06C">
+    <circle cx="16.5" cy="24" r="2.2"/><circle cx="24" cy="24" r="2.2"/><circle cx="31.5" cy="24" r="2.2"/>
+  </g>
+  <g fill="#ffffff" opacity=".85">
+    <circle cx="16.5" cy="31.5" r="2.2"/><circle cx="24" cy="31.5" r="2.2"/><circle cx="31.5" cy="31.5" r="2.2"/>
+    <circle cx="16.5" cy="39" r="2.2"/><circle cx="24" cy="39" r="2.2"/><circle cx="31.5" cy="39" r="2.2"/>
+  </g>
+</svg>

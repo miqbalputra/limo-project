@@ -35,6 +35,7 @@ export async function createPendaftaranWorkbook(input: PendaftaranExportInput) {
     "Email Wali",
     "Telepon Wali",
     "Status",
+    "Waiting List",
     "Dikirim",
     "Ditinjau",
     "Alasan Penolakan",
@@ -61,6 +62,7 @@ export async function createPendaftaranWorkbook(input: PendaftaranExportInput) {
       spreadsheetText(row.waliEmail),
       spreadsheetText(row.waliPhone),
       spreadsheetText(formatStatus(row.status)),
+      spreadsheetText(row.isWaitingList ? "Ya" : "Tidak"),
       spreadsheetText(formatDateTime(row.submittedAt)),
       spreadsheetText(formatDateTime(row.reviewedAt)),
       spreadsheetText(row.rejectionReason),
@@ -68,7 +70,7 @@ export async function createPendaftaranWorkbook(input: PendaftaranExportInput) {
     ]);
   });
 
-  const widths = [18, 28, 18, 22, 26, 32, 20, 18, 22, 22, 42, 36];
+  const widths = [18, 28, 18, 22, 26, 32, 20, 18, 16, 22, 22, 42, 36];
   widths.forEach((width, index) => {
     worksheet.getColumn(index + 1).width = width;
   });
@@ -111,15 +113,16 @@ export async function createPendaftaranPdf(input: PendaftaranExportInput) {
   });
 
   const columns = [
-    { label: "Kode", width: 78 },
-    { label: "Calon siswa", width: 120 },
-    { label: "Lahir", width: 64 },
-    { label: "Program", width: 72 },
-    { label: "Wali / kontak", width: 155 },
-    { label: "Status", width: 72 },
-    { label: "Dikirim", width: 80 },
-    { label: "Lampiran", width: 100 },
-    { label: "Catatan", width: 110 },
+    { label: "Kode", width: 72 },
+    { label: "Calon siswa", width: 110 },
+    { label: "Lahir", width: 60 },
+    { label: "Program", width: 68 },
+    { label: "Wali / kontak", width: 140 },
+    { label: "Status", width: 68 },
+    { label: "Waiting", width: 48 },
+    { label: "Dikirim", width: 76 },
+    { label: "Lampiran", width: 95 },
+    { label: "Catatan", width: 105 },
   ];
   const scaledColumns = scalePdfColumns(document, columns);
   const rows = input.data.items.map(toPdfRow);
@@ -227,6 +230,7 @@ function toPdfRow(row: PendaftaranExportData["items"][number]) {
     row.program.name,
     [row.waliName, row.waliEmail, row.waliPhone].filter(Boolean).join(" / "),
     formatStatus(row.status),
+    row.isWaitingList ? "Ya" : "Tidak",
     formatDateTime(row.submittedAt),
     formatFiles(row.files),
     row.rejectionReason || "-",

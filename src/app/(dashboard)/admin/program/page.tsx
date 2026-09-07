@@ -3,6 +3,7 @@ import { listPrograms } from "@/server/services/master-data-service";
 import { ProgramForm } from "@/components/dashboard/master-data-forms";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { MasterDataActions } from "@/components/dashboard/master-data-actions";
+import { ProgramAvailabilityActions } from "@/components/dashboard/program-availability-actions";
 import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Program" };
@@ -16,7 +17,7 @@ export default async function AdminProgramPage() {
     <main className="space-y-6">
       <div>
         <h1 className="tailadmin-page-title">Program</h1>
-        <p className="mt-2 tailadmin-muted">Kelola program Bahasa Inggris dan Bahasa Arab.</p>
+        <p className="mt-2 tailadmin-muted">Kelola program dan status pendaftaran setiap program.</p>
       </div>
       <ProgramForm />
       {items.length > 0 ? <section className="grid gap-4 md:grid-cols-2">
@@ -26,10 +27,11 @@ export default async function AdminProgramPage() {
             <h2 className="mt-1 text-lg font-semibold text-gray-900">{program.name}</h2>
             <p className="mt-2 text-theme-sm text-gray-500">{program.description || "Belum ada deskripsi."}</p>
             <p className="mt-3 text-theme-sm text-gray-500">{program._count.levels} level, {program._count.kelas} kelas, {program._count.siswa} siswa</p>
+            <ProgramAvailabilityActions id={program.id} current={program.registrationAvailability} note={program.registrationNote ?? ""} />
             <MasterDataActions resource="program" id={program.id} name={program.name} description={program.description || ""} archived={!program.isActive} />
           </article>
         ))}
-      </section> : <EmptyState icon="program" title="Belum ada program" description="Buat program Bahasa Inggris atau Bahasa Arab menggunakan formulir di atas." />}
+      </section> : <EmptyState icon="program" title="Belum ada program" description="Buat program menggunakan formulir di atas." />}
     </main>
   );
 }

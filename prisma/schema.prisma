@@ -22,6 +22,16 @@ enum UserStatus {
 enum ProgramKind {
   ENGLISH
   ARABIC
+  ARABIC_KIDS
+  NAHWU
+  MATH_ACADEMIC_SUPPORT
+}
+
+enum RegistrationAvailability {
+  OPEN
+  LIMITED_SLOTS
+  FULL
+  COMING_SOON
 }
 
 enum PendaftaranStatus {
@@ -468,18 +478,40 @@ model PaymentGatewayConfig {
 }
 
 model Program {
-  id          String        @id @default(cuid())
-  name        String        @unique
-  kind        ProgramKind
-  description String?       @db.Text
-  isActive    Boolean       @default(true)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id                       String                   @id @default(cuid())
+  name                     String                   @unique
+  kind                     ProgramKind
+  description              String?                  @db.Text
+  registrationAvailability RegistrationAvailability @default(OPEN)
+  registrationNote         String?                  @db.Text
+  isActive                 Boolean                  @default(true)
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
   levels      Level[]
   pendaftaran Pendaftaran[]
   siswa       Siswa[]
   kelas       Kelas[]
   tarif       Tarif[]
+}
+
+model HeroSlide {
+  id                   String   @id @default(cuid())
+  sortOrder            Int      @default(0)
+  isActive             Boolean  @default(true)
+  desktopImagePath     String   @db.Text
+  mobileImagePath      String   @db.Text
+  desktopImageMimeType String   @db.VarChar(100)
+  mobileImageMimeType  String   @db.VarChar(100)
+  eyebrow              String?  @db.VarChar(160)
+  title                String   @db.VarChar(240)
+  description          String?  @db.Text
+  ctaLabel             String?  @db.VarChar(120)
+  ctaHref              String?  @db.VarChar(500)
+  altText              String   @db.VarChar(255)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
 }
 
 model Level {
@@ -515,6 +547,7 @@ model Pendaftaran {
   reviewedById    String?
   reviewedBy      User?                      @relation("PendaftaranReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   rejectionReason String?                    @db.Text
+  isWaitingList   Boolean                    @default(false)
   approvedSiswaId String?                    @unique
   approvedSiswa   Siswa?                     @relation("ApprovedPendaftaran", fields: [approvedSiswaId], references: [id], onDelete: SetNull)
   createdAt       DateTime                   @default(now())
@@ -524,6 +557,7 @@ model Pendaftaran {
 
   @@index([status, createdAt])
   @@index([waliEmail])
+  @@index([programId, isWaitingList, createdAt])
 }
 
 model RiwayatStatusPendaftaran {
