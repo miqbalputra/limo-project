@@ -504,9 +504,12 @@ model HeroSlide {
   mobileImageMimeType  String   @db.VarChar(100)
   eyebrow              String?  @db.VarChar(160)
   title                String   @db.VarChar(240)
+  subtitle             String?  @db.VarChar(240)
   description          String?  @db.Text
   ctaLabel             String?  @db.VarChar(120)
   ctaHref              String?  @db.VarChar(500)
+  cta2Label            String?  @db.VarChar(120)
+  cta2Href             String?  @db.VarChar(500)
   altText              String   @db.VarChar(255)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

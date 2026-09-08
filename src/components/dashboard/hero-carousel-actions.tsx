@@ -10,9 +10,12 @@ type HeroSlide = {
   sortOrder: number;
   eyebrow: string;
   title: string;
+  subtitle: string;
   description: string;
   ctaLabel: string;
   ctaHref: string;
+  cta2Label: string;
+  cta2Href: string;
   altText: string;
 };
 
@@ -70,12 +73,17 @@ export function HeroCarouselActions({ slide }: { slide: HeroSlide }) {
   if (editing) {
     return (
       <form onSubmit={save} className="mt-4 grid gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3" encType="multipart/form-data">
-        <input name="eyebrow" defaultValue={slide.eyebrow} aria-label="Eyebrow" placeholder="Eyebrow" className="tailadmin-input" />
-        <input name="title" defaultValue={slide.title} required aria-label="Judul slide" placeholder="Judul slide" className="tailadmin-input" />
+        <input name="eyebrow" defaultValue={slide.eyebrow} aria-label="Eyebrow" placeholder="Badge / tagline" className="tailadmin-input" />
+        <input name="title" defaultValue={slide.title} required aria-label="Judul slide" placeholder="Headline (H1)" className="tailadmin-input" />
+        <input name="subtitle" defaultValue={slide.subtitle} aria-label="Subheadline" placeholder="Subheadline" className="tailadmin-input" />
         <textarea name="description" defaultValue={slide.description} aria-label="Deskripsi" placeholder="Deskripsi" className="tailadmin-input" />
         <div className="grid gap-2 sm:grid-cols-2">
-          <input name="ctaLabel" defaultValue={slide.ctaLabel} aria-label="Label CTA" placeholder="Label CTA" className="tailadmin-input" />
-          <input name="ctaHref" defaultValue={slide.ctaHref} aria-label="Link CTA" placeholder="Link CTA, contoh #programs" className="tailadmin-input" />
+          <input name="ctaLabel" defaultValue={slide.ctaLabel} aria-label="Label CTA" placeholder="Tombol utama (label)" className="tailadmin-input" />
+          <input name="ctaHref" defaultValue={slide.ctaHref} aria-label="Link CTA" placeholder="Link tombol utama" className="tailadmin-input" />
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <input name="cta2Label" defaultValue={slide.cta2Label} aria-label="Label CTA kedua" placeholder="Tombol kedua (label)" className="tailadmin-input" />
+          <input name="cta2Href" defaultValue={slide.cta2Href} aria-label="Link CTA kedua" placeholder="Link tombol kedua" className="tailadmin-input" />
         </div>
         <input name="altText" defaultValue={slide.altText} required aria-label="Alt text" placeholder="Alt text gambar" className="tailadmin-input" />
         <input name="sortOrder" type="number" min={0} defaultValue={slide.sortOrder} aria-label="Urutan" className="tailadmin-input" />

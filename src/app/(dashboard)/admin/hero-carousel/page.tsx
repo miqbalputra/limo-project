@@ -27,7 +27,7 @@ export default async function AdminHeroCarouselPage() {
             <h2 className="mt-1 text-lg font-bold text-gray-900">{item.title}</h2>
             <p className="mt-2 text-sm text-gray-600">{item.description || "Tanpa deskripsi"}</p>
             <p className="mt-3 text-xs text-gray-500">Urutan {item.sortOrder} · {item.isActive ? "Aktif" : "Arsip"}</p>
-            <HeroCarouselActions slide={{ id: item.id, active: item.isActive, sortOrder: item.sortOrder, eyebrow: item.eyebrow ?? "", title: item.title, description: item.description ?? "", ctaLabel: item.ctaLabel ?? "", ctaHref: item.ctaHref ?? "", altText: item.altText }} />
+            <HeroCarouselActions slide={{ id: item.id, active: item.isActive, sortOrder: item.sortOrder, eyebrow: item.eyebrow ?? "", title: item.title, subtitle: item.subtitle ?? "", description: item.description ?? "", ctaLabel: item.ctaLabel ?? "", ctaHref: item.ctaHref ?? "", cta2Label: item.cta2Label ?? "", cta2Href: item.cta2Href ?? "", altText: item.altText }} />
           </article>
         ))}
       </section>

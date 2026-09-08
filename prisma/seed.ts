@@ -1,6 +1,6 @@
 import { AssignmentSubmissionType, HasilUjianStatus, JobStatus, MateriType, NotificationStatus, PembayaranStatus, PendaftaranStatus, PresensiStatus, Prisma, PrismaClient, ProgramKind, PublishStatus, SesiStatus, SiswaAccountStatus, SoalType, TagihanStatus, UserRole, UserStatus } from "@prisma/client";
 import argon2 from "argon2";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const prisma = new PrismaClient();
@@ -180,29 +180,41 @@ async function writeHeroPlaceholder(variant: "desktop" | "mobile", label: string
   return { storagePath, mimeType: "image/svg+xml" };
 }
 
+async function copyHeroAsset(filename: string, variant: "desktop" | "mobile") {
+  // Slide default memakai aset publik (dari public/hero-images) langsung.
+  // readHeroImage sekarang mengizinkan dua sumber: storage privat (upload admin) dan public/.
+  const storagePath = path.join(process.cwd(), "public", "hero-images", filename);
+  const exists = await readFile(storagePath).then(() => true).catch(() => false);
+  if (exists) return { storagePath, mimeType: "image/webp" };
+  return writeHeroPlaceholder(variant, filename.split(".")[0]);
+}
+
 async function seedHeroSlides() {
   const count = await prisma.heroSlide.count();
   if (count > 0) return;
 
   const slides = [
-    { label: "Main Hero", eyebrow: "LIMO ACADEMY", title: "Bridging The World, Benefiting The Ummah", description: "Membuka wawasan anak terhadap dunia, sembari menumbuhkan ilmu, iman, dan karakter dari dalam diri mereka.", ctaLabel: "Explore LIMO", ctaHref: "#experience" },
-    { label: "Limo Experience", eyebrow: "LIMO EXPERIENCE", title: "How's learning at LIMO?", description: "Di LIMO, belajar itu menyenangkan, nyaman, dan stress-free.", ctaLabel: "See the experience", ctaHref: "#why-choose-limo" },
-    { label: "Testimonial", eyebrow: "WHAT DO THEY THINK ABOUT LIMO?", title: "What parents say about LIMO", description: "Lihat bagaimana pengalaman parents dan students ketika belajar di LIMO.", ctaLabel: "Read testimonials", ctaHref: "#testimonials" },
-    { label: "Program", eyebrow: "EXPLORE LIMO", title: "Discover the programs designed to help every learner grow.", description: "English, Arabic, Nahwu, dan Academic Support untuk tujuan belajar yang berbeda.", ctaLabel: "Explore programs", ctaHref: "#programs" },
+    { label: "Main Hero", eyebrow: "LIMO ACADEMY", title: "LIMO Academy", subtitle: "Bridging The World, Benefiting The Ummah", description: "Membuka wawasan anak terhadap dunia, sembari menumbuhkan ilmu, iman, dan karakter dari dalam diri mereka.", ctaLabel: "Daftar Sekarang", ctaHref: "/daftar", cta2Label: "Pelajari Lebih Lanjut", cta2Href: "#programs" },
+    { label: "Limo Experience", eyebrow: "LIMO EXPERIENCE", title: "How's learning at LIMO?", subtitle: "Belajar menyenangkan, nyaman, dan stress-free", description: "Kami percaya anak belajar lebih baik ketika merasa aman, dihargai, terlibat, dan menikmati proses.", ctaLabel: "Lihat Pengalaman", ctaHref: "#why-choose-limo", cta2Label: "Jelajahi Program", cta2Href: "#programs" },
+    { label: "Testimonial", eyebrow: "WHAT DO THEY THINK ABOUT LIMO?", title: "What parents say about LIMO", subtitle: "Dipercaya orang tua, disukai anak", description: "Lihat bagaimana pengalaman parents dan students ketika belajar di LIMO.", ctaLabel: "Baca Testimoni", ctaHref: "#testimonials", cta2Label: "Daftar Sekarang", cta2Href: "/daftar" },
+    { label: "Program", eyebrow: "EXPLORE LIMO", title: "Discover the programs designed to help every learner grow.", subtitle: "English · Arabic · Nahwu · Math & Academic Support", description: "Temukan program LIMO yang dirancang sesuai usia, kemampuan, kebutuhan, dan tujuan belajar setiap peserta didik.", ctaLabel: "Lihat Program", ctaHref: "#programs", cta2Label: "Daftar Sekarang", cta2Href: "/daftar" },
   ];
 
   for (const [index, slide] of slides.entries()) {
-    const desktop = await writeHeroPlaceholder("desktop", slide.label);
-    const mobile = await writeHeroPlaceholder("mobile", slide.label);
+    const desktop = await copyHeroAsset("hero-illustration-desktop.webp", "desktop");
+    const mobile = await copyHeroAsset("hero-illustration-mobile.webp", "mobile");
     await prisma.heroSlide.create({
       data: {
         sortOrder: index,
         isActive: true,
         eyebrow: slide.eyebrow,
         title: slide.title,
+        subtitle: slide.subtitle,
         description: slide.description,
         ctaLabel: slide.ctaLabel,
         ctaHref: slide.ctaHref,
+        cta2Label: slide.cta2Label,
+        cta2Href: slide.cta2Href,
         altText: `LIMO Academy — ${slide.label}`,
         desktopImagePath: desktop.storagePath,
         mobileImagePath: mobile.storagePath,

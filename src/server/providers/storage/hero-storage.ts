@@ -43,8 +43,12 @@ export async function storeHeroImage(file: File, variant: "desktop" | "mobile"):
 
 export async function readHeroImage(storagePath: string) {
   const resolved = path.resolve(storagePath);
-  const base = path.resolve(root(), "hero");
-  if (!resolved.startsWith(`${base}${path.sep}`)) throw new ValidationError("Path hero tidak valid");
+  const privateBase = path.resolve(root(), "hero");
+  const publicBase = path.resolve(process.cwd(), "public");
+  // Izinkan dua sumber: storage privat (upload admin) dan aset publik (slide default yang di-seed).
+  const isPrivate = resolved.startsWith(`${privateBase}${path.sep}`);
+  const isPublicAsset = resolved.startsWith(`${publicBase}${path.sep}`);
+  if (!isPrivate && !isPublicAsset) throw new ValidationError("Path hero tidak valid");
   return readFile(resolved);
 }
 

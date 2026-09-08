@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const desktop = form.get("desktopImage");
     const mobile = form.get("mobileImage");
-    const input = Object.fromEntries(["sortOrder", "isActive", "eyebrow", "title", "description", "ctaLabel", "ctaHref", "altText"].map((key) => [key, form.get(key) ?? ""]));
+    const input = Object.fromEntries(["sortOrder", "isActive", "eyebrow", "title", "subtitle", "description", "ctaLabel", "ctaHref", "cta2Label", "cta2Href", "altText"].map((key) => [key, form.get(key) ?? ""]));
     return apiOk(await createHeroSlide(await requireActor(), input, desktop instanceof File ? desktop : null, mobile instanceof File ? mobile : null), { requestId }, { status: 201 });
   } catch (error) { return apiError(error, { requestId }); }
 }

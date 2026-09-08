@@ -5,9 +5,12 @@ export const heroSlidePayloadSchema = z.object({
   isActive: z.coerce.boolean().default(true),
   eyebrow: z.string().trim().max(160).optional().or(z.literal("")),
   title: z.string().trim().min(2).max(240),
+  subtitle: z.string().trim().max(240).optional().or(z.literal("")),
   description: z.string().trim().max(2000).optional().or(z.literal("")),
   ctaLabel: z.string().trim().max(120).optional().or(z.literal("")),
   ctaHref: z.string().trim().max(500).optional().or(z.literal("")),
+  cta2Label: z.string().trim().max(120).optional().or(z.literal("")),
+  cta2Href: z.string().trim().max(500).optional().or(z.literal("")),
   altText: z.string().trim().min(2).max(255),
 });
 

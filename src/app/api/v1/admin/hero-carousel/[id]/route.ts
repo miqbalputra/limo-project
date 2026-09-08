@@ -14,7 +14,7 @@ export async function PATCH(request: Request, context: Context) {
   try {
     assertSameOrigin(request.headers, getEnv().APP_URL);
     const form = await request.formData();
-    const input = Object.fromEntries(["sortOrder", "isActive", "eyebrow", "title", "description", "ctaLabel", "ctaHref", "altText"].filter((key) => form.has(key)).map((key) => [key, form.get(key) ?? ""]));
+    const input = Object.fromEntries(["sortOrder", "isActive", "eyebrow", "title", "subtitle", "description", "ctaLabel", "ctaHref", "cta2Label", "cta2Href", "altText"].filter((key) => form.has(key)).map((key) => [key, form.get(key) ?? ""]));
     const desktop = form.get("desktopImage");
     const mobile = form.get("mobileImage");
     const { id } = await context.params;
