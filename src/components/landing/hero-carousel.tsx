@@ -60,12 +60,8 @@ export function HeroCarousel({ slides }: { slides: HeroSlideData[] }) {
       aria-roledescription="carousel"
       aria-label="Hero LIMO Academy"
       className="group relative overflow-hidden bg-gradient-to-br from-limo-sky-50 via-white to-limo-blue-50 outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-limo-blue-500/50"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false); }}
     >
-      {/* Background illustration — right-anchored, light sky theme */}
+      {/* Background illustration — ken-burns zoom */}
       {items.map((slide, index) => (
         <div key={slide.id} aria-hidden={active !== index} className={`absolute inset-0 transition-opacity duration-700 ${active === index ? "opacity-100" : "pointer-events-none opacity-0"}`}>
           <picture>
@@ -73,40 +69,39 @@ export function HeroCarousel({ slides }: { slides: HeroSlideData[] }) {
             <img
               src={slide.desktopImageUrl}
               alt={slide.altText}
-              className="absolute inset-0 h-full w-full object-cover object-[70%_center] opacity-90 transition-transform duration-[8000ms] ease-out group-hover:scale-[1.03] sm:object-[80%_center]"
+              className={`h-full w-full object-cover object-[70%_center] sm:object-[80%_center] ${active === index ? "animate-hero-zoom" : ""}`}
             />
           </picture>
-          {/* Soft white fade on the left so the text stays readable over the sky */}
           <div className="absolute inset-0 bg-gradient-to-r from-white via-white/85 to-transparent sm:via-white/50" />
         </div>
       ))}
 
       {/* Content: 2-column grid — left text, right illustration */}
       <div className="relative mx-auto grid min-h-[560px] max-w-7xl grid-cols-1 items-center gap-6 px-5 py-16 sm:min-h-[620px] sm:px-8 lg:grid-cols-2 lg:gap-10 lg:px-12">
-        {/* Left content column */}
         <div className="relative z-10 order-2 lg:order-1">
-          <div key={activeSlide.id} className="max-w-xl animate-fade-in-up">
+          <div key={activeSlide.id} className="max-w-xl">
             {activeSlide.eyebrow ? (
-              <span className="inline-flex items-center gap-2 rounded-full border border-limo-blue-200 bg-limo-blue-50 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-limo-blue-700">
+              <span className="inline-flex animate-reveal-up items-center gap-2 rounded-full border border-limo-blue-200 bg-limo-blue-50 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-limo-blue-700" style={{ animationDelay: "0.05s" }}>
                 {activeSlide.eyebrow}
               </span>
             ) : null}
-            <h1 className="mt-5 text-4xl font-extrabold leading-[1.05] tracking-tight text-limo-blue-600 sm:text-5xl lg:text-6xl">
+            <h1 className="mt-5 animate-reveal-up text-4xl font-extrabold leading-[1.05] tracking-tight text-limo-blue-600 sm:text-5xl lg:text-6xl" style={{ animationDelay: "0.15s" }}>
               {activeSlide.title}
             </h1>
             {activeSlide.subtitle ? (
-              <p className="mt-4 text-xl font-bold leading-snug text-limo-blue-500 sm:text-2xl">
-                {activeSlide.subtitle}
+              <p className="mt-4 flex animate-reveal-up items-start gap-2 text-xl font-bold leading-snug text-limo-blue-500 sm:text-2xl" style={{ animationDelay: "0.3s" }}>
+                <span aria-hidden="true" className="mt-2 block h-0.5 w-8 shrink-0 rounded-full bg-limo-yellow-400" />
+                <span>{activeSlide.subtitle}</span>
               </p>
             ) : null}
             {activeSlide.description ? (
-              <p className="mt-4 max-w-lg text-base leading-relaxed text-gray-600 sm:text-lg">
+              <p className="mt-4 max-w-lg animate-reveal-up text-base leading-relaxed text-gray-600 sm:text-lg" style={{ animationDelay: "0.45s" }}>
                 {activeSlide.description}
               </p>
             ) : null}
 
             {activeSlide.ctaLabel || activeSlide.cta2Label ? (
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="mt-8 flex animate-reveal-up flex-col gap-3 sm:flex-row sm:items-center" style={{ animationDelay: "0.6s" }}>
                 {activeSlide.ctaLabel && activeSlide.ctaHref ? (
                   <Link href={activeSlide.ctaHref} className="group inline-flex min-h-12 items-center justify-center rounded-xl bg-limo-blue-600 px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-limo-blue-600/20 transition hover:bg-limo-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-limo-blue-500/40">
                     {activeSlide.ctaLabel}
@@ -123,21 +118,22 @@ export function HeroCarousel({ slides }: { slides: HeroSlideData[] }) {
           </div>
         </div>
 
-        {/* Right column: reserved visual space */}
         <div className="relative order-1 hidden lg:order-2 lg:block" aria-hidden="true" />
       </div>
 
-      {/* Controls */}
-      <div className="absolute inset-x-0 bottom-0 z-20 mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 pb-6 sm:px-8 lg:px-12">
-        <div className="flex items-center gap-2" aria-label="Pilih slide">
-          {items.map((slide, index) => (
-            <button key={slide.id} type="button" aria-label={`Slide ${index + 1}: ${slide.eyebrow ?? slide.title}`} aria-current={active === index ? "true" : undefined} onClick={() => setActive(index)} className={`min-h-11 min-w-11 rounded-full border text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 ${active === index ? "border-limo-blue-600 bg-limo-blue-600 text-white" : "border-limo-blue-200 bg-white text-limo-blue-600 hover:bg-limo-blue-50"}`}>{String(index + 1).padStart(2, "0")}</button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <button type="button" aria-label="Slide sebelumnya" onClick={() => setActive((value) => (value - 1 + items.length) % items.length)} className="grid size-11 place-items-center rounded-full border border-limo-blue-200 bg-white text-xl text-limo-blue-600 hover:bg-limo-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500">←</button>
-          <button type="button" aria-label={paused ? "Putar carousel" : "Jeda carousel"} onClick={() => setPaused((value) => !value)} className="grid size-11 place-items-center rounded-full border border-limo-blue-200 bg-white text-sm text-limo-blue-600 hover:bg-limo-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500">{paused ? "▶" : "Ⅱ"}</button>
-          <button type="button" aria-label="Slide berikutnya" onClick={() => setActive((value) => (value + 1) % items.length)} className="grid size-11 place-items-center rounded-full border border-limo-blue-200 bg-white text-xl text-limo-blue-600 hover:bg-limo-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500">→</button>
+      {/* Controls — in normal flow, below the content (never overlaps CTAs) */}
+      <div className="relative mx-auto max-w-7xl px-5 pb-8 sm:px-8 lg:px-12">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2" aria-label="Pilih slide">
+            {items.map((slide, index) => (
+              <button key={slide.id} type="button" aria-label={`Slide ${index + 1}: ${slide.eyebrow ?? slide.title}`} aria-current={active === index ? "true" : undefined} onClick={() => setActive(index)} className={`min-h-11 min-w-11 rounded-full border text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 ${active === index ? "border-limo-blue-600 bg-limo-blue-600 text-white" : "border-limo-blue-200 bg-white text-limo-blue-600 hover:bg-limo-blue-50"}`}>{String(index + 1).padStart(2, "0")}</button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" aria-label="Slide sebelumnya" onClick={() => setActive((value) => (value - 1 + items.length) % items.length)} className="grid size-11 place-items-center rounded-full border border-limo-blue-200 bg-white text-xl text-limo-blue-600 hover:bg-limo-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500">←</button>
+            <button type="button" aria-label={paused ? "Putar carousel" : "Jeda carousel"} onClick={() => setPaused((value) => !value)} className="grid size-11 place-items-center rounded-full border border-limo-blue-200 bg-white text-sm text-limo-blue-600 hover:bg-limo-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500">{paused ? "▶" : "Ⅱ"}</button>
+            <button type="button" aria-label="Slide berikutnya" onClick={() => setActive((value) => (value + 1) % items.length)} className="grid size-11 place-items-center rounded-full border border-limo-blue-200 bg-white text-xl text-limo-blue-600 hover:bg-limo-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500">→</button>
+          </div>
         </div>
       </div>
     </section>

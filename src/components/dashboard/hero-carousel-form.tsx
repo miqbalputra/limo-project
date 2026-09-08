@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { requestJson } from "@/lib/api-json-client";
+import { ImageUploadField } from "@/components/dashboard/image-upload-field";
 
 export function HeroCarouselForm() {
   const router = useRouter();
@@ -25,8 +26,10 @@ export function HeroCarouselForm() {
       <div className="grid gap-3 sm:grid-cols-2"><input name="ctaLabel" placeholder="Tombol utama (label)" className="tailadmin-input" /><input name="ctaHref" placeholder="Link tombol utama" className="tailadmin-input" /></div>
       <div className="grid gap-3 sm:grid-cols-2"><input name="cta2Label" placeholder="Tombol kedua (label, opsional)" className="tailadmin-input" /><input name="cta2Href" placeholder="Link tombol kedua" className="tailadmin-input" /></div>
       <input name="altText" required placeholder="Alt text gambar" className="tailadmin-input" />
-      <label className="text-sm font-semibold text-gray-700">Gambar desktop<input name="desktopImage" required type="file" accept="image/jpeg,image/png,image/webp" className="mt-2 block w-full text-sm" /></label>
-      <label className="text-sm font-semibold text-gray-700">Gambar mobile<input name="mobileImage" required type="file" accept="image/jpeg,image/png,image/webp" className="mt-2 block w-full text-sm" /></label>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <ImageUploadField name="desktopImage" label="Gambar desktop" hint="Layar lebar · wajib" required />
+        <ImageUploadField name="mobileImage" label="Gambar mobile" hint="Layar kecil · wajib" required />
+      </div>
       <label className="flex items-center gap-2 text-sm font-semibold text-gray-700"><input name="isActive" type="checkbox" value="true" defaultChecked /> Aktifkan slide</label>
       <button type="submit" disabled={pending} className="tailadmin-button-primary">{pending ? "Menyimpan..." : "Simpan Hero Slide"}</button>
     </form>

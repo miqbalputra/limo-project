@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { requestJson } from "@/lib/api-json-client";
+import { ImageUploadField } from "@/components/dashboard/image-upload-field";
 
 type HeroSlide = {
   id: string;
@@ -87,8 +88,10 @@ export function HeroCarouselActions({ slide }: { slide: HeroSlide }) {
         </div>
         <input name="altText" defaultValue={slide.altText} required aria-label="Alt text" placeholder="Alt text gambar" className="tailadmin-input" />
         <input name="sortOrder" type="number" min={0} defaultValue={slide.sortOrder} aria-label="Urutan" className="tailadmin-input" />
-        <label className="text-theme-sm font-semibold text-gray-700">Ganti gambar desktop (opsional)<input name="desktopImage" type="file" accept="image/jpeg,image/png,image/webp" className="mt-2 block w-full text-theme-xs" /></label>
-        <label className="text-theme-sm font-semibold text-gray-700">Ganti gambar mobile (opsional)<input name="mobileImage" type="file" accept="image/jpeg,image/png,image/webp" className="mt-2 block w-full text-theme-xs" /></label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <ImageUploadField name="desktopImage" label="Ganti gambar desktop" hint="opsional — kosongkan bila tetap" />
+          <ImageUploadField name="mobileImage" label="Ganti gambar mobile" hint="opsional — kosongkan bila tetap" />
+        </div>
         <label className="flex items-center gap-2 text-theme-sm font-semibold text-gray-700"><input name="isActive" type="checkbox" value="true" defaultChecked={slide.active} /> Aktifkan slide</label>
         <div className="flex flex-wrap gap-2">
           <button type="submit" disabled={pending} className="tailadmin-button-primary px-3 py-2">{pending ? "Menyimpan..." : "Simpan"}</button>

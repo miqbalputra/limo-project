@@ -360,12 +360,34 @@ body {
   animation: limo-wiggle 0.5s ease-in-out;
 }
 
+/* Hero carousel — ken-burns zoom (gambar) */
+@keyframes limo-hero-zoom {
+  0% { transform: scale(1.04); }
+  100% { transform: scale(1.16); }
+}
+
+@utility animate-hero-zoom {
+  animation: limo-hero-zoom 8s ease-out forwards;
+}
+
+/* Hero carousel — reveal bertahap teks (fade + slide-up, delay via inline style) */
+@keyframes limo-reveal-up {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@utility animate-reveal-up {
+  animation: limo-reveal-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-slide,
   .animate-progress,
   .animate-marquee,
   .animate-icon-float,
-  .animate-wiggle {
+  .animate-wiggle,
+  .animate-hero-zoom,
+  .animate-reveal-up {
     animation: none;
   }
 }
