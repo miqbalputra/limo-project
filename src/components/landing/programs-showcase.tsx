@@ -101,13 +101,23 @@ function useReducedMotion() {
   );
 }
 
+// Fallback saat tabel Program masih kosong (production belum di-seed):
+// pastikan section "Explore Our Programs" tetap tampil dengan 4 program dari brief.
+const fallbackPrograms: Program[] = [
+  { id: "fb-english", name: "Bahasa Inggris", kind: "ENGLISH", description: "Program Bahasa Inggris dari preschool hingga dewasa.", registrationAvailability: "OPEN" },
+  { id: "fb-arabic-kids", name: "Arabic for Kids", kind: "ARABIC_KIDS", description: "Program Bahasa Arab untuk anak usia sekolah dasar.", registrationAvailability: "OPEN" },
+  { id: "fb-nahwu", name: "Nahwu", kind: "NAHWU", description: "Program dasar-dasar ilmu Nahwu untuk usia 10 tahun hingga dewasa.", registrationAvailability: "OPEN" },
+  { id: "fb-math", name: "Math & Academic Support for Akhwat", kind: "MATH_ACADEMIC_SUPPORT", description: "Program Matematika dan Bimbingan Akademik untuk peserta didik perempuan.", registrationAvailability: "OPEN" },
+];
+
 export function ProgramsShowcase({ programs }: { programs: Program[] }) {
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
   const reducedMotion = useReducedMotion();
 
-  const visible = programs.filter((program) => program.registrationAvailability !== "COMING_SOON");
-  const list = visible.length ? visible : programs;
+  const source = programs.length ? programs : fallbackPrograms;
+  const visible = source.filter((program) => program.registrationAvailability !== "COMING_SOON");
+  const list = visible.length ? visible : source;
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -123,21 +133,6 @@ export function ProgramsShowcase({ programs }: { programs: Program[] }) {
     const timer = window.setInterval(() => setActive((value) => (value + 1) % list.length), AUTOPLAY_MS);
     return () => window.clearInterval(timer);
   }, [paused, reducedMotion, list.length, active]);
-
-  if (list.length === 0) {
-    return (
-      <section id="programs" className="bg-gray-50 py-20 sm:py-24">
-        <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="text-theme-sm font-bold uppercase tracking-widest text-limo-blue-700">Explore LIMO</p>
-            <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">Explore Our Programs</h2>
-            <p className="mt-4 text-lg text-gray-600">Empat program, satu tujuan: setiap anak bertumbuh dengan ilmu, adab, dan rasa percaya diri.</p>
-            <p className="mt-6 rounded-2xl border border-gray-200 bg-white px-6 py-8 text-gray-500">Program sedang disiapkan. Silakan hubungi admin untuk informasi lebih lanjut.</p>
-          </div>
-        </div>
-      </section>
-    );
-  }
 
   const current = list[active] ?? list[0];
   const copy = copyByKind[current.kind] ?? {
