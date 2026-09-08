@@ -34,6 +34,7 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "prisma db seed",
     "admin:bootstrap": "node --experimental-strip-types scripts/bootstrap-admin.ts",
+    "seed:production": "node --experimental-strip-types scripts/seed-production.ts",
     "sqlite:prepare": "node scripts/prepare-sqlite-schema.mjs",
     "sqlite:setup": "node scripts/setup-sqlite.mjs",
     "billing:generate": "node --experimental-strip-types scripts/generate-monthly-invoices.ts",
