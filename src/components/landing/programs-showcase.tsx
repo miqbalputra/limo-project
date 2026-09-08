@@ -108,15 +108,6 @@ export function ProgramsShowcase({ programs }: { programs: Program[] }) {
 
   const visible = programs.filter((program) => program.registrationAvailability !== "COMING_SOON");
   const list = visible.length ? visible : programs;
-  const current = list[active] ?? list[0];
-  const copy = copyByKind[current.kind] ?? {
-    title: current.name,
-    description: current.description ?? "",
-    detail: "",
-    focus: [],
-    audience: ["Semua jenjang"],
-    promise: current.description ?? "",
-  };
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -132,6 +123,31 @@ export function ProgramsShowcase({ programs }: { programs: Program[] }) {
     const timer = window.setInterval(() => setActive((value) => (value + 1) % list.length), AUTOPLAY_MS);
     return () => window.clearInterval(timer);
   }, [paused, reducedMotion, list.length, active]);
+
+  if (list.length === 0) {
+    return (
+      <section id="programs" className="bg-gray-50 py-20 sm:py-24">
+        <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-theme-sm font-bold uppercase tracking-widest text-limo-blue-700">Explore LIMO</p>
+            <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">Explore Our Programs</h2>
+            <p className="mt-4 text-lg text-gray-600">Empat program, satu tujuan: setiap anak bertumbuh dengan ilmu, adab, dan rasa percaya diri.</p>
+            <p className="mt-6 rounded-2xl border border-gray-200 bg-white px-6 py-8 text-gray-500">Program sedang disiapkan. Silakan hubungi admin untuk informasi lebih lanjut.</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const current = list[active] ?? list[0];
+  const copy = copyByKind[current.kind] ?? {
+    title: current.name,
+    description: current.description ?? "",
+    detail: "",
+    focus: [],
+    audience: ["Semua jenjang"],
+    promise: current.description ?? "",
+  };
 
   return (
     <section
