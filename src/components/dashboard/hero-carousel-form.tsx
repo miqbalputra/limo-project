@@ -23,6 +23,18 @@ export function HeroCarouselForm() {
       <input name="title" required placeholder="Headline (H1)" className="tailadmin-input" />
       <input name="subtitle" placeholder="Subheadline" className="tailadmin-input" />
       <textarea name="description" placeholder="Deskripsi" className="tailadmin-input" />
+      <label className="grid gap-1 text-sm font-semibold text-gray-700">Posisi teks hero
+        <select name="textPosition" defaultValue="LEFT" className="tailadmin-input">
+          <option value="LEFT">Kiri</option>
+          <option value="RIGHT">Kanan</option>
+        </select>
+      </label>
+      <label className="grid gap-1 text-sm font-semibold text-gray-700">Warna teks hero
+        <select name="textTheme" defaultValue="DARK" className="tailadmin-input">
+          <option value="DARK">Gelap (untuk gambar terang)</option>
+          <option value="LIGHT">Terang / putih (untuk gambar gelap)</option>
+        </select>
+      </label>
       <div className="grid gap-3 sm:grid-cols-2"><input name="ctaLabel" placeholder="Tombol utama (label)" className="tailadmin-input" /><input name="ctaHref" placeholder="Link tombol utama" className="tailadmin-input" /></div>
       <div className="grid gap-3 sm:grid-cols-2"><input name="cta2Label" placeholder="Tombol kedua (label, opsional)" className="tailadmin-input" /><input name="cta2Href" placeholder="Link tombol kedua" className="tailadmin-input" /></div>
       <input name="altText" required placeholder="Alt text gambar" className="tailadmin-input" />

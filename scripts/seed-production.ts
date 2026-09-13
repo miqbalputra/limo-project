@@ -13,10 +13,10 @@ const programs = [
 ];
 
 const heroSlides = [
-  { eyebrow: "LIMO ACADEMY", title: "LIMO Academy", subtitle: "Bridging The World, Benefiting The Ummah", description: "Membuka wawasan anak terhadap dunia, sembari menumbuhkan ilmu, iman, dan karakter dari dalam diri mereka.", ctaLabel: "Daftar Sekarang", ctaHref: "/daftar", cta2Label: "Pelajari Lebih Lanjut", cta2Href: "#programs" },
-  { eyebrow: "LIMO EXPERIENCE", title: "How's learning at LIMO?", subtitle: "Belajar menyenangkan, nyaman, dan stress-free", description: "Kami percaya anak belajar lebih baik ketika merasa aman, dihargai, terlibat, dan menikmati proses.", ctaLabel: "Lihat Pengalaman", ctaHref: "#why-choose-limo", cta2Label: "Jelajahi Program", cta2Href: "#programs" },
-  { eyebrow: "WHAT DO THEY THINK ABOUT LIMO?", title: "What parents say about LIMO", subtitle: "Dipercaya orang tua, disukai anak", description: "Lihat bagaimana pengalaman parents dan students ketika belajar di LIMO.", ctaLabel: "Baca Testimoni", ctaHref: "#testimonials", cta2Label: "Daftar Sekarang", cta2Href: "/daftar" },
-  { eyebrow: "EXPLORE LIMO", title: "Discover the programs designed to help every learner grow.", subtitle: "English · Arabic · Nahwu · Math & Academic Support", description: "Temukan program LIMO yang dirancang sesuai usia, kemampuan, kebutuhan, dan tujuan belajar setiap peserta didik.", ctaLabel: "Lihat Program", ctaHref: "#programs", cta2Label: "Daftar Sekarang", cta2Href: "/daftar" },
+  { eyebrow: "LIMO ACADEMY", title: "LIMO Academy", subtitle: "Bridging The World, Benefiting The Ummah", description: "Membuka wawasan anak terhadap dunia, sembari menumbuhkan ilmu, iman, dan karakter dari dalam diri mereka.", desktop: "hero-desktop-1.webp", mobile: "hero-mobile-1.webp", textPosition: "LEFT", textTheme: "DARK" },
+  { eyebrow: "LIMO EXPERIENCE", title: "How's learning at LIMO?", subtitle: "Belajar menyenangkan, nyaman, dan stress-free", description: "Kami percaya anak belajar lebih baik ketika merasa aman, dihargai, terlibat, dan menikmati proses.", desktop: "hero-desktop-2.webp", mobile: "hero-mobile-2.webp", textPosition: "RIGHT", textTheme: "LIGHT" },
+  { eyebrow: "WHAT DO THEY THINK ABOUT LIMO?", title: "What parents say about LIMO", subtitle: "Dipercaya orang tua, disukai anak", description: "Lihat bagaimana pengalaman parents dan students ketika belajar di LIMO.", desktop: "hero-desktop-3.webp", mobile: "hero-mobile-3.webp", textPosition: "LEFT", textTheme: "LIGHT" },
+  { eyebrow: "EXPLORE LIMO", title: "Discover the programs designed to help every learner grow.", subtitle: "English · Arabic · Nahwu · Math & Academic Support", description: "Temukan program LIMO yang dirancang sesuai usia, kemampuan, kebutuhan, dan tujuan belajar setiap peserta didik.", desktop: "hero-desktop-4.webp", mobile: "hero-mobile-4.webp", textPosition: "LEFT", textTheme: "LIGHT" },
 ];
 
 function resolveHeroImage(filename: string) {
@@ -46,15 +46,16 @@ async function seedHeroSlides() {
     return [`− HeroSlide sudah ada (${count} slide), dilewati.`];
   }
 
-  const desktopExists = await assetExists("hero-illustration-desktop.webp");
-  const mobileExists = await assetExists("hero-illustration-mobile.webp");
-
-  if (!desktopExists || !mobileExists) {
-    return ["⚠ Aset ilustrasi hero tidak ditemukan di public/hero-images — slide hero dilewati (landing tetap pakai fallback)."];
-  }
-
   const results: string[] = [];
   for (const [index, slide] of heroSlides.entries()) {
+    const desktopExists = await assetExists(slide.desktop);
+    const mobileExists = await assetExists(slide.mobile);
+
+    if (!desktopExists || !mobileExists) {
+      results.push(`⚠ Aset ${slide.desktop} / ${slide.mobile} tidak ditemukan — slide "${slide.eyebrow}" dilewati.`);
+      continue;
+    }
+
     await prisma.heroSlide.create({
       data: {
         sortOrder: index,
@@ -63,19 +64,22 @@ async function seedHeroSlides() {
         title: slide.title,
         subtitle: slide.subtitle,
         description: slide.description,
-        ctaLabel: slide.ctaLabel,
-        ctaHref: slide.ctaHref,
-        cta2Label: slide.cta2Label,
-        cta2Href: slide.cta2Href,
+        textPosition: slide.textPosition,
+        textTheme: slide.textTheme,
         altText: `LIMO Academy — ${slide.title}`,
-        desktopImagePath: resolveHeroImage("hero-illustration-desktop.webp"),
-        mobileImagePath: resolveHeroImage("hero-illustration-mobile.webp"),
+        desktopImagePath: resolveHeroImage(slide.desktop),
+        mobileImagePath: resolveHeroImage(slide.mobile),
         desktopImageMimeType: "image/webp",
         mobileImageMimeType: "image/webp",
       },
     });
     results.push(`✓ Hero slide "${slide.eyebrow}"`);
   }
+
+  if (results.length === 0 || results.every((line) => line.startsWith("⚠"))) {
+    results.push("⚠ Tidak ada aset hero yang tersedia di public/hero-images — landing tetap memakai fallback.");
+  }
+
   return results;
 }
 

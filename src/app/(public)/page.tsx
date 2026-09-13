@@ -66,8 +66,7 @@ export default async function HomePage() {
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">Dipercaya Orang Tua, Disukai Anak</h2>
             <p className="mt-4 text-lg text-gray-600">Lihat bagaimana pengalaman parents dan students ketika belajar di LIMO.</p>
             <div className="mt-5 inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 rounded-full border border-gray-200 bg-white px-5 py-2.5 shadow-theme-xs">
-              <span className="flex gap-0.5 text-warning-500" aria-hidden="true">{[...Array(5)].map((_, index) => <span key={index} className="text-sm">★</span>)}</span>
-              <span className="text-theme-sm font-extrabold text-gray-900">5.0</span>
+              <span className="text-theme-sm font-extrabold text-gray-900">100% Rate Satisfaction</span>
               <span className="text-theme-xs font-medium text-gray-500">dari testimoni orang tua murid LIMO</span>
             </div>
           </div>

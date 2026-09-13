@@ -12,7 +12,7 @@ function requireAdmin(actor: Actor) {
 const slideSelect = {
   id: true, sortOrder: true, isActive: true, desktopImagePath: true, mobileImagePath: true,
   desktopImageMimeType: true, mobileImageMimeType: true, eyebrow: true, title: true, subtitle: true,
-  description: true, ctaLabel: true, ctaHref: true, cta2Label: true, cta2Href: true, altText: true, createdAt: true, updatedAt: true,
+  description: true, textPosition: true, textTheme: true, ctaLabel: true, ctaHref: true, cta2Label: true, cta2Href: true, altText: true, createdAt: true, updatedAt: true,
 } as const;
 
 export async function listHeroSlides(actor: Actor) {

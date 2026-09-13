@@ -7,7 +7,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.APP_URL || "http://localhost:3000"),
   title: {
-    default: "LIMO - Little Moslems Language Club",
+    default: "LIMO - Little Moslems Academy",
     template: "%s | LIMO",
   },
   description: "Program Bahasa Inggris dan Bahasa Arab ramah anak dengan progres belajar yang dapat dipantau wali.",
@@ -15,15 +15,15 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "id_ID",
-    siteName: "LIMO - Little Moslems Language Club",
-    title: "LIMO - Little Moslems Language Club",
+    siteName: "LIMO - Little Moslems Academy",
+    title: "LIMO - Little Moslems Academy",
     description: "Belajar Bahasa Inggris dan Bahasa Arab dengan suasana ramah anak dan pantauan progres untuk wali.",
     url: "/",
-    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "LIMO Little Moslems Language Club" }],
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "LIMO Little Moslems Academy" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "LIMO - Little Moslems Language Club",
+    title: "LIMO - Little Moslems Academy",
     description: "Program Bahasa Inggris dan Bahasa Arab ramah anak.",
     images: ["/opengraph-image"],
   },

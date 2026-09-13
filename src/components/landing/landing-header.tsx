@@ -33,7 +33,7 @@ export function LandingHeader() {
             </div>
             <div className="hidden min-[420px]:block">
               <span className="block text-lg font-bold tracking-tight text-limo-blue-500">LIMO</span>
-              <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500">Little Moslems Language Club</span>
+              <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500">Little Moslems Academy</span>
             </div>
           </Link>
 

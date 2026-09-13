@@ -69,7 +69,7 @@ function AuthShell({ children, variant = "signin" }: { children: React.ReactNode
         <div className="relative z-10 mx-auto max-w-md text-center">
           <Link href="/" className="mx-auto flex w-fit items-center gap-3">
             <Image src="/logo.jpg" width={56} height={56} alt="LIMO" className="size-14 rounded-2xl border border-white/15 object-contain shadow-theme-xl" priority />
-            <span className="text-left"><span className="block text-2xl font-bold tracking-tight">LIMO</span><span className="block text-theme-sm text-white/60">Language Club</span></span>
+            <span className="text-left"><span className="block text-2xl font-bold tracking-tight">LIMO</span><span className="block text-theme-sm text-white/60">Academy</span></span>
           </Link>
           <p className="mt-8 text-title-sm font-semibold leading-tight">{variant === "signin" ? "Kelola kelas, siswa, dan laporan dalam satu dashboard." : "Pulihkan akses akun dengan alur yang aman."}</p>
           <p className="mt-4 text-theme-sm leading-6 text-white/60">Dashboard pembelajaran English dan Arabic for Kids untuk Admin, Guru, dan Wali Murid.</p>

@@ -19,3 +19,27 @@ prisma/schema.sqlite.prisma
 prisma/*.db
 prisma/*.db-journal
 free-react-tailwind-admin-dashboard-main/
+
+# Sumber gambar hero (yang di-commit hanya hasil WebP teroptimasi di public/hero-images)
+limo_image/
+
+# Konfigurasi tooling AI lokal (bukan bagian source aplikasi)
+.agents/
+.augment/
+.claude/
+.codebuddy/
+.codewhale/
+.continue/
+.cursor/
+.factory/
+.gemini/
+.kilocode/
+.kiro/
+.opencode/
+.qoder/
+.roo/
+.trae/
+.warp/
+.windsurf/
+.zcode/
+.github/prompts/

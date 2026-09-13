@@ -87,11 +87,12 @@ function renderQuote(quote: string, highlight: string) {
   );
 }
 
-function Stars() {
+function SatisfactionBadge() {
   return (
-    <div className="flex gap-0.5 text-warning-500" aria-label="Rating 5 dari 5 bintang">
-      {[...Array(5)].map((_, index) => <span key={index} className="text-sm">★</span>)}
-    </div>
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success-50 px-2.5 py-1 text-[11px] font-extrabold text-success-700" aria-label="100% rate satisfaction">
+      <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
+      100% Puas
+    </span>
   );
 }
 
@@ -104,7 +105,7 @@ function TestimonialCard({ item }: { item: Testimonial }) {
           <p className="truncate text-theme-sm font-extrabold text-gray-900">{item.name}</p>
           <p className="text-theme-xs font-medium text-gray-400">Orang tua murid LIMO</p>
         </div>
-        <Stars />
+        <SatisfactionBadge />
       </div>
 
       <p className="mt-5 text-base font-extrabold leading-snug text-gray-900">“{item.headline}”</p>
@@ -140,7 +141,7 @@ export function TestimonialsMarquee() {
 
   return (
     <div
-      className="group relative mt-12"
+      className="group relative mt-12 overflow-hidden"
       style={{ maskImage: "linear-gradient(to right, transparent, black 7%, black 93%, transparent)", WebkitMaskImage: "linear-gradient(to right, transparent, black 7%, black 93%, transparent)" }}
     >
       <div className="flex w-max animate-marquee gap-6 px-6 py-2 group-hover:[animation-play-state:paused]">

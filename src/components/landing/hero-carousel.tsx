@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 export type HeroSlideData = {
@@ -9,26 +8,25 @@ export type HeroSlideData = {
   title: string;
   subtitle?: string | null;
   description?: string | null;
-  ctaLabel?: string | null;
-  ctaHref?: string | null;
-  cta2Label?: string | null;
-  cta2Href?: string | null;
   altText: string;
+  textPosition?: string | null;
+  textTheme?: string | null;
   desktopImageUrl: string;
   mobileImageUrl: string;
 };
 
 const fallbackSlides: HeroSlideData[] = [
-  { id: "main", eyebrow: "LIMO ACADEMY", title: "LIMO Academy", subtitle: "Bridging The World, Benefiting The Ummah", description: "Membuka wawasan anak terhadap dunia, sembari menumbuhkan ilmu, iman, dan karakter dari dalam diri mereka.", ctaLabel: "Daftar Sekarang", ctaHref: "/daftar", cta2Label: "Pelajari Lebih Lanjut", cta2Href: "#programs", altText: "Ilustrasi 3D karakter LIMO Academy dengan landmark dunia", desktopImageUrl: "/hero-images/hero-illustration-desktop.webp", mobileImageUrl: "/hero-images/hero-illustration-mobile.webp" },
-  { id: "experience", eyebrow: "LIMO EXPERIENCE", title: "How's learning at LIMO?", subtitle: "Belajar menyenangkan, nyaman, dan stress-free", description: "Kami percaya anak belajar lebih baik ketika merasa aman, dihargai, terlibat, dan menikmati proses.", ctaLabel: "Lihat Pengalaman", ctaHref: "#why-choose-limo", cta2Label: "Jelajahi Program", cta2Href: "#programs", altText: "Ilustrasi 3D karakter LIMO Academy dengan landmark dunia", desktopImageUrl: "/hero-images/hero-illustration-desktop.webp", mobileImageUrl: "/hero-images/hero-illustration-mobile.webp" },
-  { id: "testimoni", eyebrow: "WHAT DO THEY THINK ABOUT LIMO?", title: "What parents say about LIMO", subtitle: "Dipercaya orang tua, disukai anak", description: "Lihat bagaimana pengalaman parents dan students ketika belajar di LIMO.", ctaLabel: "Baca Testimoni", ctaHref: "#testimonials", cta2Label: "Daftar Sekarang", cta2Href: "/daftar", altText: "Ilustrasi 3D karakter LIMO Academy dengan landmark dunia", desktopImageUrl: "/hero-images/hero-illustration-desktop.webp", mobileImageUrl: "/hero-images/hero-illustration-mobile.webp" },
-  { id: "program", eyebrow: "EXPLORE LIMO", title: "Discover the programs designed to help every learner grow.", subtitle: "English · Arabic · Nahwu · Math & Academic Support", description: "Temukan program LIMO yang dirancang sesuai usia, kemampuan, kebutuhan, dan tujuan belajar setiap peserta didik.", ctaLabel: "Lihat Program", ctaHref: "#programs", cta2Label: "Daftar Sekarang", cta2Href: "/daftar", altText: "Ilustrasi 3D karakter LIMO Academy dengan landmark dunia", desktopImageUrl: "/hero-images/hero-illustration-desktop.webp", mobileImageUrl: "/hero-images/hero-illustration-mobile.webp" },
+  { id: "main", eyebrow: "LIMO ACADEMY", title: "LIMO Academy", subtitle: "Bridging The World, Benefiting The Ummah", description: "Membuka wawasan anak terhadap dunia, sembari menumbuhkan ilmu, iman, dan karakter dari dalam diri mereka.", altText: "Ilustrasi 3D karakter LIMO Academy dengan landmark dunia", textPosition: "LEFT", textTheme: "DARK", desktopImageUrl: "/hero-images/hero-desktop-1.webp", mobileImageUrl: "/hero-images/hero-mobile-1.webp" },
+  { id: "experience", eyebrow: "LIMO EXPERIENCE", title: "How's learning at LIMO?", subtitle: "Belajar menyenangkan, nyaman, dan stress-free", description: "Kami percaya anak belajar lebih baik ketika merasa aman, dihargai, terlibat, dan menikmati proses.", altText: "Ilustrasi 3D karakter LIMO Academy dengan landmark dunia", textPosition: "RIGHT", textTheme: "LIGHT", desktopImageUrl: "/hero-images/hero-desktop-2.webp", mobileImageUrl: "/hero-images/hero-mobile-2.webp" },
+  { id: "testimoni", eyebrow: "WHAT DO THEY THINK ABOUT LIMO?", title: "What parents say about LIMO", subtitle: "Dipercaya orang tua, disukai anak", description: "Lihat bagaimana pengalaman parents dan students ketika belajar di LIMO.", altText: "Ilustrasi 3D karakter LIMO Academy dengan landmark dunia", textPosition: "LEFT", textTheme: "LIGHT", desktopImageUrl: "/hero-images/hero-desktop-3.webp", mobileImageUrl: "/hero-images/hero-mobile-3.webp" },
+  { id: "program", eyebrow: "EXPLORE LIMO", title: "Discover the programs designed to help every learner grow.", subtitle: "English · Arabic · Nahwu · Math & Academic Support", description: "Temukan program LIMO yang dirancang sesuai usia, kemampuan, kebutuhan, dan tujuan belajar setiap peserta didik.", altText: "Ilustrasi 3D karakter LIMO Academy dengan landmark dunia", textPosition: "LEFT", textTheme: "LIGHT", desktopImageUrl: "/hero-images/hero-desktop-4.webp", mobileImageUrl: "/hero-images/hero-mobile-4.webp" },
 ];
 
 export function HeroCarousel({ slides }: { slides: HeroSlideData[] }) {
   const items = slides.length ? slides : fallbackSlides;
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [hovering, setHovering] = useState(false);
   const regionRef = useRef<HTMLElement>(null);
   const reducedMotion = useRef(false);
 
@@ -46,12 +44,16 @@ export function HeroCarousel({ slides }: { slides: HeroSlideData[] }) {
   }, [items.length]);
 
   useEffect(() => {
-    if (paused || reducedMotion.current || items.length < 2) return;
+    if (paused || hovering || reducedMotion.current || items.length < 2) return;
     const timer = window.setInterval(() => setActive((value) => (value + 1) % items.length), 7000);
     return () => window.clearInterval(timer);
-  }, [paused, items.length]);
+  }, [paused, hovering, items.length]);
 
   const activeSlide = items[active];
+  const eyebrowLabel = activeSlide.eyebrow?.trim() ?? "";
+  const showEyebrow = eyebrowLabel.length > 0 && eyebrowLabel.toLowerCase() !== activeSlide.title.trim().toLowerCase();
+  const textRight = (activeSlide.textPosition ?? "LEFT").toUpperCase() === "RIGHT";
+  const textLight = (activeSlide.textTheme ?? "DARK").toUpperCase() === "LIGHT";
 
   return (
     <section
@@ -59,80 +61,64 @@ export function HeroCarousel({ slides }: { slides: HeroSlideData[] }) {
       tabIndex={0}
       aria-roledescription="carousel"
       aria-label="Hero LIMO Academy"
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
       className="group relative overflow-hidden bg-gradient-to-br from-limo-sky-50 via-white to-limo-blue-50 outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-limo-blue-500/50"
     >
-      {/* Background illustration — ken-burns zoom */}
+      {/* Full-bleed background image — ken-burns zoom halus */}
       {items.map((slide, index) => (
         <div key={slide.id} aria-hidden={active !== index} className={`absolute inset-0 transition-opacity duration-700 ${active === index ? "opacity-100" : "pointer-events-none opacity-0"}`}>
           <picture>
             <source media="(max-width: 767px)" srcSet={slide.mobileImageUrl} />
             <img
               src={slide.desktopImageUrl}
-              alt={slide.altText}
-              className={`h-full w-full object-cover object-[70%_center] sm:object-[80%_center] ${active === index ? "animate-hero-zoom" : ""}`}
+              alt=""
+              className={`h-full w-full object-cover object-center ${active === index ? "animate-hero-zoom" : ""}`}
             />
           </picture>
-          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/85 to-transparent sm:via-white/50" />
         </div>
       ))}
 
-      {/* Content: 2-column grid — left text, right illustration */}
-      <div className="relative mx-auto grid min-h-[560px] max-w-7xl grid-cols-1 items-center gap-6 px-5 py-16 sm:min-h-[620px] sm:px-8 lg:grid-cols-2 lg:gap-10 lg:px-12">
-        <div className="relative z-10 order-2 lg:order-1">
-          <div key={activeSlide.id} className="max-w-xl">
-            {activeSlide.eyebrow ? (
-              <span className="inline-flex animate-reveal-up items-center gap-2 rounded-full border border-limo-blue-200 bg-limo-blue-50 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-limo-blue-700" style={{ animationDelay: "0.05s" }}>
-                {activeSlide.eyebrow}
+      {/* Content — text kiri/kanan mengikuti pengaturan tiap slide */}
+      <div className="relative mx-auto grid min-h-[560px] max-w-7xl grid-cols-1 items-start gap-6 px-5 py-16 sm:min-h-[620px] sm:px-8 lg:grid-cols-2 lg:gap-10 lg:px-12">
+        <div className={`relative z-10 ${textRight ? "lg:col-start-2" : "lg:col-start-1"}`}>
+          <div key={activeSlide.id} className={`max-w-xl ${textRight ? "lg:ml-auto lg:text-right" : ""}`}>
+            {showEyebrow ? (
+              <span className={`inline-flex animate-reveal-up items-center gap-2 rounded-full border px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] backdrop-blur-sm ${textLight ? "border-white/30 bg-white/15 text-white" : "border-limo-blue-200/70 bg-white/60 text-limo-blue-700"}`} style={{ animationDelay: "0.05s" }}>
+                {eyebrowLabel}
               </span>
             ) : null}
-            <h1 className="mt-5 animate-reveal-up text-4xl font-extrabold leading-[1.05] tracking-tight text-limo-blue-600 sm:text-5xl lg:text-6xl" style={{ animationDelay: "0.15s" }}>
+            <h1 className={`mt-5 animate-reveal-up text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl ${textLight ? "text-white [text-shadow:0_2px_14px_rgba(4,40,71,0.6)]" : "text-limo-blue-700 [text-shadow:0_1px_2px_rgba(255,255,255,0.7)]"}`} style={{ animationDelay: "0.15s" }}>
               {activeSlide.title}
             </h1>
             {activeSlide.subtitle ? (
-              <p className="mt-4 flex animate-reveal-up items-start gap-2 text-xl font-bold leading-snug text-limo-blue-500 sm:text-2xl" style={{ animationDelay: "0.3s" }}>
+              <p className={`mt-4 flex animate-reveal-up items-start gap-2 text-xl font-bold leading-snug sm:text-2xl ${textLight ? "text-white/95 [text-shadow:0_2px_12px_rgba(4,40,71,0.6)]" : "text-limo-blue-600 [text-shadow:0_1px_2px_rgba(255,255,255,0.7)]"} ${textRight ? "lg:justify-end" : ""}`} style={{ animationDelay: "0.3s" }}>
                 <span aria-hidden="true" className="mt-2 block h-0.5 w-8 shrink-0 rounded-full bg-limo-yellow-400" />
                 <span>{activeSlide.subtitle}</span>
               </p>
             ) : null}
             {activeSlide.description ? (
-              <p className="mt-4 max-w-lg animate-reveal-up text-base leading-relaxed text-gray-600 sm:text-lg" style={{ animationDelay: "0.45s" }}>
+              <p className={`mt-4 max-w-lg animate-reveal-up text-base leading-relaxed sm:text-lg ${textLight ? "text-white/90 [text-shadow:0_1px_8px_rgba(4,40,71,0.75)]" : "text-gray-700 [text-shadow:0_1px_2px_rgba(255,255,255,0.8)]"} ${textRight ? "lg:ml-auto" : ""}`} style={{ animationDelay: "0.45s" }}>
                 {activeSlide.description}
               </p>
             ) : null}
-
-            {activeSlide.ctaLabel || activeSlide.cta2Label ? (
-              <div className="mt-8 flex animate-reveal-up flex-col gap-3 sm:flex-row sm:items-center" style={{ animationDelay: "0.6s" }}>
-                {activeSlide.ctaLabel && activeSlide.ctaHref ? (
-                  <Link href={activeSlide.ctaHref} className="group inline-flex min-h-12 items-center justify-center rounded-xl bg-limo-blue-600 px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-limo-blue-600/20 transition hover:bg-limo-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-limo-blue-500/40">
-                    {activeSlide.ctaLabel}
-                    <span aria-hidden="true" className="ml-2 transition-transform group-hover:translate-x-1">→</span>
-                  </Link>
-                ) : null}
-                {activeSlide.cta2Label && activeSlide.cta2Href ? (
-                  <Link href={activeSlide.cta2Href} className="inline-flex min-h-12 items-center justify-center rounded-xl border-2 border-limo-blue-200 bg-white px-6 py-3.5 text-sm font-bold text-limo-blue-700 transition hover:border-limo-blue-400 hover:bg-limo-blue-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-limo-blue-500/30">
-                    {activeSlide.cta2Label}
-                  </Link>
-                ) : null}
-              </div>
-            ) : null}
           </div>
         </div>
-
-        <div className="relative order-1 hidden lg:order-2 lg:block" aria-hidden="true" />
       </div>
 
-      {/* Controls — in normal flow, below the content (never overlaps CTAs) */}
+      {/* Controls — floating glass bar */}
       <div className="relative mx-auto max-w-7xl px-5 pb-8 sm:px-8 lg:px-12">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2" aria-label="Pilih slide">
+        <div className="inline-flex w-full items-center justify-between gap-2 rounded-full border border-white/60 bg-white/75 p-1.5 shadow-theme-md backdrop-blur-md sm:w-auto sm:gap-3">
+          <div role="group" aria-label="Pilih slide" className="flex items-center gap-1">
             {items.map((slide, index) => (
-              <button key={slide.id} type="button" aria-label={`Slide ${index + 1}: ${slide.eyebrow ?? slide.title}`} aria-current={active === index ? "true" : undefined} onClick={() => setActive(index)} className={`min-h-11 min-w-11 rounded-full border text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 ${active === index ? "border-limo-blue-600 bg-limo-blue-600 text-white" : "border-limo-blue-200 bg-white text-limo-blue-600 hover:bg-limo-blue-50"}`}>{String(index + 1).padStart(2, "0")}</button>
+              <button key={slide.id} type="button" aria-label={`Slide ${index + 1}: ${slide.eyebrow ?? slide.title}`} aria-current={active === index ? "true" : undefined} onClick={() => setActive(index)} className={`grid size-9 place-items-center rounded-full text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10 ${active === index ? "bg-limo-blue-600 text-white shadow-theme-xs" : "text-limo-blue-700 hover:bg-white/80"}`}>{String(index + 1).padStart(2, "0")}</button>
             ))}
           </div>
-          <div className="flex items-center gap-2">
-            <button type="button" aria-label="Slide sebelumnya" onClick={() => setActive((value) => (value - 1 + items.length) % items.length)} className="grid size-11 place-items-center rounded-full border border-limo-blue-200 bg-white text-xl text-limo-blue-600 hover:bg-limo-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500">←</button>
-            <button type="button" aria-label={paused ? "Putar carousel" : "Jeda carousel"} onClick={() => setPaused((value) => !value)} className="grid size-11 place-items-center rounded-full border border-limo-blue-200 bg-white text-sm text-limo-blue-600 hover:bg-limo-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500">{paused ? "▶" : "Ⅱ"}</button>
-            <button type="button" aria-label="Slide berikutnya" onClick={() => setActive((value) => (value + 1) % items.length)} className="grid size-11 place-items-center rounded-full border border-limo-blue-200 bg-white text-xl text-limo-blue-600 hover:bg-limo-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500">→</button>
+          <span className="h-6 w-px bg-limo-blue-200" aria-hidden="true" />
+          <div className="flex items-center gap-1">
+            <button type="button" aria-label="Slide sebelumnya" onClick={() => setActive((value) => (value - 1 + items.length) % items.length)} className="grid size-9 place-items-center rounded-full text-lg text-limo-blue-700 transition hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10">←</button>
+            <button type="button" aria-label={paused ? "Putar carousel" : "Jeda carousel"} onClick={() => setPaused((value) => !value)} className="grid size-9 place-items-center rounded-full text-sm text-limo-blue-700 transition hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10">{paused ? "▶" : "II"}</button>
+            <button type="button" aria-label="Slide berikutnya" onClick={() => setActive((value) => (value + 1) % items.length)} className="grid size-9 place-items-center rounded-full text-lg text-limo-blue-700 transition hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10">→</button>
           </div>
         </div>
       </div>

@@ -141,7 +141,7 @@ function drawPdfHeader(document: PDFKit.PDFDocument, report: AdminReport) {
   document.roundedRect(left, 38, 42, 42, 10).fillColor(LIMO_MEDIA_COLORS.primary).fill();
   document.fillColor(LIMO_MEDIA_COLORS.white).font("Helvetica-Bold").fontSize(20).text("L", left + 14, 48);
   document.fillColor(LIMO_MEDIA_COLORS.text).font("Helvetica-Bold").fontSize(17).text("LIMO", left + 54, 40);
-  document.fillColor(LIMO_MEDIA_COLORS.muted).font("Helvetica").fontSize(8).text("LANGUAGE CLUB / OPERASIONAL", left + 55, 61);
+  document.fillColor(LIMO_MEDIA_COLORS.muted).font("Helvetica").fontSize(8).text("ACADEMY / OPERASIONAL", left + 55, 61);
   document.fillColor(LIMO_MEDIA_COLORS.text).font("Helvetica-Bold").fontSize(24).text("Laporan operasional", left, 93);
   document.fillColor(LIMO_MEDIA_COLORS.muted).font("Helvetica").fontSize(9).text("Ringkasan performa akademik dan keuangan untuk pengambilan keputusan Admin.", left, 122, { width: 440 });
   document.roundedRect(right - 220, 42, 220, 55, 10).fillColor(LIMO_MEDIA_COLORS.surface).fill();

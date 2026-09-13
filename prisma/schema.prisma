@@ -43,6 +43,11 @@ enum PendaftaranStatus {
   CANCELLED
 }
 
+enum WaliRelation {
+  BAPAK
+  IBU
+}
+
 enum SiswaStatus {
   ACTIVE
   INACTIVE
@@ -506,6 +511,8 @@ model HeroSlide {
   title                String   @db.VarChar(240)
   subtitle             String?  @db.VarChar(240)
   description          String?  @db.Text
+  textPosition         String   @default("LEFT") @db.VarChar(8)
+  textTheme            String   @default("DARK") @db.VarChar(8)
   ctaLabel             String?  @db.VarChar(120)
   ctaHref              String?  @db.VarChar(500)
   cta2Label            String?  @db.VarChar(120)
@@ -541,6 +548,7 @@ model Pendaftaran {
   studentName     String
   studentBirthAt  DateTime?
   waliName        String
+  waliRelation    WaliRelation               @default(IBU)
   waliEmail       String
   waliPhone       String?
   waliProfileId   String?

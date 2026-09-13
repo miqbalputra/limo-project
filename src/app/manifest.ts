@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "LIMO LMS",
     short_name: "LIMO",
-    description: "Sistem informasi kursus LIMO Little Moslems Language Club.",
+    description: "Sistem informasi kursus LIMO Little Moslems Academy.",
     start_url: "/",
     display: "standalone",
     scope: "/",

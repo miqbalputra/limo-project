@@ -142,7 +142,7 @@ export function DashboardShell({ actor, navigation, notifications, waliChildren,
             {!isSidebarCollapsed ? (
               <span className="min-w-0">
                 <span className="block text-lg font-bold leading-5 text-gray-900">LIMO</span>
-                <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400">Language Club</span>
+                <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400">Academy</span>
               </span>
             ) : null}
           </Link>

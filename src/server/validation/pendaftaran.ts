@@ -9,6 +9,7 @@ export const submitPendaftaranSchema = z.object({
     .optional()
     .or(z.literal("")),
   waliName: z.string().trim().min(2).max(120),
+  waliRelation: z.enum(["BAPAK", "IBU"]).optional(),
   waliEmail: z.string().trim().email().max(255),
   waliPhone: z.string().trim().min(8).max(32).optional().or(z.literal("")),
 });

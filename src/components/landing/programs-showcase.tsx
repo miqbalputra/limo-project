@@ -162,7 +162,7 @@ export function ProgramsShowcase({ programs }: { programs: Program[] }) {
 
         <div className="mt-12 grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-stretch">
           {/* Picker */}
-          <div role="tablist" aria-label="Daftar program" aria-orientation="vertical" className="grid content-start gap-3">
+          <div role="tablist" aria-label="Daftar program" aria-orientation="vertical" className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-3">
             {list.map((program, index) => {
               const isActive = index === active;
               const progCopy = copyByKind[program.kind];
@@ -194,7 +194,7 @@ export function ProgramsShowcase({ programs }: { programs: Program[] }) {
           </div>
 
           {/* Panel */}
-          <div id="program-panel" role="tabpanel" aria-label={copy.title} className="relative flex flex-col rounded-3xl border border-gray-200 bg-white p-8 shadow-theme-sm sm:p-10">
+          <div id="program-panel" role="tabpanel" aria-label={copy.title} className="relative flex min-w-0 flex-col rounded-3xl border border-gray-200 bg-white p-8 shadow-theme-sm sm:p-10">
             <div key={current.id} className="flex flex-1 flex-col animate-fade-in-up">
               <div className="flex flex-wrap items-center gap-3">
                 <span className="grid size-14 place-items-center overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-xs">

@@ -5,7 +5,7 @@
 |---|---|
 | **Dokumen** | PRD-LIMO-LMS-001 |
 | **Referensi** | SF-LMS-001/VI/2026 |
-| **Klien** | LIMO — Little Moslems Language Club |
+| **Klien** | LIMO — Little Moslems Academy |
 | **Vendor** | SistemFlow (Muhammad Iqbal Putra) |
 | **Versi** | 3.0 — Single Next.js Application Architecture |
 | **Tanggal** | 21 Juli 2026 |

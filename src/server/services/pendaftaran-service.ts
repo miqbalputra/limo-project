@@ -112,6 +112,7 @@ export async function submitPendaftaran(input: unknown, context: { ipAddress?: s
         studentName: parsed.data.studentName,
         studentBirthAt: parseBirthDate(parsed.data.studentBirthDate),
         waliName: parsed.data.waliName,
+        waliRelation: parsed.data.waliRelation ?? undefined,
         waliEmail,
         waliPhone: parsed.data.waliPhone || undefined,
         submittedAt: new Date(),

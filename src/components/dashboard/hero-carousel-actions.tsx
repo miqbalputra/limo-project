@@ -13,6 +13,8 @@ type HeroSlide = {
   title: string;
   subtitle: string;
   description: string;
+  textPosition: string;
+  textTheme: string;
   ctaLabel: string;
   ctaHref: string;
   cta2Label: string;
@@ -78,6 +80,18 @@ export function HeroCarouselActions({ slide }: { slide: HeroSlide }) {
         <input name="title" defaultValue={slide.title} required aria-label="Judul slide" placeholder="Headline (H1)" className="tailadmin-input" />
         <input name="subtitle" defaultValue={slide.subtitle} aria-label="Subheadline" placeholder="Subheadline" className="tailadmin-input" />
         <textarea name="description" defaultValue={slide.description} aria-label="Deskripsi" placeholder="Deskripsi" className="tailadmin-input" />
+        <label className="grid gap-1 text-theme-sm font-semibold text-gray-700">Posisi teks hero
+          <select name="textPosition" defaultValue={slide.textPosition} aria-label="Posisi teks hero" className="tailadmin-input">
+            <option value="LEFT">Kiri</option>
+            <option value="RIGHT">Kanan</option>
+          </select>
+        </label>
+        <label className="grid gap-1 text-theme-sm font-semibold text-gray-700">Warna teks hero
+          <select name="textTheme" defaultValue={slide.textTheme} aria-label="Warna teks hero" className="tailadmin-input">
+            <option value="DARK">Gelap (untuk gambar terang)</option>
+            <option value="LIGHT">Terang / putih (untuk gambar gelap)</option>
+          </select>
+        </label>
         <div className="grid gap-2 sm:grid-cols-2">
           <input name="ctaLabel" defaultValue={slide.ctaLabel} aria-label="Label CTA" placeholder="Tombol utama (label)" className="tailadmin-input" />
           <input name="ctaHref" defaultValue={slide.ctaHref} aria-label="Link CTA" placeholder="Link tombol utama" className="tailadmin-input" />
