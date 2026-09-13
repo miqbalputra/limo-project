@@ -54,6 +54,9 @@ export function HeroCarousel({ slides }: { slides: HeroSlideData[] }) {
   const showEyebrow = eyebrowLabel.length > 0 && eyebrowLabel.toLowerCase() !== activeSlide.title.trim().toLowerCase();
   const textRight = (activeSlide.textPosition ?? "LEFT").toUpperCase() === "RIGHT";
   const textLight = (activeSlide.textTheme ?? "DARK").toUpperCase() === "LIGHT";
+  const controlIdle = textLight ? "text-limo-blue-700 hover:bg-limo-blue-50 lg:text-white lg:hover:bg-white/20 lg:[text-shadow:0_1px_4px_rgba(4,40,71,0.45)]" : "text-limo-blue-700 hover:bg-limo-blue-50";
+  const controlActive = textLight ? "bg-limo-blue-600 text-white shadow-theme-xs lg:bg-white lg:text-limo-blue-700" : "bg-limo-blue-600 text-white shadow-theme-xs";
+  const controlDivider = textLight ? "bg-limo-blue-200 lg:bg-white/40" : "bg-limo-blue-200";
 
   return (
     <section
@@ -110,19 +113,19 @@ export function HeroCarousel({ slides }: { slides: HeroSlideData[] }) {
         </div>
       </div>
 
-      {/* Controls */}
+      {/* Controls — tombol transparan (tidak menutupi gambar/teks) */}
       <div className="relative mx-auto max-w-7xl px-5 pb-6 sm:px-8 lg:px-12 lg:pb-8">
-        <div className="inline-flex w-full items-center justify-between gap-2 rounded-full border border-limo-blue-100 bg-white/90 p-1.5 shadow-theme-md backdrop-blur-md sm:w-auto sm:gap-3 lg:border-white/60 lg:bg-white/75">
+        <div className="inline-flex w-full items-center justify-between gap-2 sm:w-auto sm:gap-3">
           <div role="group" aria-label="Pilih slide" className="flex items-center gap-1">
             {items.map((slide, index) => (
-              <button key={slide.id} type="button" aria-label={`Slide ${index + 1}: ${slide.eyebrow ?? slide.title}`} aria-current={active === index ? "true" : undefined} onClick={() => setActive(index)} className={`grid size-9 place-items-center rounded-full text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10 ${active === index ? "bg-limo-blue-600 text-white shadow-theme-xs" : "text-limo-blue-700 hover:bg-white/80"}`}>{String(index + 1).padStart(2, "0")}</button>
+              <button key={slide.id} type="button" aria-label={`Slide ${index + 1}: ${slide.eyebrow ?? slide.title}`} aria-current={active === index ? "true" : undefined} onClick={() => setActive(index)} className={`grid size-9 place-items-center rounded-full text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10 ${active === index ? controlActive : controlIdle}`}>{String(index + 1).padStart(2, "0")}</button>
             ))}
           </div>
-          <span className="h-6 w-px bg-limo-blue-200" aria-hidden="true" />
+          <span className={`h-6 w-px ${controlDivider}`} aria-hidden="true" />
           <div className="flex items-center gap-1">
-            <button type="button" aria-label="Slide sebelumnya" onClick={() => setActive((value) => (value - 1 + items.length) % items.length)} className="grid size-9 place-items-center rounded-full text-lg text-limo-blue-700 transition hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10">←</button>
-            <button type="button" aria-label={paused ? "Putar carousel" : "Jeda carousel"} onClick={() => setPaused((value) => !value)} className="grid size-9 place-items-center rounded-full text-sm text-limo-blue-700 transition hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10">{paused ? "▶" : "II"}</button>
-            <button type="button" aria-label="Slide berikutnya" onClick={() => setActive((value) => (value + 1) % items.length)} className="grid size-9 place-items-center rounded-full text-lg text-limo-blue-700 transition hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10">→</button>
+            <button type="button" aria-label="Slide sebelumnya" onClick={() => setActive((value) => (value - 1 + items.length) % items.length)} className={`grid size-9 place-items-center rounded-full text-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10 ${controlIdle}`}>←</button>
+            <button type="button" aria-label={paused ? "Putar carousel" : "Jeda carousel"} onClick={() => setPaused((value) => !value)} className={`grid size-9 place-items-center rounded-full text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10 ${controlIdle}`}>{paused ? "▶" : "II"}</button>
+            <button type="button" aria-label="Slide berikutnya" onClick={() => setActive((value) => (value + 1) % items.length)} className={`grid size-9 place-items-center rounded-full text-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10 ${controlIdle}`}>→</button>
           </div>
         </div>
       </div>
