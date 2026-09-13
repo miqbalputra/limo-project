@@ -65,11 +65,15 @@ export function HeroCarousel({ slides }: { slides: HeroSlideData[] }) {
       onMouseLeave={() => setHovering(false)}
       className="group relative overflow-hidden bg-gradient-to-br from-limo-sky-50 via-white to-limo-blue-50 outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-limo-blue-500/50"
     >
-      {/* Full-bleed background image — ken-burns zoom halus */}
+      {/* Gambar: band persegi di mobile (utuh, tanpa crop) → full-bleed di desktop */}
       {items.map((slide, index) => (
-        <div key={slide.id} aria-hidden={active !== index} className={`absolute inset-0 transition-opacity duration-700 ${active === index ? "opacity-100" : "pointer-events-none opacity-0"}`}>
+        <div
+          key={slide.id}
+          aria-hidden={active !== index}
+          className={`w-full overflow-hidden aspect-square ${active === index ? "" : "hidden"} lg:absolute lg:inset-0 lg:block lg:aspect-auto lg:transition-opacity lg:duration-700 ${active === index ? "lg:opacity-100" : "lg:pointer-events-none lg:opacity-0"}`}
+        >
           <picture>
-            <source media="(max-width: 767px)" srcSet={slide.mobileImageUrl} />
+            <source media="(max-width: 1023px)" srcSet={slide.mobileImageUrl} />
             <img
               src={slide.desktopImageUrl}
               alt=""
@@ -79,26 +83,26 @@ export function HeroCarousel({ slides }: { slides: HeroSlideData[] }) {
         </div>
       ))}
 
-      {/* Content — text kiri/kanan mengikuti pengaturan tiap slide */}
-      <div className="relative mx-auto grid min-h-[560px] max-w-7xl grid-cols-1 items-start gap-6 px-5 py-16 sm:min-h-[620px] sm:px-8 lg:grid-cols-2 lg:gap-10 lg:px-12">
+      {/* Content — mobile: gambar di atas, teks ringkas di bawah | desktop: overlay kiri/kanan */}
+      <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-start gap-6 px-5 pt-6 pb-4 sm:px-8 lg:min-h-[620px] lg:grid-cols-2 lg:gap-10 lg:px-12 lg:py-16">
         <div className={`relative z-10 ${textRight ? "lg:col-start-2" : "lg:col-start-1"}`}>
           <div key={activeSlide.id} className={`max-w-xl ${textRight ? "lg:ml-auto lg:text-right" : ""}`}>
             {showEyebrow ? (
-              <span className={`inline-flex animate-reveal-up items-center gap-2 rounded-full border px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] backdrop-blur-sm ${textLight ? "border-white/30 bg-white/15 text-white" : "border-limo-blue-200/70 bg-white/60 text-limo-blue-700"}`} style={{ animationDelay: "0.05s" }}>
+              <span className={`inline-flex animate-reveal-up items-center gap-2 rounded-full border px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] backdrop-blur-sm ${textLight ? "border-limo-blue-200/70 bg-white/60 text-limo-blue-700 lg:border-white/30 lg:bg-white/15 lg:text-white" : "border-limo-blue-200/70 bg-white/60 text-limo-blue-700"}`} style={{ animationDelay: "0.05s" }}>
                 {eyebrowLabel}
               </span>
             ) : null}
-            <h1 className={`mt-5 animate-reveal-up text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl ${textLight ? "text-white [text-shadow:0_2px_14px_rgba(4,40,71,0.6)]" : "text-limo-blue-700 [text-shadow:0_1px_2px_rgba(255,255,255,0.7)]"}`} style={{ animationDelay: "0.15s" }}>
+            <h1 className={`mt-5 animate-reveal-up text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl ${textLight ? "text-limo-blue-700 lg:text-white lg:[text-shadow:0_2px_14px_rgba(4,40,71,0.6)]" : "text-limo-blue-700 [text-shadow:0_1px_2px_rgba(255,255,255,0.7)]"}`} style={{ animationDelay: "0.15s" }}>
               {activeSlide.title}
             </h1>
             {activeSlide.subtitle ? (
-              <p className={`mt-4 flex animate-reveal-up items-start gap-2 text-xl font-bold leading-snug sm:text-2xl ${textLight ? "text-white/95 [text-shadow:0_2px_12px_rgba(4,40,71,0.6)]" : "text-limo-blue-600 [text-shadow:0_1px_2px_rgba(255,255,255,0.7)]"} ${textRight ? "lg:justify-end" : ""}`} style={{ animationDelay: "0.3s" }}>
+              <p className={`mt-4 flex animate-reveal-up items-start gap-2 text-xl font-bold leading-snug sm:text-2xl ${textLight ? "text-limo-blue-600 lg:text-white/95 lg:[text-shadow:0_2px_12px_rgba(4,40,71,0.6)]" : "text-limo-blue-600 [text-shadow:0_1px_2px_rgba(255,255,255,0.7)]"} ${textRight ? "lg:justify-end" : ""}`} style={{ animationDelay: "0.3s" }}>
                 <span aria-hidden="true" className="mt-2 block h-0.5 w-8 shrink-0 rounded-full bg-limo-yellow-400" />
                 <span>{activeSlide.subtitle}</span>
               </p>
             ) : null}
             {activeSlide.description ? (
-              <p className={`mt-4 max-w-lg animate-reveal-up text-base leading-relaxed sm:text-lg ${textLight ? "text-white/90 [text-shadow:0_1px_8px_rgba(4,40,71,0.75)]" : "text-gray-700 [text-shadow:0_1px_2px_rgba(255,255,255,0.8)]"} ${textRight ? "lg:ml-auto" : ""}`} style={{ animationDelay: "0.45s" }}>
+              <p className={`mt-4 hidden max-w-lg animate-reveal-up text-base leading-relaxed sm:text-lg lg:block ${textLight ? "text-gray-700 lg:text-white/90 lg:[text-shadow:0_1px_8px_rgba(4,40,71,0.75)]" : "text-gray-700 [text-shadow:0_1px_2px_rgba(255,255,255,0.8)]"} ${textRight ? "lg:ml-auto" : ""}`} style={{ animationDelay: "0.45s" }}>
                 {activeSlide.description}
               </p>
             ) : null}
@@ -106,9 +110,9 @@ export function HeroCarousel({ slides }: { slides: HeroSlideData[] }) {
         </div>
       </div>
 
-      {/* Controls — floating glass bar */}
-      <div className="relative mx-auto max-w-7xl px-5 pb-8 sm:px-8 lg:px-12">
-        <div className="inline-flex w-full items-center justify-between gap-2 rounded-full border border-white/60 bg-white/75 p-1.5 shadow-theme-md backdrop-blur-md sm:w-auto sm:gap-3">
+      {/* Controls */}
+      <div className="relative mx-auto max-w-7xl px-5 pb-6 sm:px-8 lg:px-12 lg:pb-8">
+        <div className="inline-flex w-full items-center justify-between gap-2 rounded-full border border-limo-blue-100 bg-white/90 p-1.5 shadow-theme-md backdrop-blur-md sm:w-auto sm:gap-3 lg:border-white/60 lg:bg-white/75">
           <div role="group" aria-label="Pilih slide" className="flex items-center gap-1">
             {items.map((slide, index) => (
               <button key={slide.id} type="button" aria-label={`Slide ${index + 1}: ${slide.eyebrow ?? slide.title}`} aria-current={active === index ? "true" : undefined} onClick={() => setActive(index)} className={`grid size-9 place-items-center rounded-full text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10 ${active === index ? "bg-limo-blue-600 text-white shadow-theme-xs" : "text-limo-blue-700 hover:bg-white/80"}`}>{String(index + 1).padStart(2, "0")}</button>
