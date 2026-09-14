@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const result = await lookupPendaftaranStatus(
       {
         kode: url.searchParams.get("kode") || "",
-        waliEmail: url.searchParams.get("waliEmail") || "",
+        identitas: url.searchParams.get("identitas") || url.searchParams.get("waliEmail") || "",
       },
       {
         ipAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),

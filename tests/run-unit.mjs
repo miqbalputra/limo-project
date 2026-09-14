@@ -162,11 +162,23 @@ const tests = [
     run: () => {
       const parsed = submitPendaftaranSchema.safeParse({
         programKind: "ENGLISH",
+        participantType: "CHILD",
         studentName: "Ahmad",
+        studentGender: "MALE",
         studentBirthDate: "2020-01-01",
         waliName: "Bunda Ahmad",
         waliEmail: "wali@example.com",
         waliPhone: "08123456789",
+        programAnswers: {
+          audience: "ANAK",
+          priorExperience: "BELUM_PERNAH",
+          currentLevel: "PEMULA",
+          goal: "Belajar Bahasa Inggris",
+          format: "ONLINE",
+          classType: "PRIVATE",
+          schedulePreference: "Senin sore",
+        },
+        consents: { dataTruth: true, dataUse: true, contact: true, documentation: "WITH_BLUR" },
       });
       assert.equal(parsed.success, true);
     },

@@ -139,7 +139,7 @@ function RegistrationCard({ item }: { item: Awaited<ReturnType<typeof listPendaf
       </div>
 
       <div className="mt-4 grid gap-3 rounded-2xl bg-gray-50 p-3 sm:grid-cols-3 sm:p-4">
-        <InfoItem label="Wali" value={item.waliName} helper={item.waliEmail} />
+        <InfoItem label="Wali" value={item.waliName} helper={item.waliEmail ?? "Email belum diisi"} />
         <InfoItem label="Dikirim" value={formatDate(item.submittedAt)} helper={item.submittedAt ? "Waktu Asia/Jakarta" : "Belum dikirim"} />
         <InfoItem label="Dokumen" value={`${item.files.length} file privat`} helper={item.files.length ? item.files[0].originalName : "Belum ada dokumen"} />
       </div>

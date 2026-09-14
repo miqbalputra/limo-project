@@ -8,6 +8,21 @@ Aplikasi LIMO telah dibangun sebagai satu aplikasi Next.js 16 App Router dengan 
 
 Landing page terbaru tersedia di `http://127.0.0.1:3000` saat development server berjalan.
 
+## Revisi Alur Pendaftaran (Revisi v2)
+
+Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman sukses):
+
+- Halaman 1 — Pilih Program: pilihan tunggal, dikelompokkan "Bahasa & Bahasa Arab" dan "Akademik", memakai program aktif yang ada (Bahasa Inggris, Arabic for Kids, Nahwu, Math & Academic Support).
+- Halaman 2 — Data Peserta: pilihan "Diri sendiri" atau "Anak" dengan field kondisional (nama, panggilan, jenis kelamin, tanggal lahir, WhatsApp, email, alamat; anak: + nama orang tua/wali, sekolah, kelas/jenjang) dan foto peserta opsional.
+- Halaman 3 — Formulir khusus per program (Bahasa Inggris, Bahasa Arab, Nahwu, Matematika/Bimbel) sesuai daftar pertanyaan pada dokumen revisi.
+- Halaman 4 — Persetujuan: 3 pernyataan wajib + persetujuan dokumentasi (tanpa blur / wajib blur / tidak mengizinkan).
+- Halaman sukses `/daftar/berhasil`: nomor pendaftaran, program, peserta, status, dan tahapan selanjutnya (5 langkah).
+- Data baru tersimpan di `Pendaftaran`: `participantType`, `studentNickname`, `studentGender`, `address`, `schoolName`, `gradeLevel`, `programAnswers` (JSON), kolom persetujuan, dan `consentAt`.
+- Email wali menjadi opsional sesuai dokumen; status lookup menerima kode + nomor WhatsApp atau email. Bila email kosong, admin dapat melengkapinya di halaman detail pendaftaran sebelum approve.
+- Admin detail menampilkan data peserta, jawaban formulir program, dan persetujuan; export PDF/Excel menambah kolom baru (tipe peserta, gender, sekolah, kelas, konsen dokumentasi, jawaban program).
+- Acceptance: `npm run test:week1` (submit CHILD + SELF, upload, approve/reject) dan unit test schema pendaftaran diperbarui; alur wizard diuji desktop/mobile.
+
+
 ## Status Minggu 1
 
 Target teknis Minggu 1 dinyatakan selesai dan telah diverifikasi menggunakan SQLite lokal:

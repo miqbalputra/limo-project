@@ -1,9 +1,9 @@
-import { PendaftaranForm } from "@/components/forms/pendaftaran-forms";
+import { PendaftaranWizard } from "@/components/forms/pendaftaran-wizard";
 
 export const metadata = {
   title: "Pendaftaran",
 };
 
 export default function DaftarPage() {
-  return <PendaftaranForm />;
+  return <PendaftaranWizard />;
 }

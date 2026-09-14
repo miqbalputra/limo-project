@@ -2,20 +2,39 @@ import "server-only";
 import { normalizeEmail } from "@/server/auth/password";
 import { prisma } from "@/server/db/prisma";
 import { NotFoundError } from "@/server/errors/application-error";
+import { normalizePhone } from "@/lib/phone";
 import { removePrivateFile, storePrivateFile } from "@/server/providers/storage/local-storage";
 
 export async function uploadDokumenPendaftaran(input: {
   pendaftaranId: string;
   kode: string;
-  waliEmail: string;
+  identitas?: string;
+  waliEmail?: string;
   file: File;
 }) {
+  const identitas = (input.identitas && input.identitas.trim()) || input.waliEmail || "";
+  const identitasEmail = normalizeEmail(identitas);
+  const identitasPhone = normalizePhone(identitas);
+  const identityFilters: Record<string, string>[] = [];
+
+  if (identitasEmail.includes("@")) {
+    identityFilters.push({ waliEmail: identitasEmail });
+  }
+
+  if (identitasPhone.length >= 8) {
+    identityFilters.push({ waliPhone: identitasPhone });
+  }
+
+  if (identityFilters.length === 0) {
+    throw new NotFoundError("Pendaftaran tidak ditemukan atau tidak dapat menerima dokumen");
+  }
+
   const pendaftaran = await prisma.pendaftaran.findFirst({
     where: {
       id: input.pendaftaranId,
       kode: input.kode,
-      waliEmail: normalizeEmail(input.waliEmail),
       status: { in: ["SUBMITTED", "UNDER_REVIEW"] },
+      OR: identityFilters,
     },
     select: { id: true },
   });

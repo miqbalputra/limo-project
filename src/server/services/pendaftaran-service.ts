@@ -1,4 +1,5 @@
 import "server-only";
+import type { Prisma } from "@prisma/client";
 import type { Actor } from "@/server/auth/session";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 import { hashPassword, normalizeEmail } from "@/server/auth/password";
@@ -7,10 +8,12 @@ import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { generateOpaqueToken } from "@/server/security/crypto";
 import { assertRateLimit } from "@/server/security/rate-limit";
+import { normalizePhone } from "@/lib/phone";
 import {
   rejectPendaftaranSchema,
   statusPendaftaranSchema,
   submitPendaftaranSchema,
+  updatePendaftaranContactSchema,
 } from "@/server/validation/pendaftaran";
 
 const pendaftaranStatuses = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "REJECTED", "CANCELLED"] as const;
@@ -68,10 +71,12 @@ export async function submitPendaftaran(input: unknown, context: { ipAddress?: s
     throw new ValidationError("Data pendaftaran belum valid", parsed.error.flatten().fieldErrors);
   }
 
-  const waliEmail = normalizeEmail(parsed.data.waliEmail);
+  const data = parsed.data;
+  const waliEmail = data.waliEmail ? normalizeEmail(data.waliEmail) : null;
+  const waliPhone = data.waliPhone || null;
   const program = await prisma.program.findFirst({
     where: {
-      kind: parsed.data.programKind,
+      kind: data.programKind,
       isActive: true,
     },
     select: { id: true, name: true, registrationAvailability: true, registrationNote: true },
@@ -88,10 +93,11 @@ export async function submitPendaftaran(input: unknown, context: { ipAddress?: s
   const isWaitingList = program.registrationAvailability === "FULL";
   const duplicate = await prisma.pendaftaran.findFirst({
     where: {
-      waliEmail,
-      studentName: parsed.data.studentName,
+      studentName: data.studentName,
       programId: program.id,
       status: { in: ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED"] },
+      ...(waliEmail ? { waliEmail } : {}),
+      ...(!waliEmail && waliPhone ? { waliPhone } : {}),
     },
     select: { kode: true, status: true },
   });
@@ -109,12 +115,23 @@ export async function submitPendaftaran(input: unknown, context: { ipAddress?: s
         status: "SUBMITTED",
         isWaitingList,
         programId: program.id,
-        studentName: parsed.data.studentName,
-        studentBirthAt: parseBirthDate(parsed.data.studentBirthDate),
-        waliName: parsed.data.waliName,
-        waliRelation: parsed.data.waliRelation ?? undefined,
+        participantType: data.participantType,
+        studentName: data.studentName,
+        studentNickname: data.studentNickname || null,
+        studentGender: data.studentGender,
+        studentBirthAt: parseBirthDate(data.studentBirthDate),
+        address: data.address || null,
+        schoolName: data.schoolName || null,
+        gradeLevel: data.gradeLevel || null,
+        programAnswers: (data.programAnswers ?? {}) as Prisma.InputJsonValue,
+        waliName: data.waliName?.trim() || data.studentName,
         waliEmail,
-        waliPhone: parsed.data.waliPhone || undefined,
+        waliPhone,
+        consentDataTruth: true,
+        consentDataUse: true,
+        consentContact: true,
+        documentationConsent: data.consents.documentation,
+        consentAt: new Date(),
         submittedAt: new Date(),
       },
       select: {
@@ -125,6 +142,7 @@ export async function submitPendaftaran(input: unknown, context: { ipAddress?: s
         isWaitingList: true,
         waliEmail: true,
         createdAt: true,
+        program: { select: { name: true } },
       },
     });
 
@@ -156,10 +174,27 @@ export async function lookupPendaftaranStatus(input: unknown, context: { ipAddre
     throw new ValidationError("Data pengecekan status belum valid", parsed.error.flatten().fieldErrors);
   }
 
+  const identitas = parsed.data.identitas;
+  const identitasEmail = normalizeEmail(identitas);
+  const identitasPhone = normalizePhone(identitas);
+  const identityFilters: Prisma.PendaftaranWhereInput[] = [];
+
+  if (identitasEmail.includes("@")) {
+    identityFilters.push({ waliEmail: identitasEmail });
+  }
+
+  if (identitasPhone.length >= 8) {
+    identityFilters.push({ waliPhone: identitasPhone });
+  }
+
+  if (identityFilters.length === 0) {
+    throw new ValidationError("Masukkan email atau nomor WhatsApp yang valid");
+  }
+
   const pendaftaran = await prisma.pendaftaran.findFirst({
     where: {
       kode: parsed.data.kode,
-      waliEmail: normalizeEmail(parsed.data.waliEmail),
+      OR: identityFilters,
     },
     select: {
       kode: true,
@@ -168,6 +203,7 @@ export async function lookupPendaftaranStatus(input: unknown, context: { ipAddre
       rejectionReason: true,
       submittedAt: true,
       reviewedAt: true,
+      participantType: true,
       program: { select: { name: true } },
     },
   });
@@ -200,6 +236,7 @@ export async function listPendaftaran(actor: Actor, paginationInput: PaginationI
         studentName: true,
         waliName: true,
         waliEmail: true,
+        participantType: true,
         submittedAt: true,
         isWaitingList: true,
          program: { select: { name: true, kind: true } },
@@ -230,11 +267,19 @@ export async function getPendaftaranExportData(actor: Actor, filters: Pendaftara
       id: true,
       kode: true,
       status: true,
+      participantType: true,
       studentName: true,
+      studentNickname: true,
+      studentGender: true,
       studentBirthAt: true,
+      address: true,
+      schoolName: true,
+      gradeLevel: true,
+      programAnswers: true,
       waliName: true,
       waliEmail: true,
       waliPhone: true,
+      documentationConsent: true,
       submittedAt: true,
       reviewedAt: true,
       rejectionReason: true,
@@ -279,7 +324,7 @@ function buildPendaftaranWhere(filters: PendaftaranListFilters) {
 
   return {
     ...(filters.status ? { status: filters.status } : {}),
-    ...(search ? { OR: [{ kode: { contains: search } }, { studentName: { contains: search } }, { waliName: { contains: search } }, { waliEmail: { contains: search } }] } : {}),
+    ...(search ? { OR: [{ kode: { contains: search } }, { studentName: { contains: search } }, { studentNickname: { contains: search } }, { waliName: { contains: search } }, { waliEmail: { contains: search } }, { waliPhone: { contains: search } }] } : {}),
   };
 }
 
@@ -321,6 +366,47 @@ export async function getPendaftaranDetail(actor: Actor, id: string) {
   return { pendaftaran };
 }
 
+export async function updatePendaftaranContact(actor: Actor, id: string, input: unknown) {
+  if (actor.role !== "ADMIN") {
+    throw new ForbiddenError();
+  }
+
+  const parsed = updatePendaftaranContactSchema.safeParse(input);
+
+  if (!parsed.success) {
+    throw new ValidationError("Data kontak belum valid", parsed.error.flatten().fieldErrors);
+  }
+
+  const existing = await prisma.pendaftaran.findUnique({ where: { id }, select: { id: true } });
+
+  if (!existing) {
+    throw new NotFoundError("Pendaftaran tidak ditemukan");
+  }
+
+  const data: Prisma.PendaftaranUpdateInput = {};
+
+  if (parsed.data.waliEmail !== undefined) {
+    data.waliEmail = parsed.data.waliEmail ? normalizeEmail(parsed.data.waliEmail) : null;
+  }
+
+  if (parsed.data.waliPhone !== undefined) {
+    data.waliPhone = parsed.data.waliPhone || null;
+  }
+
+  await prisma.pendaftaran.update({ where: { id }, data });
+  await prisma.auditLog.create({
+    data: {
+      actorId: actor.id,
+      action: "PENDAFTARAN_CONTACT_UPDATED",
+      entityType: "Pendaftaran",
+      entityId: id,
+      metadata: { fields: Object.keys(parsed.data) },
+    },
+  });
+
+  return { success: true };
+}
+
 export async function approvePendaftaran(actor: Actor, id: string) {
   if (actor.role !== "ADMIN") {
     throw new ForbiddenError();
@@ -342,6 +428,10 @@ export async function approvePendaftaran(actor: Actor, id: string) {
 
     if (!["SUBMITTED", "UNDER_REVIEW"].includes(pendaftaran.status)) {
       throw new ConflictError("Pendaftaran tidak dapat disetujui dari status saat ini");
+    }
+
+    if (!pendaftaran.waliEmail) {
+      throw new ConflictError("Email wali belum diisi. Lengkapi email pada detail pendaftaran sebelum menyetujui.");
     }
 
     const waliEmail = normalizeEmail(pendaftaran.waliEmail);
@@ -405,7 +495,7 @@ export async function approvePendaftaran(actor: Actor, id: string) {
       create: {
         waliProfileId: waliProfile.id,
         siswaId: siswa.id,
-        relationship: "Wali",
+        relationship: pendaftaran.participantType === "SELF" ? "Diri sendiri" : "Wali",
         isPrimary: true,
       },
     });
@@ -506,9 +596,9 @@ export async function rejectPendaftaran(actor: Actor, id: string, input: unknown
     }),
     prisma.notifikasi.create({
       data: {
-        channel: "email",
+        channel: pendaftaran.waliEmail ? "email" : "whatsapp",
         template: "pendaftaran-rejected",
-        recipient: pendaftaran.waliEmail,
+        recipient: pendaftaran.waliEmail ?? pendaftaran.waliPhone ?? pendaftaran.kode,
         subject: "Pendaftaran LIMO Belum Dapat Disetujui",
         body: `Pendaftaran ${pendaftaran.kode} belum dapat disetujui. Alasan: ${parsed.data.reason}`,
       },

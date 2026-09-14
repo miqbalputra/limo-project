@@ -545,14 +545,26 @@ model Pendaftaran {
   status          PendaftaranStatus          @default(DRAFT)
   programId       String
   program         Program                    @relation(fields: [programId], references: [id], onDelete: Restrict)
+  participantType String                     @default("CHILD") @db.VarChar(8)
   studentName     String
+  studentNickname String?                    @db.VarChar(120)
+  studentGender   String?                    @db.VarChar(16)
   studentBirthAt  DateTime?
+  address         String?                    @db.Text
+  schoolName      String?                    @db.VarChar(191)
+  gradeLevel      String?                    @db.VarChar(64)
+  programAnswers  Json?
   waliName        String
   waliRelation    WaliRelation               @default(IBU)
-  waliEmail       String
+  waliEmail       String?
   waliPhone       String?
   waliProfileId   String?
   waliProfile     WaliProfile?               @relation(fields: [waliProfileId], references: [id], onDelete: SetNull)
+  consentDataTruth     Boolean               @default(false)
+  consentDataUse       Boolean               @default(false)
+  consentContact       Boolean               @default(false)
+  documentationConsent String?               @db.VarChar(16)
+  consentAt            DateTime?
   submittedAt     DateTime?
   reviewedAt      DateTime?
   reviewedById    String?
@@ -568,6 +580,7 @@ model Pendaftaran {
 
   @@index([status, createdAt])
   @@index([waliEmail])
+  @@index([waliPhone])
   @@index([programId, isWaitingList, createdAt])
 }
 

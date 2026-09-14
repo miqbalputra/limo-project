@@ -92,11 +92,23 @@ try {
     method: "POST",
     body: {
       programKind: "ENGLISH",
+      participantType: "CHILD",
       studentName: `Export Student ${runId}`,
+      studentGender: "MALE",
       studentBirthDate: "2018-02-14",
       waliName: `Export Guardian ${runId}`,
       waliEmail: exportRegistrationEmail,
       waliPhone: "081234567892",
+      programAnswers: {
+        audience: "ANAK",
+        priorExperience: "SEDIKIT",
+        currentLevel: "DASAR",
+        goal: "Persiapan sekolah",
+        format: "OFFLINE",
+        classType: "PRIVATE",
+        schedulePreference: "Rabu sore",
+      },
+      consents: { dataTruth: true, dataUse: true, contact: true, documentation: "WITHOUT_BLUR" },
     },
   });
   assert.equal(exportRegistration.response.status, 201, JSON.stringify(exportRegistration.payload));

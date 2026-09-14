@@ -23,6 +23,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const result = await uploadDokumenPendaftaran({
       pendaftaranId: id,
       kode: String(formData.get("kode") || ""),
+      identitas: String(formData.get("identitas") || ""),
       waliEmail: String(formData.get("waliEmail") || ""),
       file,
     });

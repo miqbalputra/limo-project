@@ -82,15 +82,39 @@ try {
     method: "POST",
     body: {
       programKind: "ENGLISH",
+      participantType: "CHILD",
       studentName: `Siswa Week1 ${runId}`,
+      studentNickname: "Siswa",
+      studentGender: "FEMALE",
       studentBirthDate: "2018-01-15",
       waliName: `Wali Week1 ${runId}`,
       waliEmail: registrationEmail,
       waliPhone: "081234567890",
+      address: "Jl. Contoh No. 1",
+      schoolName: "SD Contoh",
+      gradeLevel: "Kelas 4",
+      programAnswers: {
+        audience: "ANAK",
+        priorExperience: "BELUM_PERNAH",
+        currentLevel: "PEMULA",
+        skillsWanted: ["SPEAKING", "CONFIDENCE"],
+        goal: "Meningkatkan kemampuan berbicara",
+        format: "ONLINE",
+        classType: "SMALL_GROUP",
+        schedulePreference: "Sabtu pagi",
+        notes: "Tidak ada",
+      },
+      consents: { dataTruth: true, dataUse: true, contact: true, documentation: "WITH_BLUR" },
     },
   });
   assert.equal(registration.response.status, 201, JSON.stringify(registration.payload));
   const registered = registration.payload.data.pendaftaran;
+  const storedRegistration = await prisma.pendaftaran.findUnique({ where: { id: registered.id }, select: { participantType: true, studentGender: true, programAnswers: true, documentationConsent: true, consentDataTruth: true } });
+  assert.equal(storedRegistration.participantType, "CHILD");
+  assert.equal(storedRegistration.studentGender, "FEMALE");
+  assert.equal(storedRegistration.documentationConsent, "WITH_BLUR");
+  assert.equal(storedRegistration.consentDataTruth, true);
+  assert.equal(storedRegistration.programAnswers.audience, "ANAK");
 
   const lookup = await request(`/api/v1/pendaftaran/status?kode=${encodeURIComponent(registered.kode)}&waliEmail=${encodeURIComponent(registrationEmail)}`);
   assert.equal(lookup.response.status, 200);
@@ -146,10 +170,30 @@ try {
   const rejectedEmail = `rejected-${runId}@example.test`;
   const rejectedRegistration = await request("/api/v1/pendaftaran", {
     method: "POST",
-    body: { programKind: "ARABIC", studentName: `Rejected Student ${runId}`, studentBirthDate: "2019-03-10", waliName: "Rejected Guardian", waliEmail: rejectedEmail, waliPhone: "081234567891" },
+    body: {
+      programKind: "ARABIC_KIDS",
+      participantType: "SELF",
+      studentName: `Rejected Student ${runId}`,
+      studentGender: "MALE",
+      studentBirthDate: "2005-03-10",
+      waliEmail: rejectedEmail,
+      waliPhone: "081234567891",
+      programAnswers: {
+        audience: "DEWASA",
+        priorExperience: "SEDIKIT",
+        currentLevel: "DASAR",
+        goal: "Belajar dasar Bahasa Arab",
+        format: "OFFLINE",
+        classType: "PRIVATE",
+        schedulePreference: "Senin sore",
+      },
+      consents: { dataTruth: true, dataUse: true, contact: true, documentation: "DECLINE" },
+    },
   });
-  assert.equal(rejectedRegistration.response.status, 201);
-  const rejectedId = rejectedRegistration.payload.data.pendaftaran.id;
+  assert.equal(rejectedRegistration.response.status, 201, JSON.stringify(rejectedRegistration.payload));
+  const rejectedRecord = rejectedRegistration.payload.data.pendaftaran;
+  assert.equal((await prisma.pendaftaran.findUnique({ where: { id: rejectedRecord.id }, select: { waliName: true, waliEmail: true } })).waliName, `Rejected Student ${runId}`);
+  const rejectedId = rejectedRecord.id;
   const rejectWithoutReason = await request(`/api/v1/admin/pendaftaran/${rejectedId}/reject`, { method: "POST", cookie: admin.cookie, body: { reason: "singkat" } });
   assert.equal(rejectWithoutReason.response.status, 400);
   const rejectionReason = "Dokumen identitas perlu diperbarui";

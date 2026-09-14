@@ -3,6 +3,7 @@ import PDFDocument from "pdfkit/js/pdfkit.standalone.js";
 import ExcelJS from "exceljs";
 import type { getPendaftaranExportData, PendaftaranListFilters } from "@/server/services/pendaftaran-service";
 import { LIMO_MEDIA_COLORS, toExcelArgb } from "@/lib/limo-brand";
+import { formatDocumentationConsent, formatGender, formatParticipantType, formatProgramAnswers } from "@/lib/pendaftaran-program-forms";
 
 type PendaftaranExportData = Awaited<ReturnType<typeof getPendaftaranExportData>>;
 
@@ -28,14 +29,20 @@ export async function createPendaftaranWorkbook(input: PendaftaranExportInput) {
   const worksheet = workbook.addWorksheet("Pendaftar");
   const headers = [
     "Kode",
+    "Tipe Peserta",
     "Calon Siswa",
+    "Jenis Kelamin",
     "Tanggal Lahir",
     "Program",
     "Nama Wali",
     "Email Wali",
     "Telepon Wali",
+    "Sekolah",
+    "Kelas / Jenjang",
     "Status",
     "Waiting List",
+    "Konsen Dokumentasi",
+    "Jawaban Program",
     "Dikirim",
     "Ditinjau",
     "Alasan Penolakan",
@@ -55,14 +62,20 @@ export async function createPendaftaranWorkbook(input: PendaftaranExportInput) {
   input.data.items.forEach((row) => {
     worksheet.addRow([
       spreadsheetText(row.kode),
+      spreadsheetText(formatParticipantType(row.participantType)),
       spreadsheetText(row.studentName),
+      spreadsheetText(formatGender(row.studentGender)),
       spreadsheetText(formatDate(row.studentBirthAt)),
       spreadsheetText(row.program.name),
       spreadsheetText(row.waliName),
       spreadsheetText(row.waliEmail),
       spreadsheetText(row.waliPhone),
+      spreadsheetText(row.schoolName),
+      spreadsheetText(row.gradeLevel),
       spreadsheetText(formatStatus(row.status)),
       spreadsheetText(row.isWaitingList ? "Ya" : "Tidak"),
+      spreadsheetText(formatDocumentationConsent(row.documentationConsent)),
+      spreadsheetText(formatProgramAnswers(row.program.kind, row.programAnswers).map((answer) => `${answer.label}: ${answer.value}`).join(" | ")),
       spreadsheetText(formatDateTime(row.submittedAt)),
       spreadsheetText(formatDateTime(row.reviewedAt)),
       spreadsheetText(row.rejectionReason),
@@ -70,7 +83,7 @@ export async function createPendaftaranWorkbook(input: PendaftaranExportInput) {
     ]);
   });
 
-  const widths = [18, 28, 18, 22, 26, 32, 20, 18, 16, 22, 22, 42, 36];
+  const widths = [18, 12, 28, 14, 18, 22, 26, 32, 20, 24, 14, 18, 16, 28, 60, 22, 22, 42, 36];
   widths.forEach((width, index) => {
     worksheet.getColumn(index + 1).width = width;
   });
@@ -114,15 +127,17 @@ export async function createPendaftaranPdf(input: PendaftaranExportInput) {
 
   const columns = [
     { label: "Kode", width: 72 },
-    { label: "Calon siswa", width: 110 },
-    { label: "Lahir", width: 60 },
-    { label: "Program", width: 68 },
-    { label: "Wali / kontak", width: 140 },
-    { label: "Status", width: 68 },
-    { label: "Waiting", width: 48 },
-    { label: "Dikirim", width: 76 },
-    { label: "Lampiran", width: 95 },
-    { label: "Catatan", width: 105 },
+    { label: "Tipe", width: 42 },
+    { label: "Calon siswa", width: 100 },
+    { label: "Lahir", width: 58 },
+    { label: "Program", width: 64 },
+    { label: "Wali / kontak", width: 128 },
+    { label: "Dokumentasi", width: 66 },
+    { label: "Status", width: 62 },
+    { label: "Waiting", width: 44 },
+    { label: "Dikirim", width: 72 },
+    { label: "Lampiran", width: 90 },
+    { label: "Catatan", width: 96 },
   ];
   const scaledColumns = scalePdfColumns(document, columns);
   const rows = input.data.items.map(toPdfRow);
@@ -225,10 +240,12 @@ function scalePdfColumns(document: PDFKit.PDFDocument, columns: Array<{ label: s
 function toPdfRow(row: PendaftaranExportData["items"][number]) {
   return [
     row.kode,
+    formatParticipantType(row.participantType),
     row.studentName,
     formatDate(row.studentBirthAt),
     row.program.name,
     [row.waliName, row.waliEmail, row.waliPhone].filter(Boolean).join(" / "),
+    formatDocumentationConsent(row.documentationConsent),
     formatStatus(row.status),
     row.isWaitingList ? "Ya" : "Tidak",
     formatDateTime(row.submittedAt),
