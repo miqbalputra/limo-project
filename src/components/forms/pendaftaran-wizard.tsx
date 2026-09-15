@@ -146,7 +146,6 @@ export function PendaftaranWizard() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [photo, setPhoto] = useState<File | null>(null);
 
   const fetchPrograms = useCallback(() => {
     return fetch("/api/v1/public/programs")
@@ -289,14 +288,6 @@ export function PendaftaranWizard() {
       });
 
       const data = await readApi<RegistrationResult>(response);
-
-      if (photo) {
-        const uploadData = new FormData();
-        uploadData.set("kode", data.pendaftaran.kode);
-        uploadData.set("identitas", participant.waliPhone.trim());
-        uploadData.set("file", photo);
-        await fetch(`/api/v1/pendaftaran/${data.pendaftaran.id}/files`, { method: "POST", body: uploadData }).catch(() => undefined);
-      }
 
       window.sessionStorage.setItem(
         "limo:pendaftaran-result",
@@ -614,17 +605,6 @@ export function PendaftaranWizard() {
                       </div>
                     </>
                   )}
-
-                  <div className="sm:col-span-2">
-                    <Field label="Foto Peserta" hint="JPG atau PNG · maksimal 10 MB. Membantu tim LIMO mengenal peserta sebelum kelas dimulai.">
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,.jpg,.jpeg,.png"
-                        onChange={(event) => setPhoto(event.target.files?.[0] ?? null)}
-                        className="mt-2 block w-full cursor-pointer rounded-xl border border-gray-300 bg-white px-4 py-3 text-theme-sm text-gray-700 file:mr-3 file:rounded-lg file:border-0 file:bg-limo-blue-50 file:px-3 file:py-1.5 file:text-theme-xs file:font-bold file:text-limo-blue-700"
-                      />
-                    </Field>
-                  </div>
                 </div>
               ) : null}
             </section>

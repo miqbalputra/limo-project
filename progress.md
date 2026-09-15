@@ -13,7 +13,7 @@ Landing page terbaru tersedia di `http://127.0.0.1:3000` saat development server
 Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman sukses):
 
 - Halaman 1 — Pilih Program: pilihan tunggal, dikelompokkan "Bahasa & Bahasa Arab" dan "Akademik", memakai program aktif yang ada (Bahasa Inggris, Arabic for Kids, Nahwu, Math & Academic Support).
-- Halaman 2 — Data Peserta: pilihan "Diri sendiri" atau "Anak" dengan field kondisional (nama, panggilan, jenis kelamin, tanggal lahir, WhatsApp, email, alamat; anak: + nama orang tua/wali, sekolah, kelas/jenjang) dan foto peserta opsional.
+- Halaman 2 — Data Peserta: pilihan "Diri sendiri" atau "Anak" dengan field kondisional (nama, panggilan, jenis kelamin, tanggal lahir, WhatsApp, email, alamat; anak: + nama orang tua/wali, sekolah, kelas/jenjang). Upload foto peserta dihapus dari form pendaftaran (permintaan client).
 - Halaman 3 — Formulir khusus per program (Bahasa Inggris, Bahasa Arab, Nahwu, Matematika/Bimbel) sesuai daftar pertanyaan pada dokumen revisi.
 - Halaman 4 — Persetujuan: 3 pernyataan wajib + persetujuan dokumentasi (tanpa blur / wajib blur / tidak mengizinkan).
 - Halaman sukses `/daftar/berhasil`: nomor pendaftaran, program, peserta, status, dan tahapan selanjutnya (5 langkah).
