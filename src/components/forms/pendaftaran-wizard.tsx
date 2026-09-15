@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DOCUMENTATION_CONSENT_OPTIONS,
   GENDER_OPTIONS,
@@ -135,7 +135,9 @@ function RequiredNote({ required, error }: { required?: boolean; error?: string 
 
 export function PendaftaranWizard() {
   const router = useRouter();
+  const contactEmail = process.env.NEXT_PUBLIC_LIMO_CONTACT_EMAIL;
   const [programs, setPrograms] = useState<PublicProgram[]>([]);
+  const [programStatus, setProgramStatus] = useState<"loading" | "ready" | "error">("loading");
   const [step, setStep] = useState(0);
   const [programKind, setProgramKind] = useState("");
   const [participant, setParticipant] = useState<ParticipantState>(emptyParticipant);
@@ -146,12 +148,30 @@ export function PendaftaranWizard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
 
-  useEffect(() => {
-    fetch("/api/v1/public/programs")
-      .then((response) => response.json() as Promise<ApiEnvelope<{ items: PublicProgram[] }>>)
-      .then((payload) => setPrograms(payload.data?.items ?? []))
-      .catch(() => setPrograms([]));
+  const fetchPrograms = useCallback(() => {
+    return fetch("/api/v1/public/programs")
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Gagal memuat program (${response.status})`);
+        return (await response.json()) as ApiEnvelope<{ items: PublicProgram[] }>;
+      })
+      .then((payload) => {
+        setPrograms(payload.data?.items ?? []);
+        setProgramStatus("ready");
+      })
+      .catch(() => {
+        setPrograms([]);
+        setProgramStatus("error");
+      });
   }, []);
+
+  useEffect(() => {
+    void fetchPrograms();
+  }, [fetchPrograms]);
+
+  function retryPrograms() {
+    setProgramStatus("loading");
+    void fetchPrograms();
+  }
 
   const selectablePrograms = useMemo(() => programs.filter((program) => program.registrationAvailability !== "COMING_SOON"), [programs]);
   const groupedPrograms = useMemo(() => groupPrograms(selectablePrograms), [selectablePrograms]);
@@ -436,8 +456,20 @@ export function PendaftaranWizard() {
               <h2 className="text-lg font-extrabold tracking-tight text-gray-900">Pilih Program</h2>
               {errors.programKind ? <p className="mt-2 text-theme-xs font-semibold text-error-600">{errors.programKind}</p> : null}
               <div className="mt-5 space-y-5">
-                {programs.length === 0 ? (
-                  <p className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-5 text-theme-sm text-gray-500">Memuat program…</p>
+                {programStatus === "loading" ? (
+                  <p role="status" className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-5 text-theme-sm text-gray-500">Memuat program…</p>
+                ) : programStatus === "error" ? (
+                  <div role="alert" className="rounded-xl border border-error-200 bg-error-50 px-4 py-5 text-theme-sm text-error-700">
+                    <p className="font-semibold">Gagal memuat daftar program.</p>
+                    <p className="mt-1">Periksa koneksi internet Anda, lalu coba lagi.</p>
+                    <button type="button" onClick={retryPrograms} className="mt-3 rounded-lg border border-error-300 bg-white px-4 py-2 text-theme-xs font-bold text-error-700 hover:bg-error-100">Coba lagi</button>
+                  </div>
+                ) : selectablePrograms.length === 0 ? (
+                  <div role="alert" className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-5 text-theme-sm text-warning-800">
+                    <p className="font-semibold">Belum ada program yang dibuka untuk pendaftaran saat ini.</p>
+                    <p className="mt-1">Silakan hubungi admin LIMO untuk informasi jadwal pembukaan program.</p>
+                    {contactEmail ? <a href={`mailto:${contactEmail}`} className="mt-2 inline-block font-semibold underline underline-offset-2">{contactEmail}</a> : null}
+                  </div>
                 ) : (
                   groupedPrograms.map((group) => (
                     <div key={group.title}>
