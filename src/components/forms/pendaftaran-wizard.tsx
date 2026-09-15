@@ -592,17 +592,17 @@ export function PendaftaranWizard() {
                       <Field label="Email Orang Tua / Wali" hint="Kode pendaftaran dan informasi status dikirim ke email ini bila diisi." error={errors.waliEmail}>
                         <input type="email" value={participant.waliEmail} onChange={(event) => setParticipantField("waliEmail", event.target.value)} placeholder="cth. ortu@email.com" className={inputClass} />
                       </Field>
+                      <div className="sm:col-span-2">
+                        <Field label="Alamat" error={errors.address}>
+                          <textarea value={participant.address} onChange={(event) => setParticipantField("address", event.target.value)} rows={3} placeholder="Alamat tempat tinggal" className={inputClass} />
+                        </Field>
+                      </div>
                       <Field label="Sekolah Anak" error={errors.schoolName}>
                         <input type="text" value={participant.schoolName} onChange={(event) => setParticipantField("schoolName", event.target.value)} placeholder="cth. SD Negeri 1" className={inputClass} />
                       </Field>
                       <Field label="Kelas / Jenjang" error={errors.gradeLevel}>
                         <input type="text" value={participant.gradeLevel} onChange={(event) => setParticipantField("gradeLevel", event.target.value)} placeholder="cth. Kelas 4" className={inputClass} />
                       </Field>
-                      <div className="sm:col-span-2">
-                        <Field label="Alamat" error={errors.address}>
-                          <textarea value={participant.address} onChange={(event) => setParticipantField("address", event.target.value)} rows={3} placeholder="Alamat tempat tinggal" className={inputClass} />
-                        </Field>
-                      </div>
                     </>
                   )}
                 </div>
