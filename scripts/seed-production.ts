@@ -40,6 +40,14 @@ async function seedPrograms() {
   return results;
 }
 
+async function deactivateLegacyPrograms() {
+  const result = await prisma.program.updateMany({
+    where: { kind: ProgramKind.ARABIC, isActive: true },
+    data: { isActive: false },
+  });
+  return result.count;
+}
+
 async function seedHeroSlides() {
   const count = await prisma.heroSlide.count();
   if (count > 0) {
@@ -93,6 +101,11 @@ async function main() {
   console.log("Program:");
   const programResults = await seedPrograms();
   programResults.forEach((line) => console.log("  " + line));
+
+  const deactivated = await deactivateLegacyPrograms();
+  if (deactivated > 0) {
+    console.log(`  Nonaktifkan ${deactivated} program legacy "Bahasa Arab" (kind ARABIC) agar alur pendaftaran hanya menampilkan 4 program sesuai revisi.`);
+  }
 
   console.log("\nHero slides:");
   const slideResults = await seedHeroSlides();

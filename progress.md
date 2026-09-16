@@ -22,6 +22,12 @@ Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman 
 - Admin detail menampilkan data peserta, jawaban formulir program, dan persetujuan; export PDF/Excel menambah kolom baru (tipe peserta, gender, sekolah, kelas, konsen dokumentasi, jawaban program).
 - Acceptance: `npm run test:week1` (submit CHILD + SELF, upload, approve/reject) dan unit test schema pendaftaran diperbarui; alur wizard diuji desktop/mobile.
 
+### Verifikasi Kesesuaian revisi_v2.md (data terekam penuh)
+
+- `npm run test:pendaftaran-v2` (integrasi HTTP + database) memverifikasi submit ENGLISH/ARABIC_KIDS/NAHWU/MATH_ACADEMIC_SUPPORT untuk mode Diri sendiri dan Anak: seluruh kolom peserta, `programAnswers` (termasuk opsi opsional yang dikosongkan dan jawaban "Lainnya"), konsen, `consentAt`, `submittedAt`, riwayat status, detail admin, validasi data wajib, anti-duplikat, dan cek status via WhatsApp/email.
+- `tests/e2e/pendaftaran-v2.spec.ts` memverifikasi UI 4 langkah sesuai dokumen (grup program, field kondisional, keempat formulir program, persetujuan, halaman sukses) dan dijalankan via `npm run test:e2e` (database terisolasi per spec).
+- `scripts/seed-production.ts` menonaktifkan program legacy kind ARABIC agar halaman pilih program konsisten menampilkan empat program revisi.
+
 
 ## Status Minggu 1
 
