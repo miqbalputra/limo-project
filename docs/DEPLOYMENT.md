@@ -57,7 +57,7 @@ flock -n /var/lock/limo-notification-retry.lock npm run notifications:retry -- -
 flock -n /var/lock/limo-deadline-reminders.lock npm run reminders:send
 ```
 
-Jadwal final mengikuti timezone operasional `Asia/Jakarta`.
+Jadwalkan `notifications:retry` setiap menit agar notifikasi pendaftaran (konfirmasi, persetujuan + aktivasi akun wali, penolakan) terkirim mendekati real-time. Jadwal final mengikuti timezone operasional `Asia/Jakarta`.
 
 ## Rollback
 

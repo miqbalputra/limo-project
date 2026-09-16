@@ -7,7 +7,7 @@ import { getEnv } from "../env.ts";
 
 type NotificationData = Prisma.NotifikasiCreateArgs["data"];
 
-async function createNotificationIfMissing(data: NotificationData) {
+export async function createNotificationIfMissing(data: NotificationData) {
   if (data.dedupeKey) {
     const existing = await prisma.notifikasi.findUnique({ where: { dedupeKey: data.dedupeKey }, select: { id: true } });
     if (existing) return false;

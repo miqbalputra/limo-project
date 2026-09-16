@@ -67,3 +67,13 @@ Each webhook receives:
 ```
 
 LIMO sends `X-Limo-Webhook-Secret`. n8n must validate it before forwarding email or GOWA WhatsApp messages, and return a 2xx response only after accepting the event. The existing notification retry job handles failed webhook delivery and attempt limits.
+
+### Registration notification templates
+
+The registration flow enqueues WhatsApp and email notifications through the same webhooks:
+
+- `pendaftaran-submitted` — confirmation with the registration number and status lookup link.
+- `pendaftaran-approved` — acceptance plus parent account identifier and activation link.
+- `pendaftaran-rejected` — rejection with the admin reason.
+
+Schedule `npm run notifications:retry -- --limit=50` at least once per minute so registrants receive messages close to real time. When `NOTIFICATION_PROVIDER=email`, WhatsApp records are skipped; when `NOTIFICATION_PROVIDER=n8n`, both channels are sent through their respective webhooks.

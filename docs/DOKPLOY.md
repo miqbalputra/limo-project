@@ -188,6 +188,8 @@ N8N_WHATSAPP_WEBHOOK_URL=https://n8n.example.com/webhook/limo-whatsapp
 N8N_WEBHOOK_SECRET=secret-n8n-acak
 ```
 
+Panduan langkah demi langkah (n8n, GOWA, workflow, scheduler, verifikasi, troubleshooting) ada di `docs/PANDUAN_KONFIGURASI_NOTIFIKASI.md`.
+
 ### 5.5 Guardrail production
 
 Pastikan variable berikut tetap seperti ini:

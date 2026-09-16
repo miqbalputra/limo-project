@@ -10,6 +10,12 @@ import { generateOpaqueToken } from "@/server/security/crypto";
 import { assertRateLimit } from "@/server/security/rate-limit";
 import { normalizePhone } from "@/lib/phone";
 import {
+  enqueuePendaftaranApproved,
+  enqueuePendaftaranNotificationSafely,
+  enqueuePendaftaranRejected,
+  enqueuePendaftaranSubmitted,
+} from "@/server/services/pendaftaran-notification-service";
+import {
   rejectPendaftaranSchema,
   statusPendaftaranSchema,
   submitPendaftaranSchema,
@@ -156,6 +162,18 @@ export async function submitPendaftaran(input: unknown, context: { ipAddress?: s
 
     return created;
   });
+
+  await enqueuePendaftaranNotificationSafely("pendaftaran-submitted", () =>
+    enqueuePendaftaranSubmitted({
+      kode: pendaftaran.kode,
+      studentName: pendaftaran.studentName,
+      participantType: data.participantType,
+      programName: program.name,
+      waliName: data.waliName?.trim() || data.studentName,
+      waliPhone: waliPhone,
+      waliEmail: waliEmail,
+    }),
+  );
 
   return { pendaftaran };
 }
@@ -412,7 +430,7 @@ export async function approvePendaftaran(actor: Actor, id: string) {
     throw new ForbiddenError();
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const pendaftaran = await tx.pendaftaran.findUnique({
       where: { id },
       include: { program: true, approvedSiswa: true },
@@ -423,7 +441,7 @@ export async function approvePendaftaran(actor: Actor, id: string) {
     }
 
     if (pendaftaran.status === "APPROVED" && pendaftaran.approvedSiswa) {
-      return { pendaftaranId: pendaftaran.id, siswaId: pendaftaran.approvedSiswa.id, status: "APPROVED" as const };
+      return { pendaftaranId: pendaftaran.id, siswaId: pendaftaran.approvedSiswa.id, status: "APPROVED" as const, notification: null };
     }
 
     if (!["SUBMITTED", "UNDER_REVIEW"].includes(pendaftaran.status)) {
@@ -529,20 +547,30 @@ export async function approvePendaftaran(actor: Actor, id: string) {
       },
     });
 
-    await tx.notifikasi.create({
-      data: {
-        channel: "email",
-        template: "pendaftaran-approved",
-        recipient: waliEmail,
-        subject: "Pendaftaran LIMO Disetujui",
-        body: activation
-          ? `Pendaftaran ${pendaftaran.kode} untuk ${pendaftaran.studentName} telah disetujui. Atur password akun wali melalui: ${activation.resetUrl}`
-          : `Pendaftaran ${pendaftaran.kode} untuk ${pendaftaran.studentName} telah disetujui.`,
+    return {
+      pendaftaranId: pendaftaran.id,
+      siswaId: siswa.id,
+      status: "APPROVED" as const,
+      notification: {
+        kode: pendaftaran.kode,
+        studentName: pendaftaran.studentName,
+        participantType: pendaftaran.participantType,
+        programName: pendaftaran.program.name,
+        waliName: pendaftaran.waliName,
+        waliEmail,
+        waliPhone: pendaftaran.waliPhone,
+        accountEmail: waliEmail,
+        activationUrl: activation?.resetUrl ?? null,
       },
-    });
-
-    return { pendaftaranId: pendaftaran.id, siswaId: siswa.id, status: "APPROVED" as const };
+    };
   });
+
+  const notification = result.notification;
+  if (notification) {
+    await enqueuePendaftaranNotificationSafely("pendaftaran-approved", () => enqueuePendaftaranApproved(notification));
+  }
+
+  return { pendaftaranId: result.pendaftaranId, siswaId: result.siswaId, status: result.status };
 }
 
 export async function rejectPendaftaran(actor: Actor, id: string, input: unknown) {
@@ -556,7 +584,10 @@ export async function rejectPendaftaran(actor: Actor, id: string, input: unknown
     throw new ValidationError("Alasan penolakan belum valid", parsed.error.flatten().fieldErrors);
   }
 
-  const pendaftaran = await prisma.pendaftaran.findUnique({ where: { id } });
+  const pendaftaran = await prisma.pendaftaran.findUnique({
+    where: { id },
+    include: { program: { select: { name: true } } },
+  });
 
   if (!pendaftaran) {
     throw new NotFoundError("Pendaftaran tidak ditemukan");
@@ -594,16 +625,22 @@ export async function rejectPendaftaran(actor: Actor, id: string, input: unknown
         reason: parsed.data.reason,
       },
     }),
-    prisma.notifikasi.create({
-      data: {
-        channel: pendaftaran.waliEmail ? "email" : "whatsapp",
-        template: "pendaftaran-rejected",
-        recipient: pendaftaran.waliEmail ?? pendaftaran.waliPhone ?? pendaftaran.kode,
-        subject: "Pendaftaran LIMO Belum Dapat Disetujui",
-        body: `Pendaftaran ${pendaftaran.kode} belum dapat disetujui. Alasan: ${parsed.data.reason}`,
-      },
-    }),
   ]);
+
+  await enqueuePendaftaranNotificationSafely("pendaftaran-rejected", () =>
+    enqueuePendaftaranRejected(
+      {
+        kode: pendaftaran.kode,
+        studentName: pendaftaran.studentName,
+        participantType: pendaftaran.participantType,
+        programName: pendaftaran.program.name,
+        waliName: pendaftaran.waliName,
+        waliEmail: pendaftaran.waliEmail,
+        waliPhone: pendaftaran.waliPhone,
+      },
+      parsed.data.reason,
+    ),
+  );
 
   return { success: true };
 }

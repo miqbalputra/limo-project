@@ -28,6 +28,14 @@ Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman 
 - `tests/e2e/pendaftaran-v2.spec.ts` memverifikasi UI 4 langkah sesuai dokumen (grup program, field kondisional, keempat formulir program, persetujuan, halaman sukses) dan dijalankan via `npm run test:e2e` (database terisolasi per spec).
 - `scripts/seed-production.ts` menonaktifkan program legacy kind ARABIC agar halaman pilih program konsisten menampilkan empat program revisi.
 
+### Notifikasi Pendaftaran (Fase 1)
+
+- Submit kini otomatis membuat notifikasi konfirmasi `pendaftaran-submitted` ke WhatsApp orang tua/wali dan email (bila diisi), berisi nomor pendaftaran, program, dan tautan cek status.
+- Approve mengirim `pendaftaran-approved` ke WhatsApp dan email berisi status diterima, identifier akun wali, dan tautan aktivasi; reject mengirim `pendaftaran-rejected` beserta alasan ke kedua kanal.
+- Service baru `src/server/services/pendaftaran-notification-service.ts` memakai `dedupeKey` (anti-duplikat) dan mengikuti `NOTIFICATION_PROVIDER` (console/email/n8n).
+- Job notifikasi dipindah ke `src/server/services/notification-job-service.ts` (impor relatif tanpa `server-only`) agar `npm run notifications:retry` dapat dieksekusi Node; sebelumnya gagal karena rantai impor `payment-gateway-service`.
+- Jadwalkan `notifications:retry` tiap menit (lihat `docs/DEPLOYMENT.md`); kontrak webhook n8n dan template didokumentasikan di `docs/MAYAR_N8N_INTEGRATION.md`, rencana lengkap di `docs/PLAN_NOTIFIKASI_PENDAFTARAN.md`.
+
 
 ## Status Minggu 1
 

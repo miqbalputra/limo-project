@@ -12,6 +12,7 @@ const origin = baseUrl;
 const runId = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 const clientIp = `10.77.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}`;
 const createdIds = [];
+const createdNotificationIds = [];
 
 async function request(path, { method = "GET", body, cookie, headers = {}, skipOrigin = false } = {}) {
   const requestHeaders = new Headers(headers);
@@ -342,6 +343,18 @@ try {
       assert.equal(testCase.assertions.missingAnswerKey in stored.programAnswers, false, `${testCase.assertions.missingAnswerKey} opsional tidak boleh terisi paksa`);
     }
 
+    const notifications = await prisma.notifikasi.findMany({
+      where: { template: "pendaftaran-submitted", body: { contains: registered.kode } },
+      select: { id: true, channel: true, recipient: true, body: true },
+    });
+    for (const notification of notifications) createdNotificationIds.push(notification.id);
+
+    const expectedPhone = normalizePhone(testCase.body.waliPhone);
+    const expectedEmail = testCase.body.waliEmail.toLowerCase();
+    assert.ok(notifications.some((item) => item.channel === "whatsapp" && item.recipient === expectedPhone), `Notifikasi WhatsApp submit ${testCase.kind} harus dibuat`);
+    assert.ok(notifications.some((item) => item.channel === "email" && item.recipient === expectedEmail), `Notifikasi email submit ${testCase.kind} harus dibuat`);
+    assert.match(notifications[0].body, new RegExp(registered.kode));
+
     const detail = await request(`/api/v1/admin/pendaftaran/${registered.id}`, { cookie: admin.cookie });
     assert.equal(detail.response.status, 200, JSON.stringify(detail.payload));
     assert.deepEqual(detail.payload.data.pendaftaran.programAnswers, stored.programAnswers);
@@ -385,6 +398,9 @@ try {
   assert.match(sample.kode, new RegExp(`^LIMO-${year}-`));
   ok(`Nomor pendaftaran mengikuti format LIMO-${year}-XXXXXX`);
 } finally {
+  if (createdNotificationIds.length > 0) {
+    await prisma.notifikasi.deleteMany({ where: { id: { in: createdNotificationIds } } });
+  }
   if (createdIds.length > 0) {
     await prisma.pendaftaran.deleteMany({ where: { id: { in: createdIds } } });
   }
