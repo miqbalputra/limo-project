@@ -1,10 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { loginViaForm } from "./support/auth";
 
 async function login(page: import("@playwright/test").Page, identifier: string) {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(identifier);
-  await page.locator('input[name="password"]').fill("password-dev-only");
-  await page.getByRole("button", { name: "Masuk" }).click();
+  await loginViaForm(page, identifier);
 }
 
 test("landing page works at 360px with accessible navigation and public links", async ({ page }) => {

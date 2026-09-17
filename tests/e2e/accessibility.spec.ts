@@ -1,15 +1,13 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
+import { loginViaForm } from "./support/auth";
 
 const PUBLIC_NAVIGATION_SCOPE = "main > div:first-child > header";
 const DASHBOARD_INTERACTION_SCOPE = "#dashboard-content :is(h1, h2, button, input, select, textarea)";
 
 async function login(page: Page, identifier: string) {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(identifier);
-  await page.locator('input[name="password"]').fill("password-dev-only");
-  await page.getByRole("button", { name: "Masuk" }).click();
+  await loginViaForm(page, identifier);
 }
 
 async function expectNoAxeViolations(page: Page, selector?: string) {
@@ -34,7 +32,7 @@ async function expectTouchTarget(locator: Locator) {
 }
 
 test("public navigation, login, and seeded role dashboard controls have no WCAG 2 A/AA violations", async ({ page }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(120_000);
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expectNoAxeViolations(page, PUBLIC_NAVIGATION_SCOPE);

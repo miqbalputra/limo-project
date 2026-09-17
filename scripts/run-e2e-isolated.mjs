@@ -11,6 +11,25 @@ const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
 const runId = `${Date.now()}-${process.pid}`;
 const requestedSpec = process.env.E2E_SPEC;
 const playwrightArgs = process.env.E2E_UPDATE_SNAPSHOTS === "true" ? ["--update-snapshots"] : [];
+
+// `production-navigation.spec.ts` memverifikasi perilaku default production
+// (semua feature flag mati). Runner ini menjalankan `next dev`, jadi flag harus
+// dimatikan eksplisit agar server memakai rule navigasi yang sama.
+const specEnvOverrides = {
+  "production-navigation.spec.ts": {
+    STUDENT_PORTAL_ENABLED: "false",
+    LEARNING_MODULES_ENABLED: "false",
+    ASSIGNMENTS_ENABLED: "false",
+    GRADEBOOK_ENABLED: "false",
+    CALENDAR_ENABLED: "false",
+    ACTIVITY_COMPLETION_ENABLED: "false",
+    REMEDIAL_ENABLED: "false",
+    CLASS_DISCUSSION_ENABLED: "false",
+    PERIODIC_REPORTS_ENABLED: "false",
+    GUARDIAN_ASSISTED_SUBMISSION_ENABLED: "false",
+  },
+};
+
 const specFiles = (await readdir(e2eDirectory))
   .filter((fileName) => fileName.endsWith(".spec.ts") && fileName !== "pwa.spec.ts" && (!requestedSpec || fileName === requestedSpec))
   .sort();
@@ -44,6 +63,7 @@ for (const [index, specFile] of specFiles.entries()) {
     DATABASE_URL: databaseUrl,
     LIMO_SQLITE_DATABASE_URL: databaseUrl,
     PLAYWRIGHT_REUSE_EXISTING_SERVER: "false",
+    ...(specEnvOverrides[specFile] ?? {}),
   };
 
   try {

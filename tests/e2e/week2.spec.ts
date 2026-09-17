@@ -1,10 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { loginViaForm } from "./support/auth";
 
 async function login(page: import("@playwright/test").Page, email: string) {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
-  await page.locator('input[name="password"]').fill("password-dev-only");
-  await page.getByRole("button", { name: "Masuk" }).click();
+  await loginViaForm(page, email);
 }
 
 async function expectNoHorizontalOverflow(page: import("@playwright/test").Page) {

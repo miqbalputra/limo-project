@@ -34,22 +34,22 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:seed": "prisma db seed",
-    "admin:bootstrap": "node --experimental-strip-types scripts/bootstrap-admin.ts",
-    "seed:production": "node --experimental-strip-types scripts/seed-production.ts",
+    "admin:bootstrap": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/bootstrap-admin.ts",
+    "seed:production": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/seed-production.ts",
     "sqlite:prepare": "node scripts/prepare-sqlite-schema.mjs",
     "sqlite:setup": "node scripts/setup-sqlite.mjs",
-    "billing:generate": "node --experimental-strip-types scripts/generate-monthly-invoices.ts",
-    "billing:mark-overdue": "node --experimental-strip-types scripts/mark-overdue-invoices.ts",
-    "sessions:cleanup": "node --experimental-strip-types scripts/cleanup-expired-sessions.ts",
-    "notifications:retry": "node --experimental-strip-types scripts/retry-notifications.ts",
-    "reminders:send": "node --experimental-strip-types scripts/send-deadline-reminders.ts",
-    "mayar:reconcile": "node --experimental-strip-types scripts/reconcile-mayar-payments.ts",
-    "pakasir:reconcile": "node --experimental-strip-types scripts/reconcile-pakasir-payments.ts",
-    "backup:create": "node --experimental-strip-types scripts/backup.ts",
-    "backup:restore": "node --experimental-strip-types scripts/restore.ts"
+    "billing:generate": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/generate-monthly-invoices.ts",
+    "billing:mark-overdue": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/mark-overdue-invoices.ts",
+    "sessions:cleanup": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/cleanup-expired-sessions.ts",
+    "notifications:retry": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/retry-notifications.ts",
+    "reminders:send": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/send-deadline-reminders.ts",
+    "mayar:reconcile": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/reconcile-mayar-payments.ts",
+    "pakasir:reconcile": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/reconcile-pakasir-payments.ts",
+    "backup:create": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/backup.ts",
+    "backup:restore": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/restore.ts"
   },
   "prisma": {
-    "seed": "node --experimental-strip-types scripts/seed.ts"
+    "seed": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.13.0",

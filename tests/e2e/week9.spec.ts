@@ -1,11 +1,9 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { loginViaForm } from "./support/auth";
 
 async function login(page: Page, identifier: string) {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(identifier);
-  await page.locator('input[name="password"]').fill("password-dev-only");
-  await page.getByRole("button", { name: "Masuk" }).click();
+  await loginViaForm(page, identifier);
 }
 
 test("Guru can open Activity Completion progress without horizontal overflow", async ({ page }) => {

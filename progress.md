@@ -36,6 +36,13 @@ Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman 
 - Job notifikasi dipindah ke `src/server/services/notification-job-service.ts` (impor relatif tanpa `server-only`) agar `npm run notifications:retry` dapat dieksekusi Node; sebelumnya gagal karena rantai impor `payment-gateway-service`.
 - Jadwalkan `notifications:retry` tiap menit (lihat `docs/DEPLOYMENT.md`); kontrak webhook n8n dan template didokumentasikan di `docs/MAYAR_N8N_INTEGRATION.md`, rencana lengkap di `docs/PLAN_NOTIFIKASI_PENDAFTARAN.md`.
 
+### Perbaikan Harness E2E & Skrip Cron
+
+- Helper login bersama `tests/e2e/support/auth.ts` menggantikan salinan `login()` di 14 spec: menunggu halaman login siap, mengulang klik bila React belum ter-hydrate, dan menunggu keluar dari `/login` (menghilangkan flake "tertahan di /login").
+- `scripts/run-e2e-isolated.mjs` menonaktifkan seluruh feature flag untuk spec `production-navigation` agar benar-benar menguji perilaku default production (sebelumnya selalu gagal karena dev default mengaktifkan semua flag).
+- Loader Node `scripts/node-module-hooks.mjs` + `scripts/register-node-module-hooks.mjs` me-resolve `server-only` dan alias `@/` untuk skrip di luar bundler Next; seluruh npm script job/backup/seed memakai `--import` sehingga `sessions:cleanup`, `billing:mark-overdue`, `billing:generate`, `reminders:send`, `mayar:reconcile`, `pakasir:reconcile`, `backup:create`, dan `backup:restore` kembali dapat dijalankan.
+- Hasil: `accessibility`, `production-navigation`, `week7`, dan `week9` lulus; `npm run typecheck`, `npm test`, dan `npx eslint tests/e2e scripts` lulus.
+
 
 ## Status Minggu 1
 
