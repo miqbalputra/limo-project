@@ -121,7 +121,7 @@ test("Guru Arabic question form and seeded RTL card use localized content", asyn
 
   const form = page.getByTestId("bank-soal-form");
   await expect(form).toBeVisible();
-  await form.locator('select[name="kelasId"]').selectOption({ label: "Bahasa Arab - Arabic Pemula A" });
+  await form.locator('select[name="kelasId"]').selectOption({ label: "Arabic for Kids - Arabic Pemula A" });
   await form.getByLabel("Bahasa konten").fill("ar");
   await form.getByLabel("Arah konten").selectOption("rtl");
   const questionField = page.getByTestId("bank-soal-question-field");

@@ -10,8 +10,8 @@ test("landing page works at 360px with accessible navigation and public links", 
   await page.goto("/");
 
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Daftarkan Anak Sekarang/i })).toHaveAttribute("href", "/daftar");
-  await expect(page.getByRole("link", { name: /Daftar Sekarang/i }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /Daftar Sekarang/i }).first()).toHaveAttribute("href", "/daftar");
+  await expect(page.getByRole("link", { name: /Daftar \/ Join Waiting List/i })).toBeVisible();
 
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(hasHorizontalOverflow).toBe(false);

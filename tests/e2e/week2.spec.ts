@@ -11,7 +11,7 @@ async function expectNoHorizontalOverflow(page: import("@playwright/test").Page)
 }
 
 test("Week 2 guru LMS and exam pages are usable on mobile", async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(150_000);
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page, "guru@limo.local");
   await expect(page).toHaveURL(/\/guru$/, { timeout: 15_000 });
@@ -76,6 +76,7 @@ test("Week 2 wali score history is readable on mobile", async ({ page }) => {
 });
 
 test("Wali online exam resumes an autosaved answer on mobile", async ({ page }) => {
+  test.setTimeout(150_000);
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page, "wali@limo.local");
   await expect(page).toHaveURL(/\/wali$/, { timeout: 15_000 });
@@ -91,8 +92,15 @@ test("Wali online exam resumes an autosaved answer on mobile", async ({ page }) 
   await page.goto(taskHref || "/wali/tugas");
 
   if (page.url().includes("/ujian/")) {
-    await page.getByRole("button", { name: "Mulai Kerjakan" }).click();
-    await page.waitForURL(/\/wali\/tugas\/attempt\//, { timeout: 15_000 });
+    const startButton = page.getByRole("button", { name: "Mulai Kerjakan" });
+    let started = false;
+    for (let attempt = 0; attempt < 2 && !started; attempt += 1) {
+      if (await startButton.isVisible().catch(() => false)) {
+        await startButton.click();
+      }
+      started = await page.waitForURL(/\/wali\/tugas\/attempt\//, { timeout: 30_000 }).then(() => true).catch(() => false);
+    }
+    if (!started) throw new Error("Gagal memulai attempt ujian wali");
   }
 
   const firstAnswer = page.locator('input[type="radio"]').first();

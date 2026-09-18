@@ -38,10 +38,16 @@ Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman 
 
 ### Perbaikan Harness E2E & Skrip Cron
 
-- Helper login bersama `tests/e2e/support/auth.ts` menggantikan salinan `login()` di 14 spec: menunggu halaman login siap, mengulang klik bila React belum ter-hydrate, dan menunggu keluar dari `/login` (menghilangkan flake "tertahan di /login").
+- Helper login bersama `tests/e2e/support/auth.ts` dipakai 14 spec: login lewat API + pasang cookie sesi (deterministik), dengan retry saat dev server membalas 404 HTML karena route baru dikompilasi Turbopack. `retries` lokal diset 1 untuk meredam 404 kompilasi yang transien.
 - `scripts/run-e2e-isolated.mjs` menonaktifkan seluruh feature flag untuk spec `production-navigation` agar benar-benar menguji perilaku default production (sebelumnya selalu gagal karena dev default mengaktifkan semua flag).
 - Loader Node `scripts/node-module-hooks.mjs` + `scripts/register-node-module-hooks.mjs` me-resolve `server-only` dan alias `@/` untuk skrip di luar bundler Next; seluruh npm script job/backup/seed memakai `--import` sehingga `sessions:cleanup`, `billing:mark-overdue`, `billing:generate`, `reminders:send`, `mayar:reconcile`, `pakasir:reconcile`, `backup:create`, dan `backup:restore` kembali dapat dijalankan.
 - Hasil: `accessibility`, `production-navigation`, `week7`, dan `week9` lulus; `npm run typecheck`, `npm test`, dan `npx eslint tests/e2e scripts` lulus.
+- Verifikasi modul Guru/Wali: `week2`, `week3`, `week5`, `week8`, `week10`, `week11`, `w4`, `w5`, `week1` lulus. Sisa 2 test di `mobile-layout` (RTL Arab) gagal karena selector `select` kelas yang usang dan baseline screenshot (rasio diff 0.01) — kosmetik/harness, bukan cacat fungsional.
+
+### Workflow n8n Siap Impor
+
+- `deploy/n8n/limo-whatsapp.workflow.json` dan `deploy/n8n/limo-email.workflow.json`: webhook + validasi `X-Limo-Webhook-Secret` + kirim ke GOWA/SMTP + respond 2xx/401. Tinggal impor, ganti placeholder secret, dan pilih credential.
+- Referensi langkah impor ada di `docs/PANDUAN_KONFIGURASI_NOTIFIKASI.md`.
 
 
 ## Status Minggu 1

@@ -51,7 +51,9 @@ test("Siswa and Wali cannot see a Guru's unpublished calculated grade", async ({
   const studentId = new URL(studentHref, "http://127.0.0.1:3000").searchParams.get("siswaId");
   if (!studentId) throw new Error("ID siswa pada roster Guru tidak ditemukan");
 
-  const setup = await page.evaluate(async ({ classId, studentId }) => {
+  const suffix = Math.random().toString(36).replace(/[0-9]/g, "").padEnd(4, "z").slice(0, 6);
+
+  const setup = await page.evaluate(async ({ classId, studentId, suffix: token }) => {
     async function request(path: string, body?: unknown, method = "POST") {
       const response = await fetch(path, {
         method,
@@ -71,13 +73,13 @@ test("Siswa and Wali cannot see a Guru's unpublished calculated grade", async ({
       return item;
     }
 
-    const category = await request(`/api/v1/guru/kelas/${classId}/gradebook/categories`, { name: `R5 E2E draft ${Date.now()}`, weight: 100, order: 0 });
+    const category = await request(`/api/v1/guru/kelas/${classId}/gradebook/categories`, { name: `R5 E2E draft ${token}`, weight: 1, order: 0 });
     await request(`/api/v1/guru/gradebook/categories/${category.id}`, { status: "PUBLISHED" }, "PATCH");
-    const item = await request(`/api/v1/guru/kelas/${classId}/gradebook/items`, { categoryId: category.id, sourceType: "MANUAL", title: "R5 E2E provisional score", maxScore: 100 });
+    const item = await request(`/api/v1/guru/kelas/${classId}/gradebook/items`, { categoryId: category.id, sourceType: "MANUAL", title: `R5 E2E provisional score ${token}`, maxScore: 100 });
     await request(`/api/v1/guru/gradebook/items/${item.id}`, { status: "PUBLISHED" }, "PATCH");
-    await request(`/api/v1/guru/gradebook/items/${item.id}/entries`, { studentId, rawScore: 97, status: "GRADED" }, "PUT");
+    await request(`/api/v1/guru/gradebook/items/${item.id}/entries`, { studentId, rawScore: 83, status: "GRADED" }, "PUT");
     return { categoryId: category.id, itemId: item.id };
-  }, { classId, studentId });
+  }, { classId, studentId, suffix });
   expect(setup.categoryId).toBeTruthy();
   expect(setup.itemId).toBeTruthy();
 
@@ -93,7 +95,7 @@ test("Siswa and Wali cannot see a Guru's unpublished calculated grade", async ({
   expect(studentResponse.payload.data.rows[0].calculatedScore).toBeNull();
   await page.goto(`/siswa/kelas/${classId}/gradebook`);
   await expect(page.getByText("Menunggu publikasi guru")).toBeVisible();
-  await expect(page.locator("main")).not.toContainText("97");
+  await expect(page.locator("main")).not.toContainText("83");
 
   await page.context().clearCookies();
   await login(page, "wali@limo.local");
@@ -107,5 +109,5 @@ test("Siswa and Wali cannot see a Guru's unpublished calculated grade", async ({
   expect(waliResponse.payload.data.rows[0].calculatedScore).toBeNull();
   await page.goto(`/wali/progres/${studentId}/gradebook`);
   await expect(page.getByText("Menunggu publikasi guru")).toBeVisible();
-  await expect(page.locator("main")).not.toContainText("97");
+  await expect(page.locator("main")).not.toContainText("83");
 });

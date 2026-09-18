@@ -11,7 +11,7 @@ export default defineConfig({
   testIgnore: pwaProductionSpec,
   fullyParallel: false,
   forbidOnly: isCI,
-  retries: isCI ? 2 : 0,
+  retries: isCI ? 2 : 1,
   workers: 1,
   timeout: 90_000,
   expect: {

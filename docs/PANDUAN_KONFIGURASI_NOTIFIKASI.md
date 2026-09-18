@@ -127,7 +127,13 @@ Catatan: aplikasi sudah menormalkan nomor WhatsApp ke format `62...` sehingga co
 
 ## 5. Workflow n8n — WhatsApp
 
-Buat workflow baru berisi node berikut:
+Cara tercepat: impor `deploy/n8n/limo-whatsapp.workflow.json` (n8n → Workflows → **Import from File**), lalu:
+
+1. Buka node **Secret Valid?** dan ganti `GANTI_DENGAN_N8N_WEBHOOK_SECRET` dengan nilai `N8N_WEBHOOK_SECRET`.
+2. Buka node **GOWA Send Message** dan pilih credential **Basic Auth** GOWA (sesuaikan URL jika path GOWA Anda berbeda).
+3. **Save** lalu aktifkan workflow, dan salin **Production URL** ke `N8N_WHATSAPP_WEBHOOK_URL`.
+
+Rincian node berikut untuk verifikasi/manual:
 
 1. **Webhook**
    - HTTP Method: `POST`
@@ -186,6 +192,10 @@ Import lalu **pilih ulang credential Basic Auth GOWA** dan ganti secret.
 ```
 
 ## 6. Workflow n8n — Email
+
+Cara tercepat: impor `deploy/n8n/limo-email.workflow.json`, ganti placeholder secret pada node **Secret Valid?**, pilih credential **SMTP** pada node **Send Email**, sesuaikan `fromEmail`, lalu aktifkan workflow dan salin **Production URL** ke `N8N_EMAIL_WEBHOOK_URL`.
+
+Rincian manual:
 
 1. **Webhook**: `POST`, path `limo-email`, response mode `responseNode`.
 2. **IF** validasi header `x-limo-webhook-secret` sama dengan `N8N_WEBHOOK_SECRET`.
