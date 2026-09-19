@@ -16,7 +16,7 @@ Admin reject    ─┘        │
    POST /webhook/limo-whatsapp        POST /webhook/limo-email
         │  X-Limo-Webhook-Secret            │
         ▼                                   ▼
-      GOWA ─▶ WhatsApp                  SMTP ─▶ Email
+      GOWA ─▶ WhatsApp                  Gmail ─▶ Email
                           │
                           ▼
         NotificationDelivery (SENT/FAILED, attempt) + JobRun
@@ -37,7 +37,7 @@ Catatan: jika `NOTIFICATION_PROVIDER=email`, kanal WhatsApp dilewati. Jika `n8n`
 
 - Aplikasi LIMO production sudah berjalan (Docker/Dokploy atau PM2) dan `APP_URL` HTTPS valid.
 - n8n self-host yang dapat diakses publik dengan HTTPS.
-- Kredensial SMTP (host, port, user, password, alamat pengirim).
+- Akun Gmail pengirim + credential **Gmail OAuth2** di n8n (atau SMTP bila memakai provider `email`).
 - GOWA (WhatsApp gateway) dengan nomor WhatsApp resmi LIMO.
 - Akses ke scheduler (cron host, schedule Dokploy, atau container cron terpisah).
 
@@ -63,10 +63,10 @@ N8N_WEBHOOK_SECRET=secret-acak-panjang-untuk-n8n
 | `N8N_EMAIL_WEBHOOK_URL` | Jika provider `n8n` | URL production webhook workflow email. |
 | `N8N_WHATSAPP_WEBHOOK_URL` | Jika provider `n8n` | URL production webhook workflow WhatsApp. |
 | `N8N_WEBHOOK_SECRET` | Jika provider `n8n` | Dikirim sebagai header `X-Limo-Webhook-Secret`. |
-| `SMTP_*` | Jika provider `email`, atau dipakai node email di n8n | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`. |
+| `SMTP_*` | Hanya jika provider `email` | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`. Untuk provider `n8n`, email dikirim lewat node **Gmail** (tanpa SMTP). |
 | `APP_URL` | Ya | Dipakai untuk tautan cek status dan tautan aktivasi. |
 
-Validasi environment otomatis menolak konfigurasi tidak lengkap (`src/server/env.ts:95`). Jika `app` gagal start dengan pesan `Invalid application environment`, cek kembali ketiga variabel n8n atau variabel SMTP.
+Validasi environment otomatis menolak konfigurasi tidak lengkap (`src/server/env.ts:95`). Jika `app` gagal start dengan pesan `Invalid application environment`, cek kembali ketiga variabel n8n atau variabel SMTP (bila `NOTIFICATION_PROVIDER=email`).
 
 ### 3.3 Alternatif tanpa WhatsApp (email saja)
 
@@ -191,22 +191,25 @@ Import lalu **pilih ulang credential Basic Auth GOWA** dan ganti secret.
 }
 ```
 
-## 6. Workflow n8n — Email
+## 6. Workflow n8n — Email (Gmail)
 
-Cara tercepat: impor `deploy/n8n/limo-email.workflow.json`, ganti placeholder secret pada node **Secret Valid?**, pilih credential **SMTP** pada node **Send Email**, sesuaikan `fromEmail`, lalu aktifkan workflow dan salin **Production URL** ke `N8N_EMAIL_WEBHOOK_URL`.
+Cara tercepat: impor `deploy/n8n/limo-email.workflow.json`, ganti placeholder secret pada node **Secret Valid?**, pilih credential **Gmail OAuth2** pada node **Send Gmail**, lalu aktifkan workflow dan salin **Production URL** ke `N8N_EMAIL_WEBHOOK_URL`. Tidak perlu SMTP untuk jalur n8n ini.
 
 Rincian manual:
 
 1. **Webhook**: `POST`, path `limo-email`, response mode `responseNode`.
 2. **IF** validasi header `x-limo-webhook-secret` sama dengan `N8N_WEBHOOK_SECRET`.
-3. **Send Email** (cabang `true`), credential SMTP:
-   - From: `LIMO <no-reply@limo.example.com>`
-   - To: `{{ $json.body.recipient }}`
-   - Subject: `{{ $json.body.subject }}`
-   - Email Format: `Text`
-   - Text: `{{ $json.body.body }}`
-4. **Respond to Webhook** 200 `{ "ok": true }` setelah node email sukses.
+3. **Gmail** (cabang `true`), credential **Gmail OAuth2**:
+   - Resource/Operation: `Message` / `Send`
+   - To (`sendTo`): `{{ $json.body.recipient }}`
+   - Subject: `{{ $json.body.subject || "Notifikasi LIMO" }}`
+   - Email Type: `Text`
+   - Message: `{{ $json.body.body }}`
+   - Options → `Append n8n attribution`: matikan (nonaktif)
+4. **Respond to Webhook** 200 `{ "ok": true }` setelah node Gmail sukses.
 5. **Respond to Webhook** 401 pada cabang `false`.
+
+Membuat credential Gmail OAuth2 (sekali saja): di n8n buat credential **Gmail OAuth2 API** dengan Client ID/Secret dari Google Cloud Console, aktifkan **Gmail API**, lalu hubungkan/authorize akun pengirim (mis. `no-reply@domain-limo` atau akun Gmail resmi LIMO). Pastikan akun punya izin mengirim (`gmail.send`) dan belum terkena batas kuota harian Gmail.
 
 Aktifkan workflow dan salin Production URL ke `N8N_EMAIL_WEBHOOK_URL`.
 
@@ -232,7 +235,7 @@ Aplikasi mengirim:
 
 Header: `X-Limo-Webhook-Secret: <N8N_WEBHOOK_SECRET>`.
 
-n8n harus membalas `2xx` **hanya setelah** provider (GOWA/SMTP) menerima pesan. Balasan non-2xx akan tercatat sebagai `FAILED` dan dicoba ulang oleh job LIMO (maksimal 5 percobaan).
+n8n harus membalas `2xx` **hanya setelah** provider (GOWA/Gmail) menerima pesan. Balasan non-2xx akan tercatat sebagai `FAILED` dan dicoba ulang oleh job LIMO (maksimal 5 percobaan).
 
 ## 8. Scheduler `notifications:retry`
 
@@ -322,7 +325,7 @@ Atau tambahkan service `cron` dengan `supercronic` yang memakai image aplikasi y
 | Notifikasi tetap `PENDING` | Cron tidak berjalan | Cek `JobRun` dan log cron; pastikan perintah `notifications:retry` jalan. |
 | `FAILED` dengan "Provider WhatsApp belum dikonfigurasi" | `NOTIFICATION_PROVIDER` bukan `n8n`/`email` yang didukung | Set `n8n` atau `email`. |
 | WhatsApp tidak terkirim | GOWA logout / nomor tidak valid / basic auth salah | Scan ulang QR GOWA, pastikan format `62...`, cek credential. |
-| Email masuk spam | SPF/DKIM/DMARC domain belum diatur | Atur DNS pengirim dan gunakan `SMTP_FROM` berdomain resmi. |
+| Email gagal terkirim via Gmail | Credential Gmail OAuth2 belum terhubung / scope kurang / kuota Gmail | Hubungkan ulang credential **Gmail OAuth2**, aktifkan Gmail API, cek status akun pengirim. |
 | `FAILED` permanen setelah 5 percobaan | Retry limit tercapai | Perbaiki penyebab, lalu reset notifikasi bermasalah (lihat di bawah). |
 | Notifikasi ganda | Dua cron berjalan bersamaan | Pastikan hanya satu scheduler (gunakan `flock`/lock). |
 
@@ -347,7 +350,7 @@ UPDATE Notifikasi SET status = 'PENDING' WHERE id = '<id>';
 - [ ] Workflow `limo-whatsapp` dan `limo-email` berstatus **Active** dan Production URL disalin ke environment.
 - [ ] Secret header sama di aplikasi dan workflow.
 - [ ] GOWA tersambung dengan nomor WhatsApp LIMO dan uji kirim manual berhasil.
-- [ ] SMTP terverifikasi untuk email.
+- [ ] Credential Gmail OAuth2 terverifikasi untuk email (atau SMTP bila provider `email`).
 - [ ] Scheduler `notifications:retry` berjalan tiap menit (hanya satu instance).
 - [ ] Submit pendaftaran uji → WA + email konfirmasi diterima.
 - [ ] Approve pendaftaran uji → WA + email berisi tautan aktivasi diterima.
