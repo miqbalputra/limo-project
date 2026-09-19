@@ -59,6 +59,16 @@ export const createUjianSchema = z.object({
   durationMinutes: z.coerce.number().int().min(1).max(600).default(60),
   maxAttempts: z.coerce.number().int().min(1).max(5).default(1),
   showResultToWali: z.boolean().default(true),
+  mode: z.enum(["UJIAN", "LATIHAN"]).default("UJIAN"),
+  shuffleQuestions: z.boolean().default(false),
+  shuffleOptions: z.boolean().default(false),
+  passingScore: z.preprocess(
+    (value) => (value === "" || value === null || value === undefined ? undefined : Number(value)),
+    z.number().int().min(0).max(100).optional(),
+  ),
+  showScoreImmediately: z.boolean().default(false),
+  showAnswersAfterSubmit: z.boolean().default(false),
+  collectRespondentName: z.boolean().default(true),
   questions: z
     .array(
       z.object({
@@ -95,4 +105,20 @@ export const submitHasilUjianSchema = z.object({
 export const correctHasilUjianSchema = z.object({
   reason: z.string().trim().min(5).max(1000),
   answers: answersSchema,
+});
+
+export const startPublicQuizSchema = z.object({
+  respondentName: z.string().trim().min(2).max(120),
+});
+
+export const publicQuizDraftSchema = z.object({
+  answers: z.array(examAnswerSchema).max(100),
+});
+
+export const submitPublicQuizSchema = z.object({
+  answers: answersSchema,
+});
+
+export const updateUjianShareSchema = z.object({
+  regenerate: z.boolean().default(false),
 });

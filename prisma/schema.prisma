@@ -1322,18 +1322,52 @@ model Ujian {
   examDate         DateTime?
   durationMinutes  Int            @default(60)
   deliveryMode     String         @default("TEACHER_ENTRY") @db.VarChar(32)
+  mode             String         @default("UJIAN") @db.VarChar(16)
   availableFrom    DateTime?
   availableUntil   DateTime?
   maxAttempts      Int            @default(1)
   showResultToWali Boolean        @default(true)
+  shareToken       String?        @unique @db.VarChar(64)
+  shuffleQuestions Boolean        @default(false)
+  shuffleOptions   Boolean        @default(false)
+  passingScore     Int?
+  showScoreImmediately   Boolean  @default(false)
+  showAnswersAfterSubmit Boolean  @default(false)
+  collectRespondentName  Boolean  @default(true)
   createdById      String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   questions        UjianSoal[]
   results          HasilUjian[]
   attempts         UjianAttempt[]
+  responses        QuizResponse[]
 
   @@index([kelasId, status])
+}
+
+model QuizResponse {
+  id             String    @id @default(cuid())
+  ujianId        String
+  ujian          Ujian     @relation(fields: [ujianId], references: [id], onDelete: Cascade)
+  shareToken     String    @db.VarChar(64)
+  respondentName String    @db.VarChar(120)
+  status         String    @default("IN_PROGRESS") @db.VarChar(24)
+  startedAt      DateTime  @default(now())
+  submittedAt    DateTime?
+  expiresAt      DateTime?
+  draftAnswers   Json?
+  draftSavedAt   DateTime?
+  finalAnswers   Json?
+  questionOrder  Json?
+  score          Decimal?  @db.Decimal(8, 2)
+  maxScore       Decimal?  @db.Decimal(8, 2)
+  passed         Boolean?
+  ipHash         String?   @db.VarChar(64)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([ujianId, status])
+  @@index([shareToken, createdAt])
 }
 
 model UjianAttempt {

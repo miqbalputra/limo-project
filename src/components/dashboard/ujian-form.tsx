@@ -76,6 +76,13 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
           durationMinutes: Number(data.get("durationMinutes") || 60),
           maxAttempts: Number(data.get("maxAttempts") || 1),
           showResultToWali: data.get("showResultToWali") === "on",
+          mode: String(data.get("mode") || "UJIAN"),
+          shuffleQuestions: data.get("shuffleQuestions") === "on",
+          shuffleOptions: data.get("shuffleOptions") === "on",
+          passingScore: String(data.get("passingScore") || ""),
+          showScoreImmediately: data.get("showScoreImmediately") === "on",
+          showAnswersAfterSubmit: data.get("showAnswersAfterSubmit") === "on",
+          collectRespondentName: data.get("collectRespondentName") === "on",
           questions,
         },
         fallbackMessage: "Ujian gagal disimpan",
@@ -126,6 +133,45 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
         <input name="showResultToWali" type="checkbox" defaultChecked className="accent-limo-blue-500" />
         Tampilkan hasil ke wali setelah final
       </label>
+      <div className="rounded-xl border border-gray-200 p-4">
+        <p className="text-theme-sm font-semibold text-gray-700">Pengaturan kuis</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+            Jenis
+            <select name="mode" defaultValue="UJIAN" className="mt-2 tailadmin-input">
+              <option value="UJIAN">Ujian (per kelas)</option>
+              <option value="LATIHAN">Latihan</option>
+            </select>
+          </label>
+          <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+            Nilai KKM (0-100)
+            <input name="passingScore" type="number" min={0} max={100} placeholder="Opsional" className="mt-2 tailadmin-input" />
+          </label>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <label className="flex items-center gap-2 rounded-xl bg-gray-50 p-3 text-theme-sm text-gray-700">
+            <input name="shuffleQuestions" type="checkbox" className="accent-limo-blue-500" />
+            Acak urutan soal
+          </label>
+          <label className="flex items-center gap-2 rounded-xl bg-gray-50 p-3 text-theme-sm text-gray-700">
+            <input name="shuffleOptions" type="checkbox" className="accent-limo-blue-500" />
+            Acak urutan opsi
+          </label>
+          <label className="flex items-center gap-2 rounded-xl bg-gray-50 p-3 text-theme-sm text-gray-700">
+            <input name="showScoreImmediately" type="checkbox" className="accent-limo-blue-500" />
+            Tampilkan skor langsung
+          </label>
+          <label className="flex items-center gap-2 rounded-xl bg-gray-50 p-3 text-theme-sm text-gray-700">
+            <input name="showAnswersAfterSubmit" type="checkbox" className="accent-limo-blue-500" />
+            Tampilkan kunci & pembahasan
+          </label>
+          <label className="flex items-center gap-2 rounded-xl bg-gray-50 p-3 text-theme-sm text-gray-700">
+            <input name="collectRespondentName" type="checkbox" defaultChecked className="accent-limo-blue-500" />
+            Minta nama responden (tautan publik)
+          </label>
+        </div>
+        <p className="mt-2 text-theme-xs text-gray-500">Pengaturan ini dipakai untuk tautan kuis publik (tanpa login).</p>
+      </div>
       <input name="durationMinutes" type="number" min={1} max={600} defaultValue={60} aria-invalid={Boolean(fieldErrors.durationMinutes)} aria-describedby="ujian-duration-error" className="tailadmin-input" placeholder="Durasi ujian dalam menit" />
       <FormFieldError id="ujian-duration-error" errors={fieldErrors.durationMinutes} />
       <div className="rounded-xl border border-gray-200 p-4">

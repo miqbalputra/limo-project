@@ -5,6 +5,7 @@ import { listMyKelas } from "@/server/services/lms-service";
 import { UjianForm } from "@/components/dashboard/ujian-form";
 import { ExamDuplicateButton } from "@/components/dashboard/exam-duplicate-button";
 import { ExamStatusActions } from "@/components/dashboard/exam-status-actions";
+import { ShareExamButton } from "@/components/dashboard/share-exam-button";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { LocalizedContent } from "@/components/localized-content";
@@ -37,11 +38,14 @@ export default async function GuruUjianPage({ searchParams }: { searchParams: Pr
           <article key={item.id} className="tailadmin-card p-5">
             <p className="text-theme-sm font-semibold text-limo-blue-700">{item.kelas.program.name} / {item.kelas.name}</p>
             <h2 className="mt-1 text-lg font-semibold text-gray-900">{item.title}</h2>
-            <p className="mt-1 text-theme-sm text-gray-500">{formatUiLabel(item.status)} / {formatUiLabel(item.deliveryMode)} / {item.durationMinutes} menit / {item.questions.length} soal / {item._count.results} hasil / {item._count.attempts} percobaan online</p>
+            <p className="mt-1 text-theme-sm text-gray-500">{formatUiLabel(item.mode)} / {formatUiLabel(item.status)} / {formatUiLabel(item.deliveryMode)} / {item.durationMinutes} menit / {item.questions.length} soal / {item._count.results} hasil / {item._count.attempts} percobaan online</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Link href={`/guru/ujian/${item.id}/hasil`} className="tailadmin-button-primary px-4 py-2">Input Hasil</Link>
                <ExamDuplicateButton ujianId={item.id} />
                <ExamStatusActions ujianId={item.id} status={item.status} />
+            </div>
+            <div className="mt-3">
+              <ShareExamButton ujianId={item.id} hasToken={Boolean(item.shareToken)} />
             </div>
             <ol className="mt-3 list-decimal space-y-1 ps-5 text-theme-sm text-gray-700">
               {item.questions.map((question) => (

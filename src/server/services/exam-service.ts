@@ -4,7 +4,8 @@ import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canManageClass } from "@/server/policies/access-policy";
-import { correctHasilUjianSchema, createBankSoalSchema, createUjianSchema, submitHasilUjianSchema, updateUjianStatusSchema } from "@/server/validation/exam";
+import { generateOpaqueToken } from "@/server/security/crypto";
+import { correctHasilUjianSchema, createBankSoalSchema, createUjianSchema, submitHasilUjianSchema, updateUjianShareSchema, updateUjianStatusSchema } from "@/server/validation/exam";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
 import { syncGradebookForSource } from "@/server/services/gradebook-service";
 import { syncActivityCompletionForExam } from "@/server/services/activity-completion-service";
@@ -225,6 +226,14 @@ export async function listUjian(actor: Actor, paginationInput?: PaginationInput)
       durationMinutes: true,
       maxAttempts: true,
       showResultToWali: true,
+      mode: true,
+      shareToken: true,
+      shuffleQuestions: true,
+      shuffleOptions: true,
+      passingScore: true,
+      showScoreImmediately: true,
+      showAnswersAfterSubmit: true,
+      collectRespondentName: true,
       kelas: { select: { id: true, name: true, program: { select: { name: true } } } },
       questions: {
         orderBy: { order: "asc" },
@@ -283,6 +292,13 @@ export async function createUjian(actor: Actor, input: unknown) {
         durationMinutes: parsed.data.durationMinutes,
         maxAttempts: parsed.data.maxAttempts,
         showResultToWali: parsed.data.showResultToWali,
+        mode: parsed.data.mode,
+        shuffleQuestions: parsed.data.shuffleQuestions,
+        shuffleOptions: parsed.data.shuffleOptions,
+        passingScore: parsed.data.passingScore ?? null,
+        showScoreImmediately: parsed.data.showScoreImmediately,
+        showAnswersAfterSubmit: parsed.data.showAnswersAfterSubmit,
+        collectRespondentName: parsed.data.collectRespondentName,
         createdById: actor.id,
       },
       select: { id: true, title: true },
@@ -330,6 +346,13 @@ export async function duplicateUjian(actor: Actor, ujianId: string) {
       durationMinutes: true,
       maxAttempts: true,
       showResultToWali: true,
+      mode: true,
+      shuffleQuestions: true,
+      shuffleOptions: true,
+      passingScore: true,
+      showScoreImmediately: true,
+      showAnswersAfterSubmit: true,
+      collectRespondentName: true,
       questions: {
         orderBy: { order: "asc" },
         select: { bankSoalId: true, weight: true, order: true },
@@ -354,6 +377,13 @@ export async function duplicateUjian(actor: Actor, ujianId: string) {
         durationMinutes: source.durationMinutes,
         maxAttempts: source.maxAttempts,
         showResultToWali: source.showResultToWali,
+        mode: source.mode,
+        shuffleQuestions: source.shuffleQuestions,
+        shuffleOptions: source.shuffleOptions,
+        passingScore: source.passingScore,
+        showScoreImmediately: source.showScoreImmediately,
+        showAnswersAfterSubmit: source.showAnswersAfterSubmit,
+        collectRespondentName: source.collectRespondentName,
         createdById: actor.id,
       },
       select: { id: true, title: true, status: true },
@@ -382,6 +412,48 @@ export async function duplicateUjian(actor: Actor, ujianId: string) {
   });
 
   return { item: { ...item, questionCount: source.questions.length } };
+}
+
+export async function shareUjian(actor: Actor, ujianId: string, input: unknown = {}) {
+  const parsed = updateUjianShareSchema.safeParse(input);
+
+  if (!parsed.success) {
+    throw new ValidationError("Permintaan berbagi tidak valid", parsed.error.flatten().fieldErrors);
+  }
+
+  const ujian = await prisma.ujian.findUnique({
+    where: { id: ujianId },
+    select: { id: true, kelasId: true, shareToken: true, status: true, title: true },
+  });
+
+  if (!ujian) {
+    throw new NotFoundError("Ujian tidak ditemukan");
+  }
+
+  await assertQuestionScope(actor, ujian.kelasId);
+
+  if (ujian.status !== "PUBLISHED") {
+    throw new ConflictError("Terbitkan kuis terlebih dahulu sebelum membagikan tautan");
+  }
+
+  let token = ujian.shareToken;
+
+  if (!token || parsed.data.regenerate) {
+    token = generateOpaqueToken(24);
+
+    await prisma.ujian.update({ where: { id: ujian.id }, data: { shareToken: token } });
+    await prisma.auditLog.create({
+      data: {
+        actorId: actor.id,
+        action: "UJIAN_SHARE_TOKEN_CREATED",
+        entityType: "Ujian",
+        entityId: ujian.id,
+        metadata: { rotated: Boolean(ujian.shareToken) },
+      },
+    });
+  }
+
+  return { token, url: `/kuis/${token}`, title: ujian.title, status: ujian.status };
 }
 
 export async function updateUjianStatus(actor: Actor, ujianId: string, input: unknown) {

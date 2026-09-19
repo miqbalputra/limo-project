@@ -49,6 +49,15 @@ Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman 
 - `deploy/n8n/limo-whatsapp.workflow.json` dan `deploy/n8n/limo-email.workflow.json`: webhook + validasi `X-Limo-Webhook-Secret` + kirim ke GOWA/SMTP + respond 2xx/401. Tinggal impor, ganti placeholder secret, dan pilih credential.
 - Referensi langkah impor ada di `docs/PANDUAN_KONFIGURASI_NOTIFIKASI.md`.
 
+### Kuis Builder & Share Link (ala Google Forms)
+
+- Bank soal: form pembuatan kini mendukung opsi jawaban dinamis (tambah/hapus hingga 8, tandai kunci tunggal/ganda), pasangan menjodohkan, item urutan, dan kriteria rubrik yang bisa ditambah/hapus.
+- Pengaturan kuis pada Ujian: `mode` (UJIAN/LATIHAN), `shuffleQuestions`, `shuffleOptions`, `passingScore`, `showScoreImmediately`, `showAnswersAfterSubmit`, `collectRespondentName`.
+- Share link: tombol "Bagikan kuis" di daftar ujian guru menghasilkan `shareToken` stabil; halaman publik `/kuis/[token]` dapat dibuka tanpa login (isi nama, timer, draf autosave, submit) dan menampilkan skor/KKM/pembahasan sesuai pengaturan.
+- Penilaian otomatis untuk tipe objektif; kunci jawaban tidak pernah dikirim ke responden sebelum submit. Respons publik disimpan di model `QuizResponse` (terpisah dari nilai kelas).
+- Endpoint: `POST /api/v1/ujian/[id]/share`, `GET/POST /api/v1/public/quiz/[token]`, `GET/PATCH /api/v1/public/quiz/[token]/responses/[responseId]`, `POST .../submit`, `GET .../result`.
+- Verifikasi: `npm run test:quiz-share` (buat soal/kuis, share, intro publik, tanpa kebocoran kunci, draf, submit auto-score + KKM + pembahasan, anti-submit-ganda, proteksi token); typecheck & eslint bersih.
+
 ### Export PDF/Excel per Peserta
 
 - Endpoint baru `GET /api/v1/admin/pendaftaran/[id]/export/pdf` dan `/export/excel` (khusus ADMIN) menghasilkan dokumen per satu pendaftar dengan nama file memuat kode pendaftaran.
