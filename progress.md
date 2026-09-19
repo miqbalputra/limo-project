@@ -49,6 +49,14 @@ Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman 
 - `deploy/n8n/limo-whatsapp.workflow.json` dan `deploy/n8n/limo-email.workflow.json`: webhook + validasi `X-Limo-Webhook-Secret` + kirim ke GOWA/SMTP + respond 2xx/401. Tinggal impor, ganti placeholder secret, dan pilih credential.
 - Referensi langkah impor ada di `docs/PANDUAN_KONFIGURASI_NOTIFIKASI.md`.
 
+### Export PDF/Excel per Peserta
+
+- Endpoint baru `GET /api/v1/admin/pendaftaran/[id]/export/pdf` dan `/export/excel` (khusus ADMIN) menghasilkan dokumen per satu pendaftar dengan nama file memuat kode pendaftaran.
+- Isi: data peserta (menyesuaikan Diri sendiri/Anak), data wali/kontak, seluruh jawaban formulir program, persetujuan, lampiran, dan riwayat status.
+- Excel berupa multi-sheet: `Data Peserta`, `Jawaban Formulir`, `Persetujuan & Riwayat`. PDF A4 portrait dengan footer nomor halaman.
+- Tombol unduh tersedia di halaman detail pendaftaran dan per baris pada daftar pendaftaran; setiap unduhan dicatat pada audit log (`PENDAFTARAN_EXPORTED`, scope detail).
+- Verifikasi: `npm run test:pendaftaran-v2` menguji admin 200, non-admin 403, id tidak ditemukan 404, dan validitas berkas (PDF `%PDF`, XLSX zip).
+
 
 ## Status Minggu 1
 

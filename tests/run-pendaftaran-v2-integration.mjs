@@ -361,8 +361,29 @@ try {
     assert.equal(detail.payload.data.pendaftaran.participantType, testCase.expected.participantType);
     assert.equal(detail.payload.data.pendaftaran.documentationConsent, testCase.expected.documentationConsent);
 
+    if (testCase.kind === "ENGLISH") {
+      const pdfExport = await request(`/api/v1/admin/pendaftaran/${registered.id}/export/pdf`, { cookie: admin.cookie });
+      assert.equal(pdfExport.response.status, 200, String(pdfExport.payload).slice(0, 200));
+      assert.match(pdfExport.response.headers.get("content-type") || "", /application\/pdf/);
+      assert.match(pdfExport.response.headers.get("content-disposition") || "", new RegExp(registered.kode));
+      assert.ok(typeof pdfExport.payload === "string" && pdfExport.payload.length > 100, "PDF per peserta berisi data");
+
+      const excelExport = await request(`/api/v1/admin/pendaftaran/${registered.id}/export/excel`, { cookie: admin.cookie });
+      assert.equal(excelExport.response.status, 200, String(excelExport.payload).slice(0, 200));
+      assert.match(excelExport.response.headers.get("content-type") || "", /spreadsheetml/);
+      assert.match(excelExport.response.headers.get("content-disposition") || "", /\.xlsx"/);
+      assert.ok(typeof excelExport.payload === "string" && excelExport.payload.length > 100, "Excel per peserta berisi data");
+    }
+
     ok(`${testCase.kind} (${testCase.expected.participantType}) tersimpan lengkap: data peserta, jawaban formulir, dan persetujuan`);
   }
+
+  const waliActor = await login("wali@limo.local");
+  const forbiddenPdfExport = await request(`/api/v1/admin/pendaftaran/${englishRegistrationId}/export/pdf`, { cookie: waliActor.cookie });
+  assert.equal(forbiddenPdfExport.response.status, 403);
+  const missingPdfExport = await request(`/api/v1/admin/pendaftaran/tidak-ada/export/pdf`, { cookie: admin.cookie });
+  assert.equal(missingPdfExport.response.status, 404);
+  ok("Export PDF/Excel per peserta: admin dapat mengunduh, non-admin 403, id tidak ditemukan 404");
 
   const englishBody = cases[0].body;
   const invalidCases = [

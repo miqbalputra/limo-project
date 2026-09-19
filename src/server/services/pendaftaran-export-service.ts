@@ -1,11 +1,12 @@
 import "server-only";
 import PDFDocument from "pdfkit/js/pdfkit.standalone.js";
 import ExcelJS from "exceljs";
-import type { getPendaftaranExportData, PendaftaranListFilters } from "@/server/services/pendaftaran-service";
+import type { getPendaftaranDetail, getPendaftaranExportData, PendaftaranListFilters } from "@/server/services/pendaftaran-service";
 import { LIMO_MEDIA_COLORS, toExcelArgb } from "@/lib/limo-brand";
 import { formatDocumentationConsent, formatGender, formatParticipantType, formatProgramAnswers } from "@/lib/pendaftaran-program-forms";
 
 type PendaftaranExportData = Awaited<ReturnType<typeof getPendaftaranExportData>>;
+type PendaftaranDetailRecord = Awaited<ReturnType<typeof getPendaftaranDetail>>["pendaftaran"];
 
 type PendaftaranExportInput = {
   data: PendaftaranExportData;
@@ -277,4 +278,227 @@ function spreadsheetText(value: string | null | undefined) {
 
 function truncate(value: string, maxLength: number) {
   return value.length > maxLength ? `${value.slice(0, maxLength - 1)}...` : value;
+}
+
+// --- Export per peserta (satu pendaftar) ---
+
+function detailIdentityRows(pendaftaran: PendaftaranDetailRecord): Array<[string, string]> {
+  const isChild = pendaftaran.participantType === "CHILD";
+  const rows: Array<[string, string]> = [
+    ["Nomor pendaftaran", pendaftaran.kode],
+    ["Status", formatStatus(pendaftaran.status)],
+    ["Waiting list", pendaftaran.isWaitingList ? "Ya" : "Tidak"],
+    ["Pendaftaran untuk", formatParticipantType(pendaftaran.participantType)],
+    [isChild ? "Nama lengkap anak" : "Nama lengkap", pendaftaran.studentName],
+    ["Nama panggilan", pendaftaran.studentNickname || "-"],
+    ["Jenis kelamin", formatGender(pendaftaran.studentGender)],
+    ["Tanggal lahir", formatDate(pendaftaran.studentBirthAt)],
+    ["Program", pendaftaran.program.name],
+    [isChild ? "Nama orang tua / wali" : "Nama peserta", pendaftaran.waliName],
+    ["Email", pendaftaran.waliEmail || "-"],
+    [isChild ? "Nomor WhatsApp orang tua / wali" : "Nomor WhatsApp", pendaftaran.waliPhone || "-"],
+    ["Alamat", pendaftaran.address || "-"],
+  ];
+
+  if (isChild) {
+    rows.push(["Sekolah anak", pendaftaran.schoolName || "-"]);
+    rows.push(["Kelas / jenjang", pendaftaran.gradeLevel || "-"]);
+  }
+
+  rows.push(["Dikirim", formatDateTime(pendaftaran.submittedAt)]);
+  rows.push(["Ditinjau", formatDateTime(pendaftaran.reviewedAt)]);
+
+  if (pendaftaran.rejectionReason) {
+    rows.push(["Alasan penolakan", pendaftaran.rejectionReason]);
+  }
+
+  return rows;
+}
+
+function detailConsentRows(pendaftaran: PendaftaranDetailRecord): Array<[string, string]> {
+  return [
+    ["Data benar & dapat dipertanggungjawabkan", pendaftaran.consentDataTruth ? "Disetujui" : "Belum disetujui"],
+    ["Penggunaan data untuk administrasi & pembelajaran", pendaftaran.consentDataUse ? "Disetujui" : "Belum disetujui"],
+    ["Dihubungi via WhatsApp / telepon / email", pendaftaran.consentContact ? "Disetujui" : "Belum disetujui"],
+    ["Persetujuan dokumentasi", formatDocumentationConsent(pendaftaran.documentationConsent)],
+    ["Waktu persetujuan", formatDateTime(pendaftaran.consentAt)],
+    ["Lampiran", formatFiles(pendaftaran.files)],
+  ];
+}
+
+function detailHistoryRows(pendaftaran: PendaftaranDetailRecord): Array<[string, string]> {
+  if (pendaftaran.histories.length === 0) {
+    return [["Belum ada riwayat", "-"]];
+  }
+
+  return pendaftaran.histories.map((history) => [
+    formatDateTime(history.createdAt),
+    `${history.fromStatus ? formatStatus(history.fromStatus) : "Baru"} -> ${formatStatus(history.toStatus)}${history.reason ? ` (${history.reason})` : ""}`,
+  ]);
+}
+
+type DetailWorkSheetSection = {
+  title: string;
+  headers?: [string, string];
+  rows: Array<[string, string]>;
+};
+
+function writeDetailWorkSheet(sheet: ExcelJS.Worksheet, sections: DetailWorkSheetSection[]) {
+  sheet.getColumn(1).width = 48;
+  sheet.getColumn(2).width = 84;
+  let rowIndex = 1;
+
+  for (const section of sections) {
+    const titleCell = sheet.getCell(rowIndex, 1);
+    titleCell.value = section.title;
+    titleCell.font = { bold: true, size: 13, color: { argb: toExcelArgb(LIMO_MEDIA_COLORS.primaryDark) } };
+    sheet.mergeCells(rowIndex, 1, rowIndex, 2);
+    rowIndex += 1;
+
+    if (section.headers) {
+      const headerCells = [sheet.getCell(rowIndex, 1), sheet.getCell(rowIndex, 2)];
+      headerCells[0].value = section.headers[0];
+      headerCells[1].value = section.headers[1];
+      headerCells.forEach((cell) => {
+        cell.font = { bold: true, color: { argb: toExcelArgb(LIMO_MEDIA_COLORS.white) } };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: toExcelArgb(LIMO_MEDIA_COLORS.primary) } };
+      });
+      rowIndex += 1;
+    }
+
+    for (const [label, value] of section.rows) {
+      const labelCell = sheet.getCell(rowIndex, 1);
+      labelCell.value = spreadsheetText(label);
+      labelCell.font = { bold: true, color: { argb: toExcelArgb(LIMO_MEDIA_COLORS.text) } };
+
+      const valueCell = sheet.getCell(rowIndex, 2);
+      valueCell.value = spreadsheetText(value);
+      valueCell.alignment = { wrapText: true, vertical: "top" };
+      rowIndex += 1;
+    }
+
+    rowIndex += 1;
+  }
+}
+
+export async function createPendaftaranDetailWorkbook(pendaftaran: PendaftaranDetailRecord) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "LIMO";
+  workbook.created = new Date();
+
+  const dataSheet = workbook.addWorksheet("Data Peserta");
+  writeDetailWorkSheet(dataSheet, [
+    { title: `Pendaftaran ${pendaftaran.kode}`, headers: ["Field", "Nilai"], rows: detailIdentityRows(pendaftaran) },
+  ]);
+
+  const answers = formatProgramAnswers(pendaftaran.program.kind, pendaftaran.programAnswers);
+  const answersSheet = workbook.addWorksheet("Jawaban Formulir");
+  writeDetailWorkSheet(answersSheet, [
+    {
+      title: `Jawaban Formulir - ${pendaftaran.studentName}`,
+      headers: ["Pertanyaan", "Jawaban"],
+      rows: answers.length > 0 ? answers.map((answer) => [answer.label, answer.value] as [string, string]) : [["Belum ada jawaban formulir program", "-"]],
+    },
+  ]);
+
+  const consentSheet = workbook.addWorksheet("Persetujuan & Riwayat");
+  writeDetailWorkSheet(consentSheet, [
+    { title: "Persetujuan", headers: ["Item", "Status"], rows: detailConsentRows(pendaftaran) },
+    { title: "Riwayat Status", headers: ["Waktu", "Perubahan"], rows: detailHistoryRows(pendaftaran) },
+  ]);
+
+  return Buffer.from(await workbook.xlsx.writeBuffer());
+}
+
+function pdfEnsureSpace(document: PDFKit.PDFDocument, y: number, needed: number) {
+  if (y + needed <= document.page.height - 56) {
+    return y;
+  }
+
+  document.addPage({ size: "A4", layout: "portrait", margin: 40 });
+  return 54;
+}
+
+function drawDetailSectionTitle(document: PDFKit.PDFDocument, y: number, title: string) {
+  const left = document.page.margins.left;
+  const width = document.page.width - document.page.margins.left - document.page.margins.right;
+  y = pdfEnsureSpace(document, y, 30);
+  document.rect(left, y, width, 20).fillColor(LIMO_MEDIA_COLORS.primarySoft).fill();
+  document.fillColor(LIMO_MEDIA_COLORS.text).font("Helvetica-Bold").fontSize(10).text(title, left + 6, y + 6, { width: width - 12 });
+  return y + 28;
+}
+
+function drawDetailKeyValues(document: PDFKit.PDFDocument, y: number, rows: Array<[string, string]>) {
+  const left = document.page.margins.left;
+  const width = document.page.width - document.page.margins.left - document.page.margins.right;
+  const labelWidth = 165;
+  const valueWidth = width - labelWidth;
+
+  for (const [label, value] of rows) {
+    const text = value && value.length > 0 ? value : "-";
+    const labelHeight = document.font("Helvetica-Bold").fontSize(8).heightOfString(label, { width: labelWidth - 8 });
+    const valueHeight = document.font("Helvetica").fontSize(8).heightOfString(text, { width: valueWidth - 8 });
+    const height = Math.max(labelHeight, valueHeight);
+
+    y = pdfEnsureSpace(document, y, height + 6);
+    document.fillColor(LIMO_MEDIA_COLORS.muted).font("Helvetica-Bold").fontSize(8).text(label, left, y, { width: labelWidth - 8 });
+    document.fillColor(LIMO_MEDIA_COLORS.text).font("Helvetica").fontSize(8).text(text, left + labelWidth, y, { width: valueWidth - 8 });
+    y += height + 5;
+  }
+
+  return y + 4;
+}
+
+function drawDetailPdfFooters(document: PDFKit.PDFDocument) {
+  const range = document.bufferedPageRange();
+  for (let pageIndex = range.start; pageIndex < range.start + range.count; pageIndex += 1) {
+    document.switchToPage(pageIndex);
+    const y = document.page.height - 27;
+    document.moveTo(document.page.margins.left, y - 7).lineTo(document.page.width - document.page.margins.right, y - 7).lineWidth(0.5).strokeColor(LIMO_MEDIA_COLORS.border).stroke();
+    document.fillColor(LIMO_MEDIA_COLORS.mutedLight).font("Helvetica").fontSize(7).text("LIMO / Pendaftaran", document.page.margins.left, y, { width: 220 });
+    document.text(`Halaman ${pageIndex - range.start + 1} dari ${range.count}`, document.page.width - document.page.margins.right - 120, y, { width: 120, align: "right" });
+  }
+}
+
+export async function createPendaftaranDetailPdf(pendaftaran: PendaftaranDetailRecord) {
+  const document = new PDFDocument({
+    size: "A4",
+    layout: "portrait",
+    margin: 40,
+    bufferPages: true,
+    info: { Title: `Pendaftaran ${pendaftaran.kode}`, Author: "LIMO" },
+  });
+  const chunks: Buffer[] = [];
+  const output = new Promise<Buffer>((resolve, reject) => {
+    document.on("data", (chunk: Buffer) => chunks.push(chunk));
+    document.on("end", () => resolve(Buffer.concat(chunks)));
+    document.on("error", reject);
+  });
+
+  const left = document.page.margins.left;
+  const contentWidth = document.page.width - document.page.margins.left - document.page.margins.right;
+
+  document.rect(0, 0, document.page.width, 7).fillColor(LIMO_MEDIA_COLORS.primary).fill();
+  document.fillColor(LIMO_MEDIA_COLORS.primaryDark).font("Helvetica-Bold").fontSize(16).text("LIMO", left, 30);
+  document.fillColor(LIMO_MEDIA_COLORS.text).font("Helvetica-Bold").fontSize(18).text("Formulir Pendaftaran Peserta", left, 54);
+  document.fillColor(LIMO_MEDIA_COLORS.muted).font("Helvetica").fontSize(9).text(`${pendaftaran.kode} / ${formatStatus(pendaftaran.status)}${pendaftaran.isWaitingList ? " / Waiting list" : ""}`, left, 80, { width: contentWidth, ellipsis: true });
+  document.moveTo(left, 98).lineTo(left + contentWidth, 98).lineWidth(0.7).strokeColor(LIMO_MEDIA_COLORS.border).stroke();
+
+  let y = 112;
+  y = drawDetailSectionTitle(document, y, "Data Peserta");
+  y = drawDetailKeyValues(document, y, detailIdentityRows(pendaftaran));
+
+  y = drawDetailSectionTitle(document, y, "Jawaban Formulir Program");
+  const answers = formatProgramAnswers(pendaftaran.program.kind, pendaftaran.programAnswers);
+  y = drawDetailKeyValues(document, y, answers.length > 0 ? answers.map((answer) => [answer.label, answer.value] as [string, string]) : [["Jawaban", "Belum ada jawaban formulir program"]]);
+
+  y = drawDetailSectionTitle(document, y, "Persetujuan");
+  y = drawDetailKeyValues(document, y, detailConsentRows(pendaftaran));
+
+  y = drawDetailSectionTitle(document, y, "Riwayat Status");
+  drawDetailKeyValues(document, y, detailHistoryRows(pendaftaran));
+
+  drawDetailPdfFooters(document);
+  document.end();
+  return output;
 }

@@ -22,7 +22,11 @@ export default async function AdminPendaftaranDetailPage({ params }: { params: P
     <main className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div><Link href="/admin/pendaftaran" className="text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Kembali ke pendaftaran</Link><p className="mt-4 text-theme-sm font-medium text-gray-500">Detail pendaftaran {formatParticipantType(pendaftaran.participantType)}</p><h1 className="mt-1 tailadmin-page-title">{pendaftaran.studentName}</h1><p className="mt-2 tailadmin-muted">{pendaftaran.kode} / {pendaftaran.program.name} ({formatUiLabel(pendaftaran.program.kind)})</p></div>
-        <PendaftaranActions id={pendaftaran.id} disabled={actionDisabled} />
+        <div className="flex flex-wrap items-center gap-2">
+          <a href={`/api/v1/admin/pendaftaran/${pendaftaran.id}/export/pdf`} className="tailadmin-button-outline px-3 py-2 text-theme-xs">Unduh PDF</a>
+          <a href={`/api/v1/admin/pendaftaran/${pendaftaran.id}/export/excel`} className="tailadmin-button-outline px-3 py-2 text-theme-xs">Unduh XLSX</a>
+          <PendaftaranActions id={pendaftaran.id} disabled={actionDisabled} />
+        </div>
       </div>
 
       <section className="grid gap-4 lg:grid-cols-2">

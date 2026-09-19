@@ -133,6 +133,8 @@ function RegistrationCard({ item }: { item: Awaited<ReturnType<typeof listPendaf
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+          <a href={`/api/v1/admin/pendaftaran/${item.id}/export/pdf`} className="tailadmin-button-outline px-3 py-2 text-theme-xs">PDF</a>
+          <a href={`/api/v1/admin/pendaftaran/${item.id}/export/excel`} className="tailadmin-button-outline px-3 py-2 text-theme-xs">XLSX</a>
           <Link href={`/admin/pendaftaran/${item.id}`} className="tailadmin-button-outline px-3 py-2 text-theme-xs">Lihat detail</Link>
           <PendaftaranActions id={item.id} disabled={actionDisabled} />
         </div>

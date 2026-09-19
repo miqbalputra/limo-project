@@ -337,6 +337,26 @@ export async function recordPendaftaranExport(actor: Actor, input: { format: "PD
   });
 }
 
+export async function recordPendaftaranDetailExport(actor: Actor, input: { format: "PDF" | "XLSX"; id: string; kode: string }) {
+  if (actor.role !== "ADMIN") {
+    throw new ForbiddenError();
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      actorId: actor.id,
+      action: "PENDAFTARAN_EXPORTED",
+      entityType: "Pendaftaran",
+      entityId: input.id,
+      metadata: {
+        scope: "detail",
+        format: input.format,
+        kode: input.kode,
+      },
+    },
+  });
+}
+
 function buildPendaftaranWhere(filters: PendaftaranListFilters) {
   const search = filters.search?.trim().slice(0, 120);
 
