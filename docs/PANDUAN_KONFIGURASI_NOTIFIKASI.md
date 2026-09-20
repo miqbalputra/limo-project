@@ -31,6 +31,9 @@ Template yang dikirim:
 | Submit | `pendaftaran-submitted` | WhatsApp + email | Nomor pendaftaran, peserta, program, tautan cek status |
 | Approve | `pendaftaran-approved` | WhatsApp + email | Status diterima, identifier akun wali, tautan aktivasi |
 | Reject | `pendaftaran-rejected` | WhatsApp + email | Alasan penolakan, tautan cek status |
+| Tagihan | `invoice-reminder` | WhatsApp + email | Pengingat tagihan H-3/H-1/jatuh tempo/terlambat (cron `reminders:invoices`) |
+| Deadline | `deadline-reminder` | email + WhatsApp (wali) & in-app (siswa) | Pengingat tugas/ujian/remedial H-3/H-1/jatuh tempo/terlambat (cron `reminders:send`) |
+| Pembayaran | `invoice-created`, `payment-created`, `payment-success` | WhatsApp + email | Tagihan baru, instruksi bayar, pembayaran diterima |
 | Lainnya (pembayaran, deadline, dll.) | mis. `payment-success` | sesuai data | Lewat webhook yang sama |
 
 Catatan: jika `NOTIFICATION_PROVIDER=email`, kanal WhatsApp dilewati. Jika `n8n`, kedua kanal dikirim ke webhook masing-masing.

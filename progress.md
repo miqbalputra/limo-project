@@ -44,6 +44,13 @@ Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman 
 - Verifikasi: `npm run test:pendaftaran-v2` (assert notifikasi terkirim instan) dan cek tidak ada `NotificationDelivery` dobel; migration `20260920100000_notification_processing`.
 - Anti-banjir log: cron idle tidak mencetak output dan tidak menulis `JobRun`; scheduler disarankan memakai `npm run --silent notifications:retry -- --limit=50`, dan script keluar dengan kode 1 hanya bila ada kegagalan.
 
+### Reminder Tagihan & Deadline (email + WhatsApp)
+
+- Reminder deadline (tugas/ujian/remedial) untuk wali kini dikirim lewat **email + WhatsApp** (sebelumnya in-app saja); siswa tetap mendapat notifikasi in-app. Pengiriman langsung (best-effort) setelah dibuat.
+- Baru: reminder **tagihan** (`invoice-reminder`) H-3/H-1/jatuh tempo/terlambat via email + WhatsApp ke wali, idempoten per window (dedupe).
+- Script baru `npm run reminders:invoices` (`scripts/send-invoice-reminders.ts`) + `sendInvoiceReminders()` di `reminder-service.ts`; jadwalkan harian bersama `reminders:send`.
+- Verifikasi: `npm run test:reminders` (H-3, idempoten, deadline tetap jalan); unit test `getReminderWindow`; typecheck & eslint bersih.
+
 ### Perbaikan Harness E2E & Skrip Cron
 
 - Helper login bersama `tests/e2e/support/auth.ts` dipakai 14 spec: login lewat API + pasang cookie sesi (deterministik), dengan retry saat dev server membalas 404 HTML karena route baru dikompilasi Turbopack. `retries` lokal diset 1 untuk meredam 404 kompilasi yang transien.
