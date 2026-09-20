@@ -44,6 +44,13 @@ Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman 
 - Verifikasi: `npm run test:pendaftaran-v2` (assert notifikasi terkirim instan) dan cek tidak ada `NotificationDelivery` dobel; migration `20260920100000_notification_processing`.
 - Anti-banjir log: cron idle tidak mencetak output dan tidak menulis `JobRun`; scheduler disarankan memakai `npm run --silent notifications:retry -- --limit=50`, dan script keluar dengan kode 1 hanya bila ada kegagalan.
 
+### Log Notifikasi (Track Record di Aplikasi)
+
+- Halaman admin baru `/admin/notifikasi` (menu Administrasi → Notifikasi): menampilkan setiap pesan (email/WhatsApp/in-app) dengan status, kanal, penerima, template, jumlah percobaan, provider terakhir, respons, pesan error, dan tombol **Kirim ulang** untuk `FAILED`/`PENDING`.
+- Endpoint `POST /api/v1/admin/notifikasi/[id]/retry` (ADMIN) memakai klaim atomik yang sama sehingga aman dari kiriman ganda; dicatat ke audit log.
+- Semua pengiriman tetap terekam di `Notifikasi` + `NotificationDelivery` (provider, status, attempt, response n8n, errorMessage, sentAt).
+- Verifikasi: `npm run test:notifications` (halaman admin, 403 non-admin, 404 id, retry tercatat) + e2e week1/accessibility/production-navigation.
+
 ### Reminder Tagihan & Deadline (email + WhatsApp)
 
 - Reminder deadline (tugas/ujian/remedial) untuk wali kini dikirim lewat **email + WhatsApp** (sebelumnya in-app saja); siswa tetap mendapat notifikasi in-app. Pengiriman langsung (best-effort) setelah dibuat.

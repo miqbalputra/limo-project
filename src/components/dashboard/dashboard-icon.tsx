@@ -2,6 +2,7 @@ import type { SVGProps } from "react";
 
 export type DashboardIconName =
   | "audit"
+  | "bell"
   | "billing"
   | "calendar"
   | "classes"
@@ -23,6 +24,7 @@ export type DashboardIconName =
   | "users";
 
 const paths: Record<DashboardIconName, React.ReactNode> = {
+  bell: <><path d="M6 9a6 6 0 0 1 12 0c0 4 1.2 5.2 2 6.2H4c.8-1 2-2.2 2-6.2Z" /><path d="M10 18.5a2 2 0 0 0 4 0" /></>,
   dashboard: <><path d="M3 3h7v7H3V3Zm11 0h7v7h-7V3ZM3 14h7v7H3v-7Zm11 0h7v7h-7v-7Z" /></>,
   registration: <><path d="M7 3h10a2 2 0 0 1 2 2v16H5V5a2 2 0 0 1 2-2Z" /><path d="M9 8h6M9 12h6M9 16h3" /></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 3v4M16 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" /></>,

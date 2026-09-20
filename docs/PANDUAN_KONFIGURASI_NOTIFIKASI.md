@@ -357,6 +357,8 @@ UPDATE Notifikasi SET status = 'PENDING' WHERE id = '<id>';
 
 ## 11. Monitoring
 
+- **Log Notifikasi di aplikasi (ADMIN)**: buka menu **Administrasi → Notifikasi** (`/admin/notifikasi`). Setiap pesan (email/WhatsApp/in-app) tampil dengan status (`Menunggu/Diproses/Terkirim/Gagal`), kanal, penerima, template, jumlah percobaan, provider terakhir, respons, pesan error, dan tombol **Kirim ulang** untuk `FAILED`/`PENDING`.
+- Setiap pengiriman juga menulis ke tabel `NotificationDelivery` (provider, status, attempt, response, errorMessage, sentAt) sehingga respons n8n terekam di database.
 - Pantau jumlah `Notifikasi` berstatus `PENDING`/`FAILED` dan kolom `errorMessage` pada `NotificationDelivery`.
 - Pantau `JobRun` `retry-notifications` (hanya tercatat saat ada notifikasi diproses; status `FAILED` bila ada kiriman gagal).
 - Aktifkan notifikasi error pada workflow n8n (mis. node Error Trigger → kirim ke email admin).
