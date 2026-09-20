@@ -56,7 +56,38 @@
       "position": [
         460,
         -80
-      ]
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "GANTI_CHAT_ID_TELEGRAM",
+        "text": "=✅ LIMO email terkirim\nKepada: {{ $json.body.recipient }}\nSubjek: {{ $json.body.subject }}\nTemplate: {{ $json.body.metadata?.template || '-' }}\nNotif ID: {{ $json.body.notificationId }}"
+      },
+      "id": "5f1a1c20-0006-4a06-9a06-000000000006",
+      "name": "Telegram Sukses",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        700,
+        -160
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "GANTI_CHAT_ID_TELEGRAM",
+        "text": "=❌ LIMO email GAGAL terkirim\nKepada: {{ $json.body.recipient }}\nSubjek: {{ $json.body.subject }}\nTemplate: {{ $json.body.metadata?.template || '-' }}\nNotif ID: {{ $json.body.notificationId }}\nError: {{ $json.error?.message || $json.error?.description || 'tidak diketahui' }}"
+      },
+      "id": "5f1a1c20-0007-4a07-9a07-000000000007",
+      "name": "Telegram Gagal",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        700,
+        80
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -71,8 +102,25 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        700,
-        -80
+        960,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, error: 'email gagal dikirim' } }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "5f1a1c20-0008-4a08-9a08-000000000008",
+      "name": "Respond 500",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        960,
+        80
       ]
     },
     {
@@ -89,7 +137,7 @@
       "typeVersion": 1,
       "position": [
         460,
-        120
+        200
       ]
     }
   ],
@@ -127,7 +175,36 @@
       "main": [
         [
           {
+            "node": "Telegram Sukses",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram Gagal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Sukses": {
+      "main": [
+        [
+          {
             "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Gagal": {
+      "main": [
+        [
+          {
+            "node": "Respond 500",
             "type": "main",
             "index": 0
           }

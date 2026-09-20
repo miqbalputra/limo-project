@@ -46,7 +46,8 @@ Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman 
 
 ### Workflow n8n Siap Impor
 
-- `deploy/n8n/limo-whatsapp.workflow.json` dan `deploy/n8n/limo-email.workflow.json`: webhook + validasi `X-Limo-Webhook-Secret` + kirim ke GOWA/SMTP + respond 2xx/401. Tinggal impor, ganti placeholder secret, dan pilih credential.
+- `deploy/n8n/limo-whatsapp.workflow.json` dan `deploy/n8n/limo-email.workflow.json`: webhook + validasi `X-Limo-Webhook-Secret` + kirim ke GOWA/Gmail + respond 2xx/401. Tinggal impor, ganti placeholder secret, dan pilih credential.
+- Workflow email memakai node **Gmail** (OAuth2) dan menambah tracking **Telegram** (node "Telegram Sukses"/"Telegram Gagal"); kegagalan Gmail membalas 500 agar LIMO menandai `FAILED` dan mencoba ulang.
 - Referensi langkah impor ada di `docs/PANDUAN_KONFIGURASI_NOTIFIKASI.md`.
 
 ### Kuis Builder & Share Link (ala Google Forms)

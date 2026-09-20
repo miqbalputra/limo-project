@@ -38,6 +38,7 @@ Catatan: jika `NOTIFICATION_PROVIDER=email`, kanal WhatsApp dilewati. Jika `n8n`
 - Aplikasi LIMO production sudah berjalan (Docker/Dokploy atau PM2) dan `APP_URL` HTTPS valid.
 - n8n self-host yang dapat diakses publik dengan HTTPS.
 - Akun Gmail pengirim + credential **Gmail OAuth2** di n8n (atau SMTP bila memakai provider `email`).
+- Bot **Telegram** (token dari @BotFather) + `chatId` tujuan untuk tracking pengiriman email.
 - GOWA (WhatsApp gateway) dengan nomor WhatsApp resmi LIMO.
 - Akses ke scheduler (cron host, schedule Dokploy, atau container cron terpisah).
 
@@ -193,7 +194,7 @@ Import lalu **pilih ulang credential Basic Auth GOWA** dan ganti secret.
 
 ## 6. Workflow n8n — Email (Gmail)
 
-Cara tercepat: impor `deploy/n8n/limo-email.workflow.json`, ganti placeholder secret pada node **Secret Valid?**, pilih credential **Gmail OAuth2** pada node **Send Gmail**, lalu aktifkan workflow dan salin **Production URL** ke `N8N_EMAIL_WEBHOOK_URL`. Tidak perlu SMTP untuk jalur n8n ini.
+Cara tercepat: impor `deploy/n8n/limo-email.workflow.json`, ganti placeholder secret pada node **Secret Valid?**, pilih credential **Gmail OAuth2** pada node **Send Gmail**, pilih credential **Telegram** dan isi `chatId` pada node **Telegram Sukses/Gagal**, lalu aktifkan workflow dan salin **Production URL** ke `N8N_EMAIL_WEBHOOK_URL`. Tidak perlu SMTP untuk jalur n8n ini.
 
 Rincian manual:
 
@@ -206,8 +207,14 @@ Rincian manual:
    - Email Type: `Text`
    - Message: `{{ $json.body.body }}`
    - Options → `Append n8n attribution`: matikan (nonaktif)
-4. **Respond to Webhook** 200 `{ "ok": true }` setelah node Gmail sukses.
-5. **Respond to Webhook** 401 pada cabang `false`.
+   - **On Error**: `Continue (using error output)` — agar kegagalan bisa dilacak.
+4. **Telegram Sukses** (dari output Gmail yang sukses) → kirim notifikasi tracking → **Respond 200** `{ "ok": true }`.
+5. **Telegram Gagal** (dari output error Gmail) → kirim notifikasi tracking berisi pesan error → **Respond 500** (non-2xx, supaya LIMO menandai `FAILED` dan mencoba ulang).
+6. **Respond 401** pada cabang secret `false`.
+
+Node **Telegram** memakai credential **Telegram API** (bot token dari @BotFather) dan `chatId` tujuan (ID chat/grup admin, mis. `-1001234567890`). Set `On Error` kedua node Telegram ke `Continue (using regular output)` agar kegagalan Telegram tidak menggagalkan alur email.
+
+Dengan begini setiap pengiriman Gmail bisa dilacak: **sukses** memicu Telegram "✅ terkirim" + balasan 200; **gagal** memicu Telegram "❌ gagal" berisi pesan error + balasan 500.
 
 Membuat credential Gmail OAuth2 (sekali saja): di n8n buat credential **Gmail OAuth2 API** dengan Client ID/Secret dari Google Cloud Console, aktifkan **Gmail API**, lalu hubungkan/authorize akun pengirim (mis. `no-reply@domain-limo` atau akun Gmail resmi LIMO). Pastikan akun punya izin mengirim (`gmail.send`) dan belum terkena batas kuota harian Gmail.
 
@@ -326,6 +333,7 @@ Atau tambahkan service `cron` dengan `supercronic` yang memakai image aplikasi y
 | `FAILED` dengan "Provider WhatsApp belum dikonfigurasi" | `NOTIFICATION_PROVIDER` bukan `n8n`/`email` yang didukung | Set `n8n` atau `email`. |
 | WhatsApp tidak terkirim | GOWA logout / nomor tidak valid / basic auth salah | Scan ulang QR GOWA, pastikan format `62...`, cek credential. |
 | Email gagal terkirim via Gmail | Credential Gmail OAuth2 belum terhubung / scope kurang / kuota Gmail | Hubungkan ulang credential **Gmail OAuth2**, aktifkan Gmail API, cek status akun pengirim. |
+| Tracking Telegram tidak muncul | Credential Telegram / `chatId` belum diisi, atau bot belum di-invite ke grup | Isi credential **Telegram API** dan `chatId`; undang bot ke chat/grup tujuan. |
 | `FAILED` permanen setelah 5 percobaan | Retry limit tercapai | Perbaiki penyebab, lalu reset notifikasi bermasalah (lihat di bawah). |
 | Notifikasi ganda | Dua cron berjalan bersamaan | Pastikan hanya satu scheduler (gunakan `flock`/lock). |
 
@@ -351,6 +359,7 @@ UPDATE Notifikasi SET status = 'PENDING' WHERE id = '<id>';
 - [ ] Secret header sama di aplikasi dan workflow.
 - [ ] GOWA tersambung dengan nomor WhatsApp LIMO dan uji kirim manual berhasil.
 - [ ] Credential Gmail OAuth2 terverifikasi untuk email (atau SMTP bila provider `email`).
+- [ ] Credential Telegram + `chatId` terisi sehingga tiap pengiriman email terkirim tracking sukses/gagal.
 - [ ] Scheduler `notifications:retry` berjalan tiap menit (hanya satu instance).
 - [ ] Submit pendaftaran uji → WA + email konfirmasi diterima.
 - [ ] Approve pendaftaran uji → WA + email berisi tautan aktivasi diterima.
