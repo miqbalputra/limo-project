@@ -126,16 +126,19 @@ export async function retryPendingNotifications(input: { dryRun?: boolean; limit
     else failed += 1;
   }
 
-  await prisma.jobRun.create({
-    data: {
-      name: "retry-notifications",
-      status: failed > 0 ? "FAILED" : "SUCCESS",
-      finishedAt: new Date(),
-      successCount: sent,
-      failedCount: failed,
-      metadata: { dryRun: false, maxAttempts },
-    },
-  });
+  // Hindari menumpuk JobRun saat tidak ada notifikasi yang diproses (cron per menit).
+  if (sent + failed > 0) {
+    await prisma.jobRun.create({
+      data: {
+        name: "retry-notifications",
+        status: failed > 0 ? "FAILED" : "SUCCESS",
+        finishedAt: new Date(),
+        successCount: sent,
+        failedCount: failed,
+        metadata: { dryRun: false, maxAttempts },
+      },
+    });
+  }
 
   return { sent, failed, dryRun: false };
 }

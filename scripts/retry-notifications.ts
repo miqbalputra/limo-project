@@ -8,8 +8,17 @@ function readArg(name: string) {
 
 async function main() {
   const limit = Number(readArg("limit") || 50);
-  const result = await retryPendingNotifications({ dryRun: process.argv.includes("--dry-run"), limit });
-  console.log(JSON.stringify(result, null, 2));
+  const dryRun = process.argv.includes("--dry-run");
+  const result = await retryPendingNotifications({ dryRun, limit });
+
+  // Senyap saat tidak ada aktivitas agar log cron per menit tidak menumpuk.
+  if (dryRun || result.sent > 0 || result.failed > 0) {
+    console.log(JSON.stringify(result, null, 2));
+  }
+
+  if (result.failed > 0) {
+    process.exitCode = 1;
+  }
 }
 
 main().catch((error) => {

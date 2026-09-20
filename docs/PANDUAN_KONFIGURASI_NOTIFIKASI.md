@@ -253,18 +253,18 @@ Sejak dispatch instan (best-effort) aktif, notifikasi dari alur utama (pendaftar
 - retry otomatis saat pengiriman gagal (maks 5x),
 - memulihkan klaim `PROCESSING` yang menggantung.
 
-Job dijalankan **setiap menit** dan hanya di satu instance.
+Job dijalankan **setiap menit** dan hanya di satu instance. Saat tidak ada notifikasi yang perlu diproses, script **tidak mencetak output** dan **tidak menulis `JobRun`**, sehingga log dan tabel job tidak menumpuk pada cron yang idle. Gunakan `npm run --silent ...` pada scheduler agar banner npm tidak ikut tercetak.
 
 ### 8.1 VM dengan crontab
 
 ```cron
-* * * * * cd /var/www/limo && flock -n /var/lock/limo-notif.lock npm run notifications:retry -- --limit=50 >> /var/log/limo-notif.log 2>&1
+* * * * * cd /var/www/limo && flock -n /var/lock/limo-notif.lock npm run --silent notifications:retry -- --limit=50 >> /var/log/limo-notif.log 2>&1
 ```
 
 ### 8.2 PM2
 
 ```cron
-* * * * * cd /var/www/limo && flock -n /var/lock/limo-notif.lock /usr/bin/env bash -lc 'npm run notifications:retry -- --limit=50'
+* * * * * cd /var/www/limo && flock -n /var/lock/limo-notif.lock /usr/bin/env bash -lc 'npm run --silent notifications:retry -- --limit=50'
 ```
 
 Jalankan sebagai user aplikasi agar `.env.production` terbaca.
@@ -283,7 +283,7 @@ Jalankan sebagai user aplikasi agar `.env.production` terbaca.
 Jalankan di host:
 
 ```cron
-* * * * * docker exec limo-web npm run notifications:retry -- --limit=50 >> /var/log/limo-notif.log 2>&1
+* * * * * docker exec limo-web npm run --silent notifications:retry -- --limit=50 >> /var/log/limo-notif.log 2>&1
 ```
 
 Atau tambahkan service `cron` dengan `supercronic` yang memakai image aplikasi yang sama dan mount environment yang sama. Jangan jalankan loop cron di dalam proses Next.js.
@@ -308,7 +308,7 @@ Atau tambahkan service `cron` dengan `supercronic` yang memakai image aplikasi y
    Angka `sent` adalah jumlah notifikasi yang siap dikirim.
 6. **Kirim manual**:
    ```sh
-   npm run notifications:retry -- --limit=50
+npm run --silent notifications:retry -- --limit=50
    ```
    Keluaran `{"sent": n, "failed": 0}`.
 7. **Cek database** (MySQL):
@@ -355,7 +355,7 @@ UPDATE Notifikasi SET status = 'PENDING' WHERE id = '<id>';
 ## 11. Monitoring
 
 - Pantau jumlah `Notifikasi` berstatus `PENDING`/`FAILED` dan kolom `errorMessage` pada `NotificationDelivery`.
-- Pantau `JobRun` `retry-notifications` (status `FAILED` bila ada kiriman gagal).
+- Pantau `JobRun` `retry-notifications` (hanya tercatat saat ada notifikasi diproses; status `FAILED` bila ada kiriman gagal).
 - Aktifkan notifikasi error pada workflow n8n (mis. node Error Trigger → kirim ke email admin).
 - Rekomendasi alert: kirim peringatan bila ada `FAILED` lebih dari 5 dalam 15 menit.
 
@@ -371,7 +371,7 @@ UPDATE Notifikasi SET status = 'PENDING' WHERE id = '<id>';
 - [ ] Submit pendaftaran uji → WA + email konfirmasi diterima.
 - [ ] Approve pendaftaran uji → WA + email berisi tautan aktivasi diterima.
 - [ ] Reject pendaftaran uji → alasan diterima di WA + email.
-- [ ] `JobRun` `retry-notifications` tercatat sukses.
+- [ ] `JobRun` `retry-notifications` tercatat sukses saat ada aktivitas (cron idle tidak menulis log/JobRun).
 - [ ] Tidak ada `Notifikasi` status `FAILED` yang belum ditindaklanjuti.
 
 ## 13. Referensi

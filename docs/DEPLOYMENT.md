@@ -53,7 +53,7 @@ Gunakan lock eksternal:
 flock -n /var/lock/limo-invoice.lock npm run billing:generate -- --period=YYYY-MM --due-date=YYYY-MM-10
 flock -n /var/lock/limo-overdue.lock npm run billing:mark-overdue
 flock -n /var/lock/limo-session-cleanup.lock npm run sessions:cleanup
-flock -n /var/lock/limo-notification-retry.lock npm run notifications:retry -- --limit=50
+flock -n /var/lock/limo-notification-retry.lock npm run --silent notifications:retry -- --limit=50
 flock -n /var/lock/limo-deadline-reminders.lock npm run reminders:send
 ```
 

@@ -42,6 +42,7 @@ Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman 
 - Klaim atomik: status baru `PROCESSING` (`PENDING`/`FAILED` → `PROCESSING`) mencegah pengiriman ganda antara dispatch instan dan job `notifications:retry`; klaim menggantung dipulihkan otomatis setelah 10 menit.
 - Cron tetap wajib sebagai jaring pengaman/retry (notifikasi transaksional seperti aktivasi/reset password, dan percobaan ulang saat gagal).
 - Verifikasi: `npm run test:pendaftaran-v2` (assert notifikasi terkirim instan) dan cek tidak ada `NotificationDelivery` dobel; migration `20260920100000_notification_processing`.
+- Anti-banjir log: cron idle tidak mencetak output dan tidak menulis `JobRun`; scheduler disarankan memakai `npm run --silent notifications:retry -- --limit=50`, dan script keluar dengan kode 1 hanya bila ada kegagalan.
 
 ### Perbaikan Harness E2E & Skrip Cron
 
