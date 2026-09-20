@@ -385,6 +385,12 @@ try {
   assert.equal(missingPdfExport.response.status, 404);
   ok("Export PDF/Excel per peserta: admin dapat mengunduh, non-admin 403, id tidak ditemukan 404");
 
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  const englishKode = (await prisma.pendaftaran.findUnique({ where: { id: englishRegistrationId }, select: { kode: true } })).kode;
+  const instantlySent = await prisma.notifikasi.count({ where: { template: "pendaftaran-submitted", body: { contains: englishKode }, status: "SENT" } });
+  assert.ok(instantlySent >= 1, "Notifikasi submit harus terkirim instan tanpa menjalankan job retry");
+  ok("Dispatch instan mengirim notifikasi tanpa menunggu cron");
+
   const englishBody = cases[0].body;
   const invalidCases = [
     ["radio wajib belum dipilih", { ...englishBody, programAnswers: { ...englishBody.programAnswers, audience: undefined } }],

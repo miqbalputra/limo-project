@@ -22,6 +22,8 @@ Admin reject    ─┘        │
         NotificationDelivery (SENT/FAILED, attempt) + JobRun
 ```
 
+Catatan: selain enqueue, aplikasi menjalankan **dispatch instan (best-effort)** untuk notifikasi alur utama sehingga pengiriman terjadi segera; cron `notifications:retry` tetap berjalan sebagai jaring pengaman/retry. Klaim atomik status `PROCESSING` mencegah pengiriman ganda antara dispatch instan dan cron.
+
 Template yang dikirim:
 
 | Momen | Template | Kanal | Isi |
@@ -246,7 +248,12 @@ n8n harus membalas `2xx` **hanya setelah** provider (GOWA/Gmail) menerima pesan.
 
 ## 8. Scheduler `notifications:retry`
 
-Job harus dijalankan **setiap menit** dan hanya di satu instance.
+Sejak dispatch instan (best-effort) aktif, notifikasi dari alur utama (pendaftaran, tugas, ujian, modul, remedial, RPP, progres, tagihan/pembayaran, notifikasi dashboard) **dikirim langsung** saat aktivitas terjadi — tanpa menunggu cron. Cron tetap **wajib** sebagai jaring pengaman untuk:
+- notifikasi yang dibuat lewat transaksi internal (mis. aktivasi akun, reset password) dan kategori lain yang belum memakai dispatch instan,
+- retry otomatis saat pengiriman gagal (maks 5x),
+- memulihkan klaim `PROCESSING` yang menggantung.
+
+Job dijalankan **setiap menit** dan hanya di satu instance.
 
 ### 8.1 VM dengan crontab
 

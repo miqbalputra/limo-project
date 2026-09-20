@@ -332,6 +332,7 @@ enum PaymentGatewayProvider {
 
 enum NotificationStatus {
   PENDING
+  PROCESSING
   SENT
   FAILED
   CANCELLED

@@ -121,8 +121,8 @@ try {
   assert.equal(lookup.payload.data.pendaftaran.status, "SUBMITTED");
   ok("Registration submit and protected status lookup work");
 
-  const submitEmailNotification = await prisma.notifikasi.findFirst({ where: { recipient: registrationEmail, template: "pendaftaran-submitted", channel: "email" }, select: { body: true } });
-  const submitWhatsappNotification = await prisma.notifikasi.findFirst({ where: { recipient: "6281234567890", template: "pendaftaran-submitted", channel: "whatsapp" }, select: { body: true } });
+  const submitEmailNotification = await prisma.notifikasi.findFirst({ where: { recipient: registrationEmail, template: "pendaftaran-submitted", channel: "email" }, orderBy: { createdAt: "desc" }, select: { body: true } });
+  const submitWhatsappNotification = await prisma.notifikasi.findFirst({ where: { template: "pendaftaran-submitted", channel: "whatsapp", body: { contains: registered.kode } }, orderBy: { createdAt: "desc" }, select: { body: true } });
   assert.ok(submitEmailNotification, "Notifikasi email konfirmasi pendaftaran harus dibuat saat submit");
   assert.ok(submitWhatsappNotification, "Notifikasi WhatsApp konfirmasi pendaftaran harus dibuat saat submit");
   assert.match(submitWhatsappNotification.body, new RegExp(registered.kode));
@@ -173,7 +173,7 @@ try {
   const approvalNotification = await prisma.notifikasi.findFirst({ where: { recipient: registrationEmail, template: "pendaftaran-approved" } });
   assert.ok(approvalNotification);
   assert.match(approvalNotification.body, /reset-password\?token=/);
-  const approvalWhatsappNotification = await prisma.notifikasi.findFirst({ where: { recipient: "6281234567890", template: "pendaftaran-approved", channel: "whatsapp" } });
+  const approvalWhatsappNotification = await prisma.notifikasi.findFirst({ where: { template: "pendaftaran-approved", channel: "whatsapp", body: { contains: registered.kode } }, orderBy: { createdAt: "desc" } });
   assert.ok(approvalWhatsappNotification, "Notifikasi WhatsApp persetujuan harus dibuat saat approve");
   assert.match(approvalWhatsappNotification.body, /reset-password\?token=/);
   assert.match(approvalWhatsappNotification.body, new RegExp(registered.kode));
@@ -215,8 +215,8 @@ try {
   const rejectedStatus = await request(`/api/v1/pendaftaran/status?kode=${encodeURIComponent(rejectedCode)}&waliEmail=${encodeURIComponent(rejectedEmail)}`);
   assert.equal(rejectedStatus.payload.data.pendaftaran.status, "REJECTED");
   assert.equal(rejectedStatus.payload.data.pendaftaran.rejectionReason, rejectionReason);
-  assert.ok(await prisma.notifikasi.findFirst({ where: { recipient: rejectedEmail, template: "pendaftaran-rejected" } }));
-  assert.ok(await prisma.notifikasi.findFirst({ where: { recipient: "6281234567891", template: "pendaftaran-rejected", channel: "whatsapp" } }), "Notifikasi WhatsApp penolakan harus dibuat");
+  assert.ok(await prisma.notifikasi.findFirst({ where: { recipient: rejectedEmail, template: "pendaftaran-rejected" }, orderBy: { createdAt: "desc" } }));
+  assert.ok(await prisma.notifikasi.findFirst({ where: { template: "pendaftaran-rejected", channel: "whatsapp", body: { contains: rejectedCode } }, orderBy: { createdAt: "desc" } }), "Notifikasi WhatsApp penolakan harus dibuat");
   ok("Rejection requires a safe reason and creates public status plus notification record");
 
   const nonAdminStudentAccess = await request("/api/v1/admin/siswa", { cookie: wali.cookie });

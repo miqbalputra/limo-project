@@ -4,20 +4,22 @@ import type { Actor } from "../auth/session.ts";
 import { prisma } from "../db/prisma.ts";
 import { NotFoundError } from "../errors/application-error.ts";
 import { getEnv } from "../env.ts";
+import { scheduleImmediateDispatch } from "./notification-dispatch-scheduler.ts";
 
 type NotificationData = Prisma.NotifikasiCreateArgs["data"];
 
 export async function createNotificationIfMissing(data: NotificationData) {
   if (data.dedupeKey) {
     const existing = await prisma.notifikasi.findUnique({ where: { dedupeKey: data.dedupeKey }, select: { id: true } });
-    if (existing) return false;
+    if (existing) return null;
   }
 
   try {
-    await prisma.notifikasi.create({ data });
-    return true;
+    const created = await prisma.notifikasi.create({ data, select: { id: true } });
+    scheduleImmediateDispatch(created.id);
+    return created.id;
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "P2002") return false;
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") return null;
     throw error;
   }
 }

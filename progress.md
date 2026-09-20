@@ -36,6 +36,13 @@ Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman 
 - Job notifikasi dipindah ke `src/server/services/notification-job-service.ts` (impor relatif tanpa `server-only`) agar `npm run notifications:retry` dapat dieksekusi Node; sebelumnya gagal karena rantai impor `payment-gateway-service`.
 - Jadwalkan `notifications:retry` tiap menit (lihat `docs/DEPLOYMENT.md`); kontrak webhook n8n dan template didokumentasikan di `docs/MAYAR_N8N_INTEGRATION.md`, rencana lengkap di `docs/PLAN_NOTIFIKASI_PENDAFTARAN.md`.
 
+### Dispatch Instan Notifikasi
+
+- Notifikasi alur utama (pendaftaran, tugas, ujian, modul, remedial, RPP, progres, tagihan/pembayaran, dashboard) kini dikirim **langsung (best-effort)** setelah dibuat, tanpa menunggu cron.
+- Klaim atomik: status baru `PROCESSING` (`PENDING`/`FAILED` → `PROCESSING`) mencegah pengiriman ganda antara dispatch instan dan job `notifications:retry`; klaim menggantung dipulihkan otomatis setelah 10 menit.
+- Cron tetap wajib sebagai jaring pengaman/retry (notifikasi transaksional seperti aktivasi/reset password, dan percobaan ulang saat gagal).
+- Verifikasi: `npm run test:pendaftaran-v2` (assert notifikasi terkirim instan) dan cek tidak ada `NotificationDelivery` dobel; migration `20260920100000_notification_processing`.
+
 ### Perbaikan Harness E2E & Skrip Cron
 
 - Helper login bersama `tests/e2e/support/auth.ts` dipakai 14 spec: login lewat API + pasang cookie sesi (deterministik), dengan retry saat dev server membalas 404 HTML karena route baru dikompilasi Turbopack. `retries` lokal diset 1 untuk meredam 404 kompilasi yang transien.
