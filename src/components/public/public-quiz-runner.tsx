@@ -22,6 +22,7 @@ type QuizIntro = {
 type PublicQuestion = {
   id: string;
   weight: number;
+  required: boolean;
   type: string;
   question: string;
   stimulusText: string | null;
@@ -174,9 +175,27 @@ export function PublicQuizRunner({ token }: { token: string }) {
     }
   }
 
+  function firstMissingRequired() {
+    if (!context) return null;
+    for (const [index, question] of context.questions.entries()) {
+      if (!question.required) continue;
+      const answer = answers[question.id];
+      const answered = Boolean(answer && (answer.selectedOption || answer.selectedOptions?.length || answer.shortAnswer?.trim() || answer.essayAnswer?.trim()));
+      if (!answered) return index + 1;
+    }
+    return null;
+  }
+
   async function submit(auto = false) {
     if (!context) return;
-    if (!auto && !window.confirm("Kumpulkan jawaban? Jawaban tidak bisa diubah setelah dikirim.")) return;
+    if (!auto) {
+      const missing = firstMissingRequired();
+      if (missing) {
+        setError(`Soal ${missing} wajib diisi sebelum mengumpulkan.`);
+        return;
+      }
+      if (!window.confirm("Kumpulkan jawaban? Jawaban tidak bisa diubah setelah dikirim.")) return;
+    }
     setSubmitting(true);
     setError("");
     try {

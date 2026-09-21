@@ -44,6 +44,16 @@ Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman 
 - Verifikasi: `npm run test:pendaftaran-v2` (assert notifikasi terkirim instan) dan cek tidak ada `NotificationDelivery` dobel; migration `20260920100000_notification_processing`.
 - Anti-banjir log: cron idle tidak mencetak output dan tidak menulis `JobRun`; scheduler disarankan memakai `npm run --silent notifications:retry -- --limit=50`, dan script keluar dengan kode 1 hanya bila ada kegagalan.
 
+### Form Builder Kuis (ala Google Forms)
+
+- Tab khusus guru **Formulir Kuis** (`/guru/kuis`) dengan halaman **Baru** (`/guru/kuis/baru`) dan **Edit** (`/guru/kuis/[ujianId]/edit`) — alur pembuatan soal menyatu seperti Google Forms.
+- Kartu soal interaktif: dropdown tipe, pertanyaan, opsi dinamis (tambah/hapus, tandai kunci), Benar/Salah, isian singkat + kunci, paragraf, pembahasan, toggle **Wajib diisi**, poin, **duplikat/hapus/naik-turun**, tambah soal cepat per tipe.
+- Tipe yang ditampilkan sesuai kebutuhan LIMO: Pilihan ganda, Kotak centang, Benar/Salah, Isian singkat, Paragraf (tipe lama seperti listening/speaking/matching tidak lagi ditawarkan di builder).
+- Tab **Pengaturan**: mode UJIAN/LATIHAN, pengiriman, durasi, maks percobaan, KKM, acak soal/opsi, skor langsung, kunci & pembahasan, nama responden, hasil ke wali, jadwal tersedia.
+- Autosave draf (debounce) + tombol Simpan/Publikasikan; edit hanya untuk draf atau kuis terbit yang belum dikerjakan (409 bila sudah ada pengerjaan); share link publik memakai mekanisme yang sudah ada.
+- Backend: `quiz-builder-service` + `POST/GET/PATCH /api/v1/kuis`, `POST /api/v1/kuis/[id]/publish`; kolom baru `UjianSoal.required` (migration `20260920110000_ujian_soal_required`); player publik memvalidasi soal wajib sebelum submit.
+- Verifikasi: `npm run test:quiz-builder` (6 check), e2e `quiz-builder.spec.ts` (buat → publikasi → bagikan), plus `test:quiz-share`, `test:reminders`, `test:notifications`, `test:week2`, unit test — semua lulus.
+
 ### Log Notifikasi (Track Record di Aplikasi)
 
 - Halaman admin baru `/admin/notifikasi` (menu Administrasi → Notifikasi): menampilkan setiap pesan (email/WhatsApp/in-app) dengan status, kanal, penerima, template, jumlah percobaan, provider terakhir, respons, pesan error, dan tombol **Kirim ulang** untuk `FAILED`/`PENDING`.

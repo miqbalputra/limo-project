@@ -52,6 +52,7 @@ function assertQuizWindow(ujian: { availableFrom: Date | null; availableUntil: D
 function sanitizeQuestion(question: {
   id: string;
   weight: Prisma.Decimal;
+  required: boolean;
   bankSoal: {
     type: string;
     question: string;
@@ -71,6 +72,7 @@ function sanitizeQuestion(question: {
   return {
     id: question.id,
     weight: Number(question.weight),
+    required: question.required,
     type: question.bankSoal.type,
     question: question.bankSoal.question,
     stimulusText: question.bankSoal.stimulusText,

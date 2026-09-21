@@ -1401,6 +1401,7 @@ model UjianSoal {
   bankSoal   BankSoal       @relation(fields: [bankSoalId], references: [id], onDelete: Restrict)
   order      Int            @default(0)
   weight     Decimal        @db.Decimal(10, 2)
+  required   Boolean        @default(true)
   answers    JawabanUjian[]
 
   @@unique([ujianId, bankSoalId])
