@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { unlink } from "node:fs/promises";
 
 process.env.DATABASE_URL ||= "file:./dev.db";
 
@@ -100,6 +101,7 @@ function basePayload(kelasId) {
 }
 
 let ujianId = null;
+let mediaId = null;
 const bankSoalIds = [];
 
 try {
@@ -146,6 +148,21 @@ try {
   for (const row of soalIds) bankSoalIds.push(row.bankSoalId);
 
   const updatedQuestions = baseQuestions();
+  const pngBytes = Buffer.from("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c6360000002000154a24f4f0000000049454e44ae426082", "hex");
+  const mediaForm = new FormData();
+  mediaForm.set("file", new File([pngBytes], "soal.png", { type: "image/png" }));
+  const mediaRes = await fetch(`${origin}/api/v1/kuis/media`, { method: "POST", headers: { Origin: origin, Cookie: guru.cookie }, body: mediaForm });
+  const mediaBody = await mediaRes.json();
+  assert.equal(mediaRes.status, 201, JSON.stringify(mediaBody));
+  const mediaItem = mediaBody.data.item;
+  mediaId = mediaItem.id;
+  assert.match(mediaItem.url, /\/api\/v1\/public\/quiz-media\//);
+  const mediaGet = await fetch(`${origin}${mediaItem.url}`);
+  assert.equal(mediaGet.status, 200);
+  assert.equal(mediaGet.headers.get("content-type"), "image/png");
+  updatedQuestions[0].mediaUrl = mediaItem.url;
+  ok("Unggah gambar soal + disajikan publik tanpa login");
+
   updatedQuestions[0].question = `Ibu kota Indonesia (revisi)? ${runId}`;
   updatedQuestions[0].points = 2;
   updatedQuestions[3].required = false;
@@ -155,6 +172,7 @@ try {
 
   const afterUpdate = await request(`/api/v1/kuis/${ujianId}`, { cookie: guru.cookie });
   assert.equal(afterUpdate.payload.data.item.questions[0].points, 2);
+  assert.match(afterUpdate.payload.data.item.questions[0].mediaUrl, /\/api\/v1\/public\/quiz-media\//);
   assert.match(afterUpdate.payload.data.item.questions[0].question, /revisi/);
   assert.equal(afterUpdate.payload.data.item.questions.length, 4);
   assert.equal(afterUpdate.payload.data.item.questions[3].required, false);
@@ -228,6 +246,11 @@ try {
   assert.equal(blockedAfterResponse.response.status, 409);
   ok("Kuis yang sudah dikerjakan tidak dapat diubah (409)");
 } finally {
+  if (mediaId) {
+    const media = await prisma.quizMedia.findUnique({ where: { id: mediaId }, select: { storagePath: true } }).catch(() => null);
+    await prisma.quizMedia.delete({ where: { id: mediaId } }).catch(() => undefined);
+    if (media?.storagePath) await unlink(media.storagePath).catch(() => undefined);
+  }
   if (ujianId) {
     await prisma.ujian.delete({ where: { id: ujianId } }).catch(() => undefined);
   }

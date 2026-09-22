@@ -262,7 +262,7 @@ function MediaBlock({ type, mediaUrl }: { type: string; mediaUrl: string | null 
     return <audio controls src={mediaUrl} className="mt-4 w-full" />;
   }
 
-  if (type === "GAMBAR") {
+  if (type === "GAMBAR" || mediaUrl.startsWith("/api/v1/public/quiz-media/")) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={mediaUrl} alt="Media soal" className="mt-4 max-h-72 rounded-2xl border border-gray-100 object-contain" />;
   }

@@ -15,6 +15,13 @@ const questionSchema = z
     required: z.boolean().default(true),
     points: z.coerce.number().positive().max(1000).default(1),
     allowOther: z.boolean().default(false),
+    mediaUrl: z
+      .string()
+      .trim()
+      .max(500)
+      .optional()
+      .or(z.literal(""))
+      .refine((value) => !value || /^https:\/\//.test(value) || value.startsWith("/"), "Media harus HTTPS atau path lokal"),
     explanation: z.string().trim().max(5000).optional().or(z.literal("")),
     expectedAnswer: z.string().trim().max(2000).optional().or(z.literal("")),
     options: z.array(optionSchema).max(10).default([]),

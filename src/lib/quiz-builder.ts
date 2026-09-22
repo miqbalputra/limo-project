@@ -5,6 +5,7 @@ export type QuizQuestion = {
   required: boolean;
   points: number;
   allowOther: boolean;
+  mediaUrl: string;
   explanation: string;
   expectedAnswer: string;
   options: { content: string; isCorrect: boolean }[];
@@ -45,6 +46,7 @@ export function newQuestion(type = "PILIHAN_GANDA"): QuizQuestion {
     required: true,
     points: 1,
     allowOther: false,
+    mediaUrl: "",
     explanation: "",
     expectedAnswer: type === "BENAR_SALAH" ? "benar" : "",
     options: type === "PILIHAN_GANDA" || type === "MULTI_SELECT" ? [{ content: "", isCorrect: false }, { content: "", isCorrect: false }] : [],

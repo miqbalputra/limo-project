@@ -39,6 +39,7 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
       required: question.required,
       points: question.points,
       allowOther: question.allowOther,
+      mediaUrl: question.mediaUrl ?? "",
       explanation: question.explanation ?? "",
       expectedAnswer: question.expectedAnswer ?? (question.type === "BENAR_SALAH" ? "benar" : ""),
       options: question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT"

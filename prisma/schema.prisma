@@ -1372,6 +1372,19 @@ model QuizResponse {
   @@index([shareToken, createdAt])
 }
 
+model QuizMedia {
+  id           String   @id @default(cuid())
+  originalName String
+  storedName   String   @unique
+  storagePath  String
+  mimeType     String
+  sizeBytes    BigInt
+  createdById  String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 model UjianAttempt {
   id            String      @id @default(cuid())
   ujianId       String

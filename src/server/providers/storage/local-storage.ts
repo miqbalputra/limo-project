@@ -293,3 +293,52 @@ export async function removePrivateFile(storagePath: string) {
 
   await unlink(/*turbopackIgnore: true*/ resolved).catch(() => undefined);
 }
+
+const allowedQuizImageTypes = new Map([
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+]);
+
+const allowedQuizImageExtensions = new Map([
+  ["image/jpeg", new Set(["jpg", "jpeg"])],
+  ["image/png", new Set(["png"])],
+  ["image/webp", new Set(["webp"])],
+]);
+
+function validateQuizImageMagicBytes(bytes: Uint8Array, mimeType: string) {
+  if (mimeType === "image/webp") {
+    const header = Buffer.from(bytes.slice(0, 12)).toString("ascii");
+    if (!header.startsWith("RIFF") || header.slice(8, 12) !== "WEBP") {
+      throw new ValidationError("Isi file WebP tidak valid");
+    }
+    return;
+  }
+
+  validateMagicBytes(bytes, mimeType);
+}
+
+export async function storeQuizImageFile(file: File, folder: string): Promise<StoredFile> {
+  const env = getEnv();
+  const mimeType = baseMimeType(file.type);
+
+  if (file.size < 1) {
+    throw new ValidationError("File gambar kosong");
+  }
+
+  if (file.size > env.MAX_MATERIAL_FILE_MB * 1024 * 1024) {
+    throw new ValidationError(`Ukuran gambar maksimal ${env.MAX_MATERIAL_FILE_MB} MB`);
+  }
+
+  const extension = allowedQuizImageTypes.get(mimeType);
+  const fileExtension = path.extname(file.name).slice(1).toLowerCase();
+  if (!extension || !allowedQuizImageExtensions.get(mimeType)?.has(fileExtension)) {
+    throw new ValidationError("Gambar harus berupa JPG, PNG, atau WEBP dengan ekstensi sesuai");
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  validateQuizImageMagicBytes(bytes, mimeType);
+
+  return writePrivateFile({ file, folder, extension, bytes });
+}
+

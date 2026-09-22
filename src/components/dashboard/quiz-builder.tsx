@@ -28,6 +28,7 @@ function toPayload(form: QuizFormState) {
       required: question.required,
       points: question.points,
       allowOther: question.allowOther,
+      mediaUrl: question.mediaUrl,
       explanation: question.explanation,
       expectedAnswer: question.expectedAnswer,
       options: question.options.map((option, index) => ({ label: LABELS[index], content: option.content })),
@@ -172,6 +173,18 @@ export function QuizBuilder({
   function addQuestion(type = "PILIHAN_GANDA") {
     setForm((current) => ({ ...current, questions: [...current.questions, newQuestion(type)] }));
     setTab("questions");
+  }
+
+  async function uploadMedia(key: string, file: File) {
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      const result = await requestJson<{ item: { url: string } }>("/api/v1/kuis/media", { method: "POST", body: formData, fallbackMessage: "Gagal mengunggah gambar" });
+      patchQuestion(key, { mediaUrl: result.data.item.url });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Gagal mengunggah gambar");
+    }
   }
 
   function duplicateQuestion(key: string) {
@@ -343,6 +356,31 @@ export function QuizBuilder({
                   rows={2}
                   className="tailadmin-input"
                 />
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Gambar soal (opsional)
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) void uploadMedia(question.key, file);
+                        event.target.value = "";
+                      }}
+                      className="mt-1 block text-theme-xs"
+                    />
+                  </label>
+                  {question.mediaUrl ? (
+                    <span className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-theme-xs text-gray-600">
+                      {question.mediaUrl.startsWith("/api/v1/public/quiz-media/") ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={question.mediaUrl} alt="Gambar soal" className="h-10 w-10 rounded object-cover" />
+                      ) : null}
+                      <button type="button" onClick={() => patchQuestion(question.key, { mediaUrl: "" })} className="font-semibold text-error-600">Hapus gambar</button>
+                    </span>
+                  ) : null}
+                </div>
 
                 {question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" ? (
                   <div className="grid gap-2">

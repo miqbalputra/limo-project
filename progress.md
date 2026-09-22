@@ -52,9 +52,10 @@ Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman 
 - Tab **Pengaturan**: mode UJIAN/LATIHAN, pengiriman, durasi, maks percobaan, KKM, acak soal/opsi, skor langsung, kunci & pembahasan, nama responden, hasil ke wali, jadwal tersedia.
 - Autosave draf (debounce) + tombol Simpan/Publikasikan; edit hanya untuk draf atau kuis terbit yang belum dikerjakan (409 bila sudah ada pengerjaan); share link publik memakai mekanisme yang sudah ada.
 - **Drag & drop** urutan soal (selain tombol naik/turun) dan opsi **"Lainnya"** ala Google Forms pada pilihan ganda/kotak centang (jawaban "Lainnya" ditandai `NEEDS_REVIEW`).
+- **Upload gambar per soal** (JPG/PNG/WEBP, maks sesuai `MAX_MATERIAL_FILE_MB`) disimpan privat lalu **disajikan publik** via `/api/v1/public/quiz-media/[id]` agar tampil di kuis tautan; model `QuizMedia` + migration `20260920130000_quiz_media`.
 - Halaman **Respons** (`/guru/kuis/[ujianId]/responses`): ringkasan respons publik + pengerjaan wali, rata-rata skor, lulus, perlu review, dan **analisis benar/salah per soal**.
-- Backend: `quiz-builder-service` + `POST/GET/PATCH /api/v1/kuis`, `POST /api/v1/kuis/[id]/publish`, `GET` respons builder; kolom baru `UjianSoal.required` (migration `20260920110000_ujian_soal_required`) dan `BankSoal.allowOther` (migration `20260920120000_quiz_allow_other`); player publik memvalidasi soal wajib sebelum submit.
-- Verifikasi: `npm run test:quiz-builder` (8 check), e2e `quiz-builder.spec.ts` (buat → publikasi → bagikan), plus `test:quiz-share`, `test:reminders`, `test:notifications`, `test:week2`, unit test — semua lulus.
+- Backend: `quiz-builder-service` + `POST/GET/PATCH /api/v1/kuis`, `POST /api/v1/kuis/[id]/publish`, `POST /api/v1/kuis/media`, `GET` respons builder; kolom baru `UjianSoal.required` (migration `20260920110000_ujian_soal_required`), `BankSoal.allowOther` (migration `20260920120000_quiz_allow_other`), dan `QuizMedia` (migration `20260920130000_quiz_media`); player publik memvalidasi soal wajib sebelum submit.
+- Verifikasi: `npm run test:quiz-builder` (9 check), e2e `quiz-builder.spec.ts` (buat → publikasi → bagikan), plus `test:quiz-share`, `test:reminders`, `test:notifications`, `test:week2`, unit test — semua lulus.
 
 ### Log Notifikasi (Track Record di Aplikasi)
 
