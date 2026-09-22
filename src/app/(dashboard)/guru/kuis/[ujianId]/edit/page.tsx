@@ -15,6 +15,9 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
   const { ujianId } = await params;
   const [{ item }, { items: kelas }] = await Promise.all([getQuizForm(actor, ujianId), listMyKelas(actor)]);
 
+  const sectionKeys = item.sections.map((_, index) => `s-${item.id}-${index}`);
+  if (sectionKeys.length === 0) sectionKeys.push(`s-${item.id}-0`);
+
   const initial: QuizFormState = {
     kelasId: item.kelasId,
     title: item.title,
@@ -32,6 +35,9 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
     showResultToWali: item.showResultToWali,
     availableFrom: item.availableFrom ?? "",
     availableUntil: item.availableUntil ?? "",
+    sections: item.sections.length > 0
+      ? item.sections.map((section, index) => ({ key: sectionKeys[index], title: section.title, description: section.description ?? "" }))
+      : [{ key: sectionKeys[0], title: "Bagian 1", description: "" }],
     questions: item.questions.map((question) => ({
       key: `q-${question.id}`,
       type: BUILDER_TYPES.has(question.type) ? question.type : "ESAI",
@@ -42,6 +48,11 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
       mediaUrl: question.mediaUrl ?? "",
       explanation: question.explanation ?? "",
       expectedAnswer: question.expectedAnswer ?? (question.type === "BENAR_SALAH" ? "benar" : ""),
+      sectionKey: sectionKeys[question.sectionIndex] ?? sectionKeys[0],
+      branchRules: (Array.isArray(question.branchRules) ? (question.branchRules as Array<{ label: string; goToSectionIndex: number | null }>) : []).map((rule) => ({
+        label: rule.label,
+        goToSectionKey: rule.goToSectionIndex !== null ? (sectionKeys[rule.goToSectionIndex] ?? null) : null,
+      })),
       options: question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT"
         ? question.options.map((option) => ({ content: option.content, isCorrect: question.correctLabels.includes(option.label) }))
         : [],

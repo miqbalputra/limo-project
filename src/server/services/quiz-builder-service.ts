@@ -23,42 +23,60 @@ async function assertClassScope(actor: Actor, kelasId: string) {
   if (!allowed) throw new ForbiddenError("Anda tidak memiliki akses ke kelas ini");
 }
 
-async function createQuestions(tx: Tx, ujianId: string, kelasId: string, questions: QuestionInput[], actorId: string) {
-  let order = 0;
-
-  for (const question of questions) {
-    const soal = await tx.bankSoal.create({
-      data: {
-        kelasId,
-        type: question.type,
-        question: question.question,
-        expectedAnswer: question.expectedAnswer?.trim() || undefined,
-        mediaUrl: question.mediaUrl?.trim() || undefined,
-        explanation: question.explanation?.trim() || undefined,
-        allowOther: question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" ? question.allowOther : false,
-        createdById: actorId,
-      },
+async function createSectionsAndQuestions(tx: Tx, ujianId: string, kelasId: string, data: { sections: Array<{ title: string; description?: string }>; questions: QuestionInput[] }, actorId: string) {
+  const sectionIds = new Map<number, string>();
+  for (const [index, section] of data.sections.entries()) {
+    const created = await tx.ujianSection.create({
+      data: { ujianId, order: index, title: section.title, description: section.description || undefined },
       select: { id: true },
     });
+    sectionIds.set(index, created.id);
+  }
 
-    if (question.options.length > 0) {
-      const correctLabels = question.correctLabels.map((label) => label.toUpperCase());
-      await tx.opsiSoal.createMany({
-        data: question.options.map((option, index) => ({
-          bankSoalId: soal.id,
-          label: option.label.toUpperCase(),
-          content: option.content,
-          isCorrect: correctLabels.includes(option.label.toUpperCase()),
-          order: index,
-        })),
+  let order = 0;
+  for (const [sectionIndex, sectionId] of sectionIds) {
+    for (const question of data.questions.filter((item) => item.sectionIndex === sectionIndex)) {
+      const soal = await tx.bankSoal.create({
+        data: {
+          kelasId,
+          type: question.type,
+          question: question.question,
+          expectedAnswer: question.expectedAnswer?.trim() || undefined,
+          mediaUrl: question.mediaUrl?.trim() || undefined,
+          explanation: question.explanation?.trim() || undefined,
+          allowOther: question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" ? question.allowOther : false,
+          createdById: actorId,
+        },
+        select: { id: true },
       });
+
+      if (question.options.length > 0) {
+        const correctLabels = question.correctLabels.map((label) => label.toUpperCase());
+        await tx.opsiSoal.createMany({
+          data: question.options.map((option, index) => ({
+            bankSoalId: soal.id,
+            label: option.label.toUpperCase(),
+            content: option.content,
+            isCorrect: correctLabels.includes(option.label.toUpperCase()),
+            order: index,
+          })),
+        });
+      }
+
+      await tx.ujianSoal.create({
+        data: {
+          ujianId,
+          bankSoalId: soal.id,
+          order,
+          weight: question.points,
+          required: question.required,
+          sectionId,
+          branchRules: question.branchRules.length > 0 ? (question.branchRules as Prisma.InputJsonValue) : undefined,
+        },
+      });
+
+      order += 1;
     }
-
-    await tx.ujianSoal.create({
-      data: { ujianId, bankSoalId: soal.id, order, weight: question.points, required: question.required },
-    });
-
-    order += 1;
   }
 }
 
@@ -86,6 +104,7 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
       availableUntil: true,
       shareToken: true,
       createdAt: true,
+      sections: { orderBy: { order: "asc" }, select: { id: true, order: true, title: true, description: true } },
       questions: {
         orderBy: { order: "asc" },
         select: {
@@ -93,6 +112,8 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
           order: true,
           weight: true,
           required: true,
+          sectionId: true,
+          branchRules: true,
           bankSoal: {
             select: {
               id: true,
@@ -116,11 +137,14 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
 
   await assertClassScope(actor, ujian.kelasId);
 
+  const sectionIndexById = new Map(ujian.sections.map((section, index) => [section.id, index]));
+
   return {
     item: {
       ...ujian,
       availableFrom: ujian.availableFrom ? ujian.availableFrom.toISOString().slice(0, 10) : null,
       availableUntil: ujian.availableUntil ? ujian.availableUntil.toISOString().slice(0, 10) : null,
+      sections: ujian.sections.map((section) => ({ title: section.title, description: section.description })),
       questions: ujian.questions.map((question) => ({
         id: question.id,
         type: question.bankSoal.type,
@@ -131,6 +155,8 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
         points: Number(question.weight),
         mediaUrl: question.bankSoal.mediaUrl,
         allowOther: question.bankSoal.allowOther,
+        sectionIndex: question.sectionId ? (sectionIndexById.get(question.sectionId) ?? 0) : 0,
+        branchRules: Array.isArray(question.branchRules) ? question.branchRules : [],
         options: question.bankSoal.options.map((option) => ({ label: option.label, content: option.content })),
         correctLabels: question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label),
       })),
@@ -172,7 +198,7 @@ export async function createQuizForm(actor: Actor, input: unknown) {
       select: { id: true, title: true, status: true },
     });
 
-    await createQuestions(tx, ujian.id, parsed.data.kelasId, parsed.data.questions, actor.id);
+    await createSectionsAndQuestions(tx, ujian.id, parsed.data.kelasId, { sections: parsed.data.sections, questions: parsed.data.questions }, actor.id);
     await tx.auditLog.create({ data: { actorId: actor.id, action: "QUIZ_FORM_CREATED", entityType: "Ujian", entityId: ujian.id } });
 
     return ujian;
@@ -229,6 +255,7 @@ export async function updateQuizForm(actor: Actor, ujianId: string, input: unkno
 
     const previousQuestions = await tx.ujianSoal.findMany({ where: { ujianId }, select: { bankSoalId: true } });
     await tx.ujianSoal.deleteMany({ where: { ujianId } });
+    await tx.ujianSection.deleteMany({ where: { ujianId } });
 
     for (const previous of previousQuestions) {
       const stillUsed = await tx.ujianSoal.count({ where: { bankSoalId: previous.bankSoalId } });
@@ -239,7 +266,7 @@ export async function updateQuizForm(actor: Actor, ujianId: string, input: unkno
       }
     }
 
-    await createQuestions(tx, ujianId, parsed.data.kelasId, parsed.data.questions, actor.id);
+    await createSectionsAndQuestions(tx, ujianId, parsed.data.kelasId, { sections: parsed.data.sections, questions: parsed.data.questions }, actor.id);
     await tx.auditLog.create({ data: { actorId: actor.id, action: "QUIZ_FORM_UPDATED", entityType: "Ujian", entityId: ujianId } });
   });
 

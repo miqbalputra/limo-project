@@ -1340,11 +1340,25 @@ model Ujian {
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   questions        UjianSoal[]
+  sections         UjianSection[]
   results          HasilUjian[]
   attempts         UjianAttempt[]
   responses        QuizResponse[]
 
   @@index([kelasId, status])
+}
+
+model UjianSection {
+  id          String      @id @default(cuid())
+  ujianId     String
+  ujian       Ujian       @relation(fields: [ujianId], references: [id], onDelete: Cascade)
+  order       Int         @default(0)
+  title       String
+  description String?     @db.Text
+  createdAt   DateTime    @default(now())
+  questions   UjianSoal[]
+
+  @@index([ujianId, order])
 }
 
 model QuizResponse {
@@ -1416,10 +1430,14 @@ model UjianSoal {
   order      Int            @default(0)
   weight     Decimal        @db.Decimal(10, 2)
   required   Boolean        @default(true)
+  sectionId  String?
+  section    UjianSection?  @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  branchRules Json?
   answers    JawabanUjian[]
 
   @@unique([ujianId, bankSoalId])
   @@index([bankSoalId])
+  @@index([sectionId])
 }
 
 model HasilUjian {

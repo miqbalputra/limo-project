@@ -44,6 +44,8 @@ function baseQuestions() {
       required: true,
       points: 1,
       allowOther: true,
+      sectionIndex: 0,
+      branchRules: [{ label: "B", goToSectionIndex: 1 }],
       options: [
         { label: "A", content: "Jakarta" },
         { label: "B", content: "Bandung" },
@@ -75,6 +77,7 @@ function baseQuestions() {
       question: `Lambang air adalah ${runId}`,
       required: true,
       points: 1,
+      sectionIndex: 1,
       expectedAnswer: "H2O",
     },
   ];
@@ -96,6 +99,10 @@ function basePayload(kelasId) {
     showAnswersAfterSubmit: true,
     collectRespondentName: true,
     showResultToWali: true,
+    sections: [
+      { title: "Bagian 1", description: "Pemanasan" },
+      { title: "Bagian 2", description: "Pendalaman" },
+    ],
     questions: baseQuestions(),
   };
 }
@@ -131,6 +138,7 @@ try {
   const created = await request("/api/v1/kuis", { method: "POST", cookie: guru.cookie, body: basePayload(kelas.id) });
   assert.equal(created.response.status, 201, JSON.stringify(created.payload));
   ujianId = created.payload.data.item.id;
+  ok("Penulisan formulir (sections + branching) tersimpan");
 
   const detail = await request(`/api/v1/kuis/${ujianId}`, { cookie: guru.cookie });
   assert.equal(detail.response.status, 200, JSON.stringify(detail.payload));
@@ -141,6 +149,10 @@ try {
   assert.equal(saved.questions[2].expectedAnswer, "benar");
   assert.equal(saved.questions[3].expectedAnswer, "H2O");
   assert.equal(saved.status, "DRAFT");
+  assert.equal(saved.sections.length, 2);
+  assert.equal(saved.sections[0].title, "Bagian 1");
+  assert.equal(saved.questions[3].sectionIndex, 1);
+  assert.deepEqual(saved.questions[0].branchRules, [{ label: "B", goToSectionIndex: 1 }]);
   ok("Buat formulir dengan kartu soal (PG, multi, benar/salah, isian) + kunci tersimpan");
 
   const soalIds = await prisma.ujianSoal.findMany({ where: { ujianId }, select: { bankSoalId: true } });
@@ -173,6 +185,8 @@ try {
   const afterUpdate = await request(`/api/v1/kuis/${ujianId}`, { cookie: guru.cookie });
   assert.equal(afterUpdate.payload.data.item.questions[0].points, 2);
   assert.match(afterUpdate.payload.data.item.questions[0].mediaUrl, /\/api\/v1\/public\/quiz-media\//);
+  assert.equal(afterUpdate.payload.data.item.sections.length, 2);
+  assert.equal(afterUpdate.payload.data.item.questions[3].sectionIndex, 1);
   assert.match(afterUpdate.payload.data.item.questions[0].question, /revisi/);
   assert.equal(afterUpdate.payload.data.item.questions.length, 4);
   assert.equal(afterUpdate.payload.data.item.questions[3].required, false);
@@ -198,8 +212,11 @@ try {
 
   const context = await request(`/api/v1/public/quiz/${token}/responses/${responseId}`);
   const questions = context.payload.data.questions;
+  assert.equal(context.payload.data.sections.length, 2);
   assert.equal(questions[0].required, true);
   assert.ok(!("isCorrect" in questions[0].options[0]));
+  assert.deepEqual(questions.find((question) => question.type === "PILIHAN_GANDA").branchRules, [{ label: "B", goToSectionIndex: 1 }]);
+  assert.equal(questions.find((question) => question.type === "ISIAN_SINGKAT").sectionIndex, 1);
 
   const pg = questions.find((question) => question.type === "PILIHAN_GANDA");
   assert.equal(pg.allowOther, true, "Soal pilihan ganda harus menandai opsi 'Lainnya'");

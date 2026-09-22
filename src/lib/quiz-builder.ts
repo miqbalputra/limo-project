@@ -1,3 +1,14 @@
+export type QuizSection = {
+  key: string;
+  title: string;
+  description: string;
+};
+
+export type QuizBranchRule = {
+  label: string;
+  goToSectionKey: string | null;
+};
+
 export type QuizQuestion = {
   key: string;
   type: string;
@@ -8,6 +19,8 @@ export type QuizQuestion = {
   mediaUrl: string;
   explanation: string;
   expectedAnswer: string;
+  sectionKey: string;
+  branchRules: QuizBranchRule[];
   options: { content: string; isCorrect: boolean }[];
 };
 
@@ -28,17 +41,23 @@ export type QuizFormState = {
   showResultToWali: boolean;
   availableFrom: string;
   availableUntil: string;
+  sections: QuizSection[];
   questions: QuizQuestion[];
 };
 
-let questionCounter = 0;
+let counter = 0;
 
 export function newQuestionKey() {
-  questionCounter += 1;
-  return `q-${Date.now()}-${questionCounter}`;
+  counter += 1;
+  return `q-${Date.now()}-${counter}`;
 }
 
-export function newQuestion(type = "PILIHAN_GANDA"): QuizQuestion {
+export function newSectionKey() {
+  counter += 1;
+  return `s-${Date.now()}-${counter}`;
+}
+
+export function newQuestion(type = "PILIHAN_GANDA", sectionKey = ""): QuizQuestion {
   return {
     key: newQuestionKey(),
     type,
@@ -49,11 +68,14 @@ export function newQuestion(type = "PILIHAN_GANDA"): QuizQuestion {
     mediaUrl: "",
     explanation: "",
     expectedAnswer: type === "BENAR_SALAH" ? "benar" : "",
+    sectionKey,
+    branchRules: [],
     options: type === "PILIHAN_GANDA" || type === "MULTI_SELECT" ? [{ content: "", isCorrect: false }, { content: "", isCorrect: false }] : [],
   };
 }
 
 export function emptyQuizForm(): QuizFormState {
+  const sectionKey = newSectionKey();
   return {
     kelasId: "",
     title: "",
@@ -71,6 +93,7 @@ export function emptyQuizForm(): QuizFormState {
     showResultToWali: true,
     availableFrom: "",
     availableUntil: "",
-    questions: [newQuestion("PILIHAN_GANDA")],
+    sections: [{ key: sectionKey, title: "Bagian 1", description: "" }],
+    questions: [newQuestion("PILIHAN_GANDA", sectionKey)],
   };
 }

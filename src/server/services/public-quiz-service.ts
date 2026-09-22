@@ -53,6 +53,8 @@ function sanitizeQuestion(question: {
   id: string;
   weight: Prisma.Decimal;
   required: boolean;
+  sectionIndex: number;
+  branchRules: unknown;
   bankSoal: {
     type: string;
     question: string;
@@ -74,6 +76,8 @@ function sanitizeQuestion(question: {
     id: question.id,
     weight: Number(question.weight),
     required: question.required,
+    sectionIndex: question.sectionIndex,
+    branchRules: question.branchRules,
     type: question.bankSoal.type,
     question: question.bankSoal.question,
     stimulusText: question.bankSoal.stimulusText,
@@ -86,6 +90,7 @@ function sanitizeQuestion(question: {
 }
 
 const quizInclude = {
+  sections: { orderBy: { order: "asc" as const }, select: { id: true, order: true, title: true, description: true } },
   questions: {
     orderBy: { order: "asc" as const },
     include: {
@@ -236,11 +241,31 @@ export async function getPublicQuizResponseContext(token: string, responseId: st
   }
 
   const order = (response.questionOrder as QuestionOrder | null) ?? { questions: response.ujian.questions.map((question) => question.id), options: {} };
+  const sectionIndexById = new Map(response.ujian.sections.map((section, index) => [section.id, index]));
   const questionMap = new Map(response.ujian.questions.map((question) => [question.id, question]));
   const questions = order.questions
     .map((id) => questionMap.get(id))
     .filter((question): question is NonNullable<typeof question> => Boolean(question))
-    .map((question) => sanitizeQuestion(question, order.options[question.id]));
+    .map((question) => {
+      const branchRules = Array.isArray(question.branchRules)
+        ? (question.branchRules as Array<{ label?: unknown; goToSectionIndex?: unknown }>)
+            .filter((rule) => typeof rule.label === "string" && (rule.goToSectionIndex === null || typeof rule.goToSectionIndex === "number"))
+            .map((rule) => ({ label: rule.label as string, goToSectionIndex: (rule.goToSectionIndex as number | null) ?? null }))
+        : [];
+
+      return sanitizeQuestion(
+        {
+          ...question,
+          sectionIndex: question.sectionId ? (sectionIndexById.get(question.sectionId) ?? 0) : 0,
+          branchRules,
+        },
+        order.options[question.id],
+      );
+    });
+
+  const sections = response.ujian.sections.length > 0
+    ? response.ujian.sections.map((section, index) => ({ index, title: section.title, description: section.description }))
+    : [{ index: 0, title: "", description: null }];
 
   return {
     response: {
@@ -261,6 +286,7 @@ export async function getPublicQuizResponseContext(token: string, responseId: st
       showAnswersAfterSubmit: response.ujian.showAnswersAfterSubmit,
       language: null as string | null,
     },
+    sections,
     questions,
   };
 }

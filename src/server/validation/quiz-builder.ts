@@ -22,6 +22,16 @@ const questionSchema = z
       .optional()
       .or(z.literal(""))
       .refine((value) => !value || /^https:\/\//.test(value) || value.startsWith("/"), "Media harus HTTPS atau path lokal"),
+    sectionIndex: z.coerce.number().int().min(0).default(0),
+    branchRules: z
+      .array(
+        z.object({
+          label: z.string().trim().min(1).max(8),
+          goToSectionIndex: z.coerce.number().int().min(0).nullable(),
+        }),
+      )
+      .max(10)
+      .default([]),
     explanation: z.string().trim().max(5000).optional().or(z.literal("")),
     expectedAnswer: z.string().trim().max(2000).optional().or(z.literal("")),
     options: z.array(optionSchema).max(10).default([]),
@@ -79,7 +89,27 @@ export const saveQuizFormSchema = z.object({
   showResultToWali: z.boolean().default(true),
   availableFrom: dateField,
   availableUntil: dateField,
+  sections: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1).max(200),
+        description: z.string().trim().max(2000).optional().or(z.literal("")),
+      }),
+    )
+    .min(1, "Minimal satu bagian")
+    .max(20),
   questions: z.array(questionSchema).min(1, "Minimal satu soal").max(100),
+}).superRefine((value, ctx) => {
+  value.questions.forEach((question, index) => {
+    if (question.sectionIndex >= value.sections.length) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["questions", index, "sectionIndex"], message: "Bagian soal tidak valid" });
+    }
+    question.branchRules.forEach((rule, ruleIndex) => {
+      if (rule.goToSectionIndex !== null && rule.goToSectionIndex >= value.sections.length) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["questions", index, "branchRules", ruleIndex], message: "Tujuan lompatan tidak valid" });
+      }
+    });
+  });
 });
 
 export type SaveQuizFormInput = z.infer<typeof saveQuizFormSchema>;

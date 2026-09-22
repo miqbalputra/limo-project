@@ -19,17 +19,23 @@ type QuizIntro = {
   className: string;
 };
 
+type PublicSection = { index: number; title: string; description: string | null };
+
+type BranchRule = { label: string; goToSectionIndex: number | null };
+
 type PublicQuestion = {
   id: string;
   weight: number;
   required: boolean;
-  allowOther: boolean;
+  sectionIndex: number;
+  branchRules: BranchRule[];
   type: string;
   question: string;
   stimulusText: string | null;
   mediaUrl: string | null;
   language: string | null;
   direction: string | null;
+  allowOther: boolean;
   options: { label: string; content: string }[];
 };
 
@@ -44,6 +50,7 @@ type DraftAnswer = {
 type AttemptContext = {
   response: { id: string; status: string; expiresAt: string | null; draftAnswers: unknown; respondentName: string };
   quiz: { title: string; description: string | null; durationMinutes: number; passingScore: number | null; showScoreImmediately: boolean; showAnswersAfterSubmit: boolean };
+  sections: PublicSection[];
   questions: PublicQuestion[];
 };
 
@@ -69,6 +76,14 @@ type QuizResult = {
   feedback: FeedbackItem[];
 };
 
+function isAnswerFilled(answer: DraftAnswer | undefined) {
+  if (!answer) return false;
+  const otherText = answer.shortAnswer?.trim();
+  if (answer.selectedOption) return answer.selectedOption === "OTHER" ? Boolean(otherText) : true;
+  if (answer.selectedOptions?.length) return answer.selectedOptions.includes("OTHER") ? Boolean(otherText) : true;
+  return Boolean(otherText || answer.essayAnswer?.trim());
+}
+
 export function PublicQuizRunner({ token }: { token: string }) {
   const [phase, setPhase] = useState<"loading" | "intro" | "quiz" | "result" | "error">("loading");
   const [intro, setIntro] = useState<QuizIntro | null>(null);
@@ -80,14 +95,10 @@ export function PublicQuizRunner({ token }: { token: string }) {
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [submitting, setSubmitting] = useState(false);
+  const [currentSection, setCurrentSection] = useState(0);
   const saveTimerRef = useRef<number | null>(null);
-  const answersRef = useRef(answers);
   const expiresAtRef = useRef<string | null>(null);
   const submitRef = useRef<((_auto?: boolean) => Promise<void>) | null>(null);
-
-  useEffect(() => {
-    answersRef.current = answers;
-  }, [answers]);
 
   useEffect(() => {
     let active = true;
@@ -120,6 +131,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
       setContext(ctx.data);
       setAnswers(restoreDraft(ctx.data.response.draftAnswers));
       expiresAtRef.current = ctx.data.response.expiresAt;
+      setCurrentSection(0);
       setRemainingSeconds(ctx.data.response.expiresAt ? Math.max(0, Math.ceil((new Date(ctx.data.response.expiresAt).getTime() - Date.now()) / 1000)) : null);
       setPhase("quiz");
     } catch (caught) {
@@ -176,19 +188,20 @@ export function PublicQuizRunner({ token }: { token: string }) {
     }
   }
 
-  function isAnswered(question: PublicQuestion, answer: DraftAnswer | undefined) {
-    if (!answer) return false;
-    const otherText = answer.shortAnswer?.trim();
-    if (answer.selectedOption) return answer.selectedOption === "OTHER" ? Boolean(otherText) : true;
-    if (answer.selectedOptions?.length) return answer.selectedOptions.includes("OTHER") ? Boolean(otherText) : true;
-    return Boolean(otherText || answer.essayAnswer?.trim());
+  function missingRequired(questions: PublicQuestion[]) {
+    for (const [index, question] of questions.entries()) {
+      if (question.required && !isAnswerFilled(answers[question.id])) return index + 1;
+    }
+    return null;
   }
 
-  function firstMissingRequired() {
-    if (!context) return null;
-    for (const [index, question] of context.questions.entries()) {
-      if (!question.required) continue;
-      if (!isAnswered(question, answers[question.id])) return index + 1;
+  function resolveBranchTarget(questions: PublicQuestion[]) {
+    for (const question of questions) {
+      if (question.type !== "PILIHAN_GANDA") continue;
+      const selected = answers[question.id]?.selectedOption;
+      if (!selected) continue;
+      const rule = question.branchRules.find((item) => item.label === selected);
+      if (rule && rule.goToSectionIndex !== null) return rule.goToSectionIndex;
     }
     return null;
   }
@@ -196,9 +209,9 @@ export function PublicQuizRunner({ token }: { token: string }) {
   async function submit(auto = false) {
     if (!context) return;
     if (!auto) {
-      const missing = firstMissingRequired();
+      const missing = missingRequired(context.questions);
       if (missing) {
-        setError(`Soal ${missing} wajib diisi sebelum mengumpulkan.`);
+        setError("Masih ada soal wajib yang belum diisi. Lengkapi sebelum mengumpulkan.");
         return;
       }
       if (!window.confirm("Kumpulkan jawaban? Jawaban tidak bisa diubah setelah dikirim.")) return;
@@ -222,9 +235,33 @@ export function PublicQuizRunner({ token }: { token: string }) {
     submitRef.current = submit;
   });
 
+  function goNext() {
+    if (!context) return;
+    const sections = context.sections;
+    const visible = context.questions.filter((question) => question.sectionIndex === currentSection);
+    const missing = missingRequired(visible);
+    if (missing) {
+      setError("Lengkapi soal wajib pada bagian ini sebelum lanjut.");
+      return;
+    }
+    setError("");
+    const target = resolveBranchTarget(visible) ?? currentSection + 1;
+    if (target >= sections.length) {
+      void submit(false);
+    } else {
+      setCurrentSection(target);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
+  const sections = context?.sections ?? [];
+  const isLastSection = currentSection >= sections.length - 1;
+  const visibleQuestions = context ? context.questions.filter((question) => question.sectionIndex === currentSection) : [];
+  const activeSection = sections[currentSection];
+
   const progress = useMemo(() => {
     if (!context) return 0;
-    const answered = context.questions.filter((question) => isAnswered(question, answers[question.id])).length;
+    const answered = context.questions.filter((question) => isAnswerFilled(answers[question.id])).length;
     return Math.round((answered / context.questions.length) * 100);
   }, [answers, context]);
 
@@ -262,12 +299,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
               <input value={respondentName} onChange={(event) => setRespondentName(event.target.value)} placeholder="Tulis nama lengkap" className="tailadmin-input mt-2" />
             </label>
           ) : null}
-          <button
-            type="button"
-            onClick={() => void start()}
-            disabled={intro.collectRespondentName && respondentName.trim().length < 2}
-            className="tailadmin-button-primary mt-6 w-full py-3"
-          >
+          <button type="button" onClick={() => void start()} disabled={intro.collectRespondentName && respondentName.trim().length < 2} className="tailadmin-button-primary mt-6 w-full py-3">
             Mulai Kerjakan
           </button>
         </div>
@@ -282,21 +314,29 @@ export function PublicQuizRunner({ token }: { token: string }) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <h1 className="truncate font-semibold text-gray-900">{context.quiz.title}</h1>
-              <p className="mt-1 text-theme-xs text-gray-500">{context.questions.length} soal / {progress}% terisi</p>
+              <p className="mt-1 text-theme-xs text-gray-500">
+                {sections.length > 1 ? `Bagian ${currentSection + 1} dari ${sections.length} · ` : ""}{progress}% terisi
+              </p>
             </div>
             <div className="flex items-center gap-2">
               {saveState !== "idle" ? <span className={`rounded-full px-3 py-1 text-theme-xs font-semibold ${saveState === "error" ? "bg-error-50 text-error-700" : saveState === "saving" ? "bg-warning-50 text-warning-700" : "bg-success-50 text-success-700"}`}>{saveState === "saving" ? "Menyimpan..." : saveState === "error" ? "Belum tersimpan" : "Tersimpan"}</span> : null}
               {remainingSeconds !== null ? <span className={`rounded-full px-3 py-1 text-theme-xs font-semibold ${remainingSeconds <= 60 ? "bg-error-50 text-error-700" : "bg-limo-blue-50 text-limo-blue-600"}`}>Sisa {formatDuration(remainingSeconds)}</span> : null}
-              <button type="button" disabled={submitting} onClick={() => void submit(false)} className="tailadmin-button-primary px-4 py-2">{submitting ? "Mengirim..." : "Kumpulkan"}</button>
             </div>
           </div>
           {error ? <p className="mt-3 tailadmin-alert-error">{error}</p> : null}
         </section>
 
+        {activeSection && (activeSection.title || activeSection.description) ? (
+          <section className="mt-4 rounded-2xl bg-limo-blue-50/60 p-5">
+            {activeSection.title ? <h2 className="text-lg font-bold text-limo-blue-800">{activeSection.title}</h2> : null}
+            {activeSection.description ? <p className="mt-1 whitespace-pre-wrap text-theme-sm text-limo-blue-700">{activeSection.description}</p> : null}
+          </section>
+        ) : null}
+
         <div className="mt-4 space-y-4">
-          {context.questions.map((question, index) => (
+          {visibleQuestions.map((question, index) => (
             <section key={question.id} className="tailadmin-card p-5">
-              <p className="text-theme-sm font-semibold text-limo-blue-600">Soal {index + 1} / {question.weight} poin</p>
+              <p className="text-theme-sm font-semibold text-limo-blue-600">Soal {index + 1}{question.required ? " *" : ""} / {question.weight} poin</p>
               {question.stimulusText ? <LocalizedContent as="p" text={question.stimulusText} language={question.language} direction={question.direction} className="mt-3 rounded-2xl bg-gray-50 p-4 text-theme-sm leading-7 text-gray-700">{question.stimulusText}</LocalizedContent> : null}
               <MediaBlock type={question.type} mediaUrl={question.mediaUrl} />
               <LocalizedContent as="p" text={question.question} language={question.language} direction={question.direction} className="mt-3 text-lg font-semibold leading-8 text-gray-900">{question.question}</LocalizedContent>
@@ -305,8 +345,13 @@ export function PublicQuizRunner({ token }: { token: string }) {
           ))}
         </div>
 
-        <div className="mt-4 tailadmin-card p-5 text-center">
-          <button type="button" disabled={submitting} onClick={() => void submit(false)} className="tailadmin-button-primary px-6 py-3">{submitting ? "Mengirim..." : "Kumpulkan Jawaban"}</button>
+        <div className="mt-4 flex flex-col gap-3 tailadmin-card p-5 sm:flex-row sm:items-center sm:justify-between">
+          <button type="button" disabled={currentSection === 0 || submitting} onClick={() => { setError(""); setCurrentSection((value) => Math.max(0, value - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="tailadmin-button-outline px-5 py-3 disabled:opacity-40">Sebelumnya</button>
+          {isLastSection ? (
+            <button type="button" disabled={submitting} onClick={() => void submit(false)} className="tailadmin-button-primary px-6 py-3">{submitting ? "Mengirim..." : "Kumpulkan Jawaban"}</button>
+          ) : (
+            <button type="button" onClick={goNext} className="tailadmin-button-primary px-6 py-3">Berikutnya</button>
+          )}
         </div>
       </div>
     );

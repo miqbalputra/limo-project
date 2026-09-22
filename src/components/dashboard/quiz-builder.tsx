@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requestJson } from "@/lib/api-json-client";
 import { ShareExamButton } from "@/components/dashboard/share-exam-button";
-import { newQuestion, newQuestionKey, type QuizFormState, type QuizQuestion } from "@/lib/quiz-builder";
+import { newQuestion, newQuestionKey, newSectionKey, type QuizFormState, type QuizQuestion } from "@/lib/quiz-builder";
 
 type KelasOption = { id: string; name: string };
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -19,9 +19,12 @@ const QUESTION_TYPES = [
 const LABELS = "ABCDEFGHIJ".split("");
 
 function toPayload(form: QuizFormState) {
+  const sectionIndexByKey = new Map(form.sections.map((section, index) => [section.key, index]));
+
   return {
     ...form,
     passingScore: form.passingScore,
+    sections: form.sections.map((section, index) => ({ title: section.title.trim() || `Bagian ${index + 1}`, description: section.description })),
     questions: form.questions.map((question) => ({
       type: question.type,
       question: question.question,
@@ -31,6 +34,11 @@ function toPayload(form: QuizFormState) {
       mediaUrl: question.mediaUrl,
       explanation: question.explanation,
       expectedAnswer: question.expectedAnswer,
+      sectionIndex: sectionIndexByKey.get(question.sectionKey) ?? 0,
+      branchRules: question.branchRules.map((rule) => ({
+        label: rule.label,
+        goToSectionIndex: rule.goToSectionKey ? (sectionIndexByKey.get(rule.goToSectionKey) ?? null) : null,
+      })),
       options: question.options.map((option, index) => ({ label: LABELS[index], content: option.content })),
       correctLabels: question.options.map((option, index) => (option.isCorrect ? LABELS[index] : null)).filter(Boolean),
     })),
@@ -171,8 +179,48 @@ export function QuizBuilder({
   }
 
   function addQuestion(type = "PILIHAN_GANDA") {
-    setForm((current) => ({ ...current, questions: [...current.questions, newQuestion(type)] }));
+    setForm((current) => ({ ...current, questions: [...current.questions, newQuestion(type, current.sections[current.sections.length - 1]?.key ?? "")] }));
     setTab("questions");
+  }
+
+  function addSection() {
+    setForm((current) => ({ ...current, sections: [...current.sections, { key: newSectionKey(), title: `Bagian ${current.sections.length + 1}`, description: "" }] }));
+    setSaveState("idle");
+  }
+
+  function patchSection(key: string, patch: { title?: string; description?: string }) {
+    setForm((current) => ({ ...current, sections: current.sections.map((section) => (section.key === key ? { ...section, ...patch } : section)) }));
+    setSaveState("idle");
+  }
+
+  function removeSection(key: string) {
+    setForm((current) => {
+      if (current.sections.length <= 1) return current;
+      const remaining = current.sections.filter((section) => section.key !== key);
+      const fallback = remaining[0].key;
+      return {
+        ...current,
+        sections: remaining,
+        questions: current.questions.map((question) => ({
+          ...question,
+          sectionKey: question.sectionKey === key ? fallback : question.sectionKey,
+          branchRules: question.branchRules.filter((rule) => rule.goToSectionKey !== key),
+        })),
+      };
+    });
+    setSaveState("idle");
+  }
+
+  function setBranchRule(questionKey: string, label: string, goToSectionKey: string | null) {
+    setForm((current) => ({
+      ...current,
+      questions: current.questions.map((question) => {
+        if (question.key !== questionKey) return question;
+        const rest = question.branchRules.filter((rule) => rule.label !== label);
+        return { ...question, branchRules: goToSectionKey ? [...rest, { label, goToSectionKey }] : rest };
+      }),
+    }));
+    setSaveState("idle");
   }
 
   async function uploadMedia(key: string, file: File) {
@@ -309,6 +357,30 @@ export function QuizBuilder({
 
       {tab === "questions" ? (
         <div className="space-y-3">
+          <section className="tailadmin-card p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="font-semibold text-gray-900">Bagian (section)</h2>
+                <p className="mt-1 text-theme-xs text-gray-500">Pisahkan form menjadi beberapa halaman. Responden mengerjakan satu bagian per halaman.</p>
+              </div>
+              <button type="button" onClick={addSection} className="tailadmin-button-outline px-3 py-2 text-theme-xs">+ Tambah bagian</button>
+            </div>
+            <div className="mt-3 grid gap-3">
+              {form.sections.map((section, index) => (
+                <div key={section.key} className="grid gap-2 rounded-xl border border-gray-200 p-3">
+                  <div className="flex items-center gap-2">
+                    <span className="shrink-0 text-theme-xs font-bold text-gray-400">Bagian {index + 1}</span>
+                    <input value={section.title} onChange={(event) => patchSection(section.key, { title: event.target.value })} placeholder="Judul bagian" dir="auto" className="tailadmin-input" />
+                    {form.sections.length > 1 ? (
+                      <button type="button" onClick={() => removeSection(section.key)} className="rounded-lg border border-error-200 px-2 py-1 text-theme-xs text-error-600 hover:bg-error-50">Hapus</button>
+                    ) : null}
+                  </div>
+                  <input value={section.description} onChange={(event) => patchSection(section.key, { description: event.target.value })} placeholder="Deskripsi bagian (opsional)" dir="auto" className="tailadmin-input" />
+                </div>
+              ))}
+            </div>
+          </section>
+
           {form.questions.map((question, index) => (
             <article
               key={question.key}
@@ -346,6 +418,15 @@ export function QuizBuilder({
                 <select value={question.type} onChange={(event) => changeType(question.key, event.target.value)} aria-label={`Tipe soal ${index + 1}`} className="tailadmin-input sm:max-w-xs">
                   {QUESTION_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label} — {type.hint}</option>)}
                 </select>
+
+                {form.sections.length > 1 ? (
+                  <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Bagian soal ini
+                    <select value={question.sectionKey} onChange={(event) => patchQuestion(question.key, { sectionKey: event.target.value })} className="mt-1 tailadmin-input sm:max-w-xs">
+                      {form.sections.map((section, sectionIndex) => <option key={section.key} value={section.key}>Bagian {sectionIndex + 1}: {section.title}</option>)}
+                    </select>
+                  </label>
+                ) : null}
 
                 <textarea
                   value={question.question}
@@ -411,6 +492,28 @@ export function QuizBuilder({
                       <input type="checkbox" checked={question.allowOther} onChange={(event) => patchQuestion(question.key, { allowOther: event.target.checked })} className="accent-limo-blue-500" />
                       Tambahkan opsi &quot;Lainnya&quot;
                     </label>
+                  </div>
+                ) : null}
+
+                {question.type === "PILIHAN_GANDA" && form.sections.length > 1 ? (
+                  <div className="rounded-xl border border-gray-200 p-3">
+                    <p className="text-theme-sm font-semibold text-gray-700">Lompatan antar bagian (branching)</p>
+                    <p className="mt-1 text-theme-xs text-gray-500">Setelah responden memilih, arahkan ke bagian tertentu.</p>
+                    <div className="mt-2 grid gap-2">
+                      {question.options.map((option, optionIndex) => {
+                        const rule = question.branchRules.find((item) => item.label === LABELS[optionIndex]);
+                        return (
+                          <div key={optionIndex} className="flex items-center gap-2 text-theme-sm">
+                            <span className="w-6 shrink-0 font-bold text-gray-500">{LABELS[optionIndex]}</span>
+                            <span className="min-w-0 flex-1 truncate text-gray-600">{option.content || `Opsi ${LABELS[optionIndex]}`}</span>
+                            <select value={rule?.goToSectionKey ?? ""} onChange={(event) => setBranchRule(question.key, LABELS[optionIndex], event.target.value || null)} aria-label={`Tujuan opsi ${LABELS[optionIndex]}`} className="tailadmin-input sm:max-w-xs">
+                              <option value="">Bagian berikutnya</option>
+                              {form.sections.map((section, sectionIndex) => <option key={section.key} value={section.key}>Bagian {sectionIndex + 1}: {section.title}</option>)}
+                            </select>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 ) : null}
 
