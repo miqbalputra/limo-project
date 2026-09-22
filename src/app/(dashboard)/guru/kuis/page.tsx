@@ -40,6 +40,7 @@ export default async function GuruKuisPage({ searchParams }: { searchParams: Pro
               </div>
               <div className="flex flex-wrap gap-2">
                 <Link href={`/guru/kuis/${item.id}/edit`} className="tailadmin-button-outline px-4 py-2">Edit formulir</Link>
+                <Link href={`/guru/kuis/${item.id}/responses`} className="tailadmin-button-outline px-4 py-2">Respons</Link>
                 <Link href={`/guru/ujian/${item.id}/hasil`} className="tailadmin-button-outline px-4 py-2">Input hasil</Link>
               </div>
             </div>

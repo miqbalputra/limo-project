@@ -1290,6 +1290,7 @@ model BankSoal {
   difficulty        String         @default("EASY") @db.VarChar(16)
   standard          String?        @db.VarChar(64)
   assessmentType    String         @default("FORMATIVE") @db.VarChar(24)
+  allowOther        Boolean        @default(false)
   explanation       String?        @db.Text
   createdById       String?
   createdAt         DateTime       @default(now())

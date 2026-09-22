@@ -23,6 +23,7 @@ type PublicQuestion = {
   id: string;
   weight: number;
   required: boolean;
+  allowOther: boolean;
   type: string;
   question: string;
   stimulusText: string | null;
@@ -175,13 +176,19 @@ export function PublicQuizRunner({ token }: { token: string }) {
     }
   }
 
+  function isAnswered(question: PublicQuestion, answer: DraftAnswer | undefined) {
+    if (!answer) return false;
+    const otherText = answer.shortAnswer?.trim();
+    if (answer.selectedOption) return answer.selectedOption === "OTHER" ? Boolean(otherText) : true;
+    if (answer.selectedOptions?.length) return answer.selectedOptions.includes("OTHER") ? Boolean(otherText) : true;
+    return Boolean(otherText || answer.essayAnswer?.trim());
+  }
+
   function firstMissingRequired() {
     if (!context) return null;
     for (const [index, question] of context.questions.entries()) {
       if (!question.required) continue;
-      const answer = answers[question.id];
-      const answered = Boolean(answer && (answer.selectedOption || answer.selectedOptions?.length || answer.shortAnswer?.trim() || answer.essayAnswer?.trim()));
-      if (!answered) return index + 1;
+      if (!isAnswered(question, answers[question.id])) return index + 1;
     }
     return null;
   }
@@ -217,11 +224,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
 
   const progress = useMemo(() => {
     if (!context) return 0;
-    const answered = context.questions.filter((question) => {
-      const answer = answers[question.id];
-      if (!answer) return false;
-      return Boolean(answer.selectedOption || answer.selectedOptions?.length || answer.shortAnswer?.trim() || answer.essayAnswer?.trim());
-    }).length;
+    const answered = context.questions.filter((question) => isAnswered(question, answers[question.id])).length;
     return Math.round((answered / context.questions.length) * 100);
   }, [answers, context]);
 
@@ -376,6 +379,13 @@ function AnswerInput({ question, answer, onChange }: { question: PublicQuestion;
             <span><b>{option.label}.</b> <LocalizedContent text={option.content} language={question.language} direction="auto">{option.content}</LocalizedContent></span>
           </label>
         ))}
+        {question.allowOther ? (
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-theme-sm text-gray-700">
+            <input type="radio" name={`q-${question.id}`} value="OTHER" checked={answer?.selectedOption === "OTHER"} onChange={() => onChange({ selectedOption: "OTHER" })} className="accent-limo-blue-500" />
+            <span className="shrink-0 font-semibold">Lainnya:</span>
+            <input type="text" value={answer?.selectedOption === "OTHER" ? answer?.shortAnswer ?? "" : ""} onChange={(event) => onChange({ selectedOption: "OTHER", shortAnswer: event.target.value })} disabled={answer?.selectedOption !== "OTHER"} placeholder="Tulis jawaban" dir="auto" className="tailadmin-input flex-1 py-1.5" />
+          </label>
+        ) : null}
       </div>
     );
   }
@@ -396,6 +406,13 @@ function AnswerInput({ question, answer, onChange }: { question: PublicQuestion;
             <span><b>{option.label}.</b> <LocalizedContent text={option.content} language={question.language} direction="auto">{option.content}</LocalizedContent></span>
           </label>
         ))}
+        {question.allowOther ? (
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-theme-sm text-gray-700">
+            <input type="checkbox" value="OTHER" checked={selected.includes("OTHER")} onChange={() => onChange({ selectedOptions: selected.includes("OTHER") ? selected.filter((item) => item !== "OTHER") : [...selected, "OTHER"] })} className="accent-limo-blue-500" />
+            <span className="shrink-0 font-semibold">Lainnya:</span>
+            <input type="text" value={selected.includes("OTHER") ? answer?.shortAnswer ?? "" : ""} onChange={(event) => onChange({ selectedOptions: selected.includes("OTHER") ? selected : [...selected, "OTHER"], shortAnswer: event.target.value })} disabled={!selected.includes("OTHER")} placeholder="Tulis jawaban" dir="auto" className="tailadmin-input flex-1 py-1.5" />
+          </label>
+        ) : null}
       </div>
     );
   }

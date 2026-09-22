@@ -34,6 +34,7 @@ async function createQuestions(tx: Tx, ujianId: string, kelasId: string, questio
         question: question.question,
         expectedAnswer: question.expectedAnswer?.trim() || undefined,
         explanation: question.explanation?.trim() || undefined,
+        allowOther: question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" ? question.allowOther : false,
         createdById: actorId,
       },
       select: { id: true },
@@ -98,6 +99,7 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
               question: true,
               explanation: true,
               expectedAnswer: true,
+              allowOther: true,
               options: { orderBy: { order: "asc" }, select: { label: true, content: true, isCorrect: true } },
             },
           },
@@ -125,6 +127,7 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
         expectedAnswer: question.bankSoal.expectedAnswer,
         required: question.required,
         points: Number(question.weight),
+        allowOther: question.bankSoal.allowOther,
         options: question.bankSoal.options.map((option) => ({ label: option.label, content: option.content })),
         correctLabels: question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label),
       })),
@@ -238,6 +241,117 @@ export async function updateQuizForm(actor: Actor, ujianId: string, input: unkno
   });
 
   return { item: { id: ujianId } };
+}
+
+function gradeAnswer(
+  bankSoal: { type: string; expectedAnswer: string | null; options: { label: string; isCorrect: boolean }[] },
+  answer: { selectedOption?: string; selectedOptions?: string[]; shortAnswer?: string } | undefined,
+) {
+  const correctLabels = bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label.toUpperCase()).sort();
+
+  if (bankSoal.type === "PILIHAN_GANDA") {
+    const selected = (answer?.selectedOption || "").toUpperCase();
+    return selected ? correctLabels[0] === selected : null;
+  }
+  if (bankSoal.type === "MULTI_SELECT") {
+    const selected = [...(answer?.selectedOptions || [])].map((label) => label.toUpperCase()).sort();
+    return selected.length > 0 ? JSON.stringify(selected) === JSON.stringify(correctLabels) : null;
+  }
+  if (bankSoal.type === "BENAR_SALAH") {
+    const selected = (answer?.selectedOption || "").trim().toLowerCase();
+    return selected ? selected === (bankSoal.expectedAnswer || "").trim().toLowerCase() : null;
+  }
+  if (["ISIAN_SINGKAT", "CLOZE", "GAMBAR", "LISTENING", "READING"].includes(bankSoal.type)) {
+    const selected = (answer?.shortAnswer || "").trim().toLowerCase().replace(/\s+/g, " ");
+    return selected ? selected === (bankSoal.expectedAnswer || "").trim().toLowerCase().replace(/\s+/g, " ") : null;
+  }
+  return null;
+}
+
+export async function getQuizResponses(actor: Actor, ujianId: string) {
+  const ujian = await prisma.ujian.findUnique({
+    where: { id: ujianId },
+    select: {
+      id: true,
+      title: true,
+      kelasId: true,
+      status: true,
+      passingScore: true,
+      questions: {
+        orderBy: { order: "asc" },
+        select: { id: true, weight: true, bankSoal: { select: { type: true, question: true, expectedAnswer: true, options: { select: { label: true, isCorrect: true } } } } },
+      },
+    },
+  });
+
+  if (!ujian) {
+    throw new NotFoundError("Kuis tidak ditemukan");
+  }
+
+  await assertClassScope(actor, ujian.kelasId);
+
+  const [responses, attempts, hasil] = await Promise.all([
+    prisma.quizResponse.findMany({
+      where: { ujianId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, respondentName: true, status: true, score: true, passed: true, submittedAt: true, finalAnswers: true },
+    }),
+    prisma.ujianAttempt.findMany({
+      where: { ujianId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, status: true, submittedAt: true, siswaId: true, siswa: { select: { name: true } } },
+    }),
+    prisma.hasilUjian.findMany({ where: { ujianId }, select: { siswaId: true, totalScore: true } }),
+  ]);
+
+  const scoreByStudent = new Map(hasil.map((item) => [item.siswaId, item.totalScore === null ? null : Number(item.totalScore)]));
+
+  const scored = responses.filter((response) => response.score !== null);
+  const averageScore = scored.length > 0 ? Number((scored.reduce((sum, response) => sum + Number(response.score), 0) / scored.length).toFixed(2)) : null;
+
+  const questionStats = ujian.questions.map((question) => {
+    let correct = 0;
+    let answered = 0;
+
+    for (const response of responses) {
+      const answers = Array.isArray(response.finalAnswers) ? (response.finalAnswers as Array<Record<string, unknown>>) : [];
+      const answer = answers.find((item) => item && item.ujianSoalId === question.id);
+      const verdict = gradeAnswer(question.bankSoal, answer as never);
+      if (verdict !== null) {
+        answered += 1;
+        if (verdict) correct += 1;
+      }
+    }
+
+    return { id: question.id, question: question.bankSoal.question, type: question.bankSoal.type, correct, answered };
+  });
+
+  return {
+    quiz: { id: ujian.id, title: ujian.title, status: ujian.status, passingScore: ujian.passingScore },
+    stats: {
+      responses: responses.length,
+      attempts: attempts.length,
+      averageScore,
+      passed: responses.filter((response) => response.passed === true).length,
+      needsReview: responses.filter((response) => response.status === "NEEDS_REVIEW").length,
+    },
+    questionStats,
+    responses: responses.map((response) => ({
+      id: response.id,
+      respondentName: response.respondentName,
+      status: response.status,
+      score: response.score === null ? null : Number(response.score),
+      passed: response.passed,
+      submittedAt: response.submittedAt,
+    })),
+    attempts: attempts.map((attempt) => ({
+      id: attempt.id,
+      siswaName: attempt.siswa.name,
+      status: attempt.status,
+      score: scoreByStudent.get(attempt.siswaId) ?? null,
+      submittedAt: attempt.submittedAt,
+    })),
+  };
 }
 
 export async function publishQuizForm(actor: Actor, ujianId: string) {

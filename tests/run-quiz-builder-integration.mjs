@@ -42,6 +42,7 @@ function baseQuestions() {
       question: `Ibu kota Indonesia? ${runId}`,
       required: true,
       points: 1,
+      allowOther: true,
       options: [
         { label: "A", content: "Jakarta" },
         { label: "B", content: "Bandung" },
@@ -183,6 +184,7 @@ try {
   assert.ok(!("isCorrect" in questions[0].options[0]));
 
   const pg = questions.find((question) => question.type === "PILIHAN_GANDA");
+  assert.equal(pg.allowOther, true, "Soal pilihan ganda harus menandai opsi 'Lainnya'");
   const multi = questions.find((question) => question.type === "MULTI_SELECT");
   const bs = questions.find((question) => question.type === "BENAR_SALAH");
   const isian = questions.find((question) => question.type === "ISIAN_SINGKAT");
@@ -202,6 +204,25 @@ try {
   assert.equal(submit.payload.data.result.score, 100);
   assert.equal(submit.payload.data.result.passed, true);
   ok("Publikasi + share link + penilaian otomatis dari soal yang dibuat di builder");
+
+  const otherStart = await request(`/api/v1/public/quiz/${token}/responses`, { method: "POST", body: { respondentName: `Lainnya ${runId}` } });
+  assert.equal(otherStart.response.status, 201, JSON.stringify(otherStart.payload));
+  const otherId = otherStart.payload.data.responseId;
+  const otherContext = await request(`/api/v1/public/quiz/${token}/responses/${otherId}`);
+  const otherPg = otherContext.payload.data.questions.find((question) => question.type === "PILIHAN_GANDA");
+  const otherSubmit = await request(`/api/v1/public/quiz/${token}/responses/${otherId}/submit`, {
+    method: "POST",
+    body: { answers: [{ ujianSoalId: otherPg.id, selectedOption: "OTHER", shortAnswer: "Medan" }] },
+  });
+  assert.equal(otherSubmit.response.status, 200, JSON.stringify(otherSubmit.payload));
+  assert.equal(otherSubmit.payload.data.result.needsReview, true);
+  assert.equal(otherSubmit.payload.data.result.passed, null);
+  ok("Jawaban pada opsi 'Lainnya' ditandai perlu peninjauan (needsReview)");
+
+  const responsesPage = await request(`/guru/kuis/${ujianId}/responses`, { cookie: guru.cookie });
+  assert.equal(responsesPage.response.status, 200);
+  assert.match(String(responsesPage.payload), /Respons Kuis/);
+  ok("Halaman Respons menampilkan analitik soal");
 
   const blockedAfterResponse = await request(`/api/v1/kuis/${ujianId}`, { method: "PATCH", cookie: guru.cookie, body: basePayload(kelas.id) });
   assert.equal(blockedAfterResponse.response.status, 409);

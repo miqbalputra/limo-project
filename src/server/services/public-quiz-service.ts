@@ -60,6 +60,7 @@ function sanitizeQuestion(question: {
     mediaUrl: string | null;
     language: string | null;
     direction: string | null;
+    allowOther: boolean;
     options: { label: string; content: string }[];
   };
 }, optionOrder: string[] | undefined) {
@@ -79,6 +80,7 @@ function sanitizeQuestion(question: {
     mediaUrl: question.bankSoal.mediaUrl,
     language: question.bankSoal.language,
     direction: question.bankSoal.direction,
+    allowOther: question.bankSoal.allowOther,
     options: options.map((option) => ({ label: option.label, content: option.content })),
   };
 }
@@ -331,12 +333,23 @@ export async function submitPublicQuizResponse(token: string, responseId: string
 
     if (question.bankSoal.type === "PILIHAN_GANDA") {
       const selected = answer?.selectedOption?.toUpperCase() || "";
-      score = selected && correctOptions[0] === selected ? Number(question.weight) : 0;
-      feedback.push({ ujianSoalId: question.id, correct: score > 0 });
+      if (selected === "OTHER") {
+        needsReview = true;
+        feedback.push({ ujianSoalId: question.id, correct: null });
+      } else {
+        score = selected && correctOptions[0] === selected ? Number(question.weight) : 0;
+        feedback.push({ ujianSoalId: question.id, correct: score > 0 });
+      }
     } else if (question.bankSoal.type === "MULTI_SELECT") {
-      const selected = sortedLabels(answer?.selectedOptions);
-      score = selected.length > 0 && jsonEquals(selected, correctOptions) ? Number(question.weight) : 0;
-      feedback.push({ ujianSoalId: question.id, correct: score > 0 });
+      const rawSelected = (answer?.selectedOptions ?? []).map((label) => label.toUpperCase());
+      if (rawSelected.includes("OTHER")) {
+        needsReview = true;
+        feedback.push({ ujianSoalId: question.id, correct: null });
+      } else {
+        const selected = sortedLabels(answer?.selectedOptions);
+        score = selected.length > 0 && jsonEquals(selected, correctOptions) ? Number(question.weight) : 0;
+        feedback.push({ ujianSoalId: question.id, correct: score > 0 });
+      }
     } else if (question.bankSoal.type === "BENAR_SALAH") {
       score = normalizeText(answer?.selectedOption) === normalizeText(question.bankSoal.expectedAnswer) ? Number(question.weight) : 0;
       feedback.push({ ujianSoalId: question.id, correct: score > 0 });

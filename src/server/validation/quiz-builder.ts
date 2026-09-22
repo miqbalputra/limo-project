@@ -14,6 +14,7 @@ const questionSchema = z
     question: z.string().trim().min(1).max(10000),
     required: z.boolean().default(true),
     points: z.coerce.number().positive().max(1000).default(1),
+    allowOther: z.boolean().default(false),
     explanation: z.string().trim().max(5000).optional().or(z.literal("")),
     expectedAnswer: z.string().trim().max(2000).optional().or(z.literal("")),
     options: z.array(optionSchema).max(10).default([]),

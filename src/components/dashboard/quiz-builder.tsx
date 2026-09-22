@@ -27,6 +27,7 @@ function toPayload(form: QuizFormState) {
       question: question.question,
       required: question.required,
       points: question.points,
+      allowOther: question.allowOther,
       explanation: question.explanation,
       expectedAnswer: question.expectedAnswer,
       options: question.options.map((option, index) => ({ label: LABELS[index], content: option.content })),
@@ -78,6 +79,7 @@ export function QuizBuilder({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [dragKey, setDragKey] = useState<string | null>(null);
   const firstRender = useRef(true);
   const timerRef = useRef<number | null>(null);
 
@@ -198,6 +200,20 @@ export function QuizBuilder({
     });
   }
 
+  function reorderQuestion(fromKey: string, toKey: string) {
+    if (fromKey === toKey) return;
+    setForm((current) => {
+      const fromIndex = current.questions.findIndex((question) => question.key === fromKey);
+      const toIndex = current.questions.findIndex((question) => question.key === toKey);
+      if (fromIndex === -1 || toIndex === -1) return current;
+      const questions = [...current.questions];
+      const [moved] = questions.splice(fromIndex, 1);
+      questions.splice(toIndex, 0, moved);
+      return { ...current, questions };
+    });
+    setSaveState("idle");
+  }
+
   function updateOption(key: string, index: number, patch: { content?: string; isCorrect?: boolean }) {
     patchQuestion(key, {
       options: form.questions.find((question) => question.key === key)?.options.map((option, position) => {
@@ -281,9 +297,30 @@ export function QuizBuilder({
       {tab === "questions" ? (
         <div className="space-y-3">
           {form.questions.map((question, index) => (
-            <article key={question.key} className="tailadmin-card p-5">
+            <article
+              key={question.key}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => {
+                if (dragKey) reorderQuestion(dragKey, question.key);
+                setDragKey(null);
+              }}
+              className={`tailadmin-card p-5 transition ${dragKey === question.key ? "opacity-50 ring-2 ring-limo-blue-300" : ""}`}
+            >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-theme-sm font-bold text-gray-700">Soal {index + 1}</p>
+                <div className="flex items-center gap-2">
+                  <span
+                    draggable
+                    onDragStart={() => setDragKey(question.key)}
+                    onDragEnd={() => setDragKey(null)}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Tarik untuk mengurutkan soal ${index + 1}`}
+                    className="cursor-grab select-none rounded-lg border border-gray-200 px-2 py-1 text-theme-xs text-gray-400 hover:bg-gray-50"
+                  >
+                    ⠿
+                  </span>
+                  <p className="text-theme-sm font-bold text-gray-700">Soal {index + 1}</p>
+                </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <button type="button" onClick={() => moveQuestion(question.key, -1)} disabled={index === 0} aria-label="Naikkan soal" className="rounded-lg border border-gray-200 px-2 py-1 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">↑</button>
                   <button type="button" onClick={() => moveQuestion(question.key, 1)} disabled={index === form.questions.length - 1} aria-label="Turunkan soal" className="rounded-lg border border-gray-200 px-2 py-1 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">↓</button>
@@ -332,6 +369,10 @@ export function QuizBuilder({
                       </div>
                     ))}
                     <button type="button" onClick={() => addOption(question.key)} disabled={question.options.length >= 10} className="w-fit rounded-lg border border-gray-200 px-3 py-1.5 text-theme-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40">+ Tambah opsi</button>
+                    <label className="mt-1 flex items-center gap-2 text-theme-sm text-gray-700">
+                      <input type="checkbox" checked={question.allowOther} onChange={(event) => patchQuestion(question.key, { allowOther: event.target.checked })} className="accent-limo-blue-500" />
+                      Tambahkan opsi &quot;Lainnya&quot;
+                    </label>
                   </div>
                 ) : null}
 
