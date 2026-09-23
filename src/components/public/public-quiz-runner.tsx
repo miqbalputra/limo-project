@@ -30,6 +30,7 @@ type QuizIntro = {
   showAnswersAfterSubmit: boolean;
   shuffleQuestions: boolean;
   themeColor: string | null;
+  headerImageUrl: string | null;
   programName: string;
   className: string;
 };
@@ -64,7 +65,7 @@ type DraftAnswer = {
 
 type AttemptContext = {
   response: { id: string; status: string; expiresAt: string | null; draftAnswers: unknown; respondentName: string };
-  quiz: { title: string; description: string | null; durationMinutes: number; passingScore: number | null; showScoreImmediately: boolean; showAnswersAfterSubmit: boolean; themeColor: string | null };
+  quiz: { title: string; description: string | null; durationMinutes: number; passingScore: number | null; showScoreImmediately: boolean; showAnswersAfterSubmit: boolean; themeColor: string | null; headerImageUrl: string | null };
   sections: PublicSection[];
   questions: PublicQuestion[];
 };
@@ -299,7 +300,11 @@ export function PublicQuizRunner({ token }: { token: string }) {
   if (phase === "intro" && intro) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-12 sm:py-16">
-        <div className="tailadmin-card p-6 sm:p-8">
+        <div className="tailadmin-card overflow-hidden p-6 sm:p-8">
+          {intro.headerImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={intro.headerImageUrl} alt="Header kuis" className="-m-6 mb-5 h-44 w-[calc(100%+3rem)] object-cover sm:-m-8 sm:mb-6 sm:h-56 sm:w-[calc(100%+4rem)]" />
+          ) : null}
           <p className="text-theme-xs font-bold uppercase tracking-widest" style={{ color: accent }}>{intro.programName} / {intro.className}</p>
           <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-gray-900 sm:text-3xl">{intro.title}</h1>
           {intro.description ? <p className="mt-3 whitespace-pre-wrap text-theme-sm leading-7 text-gray-600">{intro.description}</p> : null}
@@ -326,6 +331,10 @@ export function PublicQuizRunner({ token }: { token: string }) {
   if (phase === "quiz" && context) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+        {context.quiz.headerImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={context.quiz.headerImageUrl} alt="Header kuis" className="mb-4 h-32 w-full rounded-2xl object-cover sm:h-44" />
+        ) : null}
         <section className="tailadmin-card sticky top-3 z-10 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">

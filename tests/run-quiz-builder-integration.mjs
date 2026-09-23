@@ -100,6 +100,7 @@ function basePayload(kelasId) {
     collectRespondentName: true,
     showResultToWali: true,
     themeColor: "green",
+    headerImageUrl: "/api/v1/public/quiz-media/header-test",
     sections: [
       { title: "Bagian 1", description: "Pemanasan" },
       { title: "Bagian 2", description: "Pendalaman" },
@@ -151,6 +152,7 @@ try {
   assert.equal(saved.questions[3].expectedAnswer, "H2O");
   assert.equal(saved.status, "DRAFT");
   assert.equal(saved.themeColor, "green");
+  assert.equal(saved.headerImageUrl, "/api/v1/public/quiz-media/header-test");
   assert.equal(saved.sections.length, 2);
   assert.equal(saved.sections[0].title, "Bagian 1");
   assert.equal(saved.questions[3].sectionIndex, 1);
@@ -208,6 +210,7 @@ try {
   assert.equal(intro.response.status, 200, JSON.stringify(intro.payload));
   assert.equal(intro.payload.data.quiz.questionCount, 4);
   assert.equal(intro.payload.data.quiz.themeColor, "green");
+  assert.equal(intro.payload.data.quiz.headerImageUrl, "/api/v1/public/quiz-media/header-test");
 
   const start = await request(`/api/v1/public/quiz/${token}/responses`, { method: "POST", body: { respondentName: `Builder ${runId}` } });
   assert.equal(start.response.status, 201, JSON.stringify(start.payload));
@@ -217,6 +220,7 @@ try {
   const questions = context.payload.data.questions;
   assert.equal(context.payload.data.sections.length, 2);
   assert.equal(context.payload.data.quiz.themeColor, "green");
+  assert.equal(context.payload.data.quiz.headerImageUrl, "/api/v1/public/quiz-media/header-test");
   assert.equal(questions[0].required, true);
   assert.ok(!("isCorrect" in questions[0].options[0]));
   assert.deepEqual(questions.find((question) => question.type === "PILIHAN_GANDA").branchRules, [{ label: "B", goToSectionIndex: 1 }]);

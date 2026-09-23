@@ -245,6 +245,18 @@ export function QuizBuilder({
     }
   }
 
+  async function uploadHeaderImage(file: File) {
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      const result = await requestJson<{ item: { url: string } }>("/api/v1/kuis/media", { method: "POST", body: formData, fallbackMessage: "Gagal mengunggah gambar header" });
+      patchForm({ headerImageUrl: result.data.item.url });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Gagal mengunggah gambar header");
+    }
+  }
+
   function duplicateQuestion(key: string) {
     setForm((current) => {
       const index = current.questions.findIndex((question) => question.key === key);
@@ -621,6 +633,27 @@ export function QuizBuilder({
             <Toggle label="Tampilkan kunci & pembahasan" checked={form.showAnswersAfterSubmit} onChange={(value) => patchForm({ showAnswersAfterSubmit: value })} />
             <Toggle label="Minta nama responden (tautan publik)" checked={form.collectRespondentName} onChange={(value) => patchForm({ collectRespondentName: value })} />
             <Toggle label="Tampilkan hasil ke wali" checked={form.showResultToWali} onChange={(value) => patchForm({ showResultToWali: value })} />
+          </div>
+          <div className="sm:col-span-2">
+            <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">Gambar header (opsional)</p>
+            <p className="mt-1 text-theme-xs text-gray-400">Ditampilkan di bagian atas halaman publik kuis.</p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              {form.headerImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={form.headerImageUrl} alt="Gambar header" className="h-20 w-full max-w-xs rounded-xl object-cover ring-1 ring-gray-200" />
+              ) : (
+                <span className="grid h-20 w-full max-w-xs place-items-center rounded-xl bg-gray-50 text-theme-xs text-gray-400 ring-1 ring-gray-200">Belum ada gambar</span>
+              )}
+              <div className="flex items-center gap-2">
+                <label className="tailadmin-button-outline cursor-pointer px-4 py-2 text-theme-xs">
+                  {form.headerImageUrl ? "Ganti gambar" : "Unggah gambar"}
+                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void uploadHeaderImage(file); }} />
+                </label>
+                {form.headerImageUrl ? (
+                  <button type="button" onClick={() => patchForm({ headerImageUrl: "" })} className="text-theme-xs font-semibold text-error-600">Hapus gambar</button>
+                ) : null}
+              </div>
+            </div>
           </div>
           <div className="sm:col-span-2">
             <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">Tema warna</p>

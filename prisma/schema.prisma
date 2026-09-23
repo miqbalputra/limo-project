@@ -1337,6 +1337,7 @@ model Ujian {
   showAnswersAfterSubmit Boolean  @default(false)
   collectRespondentName  Boolean  @default(true)
   themeColor       String         @default("blue") @db.VarChar(16)
+  headerImageUrl   String?        @db.VarChar(512)
   createdById      String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt

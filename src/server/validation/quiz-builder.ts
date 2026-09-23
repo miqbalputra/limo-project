@@ -90,6 +90,7 @@ export const saveQuizFormSchema = z.object({
   collectRespondentName: z.boolean().default(true),
   showResultToWali: z.boolean().default(true),
   themeColor: z.enum(QUIZ_THEME_COLORS).default("blue"),
+  headerImageUrl: z.string().trim().max(512).default(""),
   availableFrom: dateField,
   availableUntil: dateField,
   sections: z

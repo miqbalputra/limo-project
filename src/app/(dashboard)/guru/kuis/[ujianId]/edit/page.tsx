@@ -34,6 +34,7 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
     collectRespondentName: item.collectRespondentName,
     showResultToWali: item.showResultToWali,
     themeColor: item.themeColor ?? "blue",
+    headerImageUrl: item.headerImageUrl ?? "",
     availableFrom: item.availableFrom ?? "",
     availableUntil: item.availableUntil ?? "",
     sections: item.sections.length > 0
