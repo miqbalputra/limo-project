@@ -161,7 +161,7 @@ export async function createQuizPdf(actor: Actor, ujianId: string, options: { wi
         if (height !== null) y += height + 6;
       }
 
-      if (question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT") {
+      if (question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" || question.type === "DROPDOWN") {
         for (const option of question.options) {
           y = ensureSpace(doc, y, 18);
           y = putText(doc, `${option.label}. ${option.content}`, { x: MARGIN + 16, y, width: CONTENT_WIDTH - 16, size: 10, color: INK }) + 2;
@@ -170,6 +170,17 @@ export async function createQuizPdf(actor: Actor, ujianId: string, options: { wi
             const height = drawImage(doc, optionImage, MARGIN + 34, y, 160, 120);
             if (height !== null) y += height + 4;
           }
+        }
+      } else if (question.type === "SKALA" || question.type === "RATING") {
+        const values = question.options.map((option) => option.content).join("    ");
+        const range = [question.scaleMinLabel, values, question.scaleMaxLabel].filter(Boolean).join("   ");
+        y = putText(doc, range, { x: MARGIN + 16, y, width: CONTENT_WIDTH - 16, size: 10, color: INK }) + 2;
+      } else if (question.type === "GRID") {
+        const columns = question.options.map((option) => option.label).join("   ");
+        y = putText(doc, `Kolom: ${columns}`, { x: MARGIN + 16, y, width: CONTENT_WIDTH - 16, size: 9, color: MUTED }) + 2;
+        for (const row of question.gridRows) {
+          y = ensureSpace(doc, y, 18);
+          y = putText(doc, `( ) ${row}`, { x: MARGIN + 16, y, width: CONTENT_WIDTH - 16, size: 10, color: INK }) + 2;
         }
       } else if (question.type === "BENAR_SALAH") {
         y = putText(doc, "( ) Benar     ( ) Salah", { x: MARGIN + 16, y, width: CONTENT_WIDTH - 16, size: 10, color: INK }) + 2;
@@ -194,9 +205,14 @@ export async function createQuizPdf(actor: Actor, ujianId: string, options: { wi
     let keyNumber = 0;
     for (const question of item.questions) {
       keyNumber += 1;
-      const answer = question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT"
-        ? (question.correctLabels.join(", ") || "-")
-        : (question.expectedAnswer || "-");
+      let answer: string;
+      if (question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" || question.type === "DROPDOWN" || question.type === "SKALA" || question.type === "RATING") {
+        answer = question.correctLabels.join(", ") || "-";
+      } else if (question.type === "GRID") {
+        answer = question.gridCorrect.map((label, index) => `${index + 1}: ${label || "-"}`).join(", ") || "-";
+      } else {
+        answer = question.expectedAnswer || "-";
+      }
       keyY = ensureSpace(doc, keyY, 18);
       keyY = putText(doc, `${keyNumber}. ${answer}`, { x: MARGIN, y: keyY, width: CONTENT_WIDTH, size: 10, color: INK }) + 2;
     }

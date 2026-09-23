@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { requestJson } from "@/lib/api-json-client";
 import { ShareExamButton } from "@/components/dashboard/share-exam-button";
 import { newQuestion, newQuestionKey, newSectionKey, type QuizFormState, type QuizQuestion } from "@/lib/quiz-builder";
@@ -11,10 +12,19 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 const QUESTION_TYPES = [
   { value: "PILIHAN_GANDA", label: "Pilihan ganda", hint: "Satu jawaban benar" },
   { value: "MULTI_SELECT", label: "Kotak centang", hint: "Boleh lebih dari satu" },
+  { value: "DROPDOWN", label: "Dropdown", hint: "Daftar pilihan turun" },
   { value: "BENAR_SALAH", label: "Benar / Salah", hint: "Dua pilihan" },
   { value: "ISIAN_SINGKAT", label: "Isian singkat", hint: "Jawaban singkat, dinilai otomatis" },
   { value: "ESAI", label: "Paragraf", hint: "Jawaban panjang, dinilai guru" },
+  { value: "SKALA", label: "Skala linier", hint: "Pilih satu angka dalam rentang" },
+  { value: "RATING", label: "Rating bintang", hint: "Penilaian bintang 1-5" },
+  { value: "TANGGAL", label: "Tanggal", hint: "Pilih tanggal" },
+  { value: "WAKTU", label: "Waktu", hint: "Pilih jam" },
+  { value: "GRID", label: "Tabel pilihan", hint: "Beberapa pernyataan, satu/lebih kolom" },
 ] as const;
+
+const CHOICE_TYPES = new Set(["PILIHAN_GANDA", "MULTI_SELECT", "DROPDOWN"]);
+const SCALE_TYPES = new Set(["SKALA", "RATING"]);
 
 const LABELS = "ABCDEFGHIJ".split("");
 
@@ -38,12 +48,20 @@ function toPayload(form: QuizFormState) {
     questions: form.questions.map((question) => ({
       type: question.type,
       question: question.question,
+      helpText: question.helpText,
       required: question.required,
       points: question.points,
       allowOther: question.allowOther,
       mediaUrl: question.mediaUrl,
       explanation: question.explanation,
       expectedAnswer: question.expectedAnswer,
+      scaleMin: question.scaleMin,
+      scaleMax: question.scaleMax,
+      scaleMinLabel: question.scaleMinLabel,
+      scaleMaxLabel: question.scaleMaxLabel,
+      gridRows: question.gridRows,
+      gridMultiple: question.gridMultiple,
+      gridCorrect: question.gridCorrect,
       sectionIndex: sectionIndexByKey.get(question.sectionKey) ?? 0,
       branchRules: question.branchRules.map((rule) => ({
         label: rule.label,
@@ -63,14 +81,29 @@ function validate(form: QuizFormState, published: boolean) {
   for (const [index, question] of form.questions.entries()) {
     const number = index + 1;
     if (!question.question.trim()) return `Soal ${number}: pertanyaan wajib diisi.`;
-    if (question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT") {
+    if (CHOICE_TYPES.has(question.type)) {
       const filled = question.options.filter((option) => option.content.trim());
       if (filled.length < 2) return `Soal ${number}: minimal dua opsi jawaban.`;
       const correct = question.options.filter((option) => option.isCorrect && option.content.trim());
       if (correct.length === 0) return `Soal ${number}: tandai jawaban benar.`;
-      if (question.type === "PILIHAN_GANDA" && correct.length !== 1) return `Soal ${number}: pilihan ganda hanya boleh satu jawaban benar.`;
+      if ((question.type === "PILIHAN_GANDA" || question.type === "DROPDOWN") && correct.length !== 1) return `Soal ${number}: hanya boleh satu jawaban benar.`;
+    }
+    if (SCALE_TYPES.has(question.type)) {
+      if (question.scaleMax <= question.scaleMin) return `Soal ${number}: nilai maksimum skala harus lebih besar dari minimum.`;
+      const correct = Number(question.expectedAnswer);
+      if (!question.expectedAnswer.trim() || Number.isNaN(correct) || correct < question.scaleMin || correct > question.scaleMax) {
+        return `Soal ${number}: pilih jawaban benar pada rentang skala.`;
+      }
+    }
+    if (question.type === "GRID") {
+      const rows = question.gridRows.filter((row) => row.trim());
+      if (rows.length < 1) return `Soal ${number}: minimal satu baris pernyataan.`;
+      if (question.gridRows.some((row) => !row.trim())) return `Soal ${number}: setiap baris harus diisi.`;
+      const columns = question.options.filter((option) => option.content.trim());
+      if (columns.length < 2) return `Soal ${number}: minimal dua kolom pilihan.`;
     }
     if (question.type === "ISIAN_SINGKAT" && !question.expectedAnswer.trim()) return `Soal ${number}: kunci jawaban wajib diisi.`;
+    if ((question.type === "TANGGAL" || question.type === "WAKTU") && !question.expectedAnswer.trim()) return `Soal ${number}: kunci jawaban wajib diisi.`;
   }
 
   return "";
@@ -91,6 +124,7 @@ export function QuizBuilder({
 }) {
   const [form, setForm] = useState<QuizFormState>(initial);
   const [id, setId] = useState(ujianId ?? "");
+  const router = useRouter();
   const idRef = useRef(ujianId ?? "");
   const [currentStatus, setCurrentStatus] = useState(status ?? "DRAFT");
   const [tab, setTab] = useState<"questions" | "settings">("questions");
@@ -181,11 +215,75 @@ export function QuizBuilder({
   }
 
   function changeType(key: string, type: string) {
+    const blank = { content: "", isCorrect: false, mediaUrl: "" };
     patchQuestion(key, {
       type,
-      expectedAnswer: type === "BENAR_SALAH" ? "benar" : "",
-      options: type === "PILIHAN_GANDA" || type === "MULTI_SELECT" ? [{ content: "", isCorrect: false, mediaUrl: "" }, { content: "", isCorrect: false, mediaUrl: "" }] : [],
+      expectedAnswer: type === "BENAR_SALAH" ? "benar" : SCALE_TYPES.has(type) ? "1" : "",
+      scaleMin: 1,
+      scaleMax: 5,
+      scaleMinLabel: "",
+      scaleMaxLabel: "",
+      options: CHOICE_TYPES.has(type)
+        ? [blank, blank]
+        : type === "GRID"
+          ? [blank, blank, blank]
+          : SCALE_TYPES.has(type)
+            ? scaleOptions(1, 5, "1")
+            : [],
+      gridRows: type === "GRID" ? ["", ""] : [],
+      gridCorrect: type === "GRID" ? ["", ""] : [],
+      gridMultiple: false,
+      branchRules: type === "PILIHAN_GANDA" ? form.questions.find((question) => question.key === key)?.branchRules ?? [] : [],
+      allowOther: type === "ESAI" ? false : form.questions.find((question) => question.key === key)?.allowOther ?? false,
     });
+  }
+
+  function scaleOptions(min: number, max: number, correct: string): QuizQuestion["options"] {
+    const options: QuizQuestion["options"] = [];
+    for (let value = min; value <= max; value += 1) {
+      options.push({ content: String(value), isCorrect: String(value) === correct, mediaUrl: "" });
+    }
+    return options;
+  }
+
+  function updateScale(key: string, patch: { scaleMin?: number; scaleMax?: number; scaleMinLabel?: string; scaleMaxLabel?: string; expectedAnswer?: string }) {
+    const question = form.questions.find((item) => item.key === key);
+    if (!question) return;
+    const rawMin = patch.scaleMin ?? question.scaleMin;
+    const rawMax = patch.scaleMax ?? question.scaleMax;
+    const min = Math.max(0, Math.min(9, Math.min(rawMin, rawMax)));
+    const max = Math.max(min + 1, Math.min(10, Math.max(rawMin, rawMax)));
+    let correct = patch.expectedAnswer ?? question.expectedAnswer;
+    const correctNumber = Number(correct);
+    if (!correct.trim() || Number.isNaN(correctNumber) || correctNumber < min || correctNumber > max) correct = String(min);
+    patchQuestion(key, { ...patch, scaleMin: min, scaleMax: max, expectedAnswer: correct, options: scaleOptions(min, max, correct) });
+  }
+
+  function addGridRow(key: string) {
+    const question = form.questions.find((item) => item.key === key);
+    if (!question || question.gridRows.length >= 20) return;
+    patchQuestion(key, { gridRows: [...question.gridRows, ""], gridCorrect: [...question.gridCorrect, ""] });
+  }
+
+  function updateGridRow(key: string, index: number, value: string) {
+    const question = form.questions.find((item) => item.key === key);
+    if (!question) return;
+    patchQuestion(key, { gridRows: question.gridRows.map((row, position) => (position === index ? value : row)) });
+  }
+
+  function removeGridRow(key: string, index: number) {
+    const question = form.questions.find((item) => item.key === key);
+    if (!question || question.gridRows.length <= 1) return;
+    patchQuestion(key, {
+      gridRows: question.gridRows.filter((_, position) => position !== index),
+      gridCorrect: question.gridCorrect.filter((_, position) => position !== index),
+    });
+  }
+
+  function setGridCorrect(key: string, index: number, label: string) {
+    const question = form.questions.find((item) => item.key === key);
+    if (!question) return;
+    patchQuestion(key, { gridCorrect: question.gridCorrect.map((value, position) => (position === index ? label : value)) });
   }
 
   function addQuestion(type = "PILIHAN_GANDA") {
@@ -269,6 +367,20 @@ export function QuizBuilder({
     }
   }
 
+  async function duplicateForm() {
+    if (!id) return;
+    setError("");
+    setBusy(true);
+    try {
+      const result = await requestJson<{ item: { id: string } }>(`/api/v1/kuis/${id}/duplicate`, { method: "POST", body: {}, fallbackMessage: "Gagal menduplikat formulir" });
+      router.push(`/guru/kuis/${result.data.item.id}/edit`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Gagal menduplikat formulir");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function duplicateQuestion(key: string) {
     setForm((current) => {
       const index = current.questions.findIndex((question) => question.key === key);
@@ -342,6 +454,7 @@ export function QuizBuilder({
             {saveState !== "idle" ? <span className={`text-theme-xs font-semibold ${saveState === "error" ? "text-error-600" : saveState === "saving" ? "text-warning-700" : "text-success-700"}`}>{saveState === "saving" ? "Menyimpan..." : saveState === "error" ? "Gagal menyimpan" : "Tersimpan"}</span> : null}
             {id ? <a href={`/api/v1/kuis/${id}/pdf`} target="_blank" rel="noreferrer" className="tailadmin-button-outline px-4 py-2">Cetak PDF</a> : null}
             {id ? <a href={`/api/v1/kuis/${id}/pdf?kunci=1`} target="_blank" rel="noreferrer" className="tailadmin-button-outline px-4 py-2">PDF + Kunci</a> : null}
+            {id ? <button type="button" onClick={() => void duplicateForm()} disabled={busy} className="tailadmin-button-outline px-4 py-2">Duplikat</button> : null}
             <button type="button" onClick={() => void save()} disabled={saveState === "saving"} className="tailadmin-button-outline px-4 py-2">Simpan</button>
             <button
               type="button"
@@ -474,6 +587,15 @@ export function QuizBuilder({
                   className="tailadmin-input"
                 />
 
+                <input
+                  value={question.helpText}
+                  onChange={(event) => patchQuestion(question.key, { helpText: event.target.value })}
+                  placeholder="Deskripsi / petunjuk soal (opsional)"
+                  aria-label={`Deskripsi soal ${index + 1}`}
+                  dir="auto"
+                  className="tailadmin-input"
+                />
+
                 <div className="flex flex-wrap items-center gap-3">
                   <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
                     Gambar soal (opsional)
@@ -499,20 +621,25 @@ export function QuizBuilder({
                   ) : null}
                 </div>
 
-                {question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" ? (
+                {CHOICE_TYPES.has(question.type) || question.type === "GRID" ? (
                   <div className="grid gap-2">
+                    {question.type === "GRID" ? <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">Kolom pilihan</p> : null}
                     {question.options.map((option, optionIndex) => (
                       <div key={optionIndex} className="rounded-xl border border-gray-200 bg-white p-2">
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => updateOption(question.key, optionIndex, { isCorrect: !option.isCorrect })}
-                            aria-pressed={option.isCorrect}
-                            aria-label={`Tandai opsi ${LABELS[optionIndex]} benar`}
-                            className={`grid size-8 shrink-0 place-items-center rounded-full border text-theme-xs font-bold ${option.isCorrect ? "border-success-500 bg-success-50 text-success-700" : "border-gray-300 text-gray-500"}`}
-                          >
-                            {option.isCorrect ? "✓" : LABELS[optionIndex]}
-                          </button>
+                          {question.type === "GRID" ? (
+                            <span className="grid size-8 shrink-0 place-items-center rounded-full border border-gray-300 text-theme-xs font-bold text-gray-500">{LABELS[optionIndex]}</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => updateOption(question.key, optionIndex, { isCorrect: !option.isCorrect })}
+                              aria-pressed={option.isCorrect}
+                              aria-label={`Tandai opsi ${LABELS[optionIndex]} benar`}
+                              className={`grid size-8 shrink-0 place-items-center rounded-full border text-theme-xs font-bold ${option.isCorrect ? "border-success-500 bg-success-50 text-success-700" : "border-gray-300 text-gray-500"}`}
+                            >
+                              {option.isCorrect ? "✓" : LABELS[optionIndex]}
+                            </button>
+                          )}
                           <input
                             value={option.content}
                             onChange={(event) => updateOption(question.key, optionIndex, { content: event.target.value })}
@@ -547,12 +674,76 @@ export function QuizBuilder({
                         ) : null}
                       </div>
                     ))}
-                    <button type="button" onClick={() => addOption(question.key)} disabled={question.options.length >= 10} className="w-fit rounded-lg border border-gray-200 px-3 py-1.5 text-theme-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40">+ Tambah opsi</button>
-                    <label className="mt-1 flex items-center gap-2 text-theme-sm text-gray-700">
-                      <input type="checkbox" checked={question.allowOther} onChange={(event) => patchQuestion(question.key, { allowOther: event.target.checked })} className="accent-limo-blue-500" />
-                      Tambahkan opsi &quot;Lainnya&quot;
+                    <button type="button" onClick={() => addOption(question.key)} disabled={question.options.length >= 10} className="w-fit rounded-lg border border-gray-200 px-3 py-1.5 text-theme-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40">{question.type === "GRID" ? "+ Tambah kolom" : "+ Tambah opsi"}</button>
+                    {question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" ? (
+                      <label className="mt-1 flex items-center gap-2 text-theme-sm text-gray-700">
+                        <input type="checkbox" checked={question.allowOther} onChange={(event) => patchQuestion(question.key, { allowOther: event.target.checked })} className="accent-limo-blue-500" />
+                        Tambahkan opsi &quot;Lainnya&quot;
+                      </label>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {question.type === "GRID" ? (
+                  <div className="rounded-xl border border-gray-200 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-theme-sm font-semibold text-gray-700">Baris pernyataan</p>
+                      <label className="flex items-center gap-2 text-theme-xs text-gray-600">
+                        <input type="checkbox" checked={question.gridMultiple} onChange={(event) => patchQuestion(question.key, { gridMultiple: event.target.checked })} className="accent-limo-blue-500" />
+                        Boleh pilih lebih dari satu per baris
+                      </label>
+                    </div>
+                    <div className="mt-2 grid gap-2">
+                      {question.gridRows.map((row, rowIndex) => (
+                        <div key={rowIndex} className="flex flex-wrap items-center gap-2">
+                          <input value={row} onChange={(event) => updateGridRow(question.key, rowIndex, event.target.value)} placeholder={`Pernyataan ${rowIndex + 1}`} dir="auto" className="tailadmin-input flex-1" />
+                          <label className="flex items-center gap-1 text-theme-xs text-gray-500">
+                            Kunci
+                            <select value={question.gridCorrect[rowIndex] ?? ""} onChange={(event) => setGridCorrect(question.key, rowIndex, event.target.value)} className="tailadmin-input py-1.5">
+                              <option value="">-</option>
+                              {question.options.map((_, columnIndex) => <option key={columnIndex} value={LABELS[columnIndex]}>{LABELS[columnIndex]}</option>)}
+                            </select>
+                          </label>
+                          <button type="button" onClick={() => removeGridRow(question.key, rowIndex)} disabled={question.gridRows.length <= 1} className="rounded-lg border border-gray-200 px-2 py-1.5 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">Hapus</button>
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => addGridRow(question.key)} disabled={question.gridRows.length >= 20} className="w-fit rounded-lg border border-gray-200 px-3 py-1.5 text-theme-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40">+ Tambah baris</button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {SCALE_TYPES.has(question.type) ? (
+                  <div className="grid gap-3 rounded-xl border border-gray-200 p-3 sm:grid-cols-2">
+                    <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Nilai minimum
+                      <input type="number" min={0} max={9} value={question.scaleMin} onChange={(event) => updateScale(question.key, { scaleMin: Number(event.target.value) })} className="mt-1 tailadmin-input" />
+                    </label>
+                    <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Nilai maksimum
+                      <input type="number" min={1} max={10} value={question.scaleMax} onChange={(event) => updateScale(question.key, { scaleMax: Number(event.target.value) })} className="mt-1 tailadmin-input" />
+                    </label>
+                    <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Label minimum (opsional)
+                      <input value={question.scaleMinLabel} onChange={(event) => patchQuestion(question.key, { scaleMinLabel: event.target.value })} dir="auto" className="mt-1 tailadmin-input" />
+                    </label>
+                    <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Label maksimum (opsional)
+                      <input value={question.scaleMaxLabel} onChange={(event) => patchQuestion(question.key, { scaleMaxLabel: event.target.value })} dir="auto" className="mt-1 tailadmin-input" />
+                    </label>
+                    <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500 sm:col-span-2">
+                      Jawaban benar
+                      <select value={question.expectedAnswer} onChange={(event) => updateScale(question.key, { expectedAnswer: event.target.value })} className="mt-1 tailadmin-input sm:max-w-xs">
+                        {question.options.map((option) => <option key={option.content} value={option.content}>{option.content}</option>)}
+                      </select>
                     </label>
                   </div>
+                ) : null}
+
+                {question.type === "TANGGAL" || question.type === "WAKTU" ? (
+                  <label className="block text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Kunci jawaban
+                    <input type={question.type === "TANGGAL" ? "date" : "time"} value={question.expectedAnswer} onChange={(event) => patchQuestion(question.key, { expectedAnswer: event.target.value })} className="mt-2 tailadmin-input sm:max-w-xs" />
+                  </label>
                 ) : null}
 
                 {question.type === "PILIHAN_GANDA" && form.sections.length > 1 ? (
@@ -711,6 +902,17 @@ export function QuizBuilder({
               ))}
             </div>
           </div>
+          <label className="sm:col-span-2 text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+            Pesan setelah dikirim (opsional)
+            <input
+              value={form.confirmationMessage}
+              onChange={(event) => patchForm({ confirmationMessage: event.target.value })}
+              placeholder="Contoh: Terima kasih, jawabanmu sudah tersimpan."
+              aria-label="Pesan konfirmasi"
+              dir="auto"
+              className="mt-2 tailadmin-input"
+            />
+          </label>
         </section>
       )}
 

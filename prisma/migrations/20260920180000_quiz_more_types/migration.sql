@@ -1,0 +1,7 @@
+-- Tipe soal tambahan ala Google Forms + deskripsi soal + pesan konfirmasi
+ALTER TABLE `BankSoal`
+  MODIFY `type` ENUM('PILIHAN_GANDA','MULTI_SELECT','BENAR_SALAH','ISIAN_SINGKAT','DROPDOWN','SKALA','RATING','TANGGAL','WAKTU','GRID','MENJODOHKAN','URUTAN','CLOZE','GAMBAR','LISTENING','SPEAKING','WRITING','READING','ROLEPLAY','ESAI') NOT NULL,
+  ADD COLUMN `helpText` TEXT NULL;
+
+ALTER TABLE `Ujian`
+  ADD COLUMN `confirmationMessage` TEXT NULL;

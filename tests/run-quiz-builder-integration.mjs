@@ -278,6 +278,77 @@ try {
   assert.match(String(responsesPage.payload), /Respons Kuis/);
   ok("Halaman Respons menampilkan analitik soal");
 
+  const advancedPayload = {
+    kelasId: kelas.id,
+    title: `Formulir Tipe Baru ${runId}`,
+    description: "",
+    mode: "UJIAN",
+    deliveryMode: "ONLINE_VIA_WALI",
+    durationMinutes: 15,
+    maxAttempts: 1,
+    confirmationMessage: "Terima kasih sudah mengerjakan.",
+    sections: [{ title: "Bagian 1", description: "" }],
+    questions: [
+      { type: "DROPDOWN", question: `Pilih warna ${runId}`, required: true, points: 1, sectionIndex: 0, options: [{ label: "A", content: "Merah" }, { label: "B", content: "Biru" }], correctLabels: ["B"] },
+      { type: "SKALA", question: `Nilai ${runId}`, required: true, points: 1, sectionIndex: 0, scaleMin: 1, scaleMax: 5, scaleMinLabel: "Rendah", scaleMaxLabel: "Tinggi", expectedAnswer: "4", options: [1, 2, 3, 4, 5].map((value, index) => ({ label: "ABCDE"[index], content: String(value) })), correctLabels: ["D"] },
+      { type: "TANGGAL", question: `Tanggal ${runId}`, required: true, points: 1, sectionIndex: 0, expectedAnswer: "2026-08-17", options: [], correctLabels: [] },
+      { type: "GRID", question: `Tabel ${runId}`, required: true, points: 1, sectionIndex: 0, gridRows: ["Baris satu", "Baris dua"], gridMultiple: false, gridCorrect: ["A", "B"], options: [{ label: "A", content: "Ya" }, { label: "B", content: "Tidak" }], correctLabels: [] },
+    ],
+  };
+
+  const advanced = await request("/api/v1/kuis", { method: "POST", cookie: guru.cookie, body: advancedPayload });
+  assert.equal(advanced.response.status, 201, JSON.stringify(advanced.payload));
+  const advancedId = advanced.payload.data.item.id;
+  const advancedPublish = await request(`/api/v1/kuis/${advancedId}/publish`, { method: "POST", cookie: guru.cookie, body: {} });
+  assert.equal(advancedPublish.response.status, 200, JSON.stringify(advancedPublish.payload));
+  const advancedShare = await request(`/api/v1/ujian/${advancedId}/share`, { method: "POST", cookie: guru.cookie, body: {} });
+  const advancedToken = advancedShare.payload.data.token;
+  const advancedStart = await request(`/api/v1/public/quiz/${advancedToken}/responses`, { method: "POST", body: { respondentName: `Tipe Baru ${runId}` } });
+  assert.equal(advancedStart.response.status, 201, JSON.stringify(advancedStart.payload));
+  const advancedResponseId = advancedStart.payload.data.responseId;
+  const advancedContext = await request(`/api/v1/public/quiz/${advancedToken}/responses/${advancedResponseId}`);
+  const advancedQuestions = advancedContext.payload.data.questions;
+  assert.equal(advancedContext.payload.data.quiz.confirmationMessage, "Terima kasih sudah mengerjakan.");
+  const scale = advancedQuestions.find((question) => question.type === "SKALA");
+  const grid = advancedQuestions.find((question) => question.type === "GRID");
+  assert.equal(scale.scaleMax, 5);
+  assert.deepEqual(grid.gridRows, ["Baris satu", "Baris dua"]);
+  assert.ok(!("correct" in grid), "Kunci tabel tidak boleh bocor ke publik");
+
+  const advancedSubmit = await request(`/api/v1/public/quiz/${advancedToken}/responses/${advancedResponseId}/submit`, {
+    method: "POST",
+    body: {
+      answers: [
+        { ujianSoalId: advancedQuestions.find((question) => question.type === "DROPDOWN").id, selectedOption: "B" },
+        { ujianSoalId: scale.id, selectedOption: "D" },
+        { ujianSoalId: advancedQuestions.find((question) => question.type === "TANGGAL").id, shortAnswer: "2026-08-17" },
+        { ujianSoalId: grid.id, structuredAnswer: { "0": "A", "1": "B" } },
+      ],
+    },
+  });
+  assert.equal(advancedSubmit.response.status, 200, JSON.stringify(advancedSubmit.payload));
+  assert.equal(advancedSubmit.payload.data.result.score, 100);
+  ok("Tipe soal baru (dropdown, skala, tanggal, tabel) tersimpan & dinilai otomatis");
+
+  const duplicate = await request(`/api/v1/kuis/${advancedId}/duplicate`, { method: "POST", cookie: guru.cookie, body: {} });
+  assert.equal(duplicate.response.status, 201, JSON.stringify(duplicate.payload));
+  const duplicateId = duplicate.payload.data.item.id;
+  const duplicateDetail = await request(`/api/v1/kuis/${duplicateId}`, { cookie: guru.cookie });
+  assert.equal(duplicateDetail.payload.data.item.questions.length, 4);
+  assert.match(duplicateDetail.payload.data.item.title, /salinan/);
+  assert.equal(duplicateDetail.payload.data.item.status, "DRAFT");
+  ok("Duplikat formulir menyalin seluruh soal (termasuk tipe baru)");
+
+  for (const advancedFormId of [advancedId, duplicateId]) {
+    const rows = await prisma.ujianSoal.findMany({ where: { ujianId: advancedFormId }, select: { bankSoalId: true } });
+    await prisma.ujian.delete({ where: { id: advancedFormId } }).catch(() => undefined);
+    const ids = rows.map((row) => row.bankSoalId);
+    if (ids.length > 0) {
+      await prisma.opsiSoal.deleteMany({ where: { bankSoalId: { in: ids } } }).catch(() => undefined);
+      await prisma.bankSoal.deleteMany({ where: { id: { in: ids } } }).catch(() => undefined);
+    }
+  }
+
   const blockedAfterResponse = await request(`/api/v1/kuis/${ujianId}`, { method: "PATCH", cookie: guru.cookie, body: basePayload(kelas.id) });
   assert.equal(blockedAfterResponse.response.status, 409);
   ok("Kuis yang sudah dikerjakan tidak dapat diubah (409)");

@@ -287,6 +287,12 @@ enum SoalType {
   MULTI_SELECT
   BENAR_SALAH
   ISIAN_SINGKAT
+  DROPDOWN
+  SKALA
+  RATING
+  TANGGAL
+  WAKTU
+  GRID
   MENJODOHKAN
   URUTAN
   CLOZE
@@ -1278,6 +1284,7 @@ model BankSoal {
   kelas             Kelas?         @relation(fields: [kelasId], references: [id], onDelete: SetNull)
   type              SoalType
   question          String         @db.Text
+  helpText          String?        @db.Text
   stimulusText      String?        @db.Text
   mediaUrl          String?        @db.VarChar(500)
   expectedAnswer    String?        @db.Text
@@ -1339,6 +1346,7 @@ model Ujian {
   collectRespondentName  Boolean  @default(true)
   themeColor       String         @default("blue") @db.VarChar(16)
   headerImageUrl   String?        @db.VarChar(512)
+  confirmationMessage String?     @db.Text
   createdById      String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt

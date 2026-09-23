@@ -31,6 +31,7 @@ type QuizIntro = {
   shuffleQuestions: boolean;
   themeColor: string | null;
   headerImageUrl: string | null;
+  confirmationMessage: string | null;
   programName: string;
   className: string;
 };
@@ -47,11 +48,19 @@ type PublicQuestion = {
   branchRules: BranchRule[];
   type: string;
   question: string;
+  helpText: string | null;
   stimulusText: string | null;
   mediaUrl: string | null;
   language: string | null;
   direction: string | null;
   allowOther: boolean;
+  scaleMin: number | null;
+  scaleMax: number | null;
+  scaleMinLabel: string | null;
+  scaleMaxLabel: string | null;
+  kind: string | null;
+  gridRows: string[];
+  gridMultiple: boolean;
   options: { label: string; content: string; mediaUrl: string | null }[];
 };
 
@@ -61,11 +70,12 @@ type DraftAnswer = {
   selectedOptions?: string[];
   shortAnswer?: string;
   essayAnswer?: string;
+  structuredAnswer?: Record<string, string | string[]>;
 };
 
 type AttemptContext = {
   response: { id: string; status: string; expiresAt: string | null; draftAnswers: unknown; respondentName: string };
-  quiz: { title: string; description: string | null; durationMinutes: number; passingScore: number | null; showScoreImmediately: boolean; showAnswersAfterSubmit: boolean; themeColor: string | null; headerImageUrl: string | null };
+  quiz: { title: string; description: string | null; durationMinutes: number; passingScore: number | null; showScoreImmediately: boolean; showAnswersAfterSubmit: boolean; themeColor: string | null; headerImageUrl: string | null; confirmationMessage: string | null };
   sections: PublicSection[];
   questions: PublicQuestion[];
 };
@@ -97,6 +107,7 @@ function isAnswerFilled(answer: DraftAnswer | undefined) {
   const otherText = answer.shortAnswer?.trim();
   if (answer.selectedOption) return answer.selectedOption === "OTHER" ? Boolean(otherText) : true;
   if (answer.selectedOptions?.length) return answer.selectedOptions.includes("OTHER") ? Boolean(otherText) : true;
+  if (answer.structuredAnswer) return Object.values(answer.structuredAnswer).some((value) => (Array.isArray(value) ? value.length > 0 : Boolean(value)));
   return Boolean(otherText || answer.essayAnswer?.trim());
 }
 
@@ -371,6 +382,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
               {question.stimulusText ? <LocalizedContent as="p" text={question.stimulusText} language={question.language} direction={question.direction} className="mt-3 rounded-2xl bg-gray-50 p-4 text-theme-sm leading-7 text-gray-700">{question.stimulusText}</LocalizedContent> : null}
               <MediaBlock type={question.type} mediaUrl={question.mediaUrl} />
               <LocalizedContent as="p" text={question.question} language={question.language} direction={question.direction} className="mt-3 text-lg font-semibold leading-8 text-gray-900">{question.question}</LocalizedContent>
+              {question.helpText ? <LocalizedContent as="p" text={question.helpText} language={question.language} direction="auto" className="mt-1 text-theme-sm text-gray-500">{question.helpText}</LocalizedContent> : null}
               <AnswerInput accent={accent} question={question} answer={answers[question.id]} onChange={(patch) => setAnswer(question.id, patch)} />
             </section>
           ))}
@@ -395,6 +407,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
         <div className="tailadmin-card p-6 sm:p-8">
           <h1 className="text-center text-2xl font-extrabold tracking-tight text-gray-900">Terima kasih, {result.respondentName}!</h1>
           <p className="mt-3 text-center text-theme-sm text-gray-600">Jawaban Anda sudah kami terima.</p>
+          {context?.quiz.confirmationMessage ? <p className="mt-4 whitespace-pre-wrap rounded-2xl bg-gray-50 p-4 text-center text-theme-sm text-gray-700">{context.quiz.confirmationMessage}</p> : null}
           {showScore ? (
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
               <InfoTile label="Skor" value={result.score === null ? "-" : String(result.score)} />
@@ -518,6 +531,127 @@ function AnswerInput({ question, answer, onChange, accent }: { question: PublicQ
     );
   }
 
+  if (question.type === "DROPDOWN") {
+    return (
+      <select
+        value={answer?.selectedOption ?? ""}
+        onChange={(event) => onChange({ selectedOption: event.target.value })}
+        className="mt-3 tailadmin-input sm:max-w-sm"
+      >
+        <option value="">Pilih jawaban</option>
+        {question.options.map((option) => <option key={option.label} value={option.label}>{option.content}</option>)}
+      </select>
+    );
+  }
+
+  if (question.type === "SKALA" || question.type === "RATING") {
+    const values = question.options;
+    if (question.type === "RATING") {
+      return (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {values.map((option) => {
+            const active = answer?.selectedOption === option.label;
+            return (
+              <button
+                key={option.label}
+                type="button"
+                onClick={() => onChange({ selectedOption: option.label })}
+                aria-label={`Beri ${option.content} bintang`}
+                className={`grid size-11 place-items-center rounded-xl border text-xl transition ${active ? "" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+                style={active ? { borderColor: accent, backgroundColor: `${accent}0d` } : undefined}
+              >
+                {active ? "★" : "☆"}
+              </button>
+            );
+          })}
+          {answer?.selectedOption ? <span className="text-theme-sm font-semibold text-gray-600">{values.find((option) => option.label === answer.selectedOption)?.content} bintang</span> : null}
+        </div>
+      );
+    }
+    return (
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="text-theme-xs text-gray-400">{question.scaleMinLabel || ""}</span>
+        {values.map((option) => {
+          const active = answer?.selectedOption === option.label;
+          return (
+            <button
+              key={option.label}
+              type="button"
+              onClick={() => onChange({ selectedOption: option.label })}
+              aria-label={`Pilih nilai ${option.content}`}
+              className={`grid size-11 place-items-center rounded-xl border font-semibold transition ${active ? "" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}
+              style={active ? { borderColor: accent, backgroundColor: `${accent}0d`, color: accent } : undefined}
+            >
+              {option.content}
+            </button>
+          );
+        })}
+        <span className="text-theme-xs text-gray-400">{question.scaleMaxLabel || ""}</span>
+      </div>
+    );
+  }
+
+  if (question.type === "TANGGAL" || question.type === "WAKTU") {
+    return (
+      <input
+        type={question.type === "TANGGAL" ? "date" : "time"}
+        value={answer?.shortAnswer ?? ""}
+        onChange={(event) => onChange({ shortAnswer: event.target.value })}
+        className="mt-3 tailadmin-input sm:max-w-xs"
+      />
+    );
+  }
+
+  if (question.type === "GRID") {
+    const structured = answer?.structuredAnswer ?? {};
+    const toggle = (rowIndex: number, label: string) => {
+      const key = String(rowIndex);
+      if (question.gridMultiple) {
+        const current = Array.isArray(structured[key]) ? (structured[key] as string[]) : [];
+        const next = current.includes(label) ? current.filter((item) => item !== label) : [...current, label];
+        onChange({ structuredAnswer: { ...structured, [key]: next } });
+      } else {
+        onChange({ structuredAnswer: { ...structured, [key]: label } });
+      }
+    };
+    return (
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-[420px] border-collapse text-theme-sm">
+          <thead>
+            <tr>
+              <th className="border-b border-gray-200 p-2 text-left font-semibold text-gray-500" />
+              {question.options.map((option) => (
+                <th key={option.label} className="border-b border-gray-200 p-2 text-center font-semibold text-gray-600">{option.content || option.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {question.gridRows.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                <td className="border-b border-gray-100 p-2 text-gray-700">{row}</td>
+                {question.options.map((option) => {
+                  const value = structured[String(rowIndex)];
+                  const checked = question.gridMultiple ? Array.isArray(value) && value.includes(option.label) : value === option.label;
+                  return (
+                    <td key={option.label} className="border-b border-gray-100 p-2 text-center">
+                      <input
+                        type={question.gridMultiple ? "checkbox" : "radio"}
+                        name={`grid-${question.id}-${rowIndex}`}
+                        checked={checked}
+                        onChange={() => toggle(rowIndex, option.label)}
+                        className="accent-limo-blue-500"
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
   if (question.type === "BENAR_SALAH") {
     return (
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -557,6 +691,7 @@ function restoreDraft(value: unknown): Record<string, DraftAnswer> {
       selectedOptions: Array.isArray(record.selectedOptions) ? record.selectedOptions.filter((option): option is string => typeof option === "string") : undefined,
       shortAnswer: typeof record.shortAnswer === "string" ? record.shortAnswer : undefined,
       essayAnswer: typeof record.essayAnswer === "string" ? record.essayAnswer : undefined,
+      structuredAnswer: record.structuredAnswer && typeof record.structuredAnswer === "object" ? (record.structuredAnswer as Record<string, string | string[]>) : undefined,
     };
   }
   return result;

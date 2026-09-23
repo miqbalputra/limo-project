@@ -7,7 +7,7 @@ import type { QuizFormState } from "@/lib/quiz-builder";
 
 export const metadata = { title: "Edit Formulir Kuis" };
 
-const BUILDER_TYPES = new Set(["PILIHAN_GANDA", "MULTI_SELECT", "BENAR_SALAH", "ISIAN_SINGKAT", "ESAI"]);
+const BUILDER_TYPES = new Set(["PILIHAN_GANDA", "MULTI_SELECT", "BENAR_SALAH", "ISIAN_SINGKAT", "DROPDOWN", "SKALA", "RATING", "TANGGAL", "WAKTU", "GRID", "ESAI"]);
 
 export default async function GuruKuisEditPage({ params }: { params: Promise<{ ujianId: string }> }) {
   const actor = await requireActor();
@@ -35,6 +35,7 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
     showResultToWali: item.showResultToWali,
     themeColor: item.themeColor ?? "blue",
     headerImageUrl: item.headerImageUrl ?? "",
+    confirmationMessage: item.confirmationMessage ?? "",
     availableFrom: item.availableFrom ?? "",
     availableUntil: item.availableUntil ?? "",
     sections: item.sections.length > 0
@@ -44,18 +45,26 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
       key: `q-${question.id}`,
       type: BUILDER_TYPES.has(question.type) ? question.type : "ESAI",
       question: question.question,
+      helpText: question.helpText ?? "",
       required: question.required,
       points: question.points,
       allowOther: question.allowOther,
       mediaUrl: question.mediaUrl ?? "",
       explanation: question.explanation ?? "",
       expectedAnswer: question.expectedAnswer ?? (question.type === "BENAR_SALAH" ? "benar" : ""),
+      scaleMin: question.scaleMin,
+      scaleMax: question.scaleMax,
+      scaleMinLabel: question.scaleMinLabel,
+      scaleMaxLabel: question.scaleMaxLabel,
+      gridRows: question.gridRows,
+      gridMultiple: question.gridMultiple,
+      gridCorrect: question.gridCorrect,
       sectionKey: sectionKeys[question.sectionIndex] ?? sectionKeys[0],
       branchRules: (Array.isArray(question.branchRules) ? (question.branchRules as Array<{ label: string; goToSectionIndex: number | null }>) : []).map((rule) => ({
         label: rule.label,
         goToSectionKey: rule.goToSectionIndex !== null ? (sectionKeys[rule.goToSectionIndex] ?? null) : null,
       })),
-      options: question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT"
+      options: question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" || question.type === "DROPDOWN" || question.type === "SKALA" || question.type === "RATING" || question.type === "GRID"
         ? question.options.map((option) => ({ content: option.content, isCorrect: question.correctLabels.includes(option.label), mediaUrl: option.mediaUrl ?? "" }))
         : [],
     })),

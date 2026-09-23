@@ -58,8 +58,10 @@ function sanitizeQuestion(question: {
   bankSoal: {
     type: string;
     question: string;
+    helpText: string | null;
     stimulusText: string | null;
     mediaUrl: string | null;
+    structuredPayload: unknown;
     language: string | null;
     direction: string | null;
     allowOther: boolean;
@@ -72,6 +74,10 @@ function sanitizeQuestion(question: {
         .filter((option): option is { label: string; content: string; mediaUrl: string | null } => Boolean(option))
     : question.bankSoal.options;
 
+  const payload = (question.bankSoal.structuredPayload ?? null) as
+    | { min?: number; max?: number; minLabel?: string; maxLabel?: string; kind?: string; rows?: string[]; multiple?: boolean }
+    | null;
+
   return {
     id: question.id,
     weight: Number(question.weight),
@@ -80,11 +86,19 @@ function sanitizeQuestion(question: {
     branchRules: question.branchRules,
     type: question.bankSoal.type,
     question: question.bankSoal.question,
+    helpText: question.bankSoal.helpText,
     stimulusText: question.bankSoal.stimulusText,
     mediaUrl: question.bankSoal.mediaUrl,
     language: question.bankSoal.language,
     direction: question.bankSoal.direction,
     allowOther: question.bankSoal.allowOther,
+    scaleMin: payload?.min ?? null,
+    scaleMax: payload?.max ?? null,
+    scaleMinLabel: payload?.minLabel ?? null,
+    scaleMaxLabel: payload?.maxLabel ?? null,
+    kind: payload?.kind ?? null,
+    gridRows: Array.isArray(payload?.rows) ? payload!.rows : [],
+    gridMultiple: Boolean(payload?.multiple),
     options: options.map((option) => ({ label: option.label, content: option.content, mediaUrl: option.mediaUrl })),
   };
 }
@@ -119,6 +133,7 @@ export async function getPublicQuizIntro(token: string) {
       shuffleQuestions: true,
       themeColor: true,
       headerImageUrl: true,
+      confirmationMessage: true,
       availableFrom: true,
       availableUntil: true,
       kelas: { select: { name: true, program: { select: { name: true } } } },
@@ -146,6 +161,7 @@ export async function getPublicQuizIntro(token: string) {
       shuffleQuestions: ujian.shuffleQuestions,
       themeColor: ujian.themeColor,
       headerImageUrl: ujian.headerImageUrl,
+      confirmationMessage: ujian.confirmationMessage,
       programName: ujian.kelas.program.name,
       className: ujian.kelas.name,
     },
@@ -290,6 +306,7 @@ export async function getPublicQuizResponseContext(token: string, responseId: st
       showAnswersAfterSubmit: response.ujian.showAnswersAfterSubmit,
       themeColor: response.ujian.themeColor,
       headerImageUrl: response.ujian.headerImageUrl,
+      confirmationMessage: response.ujian.confirmationMessage,
       language: null as string | null,
     },
     sections,
@@ -363,7 +380,7 @@ export async function submitPublicQuizResponse(token: string, responseId: string
     const correctOptions = sortedLabels(question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label));
     let score = 0;
 
-    if (question.bankSoal.type === "PILIHAN_GANDA") {
+    if (["PILIHAN_GANDA", "DROPDOWN", "SKALA", "RATING"].includes(question.bankSoal.type)) {
       const selected = answer?.selectedOption?.toUpperCase() || "";
       if (selected === "OTHER") {
         needsReview = true;
@@ -382,10 +399,29 @@ export async function submitPublicQuizResponse(token: string, responseId: string
         score = selected.length > 0 && jsonEquals(selected, correctOptions) ? Number(question.weight) : 0;
         feedback.push({ ujianSoalId: question.id, correct: score > 0 });
       }
+    } else if (question.bankSoal.type === "GRID") {
+      const payload = (question.bankSoal.structuredPayload ?? null) as { rows?: string[]; correct?: Record<string, string> } | null;
+      const rows = Array.isArray(payload?.rows) ? payload!.rows : [];
+      const given = (answer?.structuredAnswer ?? null) as Record<string, unknown> | null;
+      let answered = false;
+      let allCorrect = rows.length > 0;
+      for (let index = 0; index < rows.length; index += 1) {
+        const raw = given ? given[String(index)] : undefined;
+        const expected = (payload?.correct?.[String(index)] || "").toUpperCase();
+        const selected = Array.isArray(raw) ? raw.map((value) => String(value).toUpperCase()).sort() : raw ? [String(raw).toUpperCase()] : [];
+        if (selected.length > 0) answered = true;
+        if (JSON.stringify(selected) !== JSON.stringify(expected ? [expected] : [])) allCorrect = false;
+      }
+      if (!answered) {
+        feedback.push({ ujianSoalId: question.id, correct: null });
+      } else {
+        score = allCorrect ? Number(question.weight) : 0;
+        feedback.push({ ujianSoalId: question.id, correct: score > 0 });
+      }
     } else if (question.bankSoal.type === "BENAR_SALAH") {
       score = normalizeText(answer?.selectedOption) === normalizeText(question.bankSoal.expectedAnswer) ? Number(question.weight) : 0;
       feedback.push({ ujianSoalId: question.id, correct: score > 0 });
-    } else if (["ISIAN_SINGKAT", "CLOZE", "GAMBAR", "LISTENING", "READING"].includes(question.bankSoal.type)) {
+    } else if (["ISIAN_SINGKAT", "CLOZE", "GAMBAR", "LISTENING", "READING", "TANGGAL", "WAKTU"].includes(question.bankSoal.type)) {
       score = normalizeText(answer?.shortAnswer) === normalizeText(question.bankSoal.expectedAnswer) ? Number(question.weight) : 0;
       feedback.push({ ujianSoalId: question.id, correct: score > 0 });
     } else if (["MENJODOHKAN", "URUTAN"].includes(question.bankSoal.type)) {

@@ -23,6 +23,27 @@ async function assertClassScope(actor: Actor, kelasId: string) {
   if (!allowed) throw new ForbiddenError("Anda tidak memiliki akses ke kelas ini");
 }
 
+function structuredPayloadFor(question: QuestionInput): Prisma.InputJsonValue | undefined {
+  if (question.type === "SKALA" || question.type === "RATING") {
+    return {
+      min: question.scaleMin,
+      max: question.scaleMax,
+      minLabel: question.scaleMinLabel ?? "",
+      maxLabel: question.scaleMaxLabel ?? "",
+      kind: question.type === "RATING" ? "rating" : "scale",
+    };
+  }
+  if (question.type === "GRID") {
+    const correct: Record<string, string> = {};
+    question.gridRows.forEach((_, index) => {
+      const label = question.gridCorrect[index];
+      if (label) correct[String(index)] = label.toUpperCase();
+    });
+    return { rows: question.gridRows, multiple: question.gridMultiple, correct };
+  }
+  return undefined;
+}
+
 async function createSectionsAndQuestions(tx: Tx, ujianId: string, kelasId: string, data: { sections: Array<{ title: string; description?: string }>; questions: QuestionInput[] }, actorId: string) {
   const sectionIds = new Map<number, string>();
   for (const [index, section] of data.sections.entries()) {
@@ -41,10 +62,12 @@ async function createSectionsAndQuestions(tx: Tx, ujianId: string, kelasId: stri
           kelasId,
           type: question.type,
           question: question.question,
+          helpText: question.helpText?.trim() || undefined,
           expectedAnswer: question.expectedAnswer?.trim() || undefined,
           mediaUrl: question.mediaUrl?.trim() || undefined,
+          structuredPayload: structuredPayloadFor(question),
           explanation: question.explanation?.trim() || undefined,
-          allowOther: question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" ? question.allowOther : false,
+          allowOther: question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" || question.type === "DROPDOWN" ? question.allowOther : false,
           createdById: actorId,
         },
         select: { id: true },
@@ -103,6 +126,7 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
       showResultToWali: true,
       themeColor: true,
       headerImageUrl: true,
+      confirmationMessage: true,
       availableFrom: true,
       availableUntil: true,
       shareToken: true,
@@ -122,9 +146,11 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
               id: true,
               type: true,
               question: true,
+              helpText: true,
               explanation: true,
               expectedAnswer: true,
               mediaUrl: true,
+              structuredPayload: true,
               allowOther: true,
               options: { orderBy: { order: "asc" }, select: { label: true, content: true, mediaUrl: true, isCorrect: true } },
             },
@@ -148,21 +174,35 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
       availableFrom: ujian.availableFrom ? ujian.availableFrom.toISOString().slice(0, 10) : null,
       availableUntil: ujian.availableUntil ? ujian.availableUntil.toISOString().slice(0, 10) : null,
       sections: ujian.sections.map((section) => ({ title: section.title, description: section.description })),
-      questions: ujian.questions.map((question) => ({
-        id: question.id,
-        type: question.bankSoal.type,
-        question: question.bankSoal.question,
-        explanation: question.bankSoal.explanation,
-        expectedAnswer: question.bankSoal.expectedAnswer,
-        required: question.required,
-        points: Number(question.weight),
-        mediaUrl: question.bankSoal.mediaUrl,
-        allowOther: question.bankSoal.allowOther,
-        sectionIndex: question.sectionId ? (sectionIndexById.get(question.sectionId) ?? 0) : 0,
-        branchRules: Array.isArray(question.branchRules) ? question.branchRules : [],
-        options: question.bankSoal.options.map((option) => ({ label: option.label, content: option.content, mediaUrl: option.mediaUrl })),
-        correctLabels: question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label),
-      })),
+      questions: ujian.questions.map((question) => {
+        const payload = (question.bankSoal.structuredPayload ?? null) as
+          | { min?: number; max?: number; minLabel?: string; maxLabel?: string; rows?: string[]; multiple?: boolean; correct?: Record<string, string> }
+          | null;
+        const rows = Array.isArray(payload?.rows) ? payload!.rows : [];
+        return {
+          id: question.id,
+          type: question.bankSoal.type,
+          question: question.bankSoal.question,
+          helpText: question.bankSoal.helpText ?? "",
+          explanation: question.bankSoal.explanation,
+          expectedAnswer: question.bankSoal.expectedAnswer,
+          required: question.required,
+          points: Number(question.weight),
+          mediaUrl: question.bankSoal.mediaUrl,
+          allowOther: question.bankSoal.allowOther,
+          sectionIndex: question.sectionId ? (sectionIndexById.get(question.sectionId) ?? 0) : 0,
+          branchRules: Array.isArray(question.branchRules) ? question.branchRules : [],
+          scaleMin: payload?.min ?? 1,
+          scaleMax: payload?.max ?? 5,
+          scaleMinLabel: payload?.minLabel ?? "",
+          scaleMaxLabel: payload?.maxLabel ?? "",
+          gridRows: rows,
+          gridMultiple: Boolean(payload?.multiple),
+          gridCorrect: rows.map((_, index) => payload?.correct?.[String(index)] ?? ""),
+          options: question.bankSoal.options.map((option) => ({ label: option.label, content: option.content, mediaUrl: option.mediaUrl })),
+          correctLabels: question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label),
+        };
+      }),
     },
   };
 }
@@ -196,6 +236,7 @@ export async function createQuizForm(actor: Actor, input: unknown) {
         showResultToWali: parsed.data.showResultToWali,
         themeColor: parsed.data.themeColor,
         headerImageUrl: parsed.data.headerImageUrl ? parsed.data.headerImageUrl : null,
+        confirmationMessage: parsed.data.confirmationMessage ? parsed.data.confirmationMessage : null,
         availableFrom: parseDate(parsed.data.availableFrom),
         availableUntil: parseDate(parsed.data.availableUntil),
         createdById: actor.id,
@@ -255,6 +296,7 @@ export async function updateQuizForm(actor: Actor, ujianId: string, input: unkno
         showResultToWali: parsed.data.showResultToWali,
         themeColor: parsed.data.themeColor,
         headerImageUrl: parsed.data.headerImageUrl ? parsed.data.headerImageUrl : null,
+        confirmationMessage: parsed.data.confirmationMessage ? parsed.data.confirmationMessage : null,
         availableFrom: parseDate(parsed.data.availableFrom),
         availableUntil: parseDate(parsed.data.availableUntil),
       },
@@ -281,12 +323,12 @@ export async function updateQuizForm(actor: Actor, ujianId: string, input: unkno
 }
 
 function gradeAnswer(
-  bankSoal: { type: string; expectedAnswer: string | null; options: { label: string; isCorrect: boolean }[] },
-  answer: { selectedOption?: string; selectedOptions?: string[]; shortAnswer?: string } | undefined,
+  bankSoal: { type: string; expectedAnswer: string | null; structuredPayload?: unknown; options: { label: string; isCorrect: boolean }[] },
+  answer: { selectedOption?: string; selectedOptions?: string[]; shortAnswer?: string; structuredAnswer?: unknown } | undefined,
 ) {
   const correctLabels = bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label.toUpperCase()).sort();
 
-  if (bankSoal.type === "PILIHAN_GANDA") {
+  if (["PILIHAN_GANDA", "DROPDOWN", "SKALA", "RATING"].includes(bankSoal.type)) {
     const selected = (answer?.selectedOption || "").toUpperCase();
     return selected ? correctLabels[0] === selected : null;
   }
@@ -294,11 +336,26 @@ function gradeAnswer(
     const selected = [...(answer?.selectedOptions || [])].map((label) => label.toUpperCase()).sort();
     return selected.length > 0 ? JSON.stringify(selected) === JSON.stringify(correctLabels) : null;
   }
+  if (bankSoal.type === "GRID") {
+    const payload = bankSoal.structuredPayload as { rows?: string[]; correct?: Record<string, string> } | null;
+    const rows = Array.isArray(payload?.rows) ? payload!.rows : [];
+    const given = answer?.structuredAnswer as Record<string, unknown> | undefined;
+    if (rows.length === 0 || !given || typeof given !== "object") return null;
+    let answered = false;
+    for (let index = 0; index < rows.length; index += 1) {
+      const raw = given[String(index)];
+      const expected = (payload?.correct?.[String(index)] || "").toUpperCase();
+      const selected = Array.isArray(raw) ? raw.map((value) => String(value).toUpperCase()).sort() : raw ? [String(raw).toUpperCase()] : [];
+      if (selected.length > 0) answered = true;
+      if (JSON.stringify(selected) !== JSON.stringify(expected ? [expected] : [])) return false;
+    }
+    return answered;
+  }
   if (bankSoal.type === "BENAR_SALAH") {
     const selected = (answer?.selectedOption || "").trim().toLowerCase();
     return selected ? selected === (bankSoal.expectedAnswer || "").trim().toLowerCase() : null;
   }
-  if (["ISIAN_SINGKAT", "CLOZE", "GAMBAR", "LISTENING", "READING"].includes(bankSoal.type)) {
+  if (["ISIAN_SINGKAT", "CLOZE", "GAMBAR", "LISTENING", "READING", "TANGGAL", "WAKTU"].includes(bankSoal.type)) {
     const selected = (answer?.shortAnswer || "").trim().toLowerCase().replace(/\s+/g, " ");
     return selected ? selected === (bankSoal.expectedAnswer || "").trim().toLowerCase().replace(/\s+/g, " ") : null;
   }
@@ -316,7 +373,7 @@ export async function getQuizResponses(actor: Actor, ujianId: string) {
       passingScore: true,
       questions: {
         orderBy: { order: "asc" },
-        select: { id: true, weight: true, bankSoal: { select: { type: true, question: true, expectedAnswer: true, options: { select: { label: true, isCorrect: true } } } } },
+        select: { id: true, weight: true, bankSoal: { select: { type: true, question: true, expectedAnswer: true, structuredPayload: true, options: { select: { label: true, isCorrect: true } } } } },
       },
     },
   });
@@ -389,6 +446,170 @@ export async function getQuizResponses(actor: Actor, ujianId: string) {
       submittedAt: attempt.submittedAt,
     })),
   };
+}
+
+export async function duplicateQuizForm(actor: Actor, ujianId: string) {
+  const source = await prisma.ujian.findUnique({
+    where: { id: ujianId },
+    select: {
+      id: true,
+      kelasId: true,
+      title: true,
+      description: true,
+      mode: true,
+      deliveryMode: true,
+      durationMinutes: true,
+      maxAttempts: true,
+      shuffleQuestions: true,
+      shuffleOptions: true,
+      passingScore: true,
+      showScoreImmediately: true,
+      showAnswersAfterSubmit: true,
+      collectRespondentName: true,
+      showResultToWali: true,
+      themeColor: true,
+      headerImageUrl: true,
+      confirmationMessage: true,
+      availableFrom: true,
+      availableUntil: true,
+      sections: { orderBy: { order: "asc" }, select: { id: true, order: true, title: true, description: true } },
+      questions: {
+        orderBy: { order: "asc" },
+        select: {
+          order: true,
+          weight: true,
+          required: true,
+          sectionId: true,
+          branchRules: true,
+          bankSoal: {
+            select: {
+              type: true,
+              question: true,
+              helpText: true,
+              stimulusText: true,
+              mediaUrl: true,
+              expectedAnswer: true,
+              structuredPayload: true,
+              rubric: true,
+              language: true,
+              direction: true,
+              cognitiveLevel: true,
+              skill: true,
+              difficulty: true,
+              standard: true,
+              assessmentType: true,
+              allowOther: true,
+              explanation: true,
+              options: { orderBy: { order: "asc" }, select: { label: true, content: true, mediaUrl: true, isCorrect: true, order: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!source) {
+    throw new NotFoundError("Kuis tidak ditemukan");
+  }
+
+  await assertClassScope(actor, source.kelasId);
+
+  const item = await prisma.$transaction(async (tx) => {
+    const ujian = await tx.ujian.create({
+      data: {
+        kelasId: source.kelasId,
+        title: `${source.title} (salinan)`.slice(0, 200),
+        description: source.description ?? undefined,
+        status: "DRAFT",
+        mode: source.mode,
+        deliveryMode: source.deliveryMode,
+        durationMinutes: source.durationMinutes,
+        maxAttempts: source.maxAttempts,
+        shuffleQuestions: source.shuffleQuestions,
+        shuffleOptions: source.shuffleOptions,
+        passingScore: source.passingScore,
+        showScoreImmediately: source.showScoreImmediately,
+        showAnswersAfterSubmit: source.showAnswersAfterSubmit,
+        collectRespondentName: source.collectRespondentName,
+        showResultToWali: source.showResultToWali,
+        themeColor: source.themeColor,
+        headerImageUrl: source.headerImageUrl ?? undefined,
+        confirmationMessage: source.confirmationMessage ?? undefined,
+        availableFrom: source.availableFrom,
+        availableUntil: source.availableUntil,
+        createdById: actor.id,
+      },
+      select: { id: true },
+    });
+
+    const sectionIdByOrder = new Map<number, string>();
+    for (const section of source.sections) {
+      const created = await tx.ujianSection.create({
+        data: { ujianId: ujian.id, order: section.order, title: section.title, description: section.description ?? undefined },
+        select: { id: true },
+      });
+      sectionIdByOrder.set(section.order, created.id);
+    }
+    const orderBySectionId = new Map(source.sections.map((section) => [section.id, section.order]));
+
+    for (const question of source.questions) {
+      const soal = await tx.bankSoal.create({
+        data: {
+          kelasId: source.kelasId,
+          type: question.bankSoal.type,
+          question: question.bankSoal.question,
+          helpText: question.bankSoal.helpText ?? undefined,
+          stimulusText: question.bankSoal.stimulusText ?? undefined,
+          mediaUrl: question.bankSoal.mediaUrl ?? undefined,
+          expectedAnswer: question.bankSoal.expectedAnswer ?? undefined,
+          structuredPayload: question.bankSoal.structuredPayload ?? undefined,
+          rubric: question.bankSoal.rubric ?? undefined,
+          language: question.bankSoal.language ?? undefined,
+          direction: question.bankSoal.direction ?? undefined,
+          cognitiveLevel: question.bankSoal.cognitiveLevel,
+          skill: question.bankSoal.skill,
+          difficulty: question.bankSoal.difficulty,
+          standard: question.bankSoal.standard ?? undefined,
+          assessmentType: question.bankSoal.assessmentType,
+          allowOther: question.bankSoal.allowOther,
+          explanation: question.bankSoal.explanation ?? undefined,
+          createdById: actor.id,
+        },
+        select: { id: true },
+      });
+
+      if (question.bankSoal.options.length > 0) {
+        await tx.opsiSoal.createMany({
+          data: question.bankSoal.options.map((option) => ({
+            bankSoalId: soal.id,
+            label: option.label,
+            content: option.content,
+            mediaUrl: option.mediaUrl ?? undefined,
+            isCorrect: option.isCorrect,
+            order: option.order,
+          })),
+        });
+      }
+
+      const sectionOrder = question.sectionId ? orderBySectionId.get(question.sectionId) : undefined;
+      await tx.ujianSoal.create({
+        data: {
+          ujianId: ujian.id,
+          bankSoalId: soal.id,
+          order: question.order,
+          weight: question.weight,
+          required: question.required,
+          sectionId: sectionOrder !== undefined ? (sectionIdByOrder.get(sectionOrder) ?? null) : null,
+          branchRules: question.branchRules ?? undefined,
+        },
+      });
+    }
+
+    await tx.auditLog.create({ data: { actorId: actor.id, action: "QUIZ_FORM_DUPLICATED", entityType: "Ujian", entityId: ujian.id, metadata: { sourceId: ujianId } } });
+    return ujian;
+  });
+
+  return { item };
 }
 
 export async function publishQuizForm(actor: Actor, ujianId: string) {

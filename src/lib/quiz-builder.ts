@@ -13,6 +13,7 @@ export type QuizQuestion = {
   key: string;
   type: string;
   question: string;
+  helpText: string;
   required: boolean;
   points: number;
   allowOther: boolean;
@@ -21,6 +22,13 @@ export type QuizQuestion = {
   expectedAnswer: string;
   sectionKey: string;
   branchRules: QuizBranchRule[];
+  scaleMin: number;
+  scaleMax: number;
+  scaleMinLabel: string;
+  scaleMaxLabel: string;
+  gridRows: string[];
+  gridMultiple: boolean;
+  gridCorrect: string[];
   options: { content: string; isCorrect: boolean; mediaUrl: string }[];
 };
 
@@ -41,6 +49,7 @@ export type QuizFormState = {
   showResultToWali: boolean;
   themeColor: string;
   headerImageUrl: string;
+  confirmationMessage: string;
   availableFrom: string;
   availableUntil: string;
   sections: QuizSection[];
@@ -60,10 +69,13 @@ export function newSectionKey() {
 }
 
 export function newQuestion(type = "PILIHAN_GANDA", sectionKey = ""): QuizQuestion {
+  const withOptions = type === "PILIHAN_GANDA" || type === "MULTI_SELECT" || type === "DROPDOWN";
+  const grid = type === "GRID";
   return {
     key: newQuestionKey(),
     type,
     question: "",
+    helpText: "",
     required: true,
     points: 1,
     allowOther: false,
@@ -72,7 +84,14 @@ export function newQuestion(type = "PILIHAN_GANDA", sectionKey = ""): QuizQuesti
     expectedAnswer: type === "BENAR_SALAH" ? "benar" : "",
     sectionKey,
     branchRules: [],
-    options: type === "PILIHAN_GANDA" || type === "MULTI_SELECT" ? [{ content: "", isCorrect: false, mediaUrl: "" }, { content: "", isCorrect: false, mediaUrl: "" }] : [],
+    scaleMin: 1,
+    scaleMax: 5,
+    scaleMinLabel: "",
+    scaleMaxLabel: "",
+    gridRows: grid ? ["", ""] : [],
+    gridMultiple: false,
+    gridCorrect: grid ? ["", ""] : [],
+    options: withOptions ? [{ content: "", isCorrect: false, mediaUrl: "" }, { content: "", isCorrect: false, mediaUrl: "" }] : grid ? [{ content: "", isCorrect: false, mediaUrl: "" }, { content: "", isCorrect: false, mediaUrl: "" }, { content: "", isCorrect: false, mediaUrl: "" }] : [],
   };
 }
 
@@ -95,6 +114,7 @@ export function emptyQuizForm(): QuizFormState {
     showResultToWali: true,
     themeColor: "blue",
     headerImageUrl: "",
+    confirmationMessage: "",
     availableFrom: "",
     availableUntil: "",
     sections: [{ key: sectionKey, title: "Bagian 1", description: "" }],
