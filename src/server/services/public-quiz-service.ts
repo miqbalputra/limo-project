@@ -4,9 +4,10 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { assertRateLimit } from "@/server/security/rate-limit";
+import { storeQuizSubmissionFile } from "@/server/providers/storage/local-storage";
 import { publicQuizDraftSchema, startPublicQuizSchema, submitPublicQuizSchema } from "@/server/validation/exam";
 
-const manualReviewTypes = new Set(["SPEAKING", "WRITING", "ROLEPLAY", "ESAI"]);
+const manualReviewTypes = new Set(["SPEAKING", "WRITING", "ROLEPLAY", "ESAI", "FILE_UPLOAD"]);
 
 type QuestionOrder = {
   questions: string[];
@@ -508,6 +509,40 @@ export async function submitPublicQuizResponse(token: string, responseId: string
       passingScore,
     },
   };
+}
+
+export async function uploadPublicQuizFile(token: string, responseId: string, file: File | null) {
+  if (!file) {
+    throw new ValidationError("File jawaban wajib dipilih");
+  }
+
+  const response = await loadResponseContext(responseId);
+  if (response.shareToken !== token) {
+    throw new NotFoundError("Respons kuis tidak ditemukan");
+  }
+  if (response.status !== "IN_PROGRESS") {
+    throw new ConflictError("Kuis sudah tidak aktif");
+  }
+  if (response.expiresAt && response.expiresAt < new Date()) {
+    await prisma.quizResponse.update({ where: { id: response.id }, data: { status: "EXPIRED" } });
+    throw new ConflictError("Waktu pengerjaan sudah habis");
+  }
+
+  assertRateLimit({ key: `quiz-upload:${response.id}`, limit: 60, windowMs: 60 * 60 * 1000, message: "Terlalu banyak unggahan. Coba lagi nanti." });
+
+  const stored = await storeQuizSubmissionFile(file, "quiz-submission");
+  const media = await prisma.quizMedia.create({
+    data: {
+      originalName: stored.originalName,
+      storedName: stored.storedName,
+      storagePath: stored.storagePath,
+      mimeType: stored.mimeType,
+      sizeBytes: stored.sizeBytes,
+    },
+    select: { id: true, originalName: true, sizeBytes: true, mimeType: true },
+  });
+
+  return { item: { id: media.id, name: media.originalName, size: Number(media.sizeBytes), mimeType: media.mimeType } };
 }
 
 export async function getPublicQuizResult(token: string, responseId: string) {

@@ -123,6 +123,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingId, setUploadingId] = useState("");
   const [currentSection, setCurrentSection] = useState(0);
   const saveTimerRef = useRef<number | null>(null);
   const expiresAtRef = useRef<string | null>(null);
@@ -190,6 +191,22 @@ export function PublicQuizRunner({ token }: { token: string }) {
   function setAnswer(questionId: string, patch: Partial<DraftAnswer>) {
     setAnswers((current) => ({ ...current, [questionId]: { ...current[questionId], ujianSoalId: questionId, ...patch } }));
     scheduleSave();
+  }
+
+  async function uploadFileAnswer(questionId: string, file: File) {
+    if (!context) return;
+    setError("");
+    setUploadingId(questionId);
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      const result = await requestJson<{ item: { id: string; name: string } }>(`/api/v1/public/quiz/${token}/responses/${context.response.id}/upload`, { method: "POST", body: formData, fallbackMessage: "Gagal mengunggah berkas" });
+      setAnswer(questionId, { structuredAnswer: { fileId: result.data.item.id, name: result.data.item.name } });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Gagal mengunggah berkas");
+    } finally {
+      setUploadingId("");
+    }
   }
 
   function scheduleSave() {
@@ -419,7 +436,14 @@ export function PublicQuizRunner({ token }: { token: string }) {
               <MediaBlock type={question.type} mediaUrl={question.mediaUrl} />
               <LocalizedContent as="p" text={question.question} language={question.language} direction={question.direction} className="mt-3 text-lg font-semibold leading-8 text-gray-900">{question.question}</LocalizedContent>
               {question.helpText ? <LocalizedContent as="p" text={question.helpText} language={question.language} direction="auto" className="mt-1 text-theme-sm text-gray-500">{question.helpText}</LocalizedContent> : null}
-              <AnswerInput accent={accent} question={question} answer={answers[question.id]} onChange={(patch) => setAnswer(question.id, patch)} />
+              <AnswerInput
+                accent={accent}
+                question={question}
+                answer={answers[question.id]}
+                uploading={uploadingId === question.id}
+                onUploadFile={(file) => uploadFileAnswer(question.id, file)}
+                onChange={(patch) => setAnswer(question.id, patch)}
+              />
             </section>
           ))}
         </div>
@@ -524,7 +548,7 @@ function MediaBlock({ type, mediaUrl }: { type: string; mediaUrl: string | null 
   return <a href={mediaUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-theme-sm font-semibold text-limo-blue-600">Buka media soal</a>;
 }
 
-function AnswerInput({ question, answer, onChange, accent }: { question: PublicQuestion; answer?: DraftAnswer; onChange: (_patch: Partial<DraftAnswer>) => void; accent: string }) {
+function AnswerInput({ question, answer, onChange, accent, onUploadFile, uploading }: { question: PublicQuestion; answer?: DraftAnswer; onChange: (_patch: Partial<DraftAnswer>) => void; accent: string; onUploadFile: (_file: File) => void; uploading: boolean }) {
   if (question.type === "PILIHAN_GANDA") {
     return (
       <div className="mt-3 grid gap-2">
@@ -714,6 +738,29 @@ function AnswerInput({ question, answer, onChange, accent }: { question: PublicQ
             ))}
           </tbody>
         </table>
+      </div>
+    );
+  }
+
+  if (question.type === "FILE_UPLOAD") {
+    const rawName = answer?.structuredAnswer?.name;
+    const fileName = typeof rawName === "string" ? rawName : "";
+    return (
+      <div className="mt-3">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-theme-sm font-semibold text-gray-700 hover:bg-gray-50">
+          {uploading ? "Mengunggah..." : fileName ? "Ganti berkas" : "Pilih berkas"}
+          <input
+            type="file"
+            className="hidden"
+            disabled={uploading}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) onUploadFile(file);
+            }}
+          />
+        </label>
+        {fileName ? <p className="mt-2 text-theme-sm text-gray-600">Berkas: {fileName}</p> : <p className="mt-2 text-theme-xs text-gray-400">PDF, dokumen, gambar, audio, video, atau zip.</p>}
       </div>
     );
   }

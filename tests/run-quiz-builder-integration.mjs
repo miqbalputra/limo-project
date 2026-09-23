@@ -356,6 +356,60 @@ try {
   assert.match(String(detailPage.payload), /Jawaban per soal/);
   ok("Detail respons individual + ekspor CSV tersedia");
 
+  const uploadPayload = {
+    kelasId: kelas.id,
+    title: `Formulir Unggah ${runId}`,
+    description: "",
+    mode: "UJIAN",
+    deliveryMode: "ONLINE_VIA_WALI",
+    durationMinutes: 15,
+    maxAttempts: 1,
+    sections: [{ title: "Bagian 1", description: "" }],
+    questions: [{ type: "FILE_UPLOAD", question: `Unggah tugas ${runId}`, required: true, points: 1, sectionIndex: 0, options: [], correctLabels: [] }],
+  };
+  const uploadForm = await request("/api/v1/kuis", { method: "POST", cookie: guru.cookie, body: uploadPayload });
+  assert.equal(uploadForm.response.status, 201, JSON.stringify(uploadForm.payload));
+  const uploadId = uploadForm.payload.data.item.id;
+  const uploadPublish = await request(`/api/v1/kuis/${uploadId}/publish`, { method: "POST", cookie: guru.cookie, body: {} });
+  assert.equal(uploadPublish.response.status, 200, JSON.stringify(uploadPublish.payload));
+  const uploadShare = await request(`/api/v1/ujian/${uploadId}/share`, { method: "POST", cookie: guru.cookie, body: {} });
+  const uploadToken = uploadShare.payload.data.token;
+  const uploadStart = await request(`/api/v1/public/quiz/${uploadToken}/responses`, { method: "POST", body: { respondentName: `Pengunggah ${runId}` } });
+  const uploadResponseId = uploadStart.payload.data.responseId;
+  const uploadContext = await request(`/api/v1/public/quiz/${uploadToken}/responses/${uploadResponseId}`);
+  const fileQuestion = uploadContext.payload.data.questions.find((question) => question.type === "FILE_UPLOAD");
+  assert.ok(fileQuestion, "Soal unggah file harus tersedia di publik");
+
+  const uploadFormData = new FormData();
+  uploadFormData.set("file", new File([Buffer.from("halo limo\n", "utf8")], "tugas.txt", { type: "text/plain" }));
+  const uploadRes = await fetch(`${origin}/api/v1/public/quiz/${uploadToken}/responses/${uploadResponseId}/upload`, { method: "POST", headers: { Origin: origin }, body: uploadFormData });
+  const uploadBody = await uploadRes.json();
+  assert.equal(uploadRes.status, 201, JSON.stringify(uploadBody));
+  const uploadedFile = uploadBody.data.item;
+  assert.match(uploadedFile.name, /tugas\.txt/);
+
+  const uploadSubmit = await request(`/api/v1/public/quiz/${uploadToken}/responses/${uploadResponseId}/submit`, {
+    method: "POST",
+    body: { answers: [{ ujianSoalId: fileQuestion.id, structuredAnswer: { fileId: uploadedFile.id, name: uploadedFile.name } }] },
+  });
+  assert.equal(uploadSubmit.response.status, 200, JSON.stringify(uploadSubmit.payload));
+  assert.equal(uploadSubmit.payload.data.result.needsReview, true);
+
+  const download = await fetch(`${origin}/api/v1/kuis/${uploadId}/responses/${uploadResponseId}/files/${uploadedFile.id}`, { headers: { Cookie: guru.cookie } });
+  assert.equal(download.status, 200, "Guru harus dapat mengunduh berkas jawaban");
+  assert.match(download.headers.get("content-type") || "", /text\/plain/);
+  ok("Tipe soal unggah file: upload publik, submit perlu review, guru bisa mengunduh berkas");
+
+  const uploadBankIds = (await prisma.ujianSoal.findMany({ where: { ujianId: uploadId }, select: { bankSoalId: true } })).map((row) => row.bankSoalId);
+  const uploadedMedia = await prisma.quizMedia.findUnique({ where: { id: uploadedFile.id }, select: { storagePath: true } }).catch(() => null);
+  await prisma.ujian.delete({ where: { id: uploadId } }).catch(() => undefined);
+  await prisma.quizMedia.delete({ where: { id: uploadedFile.id } }).catch(() => undefined);
+  if (uploadedMedia?.storagePath) await unlink(uploadedMedia.storagePath).catch(() => undefined);
+  if (uploadBankIds.length > 0) {
+    await prisma.opsiSoal.deleteMany({ where: { bankSoalId: { in: uploadBankIds } } }).catch(() => undefined);
+    await prisma.bankSoal.deleteMany({ where: { id: { in: uploadBankIds } } }).catch(() => undefined);
+  }
+
   const duplicate = await request(`/api/v1/kuis/${advancedId}/duplicate`, { method: "POST", cookie: guru.cookie, body: {} });
   assert.equal(duplicate.response.status, 201, JSON.stringify(duplicate.payload));
   const duplicateId = duplicate.payload.data.item.id;

@@ -22,6 +22,7 @@ const QUESTION_TYPES = [
   { value: "TANGGAL", label: "Tanggal", hint: "Pilih tanggal" },
   { value: "WAKTU", label: "Waktu", hint: "Pilih jam" },
   { value: "GRID", label: "Tabel pilihan", hint: "Beberapa pernyataan, satu/lebih kolom" },
+  { value: "FILE_UPLOAD", label: "Unggah file", hint: "Responden mengunggah berkas (dinilai guru)" },
 ] as const;
 
 const CHOICE_TYPES = new Set(["PILIHAN_GANDA", "MULTI_SELECT", "DROPDOWN"]);
@@ -762,6 +763,10 @@ export function QuizBuilder({
                     Kunci jawaban
                     <input type={question.type === "TANGGAL" ? "date" : "time"} value={question.expectedAnswer} onChange={(event) => patchQuestion(question.key, { expectedAnswer: event.target.value })} className="mt-2 tailadmin-input sm:max-w-xs" />
                   </label>
+                ) : null}
+
+                {question.type === "FILE_UPLOAD" ? (
+                  <p className="rounded-xl bg-limo-blue-50 px-4 py-3 text-theme-sm text-limo-blue-700">Responden akan mengunggah satu berkas (PDF, dokumen, gambar, audio, video, atau zip). Dinilai manual oleh guru.</p>
                 ) : null}
 
                 {question.type === "PILIHAN_GANDA" && form.sections.length > 1 ? (

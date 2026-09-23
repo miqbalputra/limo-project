@@ -7,7 +7,7 @@ import type { QuizFormState } from "@/lib/quiz-builder";
 
 export const metadata = { title: "Edit Formulir Kuis" };
 
-const BUILDER_TYPES = new Set(["PILIHAN_GANDA", "MULTI_SELECT", "BENAR_SALAH", "ISIAN_SINGKAT", "DROPDOWN", "SKALA", "RATING", "TANGGAL", "WAKTU", "GRID", "ESAI"]);
+const BUILDER_TYPES = new Set(["PILIHAN_GANDA", "MULTI_SELECT", "BENAR_SALAH", "ISIAN_SINGKAT", "DROPDOWN", "SKALA", "RATING", "TANGGAL", "WAKTU", "GRID", "FILE_UPLOAD", "ESAI"]);
 
 export default async function GuruKuisEditPage({ params }: { params: Promise<{ ujianId: string }> }) {
   const actor = await requireActor();

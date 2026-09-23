@@ -18,6 +18,7 @@ const soalTypeSchema = z.enum([
   "TANGGAL",
   "WAKTU",
   "GRID",
+  "FILE_UPLOAD",
   "MENJODOHKAN",
   "URUTAN",
   "CLOZE",

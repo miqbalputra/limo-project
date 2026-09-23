@@ -184,6 +184,8 @@ export async function createQuizPdf(actor: Actor, ujianId: string, options: { wi
         }
       } else if (question.type === "BENAR_SALAH") {
         y = putText(doc, "( ) Benar     ( ) Salah", { x: MARGIN + 16, y, width: CONTENT_WIDTH - 16, size: 10, color: INK }) + 2;
+      } else if (question.type === "FILE_UPLOAD") {
+        y = putText(doc, "(Unggah berkas melalui tautan kuis)", { x: MARGIN + 16, y, width: CONTENT_WIDTH - 16, size: 10, color: MUTED }) + 2;
       } else {
         const lines = question.type === "ESAI" ? 4 : 1;
         for (let line = 0; line < lines; line += 1) {

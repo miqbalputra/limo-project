@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 // Tipe soal yang ditampilkan di Form Builder (mirip Google Forms, sesuai kebutuhan LIMO).
-export const QUIZ_QUESTION_TYPES = ["PILIHAN_GANDA", "MULTI_SELECT", "BENAR_SALAH", "ISIAN_SINGKAT", "DROPDOWN", "SKALA", "RATING", "TANGGAL", "WAKTU", "GRID", "ESAI"] as const;
+export const QUIZ_QUESTION_TYPES = ["PILIHAN_GANDA", "MULTI_SELECT", "BENAR_SALAH", "ISIAN_SINGKAT", "DROPDOWN", "SKALA", "RATING", "TANGGAL", "WAKTU", "GRID", "FILE_UPLOAD", "ESAI"] as const;
 
 export const QUIZ_THEME_COLORS = ["blue", "green", "purple", "orange", "red", "teal", "slate"] as const;
 

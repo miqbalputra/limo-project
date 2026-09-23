@@ -5,6 +5,7 @@ import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canManageClass } from "@/server/policies/access-policy";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
+import { getQuizMedia } from "@/server/services/quiz-media-service";
 import { saveQuizFormSchema, type SaveQuizFormInput } from "@/server/validation/quiz-builder";
 
 type Tx = Prisma.TransactionClient;
@@ -521,6 +522,7 @@ export async function getQuizResponseDetail(actor: Actor, ujianId: string, respo
     const record = (answer ?? {}) as Record<string, unknown>;
     const type = question.bankSoal.type;
     let answerText = "-";
+    let fileId: string | null = null;
 
     if (["PILIHAN_GANDA", "DROPDOWN", "SKALA", "RATING", "BENAR_SALAH"].includes(type)) {
       const label = typeof record.selectedOption === "string" ? record.selectedOption : "";
@@ -547,11 +549,15 @@ export async function getQuizResponseDetail(actor: Actor, ujianId: string, respo
         return `${row}: ${selected}`;
       });
       if (parts.length > 0) answerText = parts.join(" | ");
+    } else if (type === "FILE_UPLOAD") {
+      const stored = (record.structuredAnswer ?? {}) as Record<string, unknown>;
+      answerText = typeof stored.name === "string" && stored.name ? stored.name : "-";
+      fileId = typeof stored.fileId === "string" ? stored.fileId : null;
     } else {
       answerText = (typeof record.shortAnswer === "string" && record.shortAnswer) || (typeof record.essayAnswer === "string" && record.essayAnswer) || "-";
     }
 
-    return { id: question.id, type, question: question.bankSoal.question, answerText, correct, weight: Number(question.weight) };
+    return { id: question.id, type, question: question.bankSoal.question, answerText, correct, weight: Number(question.weight), fileId };
   });
 
   return {
@@ -566,6 +572,26 @@ export async function getQuizResponseDetail(actor: Actor, ujianId: string, respo
     },
     items,
   };
+}
+
+export async function getQuizResponseFile(actor: Actor, ujianId: string, responseId: string, fileId: string) {
+  const ujian = await prisma.ujian.findUnique({ where: { id: ujianId }, select: { kelasId: true } });
+  if (!ujian) {
+    throw new NotFoundError("Kuis tidak ditemukan");
+  }
+  await assertClassScope(actor, ujian.kelasId);
+
+  const response = await prisma.quizResponse.findUnique({ where: { id: responseId }, select: { ujianId: true, finalAnswers: true, draftAnswers: true } });
+  if (!response || response.ujianId !== ujianId) {
+    throw new NotFoundError("Respons tidak ditemukan");
+  }
+
+  const haystack = JSON.stringify(response.finalAnswers ?? response.draftAnswers ?? []);
+  if (!haystack.includes(fileId)) {
+    throw new NotFoundError("File tidak ditemukan pada respons ini");
+  }
+
+  return getQuizMedia(fileId);
 }
 
 export async function getQuizResponsesCsv(actor: Actor, ujianId: string) {

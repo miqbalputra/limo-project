@@ -242,6 +242,42 @@ export async function storeAssignmentFile(file: File, folder: string, submission
   return writePrivateFile({ file, folder, extension, bytes });
 }
 
+const allowedQuizSubmissionTypes = new Map<string, string>([
+  ["application/pdf", "pdf"],
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+  ["application/msword", "doc"],
+  ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"],
+  ["application/vnd.ms-excel", "xls"],
+  ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"],
+  ["application/vnd.ms-powerpoint", "ppt"],
+  ["application/vnd.openxmlformats-officedocument.presentationml.presentation", "pptx"],
+  ["text/plain", "txt"],
+  ["application/zip", "zip"],
+  ["audio/mpeg", "mp3"],
+  ["audio/wav", "wav"],
+  ["audio/ogg", "ogg"],
+  ["audio/webm", "webm"],
+  ["video/webm", "webm"],
+  ["video/mp4", "mp4"],
+  ["video/quicktime", "mov"],
+]);
+
+export async function storeQuizSubmissionFile(file: File, folder: string): Promise<StoredFile> {
+  if (file.size < 1) throw new ValidationError("File jawaban kosong");
+  const mimeType = baseMimeType(file.type);
+  const extension = allowedQuizSubmissionTypes.get(mimeType);
+  const fileExtension = path.extname(file.name).slice(1).toLowerCase();
+  if (!extension) throw new ValidationError("Tipe file tidak diizinkan untuk jawaban");
+  if (fileExtension !== extension && !(mimeType === "image/jpeg" && fileExtension === "jpeg")) {
+    throw new ValidationError("Ekstensi file tidak sesuai dengan tipe file");
+  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  validateAssignmentMagicBytes(bytes, file.type);
+  return writePrivateFile({ file, folder, extension, bytes });
+}
+
 async function writePrivateFile(input: { file: File; folder: string; extension: string; bytes: Uint8Array }): Promise<StoredFile> {
   const safeFolder = input.folder.replace(/[^a-zA-Z0-9._-]/g, "_");
   const storageRoot = resolveStorageRoot();

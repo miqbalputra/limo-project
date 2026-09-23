@@ -51,6 +51,9 @@ export default async function GuruKuisResponseDetailPage({ params }: { params: P
               <p className="mt-2 whitespace-pre-wrap rounded-xl bg-gray-50 px-3 py-2 text-theme-sm text-gray-800" dir="auto">
                 <span className="font-semibold text-gray-500">Jawaban: </span>{item.answerText}
               </p>
+              {item.fileId ? (
+                <a href={`/api/v1/kuis/${ujianId}/responses/${responseId}/files/${item.fileId}`} className="mt-2 inline-flex text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Unduh berkas</a>
+              ) : null}
             </div>
           ))}
         </div>
