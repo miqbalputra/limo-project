@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import type { QuizFormState, QuizQuestion } from "@/lib/quiz-builder";
 
 const THEME_HEX: Record<string, string> = {
@@ -129,12 +130,20 @@ export function QuizPreview({ form, onClose }: { form: QuizFormState; onClose: (
   const orderedQuestions = form.sections.flatMap((section) => form.questions.filter((question) => question.sectionKey === section.key));
   const numberByKey = new Map(orderedQuestions.map((question, index) => [question.key, index + 1]));
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900/50 p-4 sm:p-8">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900/50 p-4 sm:p-8" role="dialog" aria-modal="true" aria-label="Pratinjau formulir">
       <div className="mx-auto max-w-3xl">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-theme-sm font-semibold text-white">Pratinjau formulir</p>
-          <button type="button" onClick={onClose} className="tailadmin-button-outline bg-white px-4 py-2">Tutup</button>
+          <button type="button" onClick={onClose} autoFocus className="tailadmin-button-outline bg-white px-4 py-2">Tutup</button>
         </div>
         <div className="overflow-hidden rounded-2xl bg-gray-50 shadow-xl">
           {form.headerImageUrl ? (

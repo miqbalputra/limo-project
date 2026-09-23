@@ -8,6 +8,17 @@ import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Kerjakan Ujian" };
 
+type StructuredPayload = {
+  min?: number;
+  max?: number;
+  minLabel?: string;
+  maxLabel?: string;
+  kind?: string;
+  rows?: string[];
+  multiple?: boolean;
+  validation?: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null };
+} | null;
+
 export default async function WaliAttemptPage({ params, searchParams }: { params: Promise<{ attemptId: string }>; searchParams: Promise<{ anak?: string }> }) {
   const actor = await requireActor();
   requireRole(actor, ["WALI"]);
@@ -31,11 +42,36 @@ export default async function WaliAttemptPage({ params, searchParams }: { params
     );
   }
 
+  const sectionIndexById = new Map(attempt.ujian.sections.map((section, index) => [section.id, index]));
+
   const normalizedAttempt = {
     ...attempt,
     ujian: {
       ...attempt.ujian,
-      questions: attempt.ujian.questions.map((question) => ({ ...question, weight: question.weight.toString() })),
+      questions: attempt.ujian.questions.map((question) => {
+        const payload = (question.bankSoal.structuredPayload ?? null) as StructuredPayload;
+        return {
+          id: question.id,
+          weight: question.weight.toString(),
+          required: question.required,
+          sectionIndex: question.sectionId ? (sectionIndexById.get(question.sectionId) ?? 0) : 0,
+          branchRules: Array.isArray(question.branchRules) ? (question.branchRules as Array<{ label: string; goToSectionIndex: number | null }>) : [],
+          bankSoal: {
+            type: question.bankSoal.type,
+            question: question.bankSoal.question,
+            helpText: question.bankSoal.helpText,
+            stimulusText: question.bankSoal.stimulusText,
+            mediaUrl: question.bankSoal.mediaUrl,
+            language: question.bankSoal.language,
+            direction: question.bankSoal.direction,
+            allowOther: question.bankSoal.allowOther,
+            options: question.bankSoal.options,
+            scale: { min: payload?.min ?? null, max: payload?.max ?? null, minLabel: payload?.minLabel ?? null, maxLabel: payload?.maxLabel ?? null, kind: payload?.kind ?? null },
+            grid: { rows: Array.isArray(payload?.rows) ? payload!.rows : [], multiple: Boolean(payload?.multiple) },
+            validation: payload?.validation ?? null,
+          },
+        };
+      }),
     },
   };
 

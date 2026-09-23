@@ -429,6 +429,65 @@ try {
     }
   }
 
+  const waliFixture = await prisma.waliSiswa.findFirst({
+    where: { endedAt: null, waliProfile: { user: { email: "wali@limo.local" } }, siswa: { enrollments: { some: { status: "ACTIVE", kelas: { guruProfile: { user: { email: "guru@limo.local" } } } } } } },
+    select: { siswa: { select: { id: true, enrollments: { where: { status: "ACTIVE", kelas: { guruProfile: { user: { email: "guru@limo.local" } } } }, select: { kelasId: true }, take: 1 } } } },
+  });
+  assert.ok(waliFixture && waliFixture.siswa.enrollments.length > 0, "Fixture wali + kelas guru harus tersedia");
+
+  const waliUjian = await request("/api/v1/kuis", {
+    method: "POST",
+    cookie: guru.cookie,
+    body: {
+      kelasId: waliFixture.siswa.enrollments[0].kelasId,
+      title: `Ujian Wali Tipe Baru ${runId}`,
+      description: "",
+      mode: "UJIAN",
+      deliveryMode: "ONLINE_VIA_WALI",
+      durationMinutes: 15,
+      maxAttempts: 1,
+      sections: [{ title: "Bagian 1", description: "" }],
+      questions: [
+        { type: "DROPDOWN", question: `Warna ${runId}`, required: true, points: 1, sectionIndex: 0, options: [{ label: "A", content: "Merah" }, { label: "B", content: "Biru" }], correctLabels: ["B"] },
+        { type: "GRID", question: `Tabel ${runId}`, required: true, points: 1, sectionIndex: 0, gridRows: ["Satu", "Dua"], gridMultiple: false, gridCorrect: ["A", "B"], options: [{ label: "A", content: "Ya" }, { label: "B", content: "Tidak" }], correctLabels: [] },
+      ],
+    },
+  });
+  assert.equal(waliUjian.response.status, 201, JSON.stringify(waliUjian.payload));
+  const waliUjianId = waliUjian.payload.data.item.id;
+  await request(`/api/v1/kuis/${waliUjianId}/publish`, { method: "POST", cookie: guru.cookie, body: {} });
+  const waliDetail = await request(`/api/v1/kuis/${waliUjianId}`, { cookie: guru.cookie });
+  const wDropdown = waliDetail.payload.data.item.questions.find((question) => question.type === "DROPDOWN");
+  const wGrid = waliDetail.payload.data.item.questions.find((question) => question.type === "GRID");
+
+  const attemptStart = await request(`/api/v1/wali/tugas/${waliFixture.siswa.id}/ujian/${waliUjianId}/attempt`, { method: "POST", cookie: wali.cookie, body: {} });
+  assert.equal(attemptStart.response.status, 201, JSON.stringify(attemptStart.payload));
+  const attemptId = attemptStart.payload.data.attemptId;
+
+  const attemptSubmit = await request(`/api/v1/wali/attempt/${attemptId}/submit`, {
+    method: "POST",
+    cookie: wali.cookie,
+    body: { answers: [
+      { ujianSoalId: wDropdown.id, selectedOption: "B" },
+      { ujianSoalId: wGrid.id, structuredAnswer: { "0": "A", "1": "B" } },
+    ] },
+  });
+  assert.equal(attemptSubmit.response.status, 200, JSON.stringify(attemptSubmit.payload));
+  const waliHasil = await prisma.hasilUjian.findFirst({ where: { ujianId: waliUjianId, siswaId: waliFixture.siswa.id }, select: { totalScore: true, status: true } });
+  assert.ok(waliHasil, "Hasil ujian wali harus tersimpan");
+  assert.equal(Number(waliHasil.totalScore), 100);
+  assert.equal(waliHasil.status, "FINAL");
+  ok("Alur wali: dropdown & tabel (tipe baru) dinilai otomatis 100");
+
+  const waliBankIds = (await prisma.ujianSoal.findMany({ where: { ujianId: waliUjianId }, select: { bankSoalId: true } })).map((row) => row.bankSoalId);
+  await prisma.ujianAttempt.deleteMany({ where: { ujianId: waliUjianId } }).catch(() => undefined);
+  await prisma.hasilUjian.deleteMany({ where: { ujianId: waliUjianId } }).catch(() => undefined);
+  await prisma.ujian.delete({ where: { id: waliUjianId } }).catch(() => undefined);
+  if (waliBankIds.length > 0) {
+    await prisma.opsiSoal.deleteMany({ where: { bankSoalId: { in: waliBankIds } } }).catch(() => undefined);
+    await prisma.bankSoal.deleteMany({ where: { id: { in: waliBankIds } } }).catch(() => undefined);
+  }
+
   const blockedAfterResponse = await request(`/api/v1/kuis/${ujianId}`, { method: "PATCH", cookie: guru.cookie, body: basePayload(kelas.id) });
   assert.equal(blockedAfterResponse.response.status, 409);
   ok("Kuis yang sudah dikerjakan tidak dapat diubah (409)");

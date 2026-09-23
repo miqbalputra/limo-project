@@ -18,6 +18,21 @@ function themeAccent(slug?: string | null) {
   return (slug && QUIZ_THEME_HEX[slug]) || QUIZ_THEME_HEX.blue;
 }
 
+function accentTextOn(hex: string) {
+  const value = hex.replace("#", "");
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.62 ? "#101828" : "#ffffff";
+}
+
+function darken(hex: string, amount: number) {
+  const value = hex.replace("#", "");
+  const channels = [value.slice(0, 2), value.slice(2, 4), value.slice(4, 6)].map((channel) => Math.max(0, Math.round(parseInt(channel, 16) * (1 - amount))));
+  return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
 type QuizIntro = {
   title: string;
   description: string | null;
@@ -125,27 +140,47 @@ export function PublicQuizRunner({ token }: { token: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingId, setUploadingId] = useState("");
   const [currentSection, setCurrentSection] = useState(0);
+  const [errorQuestionId, setErrorQuestionId] = useState("");
   const saveTimerRef = useRef<number | null>(null);
   const expiresAtRef = useRef<string | null>(null);
   const submitRef = useRef<((_auto?: boolean) => Promise<void>) | null>(null);
+  const storageKey = `limo-quiz-${token}`;
 
   useEffect(() => {
     let active = true;
-    requestJson<{ quiz: QuizIntro }>(`/api/v1/public/quiz/${token}`)
-      .then((response) => {
-        if (!active) return;
-        setIntro(response.data.quiz);
-        setPhase("intro");
-      })
-      .catch((caught) => {
-        if (!active) return;
-        setError(caught instanceof Error ? caught.message : "Kuis tidak dapat dibuka");
-        setPhase("error");
-      });
+    async function boot() {
+      const savedId = window.localStorage.getItem(storageKey);
+      if (savedId) {
+        try {
+          const resumed = await requestJson<AttemptContext>(`/api/v1/public/quiz/${token}/responses/${savedId}`);
+          if (!active) return;
+          if (resumed.data.response.status === "IN_PROGRESS") {
+            setContext(resumed.data);
+            setAnswers(restoreDraft(resumed.data.response.draftAnswers));
+            expiresAtRef.current = resumed.data.response.expiresAt;
+            setRemainingSeconds(resumed.data.response.expiresAt ? Math.max(0, Math.ceil((new Date(resumed.data.response.expiresAt).getTime() - Date.now()) / 1000)) : null);
+            setPhase("quiz");
+            return;
+          }
+          window.localStorage.removeItem(storageKey);
+        } catch {
+          window.localStorage.removeItem(storageKey);
+        }
+      }
+      const response = await requestJson<{ quiz: QuizIntro }>(`/api/v1/public/quiz/${token}`);
+      if (!active) return;
+      setIntro(response.data.quiz);
+      setPhase("intro");
+    }
+    boot().catch((caught) => {
+      if (!active) return;
+      setError(caught instanceof Error ? caught.message : "Kuis tidak dapat dibuka");
+      setPhase("error");
+    });
     return () => {
       active = false;
     };
-  }, [token]);
+  }, [token, storageKey]);
 
   async function start() {
     setError("");
@@ -157,6 +192,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
         fallbackMessage: "Kuis gagal dimulai",
       });
       const ctx = await requestJson<AttemptContext>(`/api/v1/public/quiz/${token}/responses/${started.data.responseId}`);
+      window.localStorage.setItem(storageKey, started.data.responseId);
       setContext(ctx.data);
       setAnswers(restoreDraft(ctx.data.response.draftAnswers));
       expiresAtRef.current = ctx.data.response.expiresAt;
@@ -233,36 +269,42 @@ export function PublicQuizRunner({ token }: { token: string }) {
     }
   }
 
-  function missingRequired(questions: PublicQuestion[]) {
-    for (const [index, question] of questions.entries()) {
-      if (question.required && !isAnswerFilled(answers[question.id])) return index + 1;
-    }
-    return null;
-  }
-
-  function validationError(questions: PublicQuestion[]) {
+  function firstProblem(questions: PublicQuestion[]) {
     for (const question of questions) {
+      const label = question.question ? `"${question.question.slice(0, 50)}"` : "ini";
+      if (question.required && !isAnswerFilled(answers[question.id])) {
+        return { message: `Soal wajib belum diisi: ${label}.`, questionId: question.id };
+      }
       const config = question.validation;
       if (!config || config.type === "NONE") continue;
       const value = answers[question.id]?.shortAnswer?.trim() ?? "";
       if (!value) continue;
+      let detail = "";
       if (config.type === "NUMBER") {
         const numeric = Number(value);
-        if (Number.isNaN(numeric)) return "Jawaban harus berupa angka.";
-        if (config.min !== null && numeric < config.min) return `Nilai minimal ${config.min}.`;
-        if (config.max !== null && numeric > config.max) return `Nilai maksimal ${config.max}.`;
+        if (Number.isNaN(numeric)) detail = "Jawaban harus berupa angka.";
+        else if (config.min !== null && numeric < config.min) detail = `Nilai minimal ${config.min}.`;
+        else if (config.max !== null && numeric > config.max) detail = `Nilai maksimal ${config.max}.`;
       } else if (config.type === "LENGTH") {
-        if (config.min !== null && value.length < config.min) return `Jawaban minimal ${config.min} karakter.`;
-        if (config.max !== null && value.length > config.max) return `Jawaban maksimal ${config.max} karakter.`;
+        if (config.min !== null && value.length < config.min) detail = `Jawaban minimal ${config.min} karakter.`;
+        else if (config.max !== null && value.length > config.max) detail = `Jawaban maksimal ${config.max} karakter.`;
       } else if (config.type === "TEXT" && config.pattern) {
         try {
-          if (!new RegExp(config.pattern).test(value)) return config.message || "Format jawaban tidak sesuai.";
+          if (!new RegExp(config.pattern).test(value)) detail = config.message || "Format jawaban tidak sesuai.";
         } catch {
           continue;
         }
       }
+      if (detail) return { message: `${detail} (${label})`, questionId: question.id };
     }
-    return "";
+    return null;
+  }
+
+  function focusProblem(questionId: string) {
+    setErrorQuestionId(questionId);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`q-${questionId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
   }
 
   function resolveBranchTarget(questions: PublicQuestion[]) {
@@ -279,14 +321,12 @@ export function PublicQuizRunner({ token }: { token: string }) {
   async function submit(auto = false) {
     if (!context) return;
     if (!auto) {
-      const missing = missingRequired(context.questions);
-      if (missing) {
-        setError("Masih ada soal wajib yang belum diisi. Lengkapi sebelum mengumpulkan.");
-        return;
-      }
-      const invalid = validationError(context.questions);
-      if (invalid) {
-        setError(invalid);
+      const problem = firstProblem(context.questions);
+      if (problem) {
+        setError(`Lengkapi jawaban sebelum mengumpulkan. ${problem.message}`);
+        const section = context.questions.find((question) => question.id === problem.questionId)?.sectionIndex;
+        if (section !== undefined) setCurrentSection(section);
+        focusProblem(problem.questionId);
         return;
       }
       if (!window.confirm("Kumpulkan jawaban? Jawaban tidak bisa diubah setelah dikirim.")) return;
@@ -295,6 +335,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
     setError("");
     try {
       await requestJson(`/api/v1/public/quiz/${token}/responses/${context.response.id}/submit`, { method: "POST", body: { answers: buildAnswers() }, fallbackMessage: "Jawaban gagal dikumpulkan" });
+      window.localStorage.removeItem(storageKey);
       const detail = await requestJson<{ result: QuizResult }>(`/api/v1/public/quiz/${token}/responses/${context.response.id}/result`);
       setResult(detail.data.result);
       setPhase("result");
@@ -314,17 +355,14 @@ export function PublicQuizRunner({ token }: { token: string }) {
     if (!context) return;
     const sections = context.sections;
     const visible = context.questions.filter((question) => question.sectionIndex === currentSection);
-    const missing = missingRequired(visible);
-    if (missing) {
-      setError("Lengkapi soal wajib pada bagian ini sebelum lanjut.");
-      return;
-    }
-    const invalid = validationError(visible);
-    if (invalid) {
-      setError(invalid);
+    const problem = firstProblem(visible);
+    if (problem) {
+      setError(`Lengkapi bagian ini sebelum lanjut. ${problem.message}`);
+      focusProblem(problem.questionId);
       return;
     }
     setError("");
+    setErrorQuestionId("");
     const target = resolveBranchTarget(visible) ?? currentSection + 1;
     if (target >= sections.length) {
       void submit(false);
@@ -369,7 +407,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={intro.headerImageUrl} alt="Header kuis" className="-m-6 mb-5 h-44 w-[calc(100%+3rem)] object-cover sm:-m-8 sm:mb-6 sm:h-56 sm:w-[calc(100%+4rem)]" />
           ) : null}
-          <p className="text-theme-xs font-bold uppercase tracking-widest" style={{ color: accent }}>{intro.programName} / {intro.className}</p>
+          <p className="text-theme-xs font-bold uppercase tracking-widest" style={{ color: darken(accent, 0.15) }}>{intro.programName} / {intro.className}</p>
           <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-gray-900 sm:text-3xl">{intro.title}</h1>
           {intro.description ? <p className="mt-3 whitespace-pre-wrap text-theme-sm leading-7 text-gray-600">{intro.description}</p> : null}
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -377,14 +415,14 @@ export function PublicQuizRunner({ token }: { token: string }) {
             <InfoTile label="Durasi" value={`${intro.durationMinutes} menit`} />
             <InfoTile label="KKM" value={intro.passingScore === null ? "-" : String(intro.passingScore)} />
           </div>
-          {error ? <p className="mt-4 tailadmin-alert-error">{error}</p> : null}
+          {error ? <p role="alert" className="mt-4 tailadmin-alert-error">{error}</p> : null}
           {intro.collectRespondentName ? (
             <label className="mt-6 block text-theme-sm font-semibold text-gray-700">
               Nama Anda
               <input value={respondentName} onChange={(event) => setRespondentName(event.target.value)} placeholder="Tulis nama lengkap" className="tailadmin-input mt-2" />
             </label>
           ) : null}
-          <button type="button" onClick={() => void start()} disabled={intro.collectRespondentName && respondentName.trim().length < 2} className="tailadmin-button-primary mt-6 w-full py-3" style={{ backgroundColor: accent }}>
+          <button type="button" onClick={() => void start()} disabled={intro.collectRespondentName && respondentName.trim().length < 2} className="tailadmin-button-primary mt-6 w-full py-3" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>
             Mulai Kerjakan
           </button>
         </div>
@@ -409,27 +447,27 @@ export function PublicQuizRunner({ token }: { token: string }) {
             </div>
             <div className="flex items-center gap-2">
               {saveState !== "idle" ? <span className={`rounded-full px-3 py-1 text-theme-xs font-semibold ${saveState === "error" ? "bg-error-50 text-error-700" : saveState === "saving" ? "bg-warning-50 text-warning-700" : "bg-success-50 text-success-700"}`}>{saveState === "saving" ? "Menyimpan..." : saveState === "error" ? "Belum tersimpan" : "Tersimpan"}</span> : null}
-              {remainingSeconds !== null ? <span className={`rounded-full px-3 py-1 text-theme-xs font-semibold ${remainingSeconds <= 60 ? "bg-error-50 text-error-700" : "bg-limo-blue-50 text-limo-blue-600"}`}>Sisa {formatDuration(remainingSeconds)}</span> : null}
+              {remainingSeconds !== null ? <span aria-live="polite" className={`rounded-full px-3 py-1 text-theme-xs font-semibold ${remainingSeconds <= 60 ? "bg-error-50 text-error-700" : "bg-limo-blue-50 text-limo-blue-600"}`}>Sisa {formatDuration(remainingSeconds)}</span> : null}
             </div>
           </div>
-          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label="Progres pengisian">
             <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: accent }} />
           </div>
-          {error ? <p className="mt-3 tailadmin-alert-error">{error}</p> : null}
+          {error ? <p role="alert" className="mt-3 tailadmin-alert-error">{error}</p> : null}
         </section>
 
         {activeSection && (activeSection.title || activeSection.description) ? (
           <section className="mt-4 rounded-2xl border-l-4 p-5" style={{ backgroundColor: `${accent}14`, borderLeftColor: accent }}>
-            {activeSection.title ? <h2 className="text-lg font-bold" style={{ color: accent }}>{activeSection.title}</h2> : null}
+            {activeSection.title ? <h2 className="text-lg font-bold" style={{ color: darken(accent, 0.25) }}>{activeSection.title}</h2> : null}
             {activeSection.description ? <p className="mt-1 whitespace-pre-wrap text-theme-sm text-gray-700">{activeSection.description}</p> : null}
           </section>
         ) : null}
 
         <div className="mt-4 space-y-4">
           {visibleQuestions.map((question, index) => (
-            <section key={question.id} className="tailadmin-card p-5">
+            <section key={question.id} id={`q-${question.id}`} className={`tailadmin-card p-5 transition ${errorQuestionId === question.id ? "ring-2 ring-error-400" : ""}`}>
               <div className="flex items-center gap-2">
-                <span className="grid size-7 shrink-0 place-items-center rounded-full text-theme-xs font-bold text-white" style={{ backgroundColor: accent }}>{index + 1}</span>
+                <span className="grid size-7 shrink-0 place-items-center rounded-full text-theme-xs font-bold text-white" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>{index + 1}</span>
                 <span className="text-theme-xs font-semibold uppercase tracking-wide text-gray-400">{question.required ? "Wajib" : "Opsional"} · {question.weight} poin</span>
               </div>
               {question.stimulusText ? <LocalizedContent as="p" text={question.stimulusText} language={question.language} direction={question.direction} className="mt-3 rounded-2xl bg-gray-50 p-4 text-theme-sm leading-7 text-gray-700">{question.stimulusText}</LocalizedContent> : null}
@@ -451,9 +489,9 @@ export function PublicQuizRunner({ token }: { token: string }) {
         <div className="mt-4 flex flex-col gap-3 tailadmin-card p-5 sm:flex-row sm:items-center sm:justify-between">
           <button type="button" disabled={currentSection === 0 || submitting} onClick={() => { setError(""); setCurrentSection((value) => Math.max(0, value - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="tailadmin-button-outline px-5 py-3 disabled:opacity-40">Sebelumnya</button>
           {isLastSection ? (
-            <button type="button" disabled={submitting} onClick={() => void submit(false)} className="tailadmin-button-primary px-6 py-3" style={{ backgroundColor: accent }}>{submitting ? "Mengirim..." : "Kumpulkan Jawaban"}</button>
+            <button type="button" disabled={submitting} onClick={() => void submit(false)} className="tailadmin-button-primary px-6 py-3" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>{submitting ? "Mengirim..." : "Kumpulkan Jawaban"}</button>
           ) : (
-            <button type="button" onClick={goNext} className="tailadmin-button-primary px-6 py-3" style={{ backgroundColor: accent }}>Berikutnya</button>
+            <button type="button" onClick={goNext} className="tailadmin-button-primary px-6 py-3" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>Berikutnya</button>
           )}
         </div>
       </div>

@@ -667,12 +667,12 @@ export function QuizBuilder({
                             dir="auto"
                             className="tailadmin-input"
                           />
-                          <label className="shrink-0 cursor-pointer rounded-lg border border-gray-200 px-2 py-1.5 text-theme-xs text-gray-500 hover:bg-gray-50" title="Tambah gambar opsi">
+                          <label className="shrink-0 cursor-pointer rounded-lg border border-gray-200 px-2 py-1.5 text-theme-xs text-gray-500 hover:bg-gray-50 focus-within:ring-2 focus-within:ring-limo-blue-500" title="Tambah gambar opsi">
                             🖼
                             <input
                               type="file"
                               accept="image/jpeg,image/png,image/webp"
-                              className="hidden"
+                              className="sr-only"
                               onChange={(event) => {
                                 const file = event.target.files?.[0];
                                 event.target.value = "";
@@ -938,9 +938,9 @@ export function QuizBuilder({
                 <span className="grid h-20 w-full max-w-xs place-items-center rounded-xl bg-gray-50 text-theme-xs text-gray-400 ring-1 ring-gray-200">Belum ada gambar</span>
               )}
               <div className="flex items-center gap-2">
-                <label className="tailadmin-button-outline cursor-pointer px-4 py-2 text-theme-xs">
+                <label className="tailadmin-button-outline cursor-pointer px-4 py-2 text-theme-xs focus-within:ring-2 focus-within:ring-limo-blue-500">
                   {form.headerImageUrl ? "Ganti gambar" : "Unggah gambar"}
-                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void uploadHeaderImage(file); }} />
+                  <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void uploadHeaderImage(file); }} />
                 </label>
                 {form.headerImageUrl ? (
                   <button type="button" onClick={() => patchForm({ headerImageUrl: "" })} className="text-theme-xs font-semibold text-error-600">Hapus gambar</button>

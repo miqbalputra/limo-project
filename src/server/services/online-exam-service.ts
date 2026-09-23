@@ -4,6 +4,10 @@ import { z } from "zod";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
+import { assertRateLimit } from "@/server/security/rate-limit";
+import { storeQuizSubmissionFile } from "@/server/providers/storage/local-storage";
+import { canManageClass } from "@/server/policies/access-policy";
+import { getQuizMedia } from "@/server/services/quiz-media-service";
 import { syncActivityCompletionForExam } from "@/server/services/activity-completion-service";
 
 const onlineDeliveryModes = ["ONLINE_VIA_WALI", "BOTH"];
@@ -14,6 +18,7 @@ const attemptAnswerSchema = z.object({
   selectedOptions: z.array(z.string().trim().max(8)).max(16).optional(),
   shortAnswer: z.string().trim().max(10000).optional().or(z.literal("")),
   essayAnswer: z.string().trim().max(10000).optional().or(z.literal("")),
+  structuredAnswer: z.record(z.string(), z.unknown()).optional(),
 });
 
 const submitAttemptSchema = z.object({ answers: z.array(attemptAnswerSchema).min(1).max(100) });
@@ -33,6 +38,27 @@ function jsonEquals(left: unknown, right: unknown) {
 
 function toInputJson(value: unknown) {
   return value === undefined ? undefined : value as Prisma.InputJsonValue;
+}
+
+function shortAnswerProblem(value: string, config: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null }) {
+  if (config.type === "NUMBER") {
+    const numeric = Number(value);
+    if (Number.isNaN(numeric)) return "harus berupa angka";
+    if (config.min !== null && config.min !== undefined && numeric < config.min) return `nilai minimal ${config.min}`;
+    if (config.max !== null && config.max !== undefined && numeric > config.max) return `nilai maksimal ${config.max}`;
+  }
+  if (config.type === "LENGTH") {
+    if (config.min !== null && config.min !== undefined && value.length < config.min) return `minimal ${config.min} karakter`;
+    if (config.max !== null && config.max !== undefined && value.length > config.max) return `maksimal ${config.max} karakter`;
+  }
+  if (config.type === "TEXT" && config.pattern) {
+    try {
+      if (!new RegExp(config.pattern).test(value)) return config.message || "format jawaban tidak sesuai";
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 async function getWaliProfile(actor: Actor) {
@@ -266,19 +292,26 @@ export async function getWaliAttemptContext(actor: Actor, attemptId: string) {
             select: {
               id: true,
               weight: true,
+              required: true,
+              sectionId: true,
+              branchRules: true,
               bankSoal: {
                 select: {
                   type: true,
                   question: true,
+                  helpText: true,
                   stimulusText: true,
                   mediaUrl: true,
                   language: true,
                   direction: true,
-                  options: { orderBy: { order: "asc" }, select: { label: true, content: true } },
+                  allowOther: true,
+                  structuredPayload: true,
+                  options: { orderBy: { order: "asc" }, select: { label: true, content: true, mediaUrl: true } },
                 },
               },
             },
           },
+          sections: { orderBy: { order: "asc" }, select: { id: true, order: true, title: true, description: true } },
         },
       },
     },
@@ -332,10 +365,77 @@ export async function saveWaliAttemptDraft(actor: Actor, attemptId: string, inpu
   const draftSavedAt = new Date();
   await prisma.ujianAttempt.update({
     where: { id: attempt.id },
-    data: { draftAnswers: parsed.data.answers, draftSavedAt },
+      data: { draftAnswers: toInputJson(parsed.data.answers), draftSavedAt },
   });
 
   return { draftSavedAt };
+}
+
+export async function uploadWaliAttemptFile(actor: Actor, attemptId: string, file: File | null) {
+  if (!file) {
+    throw new ValidationError("File jawaban wajib dipilih");
+  }
+
+  const profile = await getWaliProfile(actor);
+  const attempt = await prisma.ujianAttempt.findFirst({
+    where: { id: attemptId, waliProfileId: profile.id },
+    select: { id: true, status: true, expiresAt: true },
+  });
+
+  if (!attempt) {
+    throw new NotFoundError("Attempt ujian tidak ditemukan");
+  }
+  if (attempt.status !== "IN_PROGRESS") {
+    throw new ConflictError("Attempt ujian sudah tidak aktif");
+  }
+  if (attempt.expiresAt && attempt.expiresAt < new Date()) {
+    await prisma.ujianAttempt.update({ where: { id: attempt.id }, data: { status: "EXPIRED" } });
+    throw new ConflictError("Waktu pengerjaan ujian sudah habis");
+  }
+
+  assertRateLimit({ key: `wali-upload:${attempt.id}`, limit: 60, windowMs: 60 * 60 * 1000, message: "Terlalu banyak unggahan. Coba lagi nanti." });
+
+  const stored = await storeQuizSubmissionFile(file, "quiz-submission");
+  const media = await prisma.quizMedia.create({
+    data: {
+      originalName: stored.originalName,
+      storedName: stored.storedName,
+      storagePath: stored.storagePath,
+      mimeType: stored.mimeType,
+      sizeBytes: stored.sizeBytes,
+    },
+    select: { id: true, originalName: true, sizeBytes: true, mimeType: true },
+  });
+
+  return { item: { id: media.id, name: media.originalName, size: Number(media.sizeBytes), mimeType: media.mimeType } };
+}
+
+export async function getWaliAttemptFile(actor: Actor, ujianId: string, attemptId: string, fileId: string) {
+  const ujian = await prisma.ujian.findUnique({ where: { id: ujianId }, select: { kelasId: true } });
+  if (!ujian) {
+    throw new NotFoundError("Ujian tidak ditemukan");
+  }
+  if (actor.role !== "ADMIN") {
+    if (actor.role !== "GURU" || !(await canManageClass(actor, ujian.kelasId))) {
+      throw new ForbiddenError();
+    }
+  }
+
+  const attempt = await prisma.ujianAttempt.findUnique({ where: { id: attemptId }, select: { ujianId: true, hasilUjianId: true, draftAnswers: true } });
+  if (!attempt || attempt.ujianId !== ujianId) {
+    throw new NotFoundError("Attempt tidak ditemukan");
+  }
+
+  let haystack = JSON.stringify(attempt.draftAnswers ?? "");
+  if (attempt.hasilUjianId) {
+    const rows = await prisma.jawabanUjian.findMany({ where: { hasilUjianId: attempt.hasilUjianId }, select: { structuredAnswer: true } });
+    haystack += JSON.stringify(rows);
+  }
+  if (!haystack.includes(fileId)) {
+    throw new NotFoundError("File tidak ditemukan pada attempt ini");
+  }
+
+  return getQuizMedia(fileId);
 }
 
 export async function submitWaliAttempt(actor: Actor, attemptId: string, input: unknown) {
@@ -382,6 +482,18 @@ export async function submitWaliAttempt(actor: Actor, attemptId: string, input: 
     }
   }
 
+  for (const question of attempt.ujian.questions) {
+    if (question.bankSoal.type !== "ISIAN_SINGKAT") continue;
+    const config = (question.bankSoal.structuredPayload as { validation?: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null } } | null)?.validation;
+    if (!config?.type || config.type === "NONE") continue;
+    const value = (answersByQuestion.get(question.id)?.shortAnswer || "").trim();
+    if (!value) continue;
+    const problem = shortAnswerProblem(value, config);
+    if (problem) {
+      throw new ValidationError(`Jawaban untuk "${question.bankSoal.question.slice(0, 60)}" tidak valid: ${problem}`);
+    }
+  }
+
   let earnedWeight = 0;
   let needsReview = false;
   const totalWeight = attempt.ujian.questions.reduce((sum, question) => sum + Number(question.weight), 0);
@@ -389,37 +501,60 @@ export async function submitWaliAttempt(actor: Actor, attemptId: string, input: 
   const answerRows = attempt.ujian.questions.map((question) => {
     const answer = answersByQuestion.get(question.id);
     const correctOptions = sortedLabels(question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label));
+    const type = question.bankSoal.type;
 
-    if (question.bankSoal.type === "PILIHAN_GANDA") {
+    if (["PILIHAN_GANDA", "DROPDOWN", "SKALA", "RATING"].includes(type)) {
       const selectedOption = answer?.selectedOption?.toUpperCase() || "";
       const score = selectedOption && correctOptions[0] === selectedOption ? Number(question.weight) : 0;
       earnedWeight += score;
-      return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption, selectedOptions: undefined, shortAnswer: undefined, essayAnswer: undefined, score, needsReview: false };
+      return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption, selectedOptions: undefined, shortAnswer: undefined, essayAnswer: undefined, structuredAnswer: undefined, score, needsReview: false };
     }
 
-    if (question.bankSoal.type === "MULTI_SELECT") {
+    if (type === "MULTI_SELECT") {
       const selectedOptions = sortedLabels(answer?.selectedOptions);
       const score = selectedOptions.length > 0 && jsonEquals(selectedOptions, correctOptions) ? Number(question.weight) : 0;
       earnedWeight += score;
-      return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption: undefined, selectedOptions, shortAnswer: undefined, essayAnswer: undefined, score, needsReview: false };
+      return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption: undefined, selectedOptions, shortAnswer: undefined, essayAnswer: undefined, structuredAnswer: undefined, score, needsReview: false };
     }
 
-    if (question.bankSoal.type === "BENAR_SALAH") {
+    if (type === "GRID") {
+      const payload = question.bankSoal.structuredPayload as { rows?: string[]; correct?: Record<string, string> } | null;
+      const rows = Array.isArray(payload?.rows) ? payload!.rows : [];
+      const given = (answer?.structuredAnswer ?? null) as Record<string, unknown> | null;
+      let answered = false;
+      let allCorrect = rows.length > 0;
+      for (let index = 0; index < rows.length; index += 1) {
+        const raw = given ? given[String(index)] : undefined;
+        const expected = (payload?.correct?.[String(index)] || "").toUpperCase();
+        const selected = Array.isArray(raw) ? raw.map((value) => String(value).toUpperCase()).sort() : raw ? [String(raw).toUpperCase()] : [];
+        if (selected.length > 0) answered = true;
+        if (!jsonEquals(selected, expected ? [expected] : [])) allCorrect = false;
+      }
+      const score = answered && allCorrect ? Number(question.weight) : 0;
+      if (!answered) {
+        needsReview = true;
+        return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption: undefined, selectedOptions: undefined, shortAnswer: undefined, essayAnswer: undefined, structuredAnswer: toInputJson(answer?.structuredAnswer), score: undefined, needsReview: true };
+      }
+      earnedWeight += score;
+      return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption: undefined, selectedOptions: undefined, shortAnswer: undefined, essayAnswer: undefined, structuredAnswer: toInputJson(answer?.structuredAnswer), score, needsReview: false };
+    }
+
+    if (type === "BENAR_SALAH") {
       const selectedOption = answer?.selectedOption || "";
       const score = normalizeText(selectedOption) === normalizeText(question.bankSoal.expectedAnswer || undefined) ? Number(question.weight) : 0;
       earnedWeight += score;
-      return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption, selectedOptions: undefined, shortAnswer: undefined, essayAnswer: undefined, score, needsReview: false };
+      return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption, selectedOptions: undefined, shortAnswer: undefined, essayAnswer: undefined, structuredAnswer: undefined, score, needsReview: false };
     }
 
-    if (["ISIAN_SINGKAT", "CLOZE", "GAMBAR", "LISTENING", "READING"].includes(question.bankSoal.type) && question.bankSoal.expectedAnswer) {
+    if (["ISIAN_SINGKAT", "CLOZE", "GAMBAR", "LISTENING", "READING", "TANGGAL", "WAKTU"].includes(type) && question.bankSoal.expectedAnswer) {
       const shortAnswer = answer?.shortAnswer || "";
       const score = normalizeText(shortAnswer) === normalizeText(question.bankSoal.expectedAnswer) ? Number(question.weight) : 0;
       earnedWeight += score;
-      return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption: undefined, selectedOptions: undefined, shortAnswer, essayAnswer: undefined, score, needsReview: false };
+      return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption: undefined, selectedOptions: undefined, shortAnswer, essayAnswer: undefined, structuredAnswer: undefined, score, needsReview: false };
     }
 
     needsReview = true;
-    return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption: undefined, selectedOptions: undefined, shortAnswer: answer?.shortAnswer || undefined, essayAnswer: answer?.essayAnswer || undefined, score: undefined, needsReview: true };
+    return { ujianSoalId: question.id, bankSoalId: question.bankSoalId, selectedOption: undefined, selectedOptions: undefined, shortAnswer: answer?.shortAnswer || undefined, essayAnswer: answer?.essayAnswer || undefined, structuredAnswer: toInputJson(answer?.structuredAnswer), score: undefined, needsReview: true };
   });
 
   const totalScore = totalWeight > 0 ? Number(((earnedWeight / totalWeight) * 100).toFixed(2)) : 0;
@@ -457,6 +592,7 @@ export async function submitWaliAttempt(actor: Actor, attemptId: string, input: 
         selectedOption: answer.selectedOption,
         selectedOptions: toInputJson(answer.selectedOptions),
         shortAnswer: answer.shortAnswer,
+        structuredAnswer: answer.structuredAnswer,
         essayAnswer: answer.essayAnswer,
         score: answer.score,
         needsReview: answer.needsReview,

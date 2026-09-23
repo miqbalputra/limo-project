@@ -8,8 +8,8 @@ export const metadata = {
 export default async function PublicQuizPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   return (
-    <div className="min-h-screen bg-gray-25">
+    <main className="min-h-screen bg-gray-25">
       <PublicQuizRunner token={token} />
-    </div>
+    </main>
   );
 }
