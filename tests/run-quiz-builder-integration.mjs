@@ -67,7 +67,7 @@ function baseQuestions() {
     },
     {
       type: "BENAR_SALAH",
-      question: `Matahari terbit dari timur ${runId}`,
+      question: `Matahari terbit dari timur ${runId} — هل هذا صحيح؟`,
       required: true,
       points: 1,
       expectedAnswer: "benar",
