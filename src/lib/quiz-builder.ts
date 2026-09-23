@@ -39,6 +39,7 @@ export type QuizFormState = {
   showAnswersAfterSubmit: boolean;
   collectRespondentName: boolean;
   showResultToWali: boolean;
+  themeColor: string;
   availableFrom: string;
   availableUntil: string;
   sections: QuizSection[];
@@ -91,6 +92,7 @@ export function emptyQuizForm(): QuizFormState {
     showAnswersAfterSubmit: false,
     collectRespondentName: false,
     showResultToWali: true,
+    themeColor: "blue",
     availableFrom: "",
     availableUntil: "",
     sections: [{ key: sectionKey, title: "Bagian 1", description: "" }],

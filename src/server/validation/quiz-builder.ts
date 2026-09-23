@@ -3,6 +3,8 @@ import { z } from "zod";
 // Tipe soal yang ditampilkan di Form Builder (mirip Google Forms, sesuai kebutuhan LIMO).
 export const QUIZ_QUESTION_TYPES = ["PILIHAN_GANDA", "MULTI_SELECT", "BENAR_SALAH", "ISIAN_SINGKAT", "ESAI"] as const;
 
+export const QUIZ_THEME_COLORS = ["blue", "green", "purple", "orange", "red", "teal", "slate"] as const;
+
 const optionSchema = z.object({
   label: z.string().trim().min(1).max(8),
   content: z.string().trim().min(1).max(2000),
@@ -87,6 +89,7 @@ export const saveQuizFormSchema = z.object({
   showAnswersAfterSubmit: z.boolean().default(false),
   collectRespondentName: z.boolean().default(true),
   showResultToWali: z.boolean().default(true),
+  themeColor: z.enum(QUIZ_THEME_COLORS).default("blue"),
   availableFrom: dateField,
   availableUntil: dateField,
   sections: z

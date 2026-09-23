@@ -18,6 +18,16 @@ const QUESTION_TYPES = [
 
 const LABELS = "ABCDEFGHIJ".split("");
 
+export const THEME_COLORS = [
+  { value: "blue", label: "Biru", hex: "#465fff" },
+  { value: "green", label: "Hijau", hex: "#12b76a" },
+  { value: "purple", label: "Ungu", hex: "#7a5af8" },
+  { value: "orange", label: "Oranye", hex: "#f79009" },
+  { value: "red", label: "Merah", hex: "#f04438" },
+  { value: "teal", label: "Teal", hex: "#15b79e" },
+  { value: "slate", label: "Abu", hex: "#475467" },
+] as const;
+
 function toPayload(form: QuizFormState) {
   const sectionIndexByKey = new Map(form.sections.map((section, index) => [section.key, index]));
 
@@ -611,6 +621,24 @@ export function QuizBuilder({
             <Toggle label="Tampilkan kunci & pembahasan" checked={form.showAnswersAfterSubmit} onChange={(value) => patchForm({ showAnswersAfterSubmit: value })} />
             <Toggle label="Minta nama responden (tautan publik)" checked={form.collectRespondentName} onChange={(value) => patchForm({ collectRespondentName: value })} />
             <Toggle label="Tampilkan hasil ke wali" checked={form.showResultToWali} onChange={(value) => patchForm({ showResultToWali: value })} />
+          </div>
+          <div className="sm:col-span-2">
+            <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">Tema warna</p>
+            <p className="mt-1 text-theme-xs text-gray-400">Warna aksen untuk halaman publik kuis.</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {THEME_COLORS.map((color) => (
+                <button
+                  key={color.value}
+                  type="button"
+                  onClick={() => patchForm({ themeColor: color.value })}
+                  aria-label={`Tema ${color.label}`}
+                  aria-pressed={form.themeColor === color.value}
+                  title={color.label}
+                  className={`size-9 rounded-full border-2 transition ${form.themeColor === color.value ? "border-gray-900 ring-2 ring-gray-200" : "border-white ring-1 ring-gray-200"}`}
+                  style={{ backgroundColor: color.hex }}
+                />
+              ))}
+            </div>
           </div>
         </section>
       )}

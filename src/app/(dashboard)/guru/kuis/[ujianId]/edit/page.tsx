@@ -33,6 +33,7 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
     showAnswersAfterSubmit: item.showAnswersAfterSubmit,
     collectRespondentName: item.collectRespondentName,
     showResultToWali: item.showResultToWali,
+    themeColor: item.themeColor ?? "blue",
     availableFrom: item.availableFrom ?? "",
     availableUntil: item.availableUntil ?? "",
     sections: item.sections.length > 0

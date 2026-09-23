@@ -1336,6 +1336,7 @@ model Ujian {
   showScoreImmediately   Boolean  @default(false)
   showAnswersAfterSubmit Boolean  @default(false)
   collectRespondentName  Boolean  @default(true)
+  themeColor       String         @default("blue") @db.VarChar(16)
   createdById      String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt

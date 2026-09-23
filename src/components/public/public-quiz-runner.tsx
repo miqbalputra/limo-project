@@ -4,6 +4,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArabicTextField, LocalizedContent } from "@/components/localized-content";
 import { requestJson } from "@/lib/api-json-client";
 
+const QUIZ_THEME_HEX: Record<string, string> = {
+  blue: "#465fff",
+  green: "#12b76a",
+  purple: "#7a5af8",
+  orange: "#f79009",
+  red: "#f04438",
+  teal: "#15b79e",
+  slate: "#475467",
+};
+
+function themeAccent(slug?: string | null) {
+  return (slug && QUIZ_THEME_HEX[slug]) || QUIZ_THEME_HEX.blue;
+}
+
 type QuizIntro = {
   title: string;
   description: string | null;
@@ -15,6 +29,7 @@ type QuizIntro = {
   showScoreImmediately: boolean;
   showAnswersAfterSubmit: boolean;
   shuffleQuestions: boolean;
+  themeColor: string | null;
   programName: string;
   className: string;
 };
@@ -49,7 +64,7 @@ type DraftAnswer = {
 
 type AttemptContext = {
   response: { id: string; status: string; expiresAt: string | null; draftAnswers: unknown; respondentName: string };
-  quiz: { title: string; description: string | null; durationMinutes: number; passingScore: number | null; showScoreImmediately: boolean; showAnswersAfterSubmit: boolean };
+  quiz: { title: string; description: string | null; durationMinutes: number; passingScore: number | null; showScoreImmediately: boolean; showAnswersAfterSubmit: boolean; themeColor: string | null };
   sections: PublicSection[];
   questions: PublicQuestion[];
 };
@@ -258,6 +273,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
   const isLastSection = currentSection >= sections.length - 1;
   const visibleQuestions = context ? context.questions.filter((question) => question.sectionIndex === currentSection) : [];
   const activeSection = sections[currentSection];
+  const accent = themeAccent(intro?.themeColor ?? context?.quiz.themeColor);
 
   const progress = useMemo(() => {
     if (!context) return 0;
@@ -284,7 +300,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-12 sm:py-16">
         <div className="tailadmin-card p-6 sm:p-8">
-          <p className="text-theme-xs font-bold uppercase tracking-widest text-limo-blue-600">{intro.programName} / {intro.className}</p>
+          <p className="text-theme-xs font-bold uppercase tracking-widest" style={{ color: accent }}>{intro.programName} / {intro.className}</p>
           <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-gray-900 sm:text-3xl">{intro.title}</h1>
           {intro.description ? <p className="mt-3 whitespace-pre-wrap text-theme-sm leading-7 text-gray-600">{intro.description}</p> : null}
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -299,7 +315,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
               <input value={respondentName} onChange={(event) => setRespondentName(event.target.value)} placeholder="Tulis nama lengkap" className="tailadmin-input mt-2" />
             </label>
           ) : null}
-          <button type="button" onClick={() => void start()} disabled={intro.collectRespondentName && respondentName.trim().length < 2} className="tailadmin-button-primary mt-6 w-full py-3">
+          <button type="button" onClick={() => void start()} disabled={intro.collectRespondentName && respondentName.trim().length < 2} className="tailadmin-button-primary mt-6 w-full py-3" style={{ backgroundColor: accent }}>
             Mulai Kerjakan
           </button>
         </div>
@@ -327,9 +343,9 @@ export function PublicQuizRunner({ token }: { token: string }) {
         </section>
 
         {activeSection && (activeSection.title || activeSection.description) ? (
-          <section className="mt-4 rounded-2xl bg-limo-blue-50/60 p-5">
-            {activeSection.title ? <h2 className="text-lg font-bold text-limo-blue-800">{activeSection.title}</h2> : null}
-            {activeSection.description ? <p className="mt-1 whitespace-pre-wrap text-theme-sm text-limo-blue-700">{activeSection.description}</p> : null}
+          <section className="mt-4 rounded-2xl border-l-4 p-5" style={{ backgroundColor: `${accent}14`, borderLeftColor: accent }}>
+            {activeSection.title ? <h2 className="text-lg font-bold" style={{ color: accent }}>{activeSection.title}</h2> : null}
+            {activeSection.description ? <p className="mt-1 whitespace-pre-wrap text-theme-sm text-gray-700">{activeSection.description}</p> : null}
           </section>
         ) : null}
 
@@ -348,9 +364,9 @@ export function PublicQuizRunner({ token }: { token: string }) {
         <div className="mt-4 flex flex-col gap-3 tailadmin-card p-5 sm:flex-row sm:items-center sm:justify-between">
           <button type="button" disabled={currentSection === 0 || submitting} onClick={() => { setError(""); setCurrentSection((value) => Math.max(0, value - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="tailadmin-button-outline px-5 py-3 disabled:opacity-40">Sebelumnya</button>
           {isLastSection ? (
-            <button type="button" disabled={submitting} onClick={() => void submit(false)} className="tailadmin-button-primary px-6 py-3">{submitting ? "Mengirim..." : "Kumpulkan Jawaban"}</button>
+            <button type="button" disabled={submitting} onClick={() => void submit(false)} className="tailadmin-button-primary px-6 py-3" style={{ backgroundColor: accent }}>{submitting ? "Mengirim..." : "Kumpulkan Jawaban"}</button>
           ) : (
-            <button type="button" onClick={goNext} className="tailadmin-button-primary px-6 py-3">Berikutnya</button>
+            <button type="button" onClick={goNext} className="tailadmin-button-primary px-6 py-3" style={{ backgroundColor: accent }}>Berikutnya</button>
           )}
         </div>
       </div>
