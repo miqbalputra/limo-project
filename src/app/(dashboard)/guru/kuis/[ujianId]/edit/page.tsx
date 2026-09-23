@@ -59,6 +59,11 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
       gridRows: question.gridRows,
       gridMultiple: question.gridMultiple,
       gridCorrect: question.gridCorrect,
+      validationType: question.validationType ?? "NONE",
+      validationMin: question.validationMin === null || question.validationMin === undefined ? "" : String(question.validationMin),
+      validationMax: question.validationMax === null || question.validationMax === undefined ? "" : String(question.validationMax),
+      validationPattern: question.validationPattern ?? "",
+      validationMessage: question.validationMessage ?? "",
       sectionKey: sectionKeys[question.sectionIndex] ?? sectionKeys[0],
       branchRules: (Array.isArray(question.branchRules) ? (question.branchRules as Array<{ label: string; goToSectionIndex: number | null }>) : []).map((rule) => ({
         label: rule.label,

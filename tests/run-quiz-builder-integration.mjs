@@ -292,6 +292,7 @@ try {
       { type: "DROPDOWN", question: `Pilih warna ${runId}`, required: true, points: 1, sectionIndex: 0, options: [{ label: "A", content: "Merah" }, { label: "B", content: "Biru" }], correctLabels: ["B"] },
       { type: "SKALA", question: `Nilai ${runId}`, required: true, points: 1, sectionIndex: 0, scaleMin: 1, scaleMax: 5, scaleMinLabel: "Rendah", scaleMaxLabel: "Tinggi", expectedAnswer: "4", options: [1, 2, 3, 4, 5].map((value, index) => ({ label: "ABCDE"[index], content: String(value) })), correctLabels: ["D"] },
       { type: "TANGGAL", question: `Tanggal ${runId}`, required: true, points: 1, sectionIndex: 0, expectedAnswer: "2026-08-17", options: [], correctLabels: [] },
+      { type: "ISIAN_SINGKAT", question: `Berapa jumlah ${runId}`, required: true, points: 1, sectionIndex: 0, expectedAnswer: "7", validationType: "NUMBER", validationMin: 1, validationMax: 10, options: [], correctLabels: [] },
       { type: "GRID", question: `Tabel ${runId}`, required: true, points: 1, sectionIndex: 0, gridRows: ["Baris satu", "Baris dua"], gridMultiple: false, gridCorrect: ["A", "B"], options: [{ label: "A", content: "Ya" }, { label: "B", content: "Tidak" }], correctLabels: [] },
     ],
   };
@@ -314,6 +315,15 @@ try {
   assert.equal(scale.scaleMax, 5);
   assert.deepEqual(grid.gridRows, ["Baris satu", "Baris dua"]);
   assert.ok(!("correct" in grid), "Kunci tabel tidak boleh bocor ke publik");
+  const isianValidated = advancedQuestions.find((question) => question.type === "ISIAN_SINGKAT");
+  assert.equal(isianValidated.validation.type, "NUMBER");
+  assert.equal(isianValidated.validation.max, 10);
+
+  const invalidSubmit = await request(`/api/v1/public/quiz/${advancedToken}/responses/${advancedResponseId}/submit`, {
+    method: "POST",
+    body: { answers: [{ ujianSoalId: isianValidated.id, shortAnswer: "99" }] },
+  });
+  assert.equal(invalidSubmit.response.status, 400, "Validasi jawaban angka harus menolak nilai di luar rentang");
 
   const advancedSubmit = await request(`/api/v1/public/quiz/${advancedToken}/responses/${advancedResponseId}/submit`, {
     method: "POST",
@@ -322,19 +332,20 @@ try {
         { ujianSoalId: advancedQuestions.find((question) => question.type === "DROPDOWN").id, selectedOption: "B" },
         { ujianSoalId: scale.id, selectedOption: "D" },
         { ujianSoalId: advancedQuestions.find((question) => question.type === "TANGGAL").id, shortAnswer: "2026-08-17" },
+        { ujianSoalId: isianValidated.id, shortAnswer: "7" },
         { ujianSoalId: grid.id, structuredAnswer: { "0": "A", "1": "B" } },
       ],
     },
   });
   assert.equal(advancedSubmit.response.status, 200, JSON.stringify(advancedSubmit.payload));
   assert.equal(advancedSubmit.payload.data.result.score, 100);
-  ok("Tipe soal baru (dropdown, skala, tanggal, tabel) tersimpan & dinilai otomatis");
+  ok("Tipe soal baru (dropdown, skala, tanggal, tabel) + validasi jawaban dinilai otomatis");
 
   const duplicate = await request(`/api/v1/kuis/${advancedId}/duplicate`, { method: "POST", cookie: guru.cookie, body: {} });
   assert.equal(duplicate.response.status, 201, JSON.stringify(duplicate.payload));
   const duplicateId = duplicate.payload.data.item.id;
   const duplicateDetail = await request(`/api/v1/kuis/${duplicateId}`, { cookie: guru.cookie });
-  assert.equal(duplicateDetail.payload.data.item.questions.length, 4);
+  assert.equal(duplicateDetail.payload.data.item.questions.length, 5);
   assert.match(duplicateDetail.payload.data.item.title, /salinan/);
   assert.equal(duplicateDetail.payload.data.item.status, "DRAFT");
   ok("Duplikat formulir menyalin seluruh soal (termasuk tipe baru)");

@@ -29,6 +29,11 @@ export type QuizQuestion = {
   gridRows: string[];
   gridMultiple: boolean;
   gridCorrect: string[];
+  validationType: string;
+  validationMin: string;
+  validationMax: string;
+  validationPattern: string;
+  validationMessage: string;
   options: { content: string; isCorrect: boolean; mediaUrl: string }[];
 };
 
@@ -91,6 +96,11 @@ export function newQuestion(type = "PILIHAN_GANDA", sectionKey = ""): QuizQuesti
     gridRows: grid ? ["", ""] : [],
     gridMultiple: false,
     gridCorrect: grid ? ["", ""] : [],
+    validationType: "NONE",
+    validationMin: "",
+    validationMax: "",
+    validationPattern: "",
+    validationMessage: "",
     options: withOptions ? [{ content: "", isCorrect: false, mediaUrl: "" }, { content: "", isCorrect: false, mediaUrl: "" }] : grid ? [{ content: "", isCorrect: false, mediaUrl: "" }, { content: "", isCorrect: false, mediaUrl: "" }, { content: "", isCorrect: false, mediaUrl: "" }] : [],
   };
 }

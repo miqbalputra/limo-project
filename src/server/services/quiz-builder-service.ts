@@ -24,14 +24,13 @@ async function assertClassScope(actor: Actor, kelasId: string) {
 }
 
 function structuredPayloadFor(question: QuestionInput): Prisma.InputJsonValue | undefined {
+  const payload: Record<string, unknown> = {};
   if (question.type === "SKALA" || question.type === "RATING") {
-    return {
-      min: question.scaleMin,
-      max: question.scaleMax,
-      minLabel: question.scaleMinLabel ?? "",
-      maxLabel: question.scaleMaxLabel ?? "",
-      kind: question.type === "RATING" ? "rating" : "scale",
-    };
+    payload.min = question.scaleMin;
+    payload.max = question.scaleMax;
+    payload.minLabel = question.scaleMinLabel ?? "";
+    payload.maxLabel = question.scaleMaxLabel ?? "";
+    payload.kind = question.type === "RATING" ? "rating" : "scale";
   }
   if (question.type === "GRID") {
     const correct: Record<string, string> = {};
@@ -39,9 +38,20 @@ function structuredPayloadFor(question: QuestionInput): Prisma.InputJsonValue | 
       const label = question.gridCorrect[index];
       if (label) correct[String(index)] = label.toUpperCase();
     });
-    return { rows: question.gridRows, multiple: question.gridMultiple, correct };
+    payload.rows = question.gridRows;
+    payload.multiple = question.gridMultiple;
+    payload.correct = correct;
   }
-  return undefined;
+  if (question.type === "ISIAN_SINGKAT" && question.validationType !== "NONE") {
+    payload.validation = {
+      type: question.validationType,
+      min: question.validationMin ?? null,
+      max: question.validationMax ?? null,
+      pattern: question.validationPattern || null,
+      message: question.validationMessage || null,
+    };
+  }
+  return Object.keys(payload).length > 0 ? (payload as Prisma.InputJsonValue) : undefined;
 }
 
 async function createSectionsAndQuestions(tx: Tx, ujianId: string, kelasId: string, data: { sections: Array<{ title: string; description?: string }>; questions: QuestionInput[] }, actorId: string) {
@@ -176,7 +186,7 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
       sections: ujian.sections.map((section) => ({ title: section.title, description: section.description })),
       questions: ujian.questions.map((question) => {
         const payload = (question.bankSoal.structuredPayload ?? null) as
-          | { min?: number; max?: number; minLabel?: string; maxLabel?: string; rows?: string[]; multiple?: boolean; correct?: Record<string, string> }
+          | { min?: number; max?: number; minLabel?: string; maxLabel?: string; rows?: string[]; multiple?: boolean; correct?: Record<string, string>; validation?: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null } }
           | null;
         const rows = Array.isArray(payload?.rows) ? payload!.rows : [];
         return {
@@ -199,6 +209,11 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
           gridRows: rows,
           gridMultiple: Boolean(payload?.multiple),
           gridCorrect: rows.map((_, index) => payload?.correct?.[String(index)] ?? ""),
+          validationType: payload?.validation?.type ?? "NONE",
+          validationMin: payload?.validation?.min ?? null,
+          validationMax: payload?.validation?.max ?? null,
+          validationPattern: payload?.validation?.pattern ?? "",
+          validationMessage: payload?.validation?.message ?? "",
           options: question.bankSoal.options.map((option) => ({ label: option.label, content: option.content, mediaUrl: option.mediaUrl })),
           correctLabels: question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label),
         };

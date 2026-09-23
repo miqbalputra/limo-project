@@ -61,6 +61,7 @@ type PublicQuestion = {
   kind: string | null;
   gridRows: string[];
   gridMultiple: boolean;
+  validation: { type: string; min: number | null; max: number | null; pattern: string | null; message: string | null } | null;
   options: { label: string; content: string; mediaUrl: string | null }[];
 };
 
@@ -222,6 +223,31 @@ export function PublicQuizRunner({ token }: { token: string }) {
     return null;
   }
 
+  function validationError(questions: PublicQuestion[]) {
+    for (const question of questions) {
+      const config = question.validation;
+      if (!config || config.type === "NONE") continue;
+      const value = answers[question.id]?.shortAnswer?.trim() ?? "";
+      if (!value) continue;
+      if (config.type === "NUMBER") {
+        const numeric = Number(value);
+        if (Number.isNaN(numeric)) return "Jawaban harus berupa angka.";
+        if (config.min !== null && numeric < config.min) return `Nilai minimal ${config.min}.`;
+        if (config.max !== null && numeric > config.max) return `Nilai maksimal ${config.max}.`;
+      } else if (config.type === "LENGTH") {
+        if (config.min !== null && value.length < config.min) return `Jawaban minimal ${config.min} karakter.`;
+        if (config.max !== null && value.length > config.max) return `Jawaban maksimal ${config.max} karakter.`;
+      } else if (config.type === "TEXT" && config.pattern) {
+        try {
+          if (!new RegExp(config.pattern).test(value)) return config.message || "Format jawaban tidak sesuai.";
+        } catch {
+          continue;
+        }
+      }
+    }
+    return "";
+  }
+
   function resolveBranchTarget(questions: PublicQuestion[]) {
     for (const question of questions) {
       if (question.type !== "PILIHAN_GANDA") continue;
@@ -239,6 +265,11 @@ export function PublicQuizRunner({ token }: { token: string }) {
       const missing = missingRequired(context.questions);
       if (missing) {
         setError("Masih ada soal wajib yang belum diisi. Lengkapi sebelum mengumpulkan.");
+        return;
+      }
+      const invalid = validationError(context.questions);
+      if (invalid) {
+        setError(invalid);
         return;
       }
       if (!window.confirm("Kumpulkan jawaban? Jawaban tidak bisa diubah setelah dikirim.")) return;
@@ -269,6 +300,11 @@ export function PublicQuizRunner({ token }: { token: string }) {
     const missing = missingRequired(visible);
     if (missing) {
       setError("Lengkapi soal wajib pada bagian ini sebelum lanjut.");
+      return;
+    }
+    const invalid = validationError(visible);
+    if (invalid) {
+      setError(invalid);
       return;
     }
     setError("");

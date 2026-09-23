@@ -25,6 +25,27 @@ function jsonEquals(left: unknown, right: unknown) {
   return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
 }
 
+function shortAnswerProblem(value: string, config: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null }) {
+  if (config.type === "NUMBER") {
+    const numeric = Number(value);
+    if (Number.isNaN(numeric)) return "harus berupa angka";
+    if (config.min !== null && config.min !== undefined && numeric < config.min) return `nilai minimal ${config.min}`;
+    if (config.max !== null && config.max !== undefined && numeric > config.max) return `nilai maksimal ${config.max}`;
+  }
+  if (config.type === "LENGTH") {
+    if (config.min !== null && config.min !== undefined && value.length < config.min) return `minimal ${config.min} karakter`;
+    if (config.max !== null && config.max !== undefined && value.length > config.max) return `maksimal ${config.max} karakter`;
+  }
+  if (config.type === "TEXT" && config.pattern) {
+    try {
+      if (!new RegExp(config.pattern).test(value)) return config.message || "format jawaban tidak sesuai";
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 function hashIp(ip: string | null | undefined) {
   if (!ip) return null;
   return createHash("sha256").update(`quiz:${ip}`).digest("hex");
@@ -75,7 +96,7 @@ function sanitizeQuestion(question: {
     : question.bankSoal.options;
 
   const payload = (question.bankSoal.structuredPayload ?? null) as
-    | { min?: number; max?: number; minLabel?: string; maxLabel?: string; kind?: string; rows?: string[]; multiple?: boolean }
+    | { min?: number; max?: number; minLabel?: string; maxLabel?: string; kind?: string; rows?: string[]; multiple?: boolean; validation?: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null } }
     | null;
 
   return {
@@ -99,6 +120,9 @@ function sanitizeQuestion(question: {
     kind: payload?.kind ?? null,
     gridRows: Array.isArray(payload?.rows) ? payload!.rows : [],
     gridMultiple: Boolean(payload?.multiple),
+    validation: payload?.validation
+      ? { type: payload.validation.type ?? "NONE", min: payload.validation.min ?? null, max: payload.validation.max ?? null, pattern: payload.validation.pattern ?? null, message: payload.validation.message ?? null }
+      : null,
     options: options.map((option) => ({ label: option.label, content: option.content, mediaUrl: option.mediaUrl })),
   };
 }
@@ -367,6 +391,18 @@ export async function submitPublicQuizResponse(token: string, responseId: string
   for (const answer of parsed.data.answers) {
     if (!questionIds.has(answer.ujianSoalId)) {
       throw new ValidationError("Ada jawaban untuk soal yang bukan bagian dari kuis ini");
+    }
+  }
+
+  for (const question of response.ujian.questions) {
+    if (question.bankSoal.type !== "ISIAN_SINGKAT") continue;
+    const config = (question.bankSoal.structuredPayload as { validation?: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null } } | null)?.validation;
+    if (!config?.type || config.type === "NONE") continue;
+    const value = (answersByQuestion.get(question.id)?.shortAnswer || "").trim();
+    if (!value) continue;
+    const problem = shortAnswerProblem(value, config);
+    if (problem) {
+      throw new ValidationError(`Jawaban untuk "${question.bankSoal.question.slice(0, 60)}" tidak valid: ${problem}`);
     }
   }
 

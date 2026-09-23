@@ -62,6 +62,11 @@ function toPayload(form: QuizFormState) {
       gridRows: question.gridRows,
       gridMultiple: question.gridMultiple,
       gridCorrect: question.gridCorrect,
+      validationType: question.validationType,
+      validationMin: question.validationMin.trim() === "" ? null : Number(question.validationMin),
+      validationMax: question.validationMax.trim() === "" ? null : Number(question.validationMax),
+      validationPattern: question.validationPattern,
+      validationMessage: question.validationMessage,
       sectionIndex: sectionIndexByKey.get(question.sectionKey) ?? 0,
       branchRules: question.branchRules.map((rule) => ({
         label: rule.label,
@@ -780,10 +785,45 @@ export function QuizBuilder({
                 ) : null}
 
                 {question.type === "ISIAN_SINGKAT" ? (
-                  <label className="block text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Kunci jawaban
-                    <input value={question.expectedAnswer} onChange={(event) => patchQuestion(question.key, { expectedAnswer: event.target.value })} placeholder="Jawaban benar" dir="auto" className="mt-2 tailadmin-input" />
-                  </label>
+                  <div className="grid gap-3 rounded-xl border border-gray-200 p-3 sm:grid-cols-2">
+                    <label className="block text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Kunci jawaban
+                      <input value={question.expectedAnswer} onChange={(event) => patchQuestion(question.key, { expectedAnswer: event.target.value })} placeholder="Jawaban benar" dir="auto" className="mt-2 tailadmin-input" />
+                    </label>
+                    <label className="block text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Validasi jawaban
+                      <select value={question.validationType} onChange={(event) => patchQuestion(question.key, { validationType: event.target.value })} className="mt-2 tailadmin-input">
+                        <option value="NONE">Tidak ada</option>
+                        <option value="NUMBER">Angka (rentang)</option>
+                        <option value="LENGTH">Panjang teks</option>
+                        <option value="TEXT">Cocok pola (regex)</option>
+                      </select>
+                    </label>
+                    {question.validationType === "NUMBER" || question.validationType === "LENGTH" ? (
+                      <>
+                        <label className="block text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                          {question.validationType === "NUMBER" ? "Nilai minimum" : "Panjang minimum"}
+                          <input type="number" min={0} value={question.validationMin} onChange={(event) => patchQuestion(question.key, { validationMin: event.target.value })} className="mt-2 tailadmin-input" />
+                        </label>
+                        <label className="block text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                          {question.validationType === "NUMBER" ? "Nilai maksimum" : "Panjang maksimum"}
+                          <input type="number" min={0} value={question.validationMax} onChange={(event) => patchQuestion(question.key, { validationMax: event.target.value })} className="mt-2 tailadmin-input" />
+                        </label>
+                      </>
+                    ) : null}
+                    {question.validationType === "TEXT" ? (
+                      <>
+                        <label className="block text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Pola regex
+                          <input value={question.validationPattern} onChange={(event) => patchQuestion(question.key, { validationPattern: event.target.value })} placeholder="Contoh: ^[A-Z]{3}$" dir="auto" className="mt-2 tailadmin-input" />
+                        </label>
+                        <label className="block text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Pesan bila tidak sesuai
+                          <input value={question.validationMessage} onChange={(event) => patchQuestion(question.key, { validationMessage: event.target.value })} dir="auto" className="mt-2 tailadmin-input" />
+                        </label>
+                      </>
+                    ) : null}
+                  </div>
                 ) : null}
 
                 <input

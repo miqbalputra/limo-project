@@ -53,6 +53,11 @@ const questionSchema = z
     gridRows: z.array(z.string().trim().min(1).max(500)).max(20).default([]),
     gridMultiple: z.boolean().default(false),
     gridCorrect: z.array(z.string().trim().max(8)).max(20).default([]),
+    validationType: z.enum(["NONE", "NUMBER", "TEXT", "LENGTH"]).default("NONE"),
+    validationMin: z.coerce.number().int().min(0).max(100000).nullable().optional(),
+    validationMax: z.coerce.number().int().min(0).max(100000).nullable().optional(),
+    validationPattern: z.string().trim().max(200).optional().or(z.literal("")),
+    validationMessage: z.string().trim().max(200).optional().or(z.literal("")),
     options: z.array(optionSchema).max(10).default([]),
     correctLabels: z.array(z.string().trim().min(1).max(8)).max(10).default([]),
   })
@@ -108,6 +113,16 @@ const questionSchema = z
 
     if (value.type === "ISIAN_SINGKAT" && !(value.expectedAnswer || "").trim()) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["expectedAnswer"], message: "Kunci jawaban wajib diisi" });
+    }
+    if (value.validationType === "TEXT" && !(value.validationPattern || "").trim()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["validationPattern"], message: "Pola regex wajib diisi" });
+    }
+    if (value.validationType === "TEXT" && (value.validationPattern || "").trim()) {
+      try {
+        new RegExp(value.validationPattern as string);
+      } catch {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["validationPattern"], message: "Pola regex tidak valid" });
+      }
     }
     if ((value.type === "TANGGAL" || value.type === "WAKTU") && !(value.expectedAnswer || "").trim()) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["expectedAnswer"], message: "Kunci jawaban wajib diisi" });
