@@ -27,6 +27,7 @@ const questionSchema = z
     required: z.boolean().default(true),
     points: z.coerce.number().positive().max(1000).default(1),
     allowOther: z.boolean().default(false),
+    shuffleOptions: z.boolean().default(false),
     mediaUrl: z
       .string()
       .trim()

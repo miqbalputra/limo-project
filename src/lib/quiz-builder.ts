@@ -17,6 +17,7 @@ export type QuizQuestion = {
   required: boolean;
   points: number;
   allowOther: boolean;
+  shuffleOptions: boolean;
   mediaUrl: string;
   explanation: string;
   expectedAnswer: string;
@@ -84,6 +85,7 @@ export function newQuestion(type = "PILIHAN_GANDA", sectionKey = ""): QuizQuesti
     required: true,
     points: 1,
     allowOther: false,
+    shuffleOptions: false,
     mediaUrl: "",
     explanation: "",
     expectedAnswer: type === "BENAR_SALAH" ? "benar" : "",

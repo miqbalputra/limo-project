@@ -78,6 +78,7 @@ async function createSectionsAndQuestions(tx: Tx, ujianId: string, kelasId: stri
           structuredPayload: structuredPayloadFor(question),
           explanation: question.explanation?.trim() || undefined,
           allowOther: question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" || question.type === "DROPDOWN" ? question.allowOther : false,
+          shuffleOptions: question.shuffleOptions,
           createdById: actorId,
         },
         select: { id: true },
@@ -162,6 +163,7 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
               mediaUrl: true,
               structuredPayload: true,
               allowOther: true,
+              shuffleOptions: true,
               options: { orderBy: { order: "asc" }, select: { label: true, content: true, mediaUrl: true, isCorrect: true } },
             },
           },
@@ -200,6 +202,7 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
           points: Number(question.weight),
           mediaUrl: question.bankSoal.mediaUrl,
           allowOther: question.bankSoal.allowOther,
+          shuffleOptions: question.bankSoal.shuffleOptions,
           sectionIndex: question.sectionId ? (sectionIndexById.get(question.sectionId) ?? 0) : 0,
           branchRules: Array.isArray(question.branchRules) ? question.branchRules : [],
           scaleMin: payload?.min ?? 1,
@@ -337,7 +340,7 @@ export async function updateQuizForm(actor: Actor, ujianId: string, input: unkno
   return { item: { id: ujianId } };
 }
 
-function gradeAnswer(
+export function gradeAnswer(
   bankSoal: { type: string; expectedAnswer: string | null; structuredPayload?: unknown; options: { label: string; isCorrect: boolean }[] },
   answer: { selectedOption?: string; selectedOptions?: string[]; shortAnswer?: string; structuredAnswer?: unknown } | undefined,
 ) {
@@ -461,6 +464,135 @@ export async function getQuizResponses(actor: Actor, ujianId: string) {
       submittedAt: attempt.submittedAt,
     })),
   };
+}
+
+export async function getQuizResponseDetail(actor: Actor, ujianId: string, responseId: string) {
+  const ujian = await prisma.ujian.findUnique({
+    where: { id: ujianId },
+    select: {
+      id: true,
+      title: true,
+      kelasId: true,
+      passingScore: true,
+      questions: {
+        orderBy: { order: "asc" },
+        select: {
+          id: true,
+          weight: true,
+          bankSoal: {
+            select: {
+              type: true,
+              question: true,
+              expectedAnswer: true,
+              structuredPayload: true,
+              options: { orderBy: { order: "asc" }, select: { label: true, content: true, isCorrect: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!ujian) {
+    throw new NotFoundError("Kuis tidak ditemukan");
+  }
+
+  await assertClassScope(actor, ujian.kelasId);
+
+  const response = await prisma.quizResponse.findUnique({
+    where: { id: responseId },
+    select: { id: true, ujianId: true, respondentName: true, status: true, score: true, passed: true, submittedAt: true, finalAnswers: true, draftAnswers: true },
+  });
+
+  if (!response || response.ujianId !== ujianId) {
+    throw new NotFoundError("Respons tidak ditemukan");
+  }
+
+  const rawAnswers = Array.isArray(response.finalAnswers)
+    ? (response.finalAnswers as Array<Record<string, unknown>>)
+    : Array.isArray(response.draftAnswers)
+      ? (response.draftAnswers as Array<Record<string, unknown>>)
+      : [];
+  const answerById = new Map(rawAnswers.map((answer) => [String(answer.ujianSoalId), answer]));
+
+  const items = ujian.questions.map((question) => {
+    const answer = answerById.get(question.id) as never;
+    const correct = gradeAnswer(question.bankSoal, answer as { selectedOption?: string; selectedOptions?: string[]; shortAnswer?: string; structuredAnswer?: unknown } | undefined);
+    const record = (answer ?? {}) as Record<string, unknown>;
+    const type = question.bankSoal.type;
+    let answerText = "-";
+
+    if (["PILIHAN_GANDA", "DROPDOWN", "SKALA", "RATING", "BENAR_SALAH"].includes(type)) {
+      const label = typeof record.selectedOption === "string" ? record.selectedOption : "";
+      if (label === "OTHER") {
+        answerText = `Lainnya: ${typeof record.shortAnswer === "string" ? record.shortAnswer : ""}`;
+      } else if (label) {
+        const option = question.bankSoal.options.find((item) => item.label === label);
+        answerText = option ? `${label}. ${option.content}` : label;
+      }
+    } else if (type === "MULTI_SELECT") {
+      const labels = Array.isArray(record.selectedOptions) ? (record.selectedOptions as string[]) : [];
+      if (labels.includes("OTHER")) {
+        answerText = `Lainnya: ${typeof record.shortAnswer === "string" ? record.shortAnswer : ""}`;
+      } else if (labels.length > 0) {
+        answerText = labels.map((label) => question.bankSoal.options.find((item) => item.label === label)?.content ?? label).join(", ");
+      }
+    } else if (type === "GRID") {
+      const payload = question.bankSoal.structuredPayload as { rows?: string[] } | null;
+      const rows = Array.isArray(payload?.rows) ? payload!.rows : [];
+      const given = (record.structuredAnswer ?? {}) as Record<string, unknown>;
+      const parts = rows.map((row, index) => {
+        const value = given[String(index)];
+        const selected = Array.isArray(value) ? value.join("/") : value ? String(value) : "-";
+        return `${row}: ${selected}`;
+      });
+      if (parts.length > 0) answerText = parts.join(" | ");
+    } else {
+      answerText = (typeof record.shortAnswer === "string" && record.shortAnswer) || (typeof record.essayAnswer === "string" && record.essayAnswer) || "-";
+    }
+
+    return { id: question.id, type, question: question.bankSoal.question, answerText, correct, weight: Number(question.weight) };
+  });
+
+  return {
+    quiz: { id: ujian.id, title: ujian.title, passingScore: ujian.passingScore },
+    response: {
+      id: response.id,
+      respondentName: response.respondentName,
+      status: response.status,
+      score: response.score === null ? null : Number(response.score),
+      passed: response.passed,
+      submittedAt: response.submittedAt,
+    },
+    items,
+  };
+}
+
+export async function getQuizResponsesCsv(actor: Actor, ujianId: string) {
+  const ujian = await prisma.ujian.findUnique({ where: { id: ujianId }, select: { id: true, kelasId: true } });
+  if (!ujian) {
+    throw new NotFoundError("Kuis tidak ditemukan");
+  }
+  await assertClassScope(actor, ujian.kelasId);
+
+  const responses = await prisma.quizResponse.findMany({
+    where: { ujianId },
+    orderBy: { createdAt: "asc" },
+    select: { respondentName: true, status: true, score: true, passed: true, submittedAt: true },
+  });
+
+  const header = ["Nama", "Status", "Skor", "Lulus", "Dikirim"];
+  const rows = responses.map((response) => [
+    response.respondentName,
+    response.status,
+    response.score === null ? "" : String(Number(response.score)),
+    response.passed === null ? "" : response.passed ? "Ya" : "Tidak",
+    response.submittedAt ? response.submittedAt.toISOString() : "",
+  ]);
+  const escapeCell = (value: string) => (/[",\n\r;]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
+  const csv = [header, ...rows].map((row) => row.map(escapeCell).join(",")).join("\r\n");
+
+  return { filename: `limo-respons-kuis-${ujian.id}.csv`, content: `\uFEFF${csv}` };
 }
 
 export async function duplicateQuizForm(actor: Actor, ujianId: string) {

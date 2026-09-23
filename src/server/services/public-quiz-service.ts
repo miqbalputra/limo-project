@@ -216,7 +216,7 @@ export async function startPublicQuizResponse(token: string, input: unknown, con
       collectRespondentName: true,
       availableFrom: true,
       availableUntil: true,
-      questions: { orderBy: { order: "asc" }, select: { id: true, bankSoal: { select: { options: { select: { label: true } } } } } },
+      questions: { orderBy: { order: "asc" }, select: { id: true, bankSoal: { select: { shuffleOptions: true, options: { select: { label: true } } } } } },
     },
   });
 
@@ -233,8 +233,8 @@ export async function startPublicQuizResponse(token: string, input: unknown, con
   const baseQuestionIds = ujian.questions.map((question) => question.id);
   const orderedQuestionIds = ujian.shuffleQuestions ? shuffle(baseQuestionIds) : baseQuestionIds;
   const optionOrder: Record<string, string[]> = {};
-  if (ujian.shuffleOptions) {
-    for (const question of ujian.questions) {
+  for (const question of ujian.questions) {
+    if (ujian.shuffleOptions || question.bankSoal.shuffleOptions) {
       optionOrder[question.id] = shuffle(question.bankSoal.options.map((option) => option.label));
     }
   }

@@ -289,7 +289,7 @@ try {
     confirmationMessage: "Terima kasih sudah mengerjakan.",
     sections: [{ title: "Bagian 1", description: "" }],
     questions: [
-      { type: "DROPDOWN", question: `Pilih warna ${runId}`, required: true, points: 1, sectionIndex: 0, options: [{ label: "A", content: "Merah" }, { label: "B", content: "Biru" }], correctLabels: ["B"] },
+      { type: "DROPDOWN", question: `Pilih warna ${runId}`, required: true, points: 1, sectionIndex: 0, shuffleOptions: true, options: [{ label: "A", content: "Merah" }, { label: "B", content: "Biru" }], correctLabels: ["B"] },
       { type: "SKALA", question: `Nilai ${runId}`, required: true, points: 1, sectionIndex: 0, scaleMin: 1, scaleMax: 5, scaleMinLabel: "Rendah", scaleMaxLabel: "Tinggi", expectedAnswer: "4", options: [1, 2, 3, 4, 5].map((value, index) => ({ label: "ABCDE"[index], content: String(value) })), correctLabels: ["D"] },
       { type: "TANGGAL", question: `Tanggal ${runId}`, required: true, points: 1, sectionIndex: 0, expectedAnswer: "2026-08-17", options: [], correctLabels: [] },
       { type: "ISIAN_SINGKAT", question: `Berapa jumlah ${runId}`, required: true, points: 1, sectionIndex: 0, expectedAnswer: "7", validationType: "NUMBER", validationMin: 1, validationMax: 10, options: [], correctLabels: [] },
@@ -340,6 +340,21 @@ try {
   assert.equal(advancedSubmit.response.status, 200, JSON.stringify(advancedSubmit.payload));
   assert.equal(advancedSubmit.payload.data.result.score, 100);
   ok("Tipe soal baru (dropdown, skala, tanggal, tabel) + validasi jawaban dinilai otomatis");
+
+  const advancedDetail = await request(`/api/v1/kuis/${advancedId}`, { cookie: guru.cookie });
+  assert.equal(advancedDetail.payload.data.item.questions.find((question) => question.type === "DROPDOWN").shuffleOptions, true);
+
+  const csvRes = await fetch(`${origin}/api/v1/kuis/${advancedId}/responses/export`, { headers: { Cookie: guru.cookie } });
+  assert.equal(csvRes.status, 200, "Ekspor CSV respons harus berhasil");
+  assert.match(csvRes.headers.get("content-type") || "", /text\/csv/);
+  const csvText = await csvRes.text();
+  assert.match(csvText, /Nama,Status,Skor/);
+  assert.ok(csvText.includes(`Tipe Baru ${runId}`));
+
+  const detailPage = await request(`/guru/kuis/${advancedId}/responses/${advancedResponseId}`, { cookie: guru.cookie });
+  assert.equal(detailPage.response.status, 200);
+  assert.match(String(detailPage.payload), /Jawaban per soal/);
+  ok("Detail respons individual + ekspor CSV tersedia");
 
   const duplicate = await request(`/api/v1/kuis/${advancedId}/duplicate`, { method: "POST", cookie: guru.cookie, body: {} });
   assert.equal(duplicate.response.status, 201, JSON.stringify(duplicate.payload));

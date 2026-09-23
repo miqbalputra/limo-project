@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { requestJson } from "@/lib/api-json-client";
 import { ShareExamButton } from "@/components/dashboard/share-exam-button";
+import { QuizPreview } from "@/components/dashboard/quiz-preview";
 import { newQuestion, newQuestionKey, newSectionKey, type QuizFormState, type QuizQuestion } from "@/lib/quiz-builder";
 
 type KelasOption = { id: string; name: string };
@@ -52,6 +53,7 @@ function toPayload(form: QuizFormState) {
       required: question.required,
       points: question.points,
       allowOther: question.allowOther,
+      shuffleOptions: question.shuffleOptions,
       mediaUrl: question.mediaUrl,
       explanation: question.explanation,
       expectedAnswer: question.expectedAnswer,
@@ -137,6 +139,7 @@ export function QuizBuilder({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [dragKey, setDragKey] = useState<string | null>(null);
   const firstRender = useRef(true);
   const timerRef = useRef<number | null>(null);
@@ -457,6 +460,7 @@ export function QuizBuilder({
           <span className={`rounded-full px-3 py-1 text-theme-xs font-bold ${currentStatus === "PUBLISHED" ? "bg-success-50 text-success-700" : "bg-gray-100 text-gray-600"}`}>{currentStatus === "PUBLISHED" ? "Terbit" : "Draf"}</span>
           <div className="flex flex-wrap items-center gap-2">
             {saveState !== "idle" ? <span className={`text-theme-xs font-semibold ${saveState === "error" ? "text-error-600" : saveState === "saving" ? "text-warning-700" : "text-success-700"}`}>{saveState === "saving" ? "Menyimpan..." : saveState === "error" ? "Gagal menyimpan" : "Tersimpan"}</span> : null}
+            <button type="button" onClick={() => setPreviewOpen(true)} className="tailadmin-button-outline px-4 py-2">Pratinjau</button>
             {id ? <a href={`/api/v1/kuis/${id}/pdf`} target="_blank" rel="noreferrer" className="tailadmin-button-outline px-4 py-2">Cetak PDF</a> : null}
             {id ? <a href={`/api/v1/kuis/${id}/pdf?kunci=1`} target="_blank" rel="noreferrer" className="tailadmin-button-outline px-4 py-2">PDF + Kunci</a> : null}
             {id ? <button type="button" onClick={() => void duplicateForm()} disabled={busy} className="tailadmin-button-outline px-4 py-2">Duplikat</button> : null}
@@ -625,6 +629,15 @@ export function QuizBuilder({
                     </span>
                   ) : null}
                 </div>
+
+                <input
+                  value={question.mediaUrl.startsWith("/api/v1/public/quiz-media/") ? "" : question.mediaUrl}
+                  onChange={(event) => patchQuestion(question.key, { mediaUrl: event.target.value })}
+                  placeholder="Tautan media / YouTube (opsional) — akan ditampilkan sebagai video/gambar"
+                  aria-label={`Tautan media soal ${index + 1}`}
+                  dir="auto"
+                  className="tailadmin-input"
+                />
 
                 {CHOICE_TYPES.has(question.type) || question.type === "GRID" ? (
                   <div className="grid gap-2">
@@ -844,6 +857,12 @@ export function QuizBuilder({
                     Poin
                     <input type="number" min={0.1} step={0.1} value={question.points} onChange={(event) => patchQuestion(question.key, { points: Number(event.target.value) || 1 })} className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-theme-sm" />
                   </label>
+                  {CHOICE_TYPES.has(question.type) || question.type === "GRID" ? (
+                    <label className="flex items-center gap-2 text-theme-sm text-gray-700">
+                      <input type="checkbox" checked={question.shuffleOptions} onChange={(event) => patchQuestion(question.key, { shuffleOptions: event.target.checked })} className="accent-limo-blue-500" />
+                      Acak urutan opsi
+                    </label>
+                  ) : null}
                 </div>
               </div>
             </article>
@@ -963,6 +982,8 @@ export function QuizBuilder({
           <div className="mt-3"><ShareExamButton ujianId={id} hasToken={Boolean(shareToken)} /></div>
         </section>
       ) : null}
+
+      {previewOpen ? <QuizPreview form={form} onClose={() => setPreviewOpen(false)} /> : null}
     </div>
   );
 }

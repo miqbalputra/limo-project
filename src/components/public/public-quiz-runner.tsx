@@ -484,9 +484,39 @@ function InfoTile({ label, value }: { label: string; value: string }) {
   );
 }
 
+function mediaEmbedUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, "");
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      const videoId = parsed.searchParams.get("v");
+      if (videoId) return `https://www.youtube-nocookie.com/embed/${videoId}`;
+    }
+    if (host === "youtu.be") {
+      const videoId = parsed.pathname.slice(1).split("/")[0];
+      if (videoId) return `https://www.youtube-nocookie.com/embed/${videoId}`;
+    }
+    if (host === "vimeo.com") {
+      const videoId = parsed.pathname.split("/").filter(Boolean)[0];
+      if (videoId) return `https://player.vimeo.com/video/${videoId}`;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 function MediaBlock({ type, mediaUrl }: { type: string; mediaUrl: string | null }) {
   if (!mediaUrl) return null;
   if (type === "LISTENING") return <audio controls src={mediaUrl} className="mt-3 w-full" />;
+  const embed = mediaEmbedUrl(mediaUrl);
+  if (embed) {
+    return (
+      <div className="mt-3 aspect-video w-full overflow-hidden rounded-2xl border border-gray-100">
+        <iframe src={embed} title="Media soal" className="h-full w-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+      </div>
+    );
+  }
   if (type === "GAMBAR" || mediaUrl.startsWith("/api/v1/public/quiz-media/")) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={mediaUrl} alt="Media soal" className="mt-3 max-h-72 rounded-2xl border border-gray-100 object-contain" />;

@@ -1298,6 +1298,7 @@ model BankSoal {
   standard          String?        @db.VarChar(64)
   assessmentType    String         @default("FORMATIVE") @db.VarChar(24)
   allowOther        Boolean        @default(false)
+  shuffleOptions    Boolean        @default(false)
   explanation       String?        @db.Text
   createdById       String?
   createdAt         DateTime       @default(now())

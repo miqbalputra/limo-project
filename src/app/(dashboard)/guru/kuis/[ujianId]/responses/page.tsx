@@ -18,6 +18,9 @@ export default async function GuruKuisResponsesPage({ params }: { params: Promis
         <Link href="/guru/kuis" className="text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Kembali ke Formulir Kuis</Link>
         <h1 className="mt-3 tailadmin-page-title">Respons: {data.quiz.title}</h1>
         <p className="mt-2 tailadmin-muted">Ringkasan jawaban dari tautan publik dan pengerjaan online via wali.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <a href={`/api/v1/kuis/${ujianId}/responses/export`} className="tailadmin-button-outline px-4 py-2">Ekspor CSV</a>
+        </div>
       </div>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -60,7 +63,7 @@ export default async function GuruKuisResponsesPage({ params }: { params: Promis
               {data.responses.map((response) => (
                 <div key={response.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
                   <div>
-                    <p className="text-theme-sm font-semibold text-gray-800">{response.respondentName}</p>
+                    <Link href={`/guru/kuis/${ujianId}/responses/${response.id}`} className="text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">{response.respondentName}</Link>
                     <p className="text-theme-xs text-gray-500">{response.submittedAt ? formatDate(response.submittedAt) : "Belum dikirim"}</p>
                   </div>
                   <div className="text-right">
