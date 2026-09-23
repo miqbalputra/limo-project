@@ -9,6 +9,7 @@ import { correctHasilUjianSchema, createBankSoalSchema, createUjianSchema, submi
 import { notifyWaliForStudents } from "@/server/services/notification-service";
 import { syncGradebookForSource } from "@/server/services/gradebook-service";
 import { syncActivityCompletionForExam } from "@/server/services/activity-completion-service";
+import { getQuizMedia } from "@/server/services/quiz-media-service";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 
 const optionBasedTypes = new Set(["PILIHAN_GANDA", "MULTI_SELECT"]);
@@ -696,6 +697,24 @@ type SubmitHasilUjianOptions = {
   correctionReason?: string;
 };
 
+export async function getExamAnswerFile(actor: Actor, ujianId: string, fileId: string) {
+  const ujian = await prisma.ujian.findUnique({ where: { id: ujianId }, select: { kelasId: true } });
+  if (!ujian) {
+    throw new NotFoundError("Ujian tidak ditemukan");
+  }
+  await assertQuestionScope(actor, ujian.kelasId);
+
+  const jawaban = await prisma.jawabanUjian.findMany({ where: { ujianSoal: { ujianId } }, select: { structuredAnswer: true } });
+  const responses = await prisma.quizResponse.findMany({ where: { ujianId }, select: { finalAnswers: true, draftAnswers: true } });
+  const attempts = await prisma.ujianAttempt.findMany({ where: { ujianId }, select: { draftAnswers: true } });
+  const haystack = JSON.stringify({ jawaban, responses, attempts });
+  if (!haystack.includes(fileId)) {
+    throw new NotFoundError("File tidak ditemukan pada ujian ini");
+  }
+
+  return getQuizMedia(fileId);
+}
+
 export async function submitHasilUjian(actor: Actor, input: unknown, options: SubmitHasilUjianOptions = {}) {
   const parsed = submitHasilUjianSchema.safeParse(input);
 
@@ -753,7 +772,7 @@ export async function submitHasilUjian(actor: Actor, input: unknown, options: Su
     const correctOptions = sortedLabels(question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label));
     const manualScore = answer?.essayScore === "" || answer?.essayScore === undefined ? undefined : Number(answer.essayScore);
 
-    if (question.bankSoal.type === "PILIHAN_GANDA") {
+    if (["PILIHAN_GANDA", "DROPDOWN", "SKALA", "RATING"].includes(question.bankSoal.type)) {
       const selectedOption = answer?.selectedOption?.toUpperCase() || "";
       const score = selectedOption && correctOptions[0] === selectedOption ? Number(question.weight) : 0;
       earnedWeight += score;
@@ -807,7 +826,7 @@ export async function submitHasilUjian(actor: Actor, input: unknown, options: Su
       };
     }
 
-    if (["ISIAN_SINGKAT", "CLOZE"].includes(question.bankSoal.type) && question.bankSoal.expectedAnswer) {
+    if (["ISIAN_SINGKAT", "CLOZE", "TANGGAL", "WAKTU"].includes(question.bankSoal.type) && question.bankSoal.expectedAnswer) {
       const shortAnswer = answer?.shortAnswer || "";
       const score = normalizeText(shortAnswer) === normalizeText(question.bankSoal.expectedAnswer) ? Number(question.weight) : 0;
       earnedWeight += score;
@@ -822,6 +841,48 @@ export async function submitHasilUjian(actor: Actor, input: unknown, options: Su
         essayAnswer: undefined,
         score,
         needsReview: false,
+      };
+    }
+
+    if (question.bankSoal.type === "GRID") {
+      const payload = (question.bankSoal.structuredPayload ?? null) as { rows?: string[]; correct?: Record<string, string> } | null;
+      const rows = Array.isArray(payload?.rows) ? payload!.rows : [];
+      const given = (answer?.structuredAnswer ?? null) as Record<string, unknown> | null;
+      let answered = false;
+      let allCorrect = rows.length > 0;
+      for (let index = 0; index < rows.length; index += 1) {
+        const raw = given ? given[String(index)] : undefined;
+        const expected = (payload?.correct?.[String(index)] || "").toUpperCase();
+        const selected = Array.isArray(raw) ? raw.map((value) => String(value).toUpperCase()).sort() : raw ? [String(raw).toUpperCase()] : [];
+        if (selected.length > 0) answered = true;
+        if (!jsonEquals(selected, expected ? [expected] : [])) allCorrect = false;
+      }
+      if (answered) {
+        const score = allCorrect ? Number(question.weight) : 0;
+        earnedWeight += score;
+        return {
+          ujianSoalId: question.id,
+          bankSoalId: question.bankSoalId,
+          selectedOption: undefined,
+          selectedOptions: undefined,
+          shortAnswer: undefined,
+          structuredAnswer: answer?.structuredAnswer,
+          essayAnswer: undefined,
+          score,
+          needsReview: false,
+        };
+      }
+      needsReview = true;
+      return {
+        ujianSoalId: question.id,
+        bankSoalId: question.bankSoalId,
+        selectedOption: undefined,
+        selectedOptions: undefined,
+        shortAnswer: undefined,
+        structuredAnswer: answer?.structuredAnswer,
+        essayAnswer: undefined,
+        score: undefined,
+        needsReview: true,
       };
     }
 

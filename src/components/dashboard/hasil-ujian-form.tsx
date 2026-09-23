@@ -30,8 +30,21 @@ export type InitialExamAnswer = {
   selectedOptions?: string[];
   shortAnswer?: string | null;
   essayAnswer?: string | null;
+  structuredAnswer?: Record<string, unknown> | null;
   essayScore?: string | number | null;
 };
+
+function gridRows(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return [];
+  const rows = (payload as { rows?: unknown }).rows;
+  return Array.isArray(rows) ? rows.map((row) => String(row || "")).filter(Boolean) : [];
+}
+
+function fileInfo(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return { fileId: "", name: "" };
+  const record = payload as { fileId?: unknown; name?: unknown };
+  return { fileId: typeof record.fileId === "string" ? record.fileId : "", name: typeof record.name === "string" ? record.name : "" };
+}
 
 function needsManualScore(type: string) {
   return ["MENJODOHKAN", "URUTAN", "GAMBAR", "LISTENING", "SPEAKING", "WRITING", "READING", "ROLEPLAY", "ESAI"].includes(type);
@@ -95,14 +108,33 @@ export function HasilUjianForm({
     const data = new FormData(event.currentTarget);
 
     try {
-      const answers = questions.map((question) => ({
-        ujianSoalId: question.id,
-        selectedOption: String(data.get(`selected-${question.id}`) || ""),
-        selectedOptions: data.getAll(`selected-${question.id}`).map(String),
-        shortAnswer: String(data.get(`short-${question.id}`) || ""),
-        essayAnswer: String(data.get(`essay-${question.id}`) || ""),
-        essayScore: String(data.get(`score-${question.id}`) || ""),
-      }));
+      const answers = questions.map((question) => {
+        const rows = gridRows(question.bankSoal.structuredPayload);
+        const structuredAnswer: Record<string, unknown> = {};
+        if (question.bankSoal.type === "GRID") {
+          rows.forEach((_, rowIndex) => {
+            const value = String(data.get(`grid-${question.id}-${rowIndex}`) || "");
+            if (value) structuredAnswer[String(rowIndex)] = value;
+          });
+        } else if (question.bankSoal.type === "FILE_UPLOAD") {
+          const fileId = String(data.get(`fileid-${question.id}`) || "");
+          const name = String(data.get(`filename-${question.id}`) || "");
+          if (fileId) {
+            structuredAnswer.fileId = fileId;
+            structuredAnswer.name = name;
+          }
+        }
+
+        return {
+          ujianSoalId: question.id,
+          selectedOption: String(data.get(`selected-${question.id}`) || ""),
+          selectedOptions: data.getAll(`selected-${question.id}`).map(String),
+          shortAnswer: String(data.get(`short-${question.id}`) || ""),
+          essayAnswer: String(data.get(`essay-${question.id}`) || ""),
+          essayScore: String(data.get(`score-${question.id}`) || ""),
+          ...(Object.keys(structuredAnswer).length > 0 ? { structuredAnswer } : {}),
+        };
+      });
 
       const payload = mode === "correction"
         ? {
@@ -157,7 +189,7 @@ export function HasilUjianForm({
             {question.bankSoal.stimulusText ? <LocalizedContent as="p" text={question.bankSoal.stimulusText} language={question.bankSoal.language} direction={question.bankSoal.direction} className="mt-2 rounded-lg bg-white p-3 text-theme-sm leading-7 text-gray-700">{question.bankSoal.stimulusText}</LocalizedContent> : null}
             {question.bankSoal.mediaUrl ? <p className="mt-2 text-theme-xs font-semibold text-limo-blue-500">Media: {question.bankSoal.mediaUrl}</p> : null}
             <LocalizedContent as="p" text={question.bankSoal.question} language={question.bankSoal.language} direction={question.bankSoal.direction} className="mt-2 font-semibold leading-7 text-gray-900">{question.bankSoal.question}</LocalizedContent>
-            {question.bankSoal.type === "PILIHAN_GANDA" ? (
+            {["PILIHAN_GANDA", "DROPDOWN", "SKALA", "RATING"].includes(question.bankSoal.type) ? (
                 <select name={`selected-${question.id}`} defaultValue={initial?.selectedOption || ""} lang={optionLocale.language} dir={optionLocale.direction} className="tailadmin-input mt-3">
                 <option value="" lang="id" dir="ltr">Tidak dijawab</option>
                 {question.bankSoal.options.map((option) => (
@@ -181,6 +213,31 @@ export function HasilUjianForm({
               </select>
             ) : ["ISIAN_SINGKAT", "CLOZE"].includes(question.bankSoal.type) ? (
               <ArabicTextField name={`short-${question.id}`} defaultValue={initial?.shortAnswer || ""} language={question.bankSoal.language} direction="auto" placeholder="Jawaban singkat siswa" className="tailadmin-input mt-3" />
+            ) : ["TANGGAL", "WAKTU"].includes(question.bankSoal.type) ? (
+              <input name={`short-${question.id}`} defaultValue={initial?.shortAnswer || ""} type={question.bankSoal.type === "TANGGAL" ? "date" : "time"} className="tailadmin-input mt-3 sm:max-w-xs" />
+            ) : question.bankSoal.type === "GRID" ? (
+              <div className="mt-3 grid gap-2">
+                {gridRows(question.bankSoal.structuredPayload).map((row, rowIndex) => (
+                  <div key={rowIndex} className="flex flex-wrap items-center gap-2 text-theme-sm">
+                    <span className="min-w-0 flex-1 text-gray-700">{row}</span>
+                    <select name={`grid-${question.id}-${rowIndex}`} defaultValue={String((initial?.structuredAnswer ?? {})[String(rowIndex)] ?? "")} className="tailadmin-input sm:max-w-xs">
+                      <option value="">Tidak dijawab</option>
+                      {question.bankSoal.options.map((option) => <option key={option.label} value={option.label}>{option.label}. {option.content}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            ) : question.bankSoal.type === "FILE_UPLOAD" ? (
+              <div className="mt-3 grid gap-2">
+                {fileInfo(initial?.structuredAnswer).fileId ? (
+                  <>
+                    <input type="hidden" name={`fileid-${question.id}`} defaultValue={fileInfo(initial?.structuredAnswer).fileId} />
+                    <input type="hidden" name={`filename-${question.id}`} defaultValue={fileInfo(initial?.structuredAnswer).name} />
+                    <a href={`/api/v1/kuis/${ujianId}/files/${fileInfo(initial?.structuredAnswer).fileId}`} className="inline-flex w-fit text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Unduh berkas: {fileInfo(initial?.structuredAnswer).name || "lampiran"}</a>
+                  </>
+                ) : <p className="text-theme-sm text-gray-600">Tidak ada berkas yang diunggah.</p>}
+                <input name={`score-${question.id}`} defaultValue={initial?.essayScore?.toString() || ""} type="number" min={0} step={0.1} placeholder="Skor manual untuk berkas ini" className="tailadmin-input sm:max-w-xs" />
+              </div>
             ) : ["MENJODOHKAN", "URUTAN"].includes(question.bankSoal.type) ? (
               <div className="mt-3 grid gap-3">
                 {question.bankSoal.type === "MENJODOHKAN" ? <MatchingPreview payload={question.bankSoal.structuredPayload} language={question.bankSoal.language} direction={question.bankSoal.direction} /> : <SequencePreview payload={question.bankSoal.structuredPayload} language={question.bankSoal.language} direction={question.bankSoal.direction} />}

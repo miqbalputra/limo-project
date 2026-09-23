@@ -266,6 +266,10 @@ const allowedQuizSubmissionTypes = new Map<string, string>([
 
 export async function storeQuizSubmissionFile(file: File, folder: string): Promise<StoredFile> {
   if (file.size < 1) throw new ValidationError("File jawaban kosong");
+  const maxMb = getEnv().MAX_QUIZ_UPLOAD_MB;
+  if (maxMb > 0 && file.size > maxMb * 1024 * 1024) {
+    throw new ValidationError(`Ukuran file jawaban maksimal ${maxMb} MB`);
+  }
   const mimeType = baseMimeType(file.type);
   const extension = allowedQuizSubmissionTypes.get(mimeType);
   const fileExtension = path.extname(file.name).slice(1).toLowerCase();

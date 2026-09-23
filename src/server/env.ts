@@ -60,6 +60,7 @@ const envSchema = z.object({
   MAX_MATERIAL_FILE_MB: optionalNumberFromString.default("25"),
   MAX_RPP_FILE_MB: optionalNumberFromString.default("20"),
   MAX_ASSIGNMENT_FILE_MB: optionalNumberFromString.default("25"),
+  MAX_QUIZ_UPLOAD_MB: optionalNumberFromString.default("0"),
   MAYAR_ENV: z.enum(["sandbox", "production"]).default("sandbox"),
   MAYAR_BASE_URL: z.string().url().optional().or(z.literal("")),
   MAYAR_API_KEY: z.string().optional().default(""),

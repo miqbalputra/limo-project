@@ -727,6 +727,9 @@ export function QuizBuilder({
                         </div>
                       ))}
                       <button type="button" onClick={() => addGridRow(question.key)} disabled={question.gridRows.length >= 20} className="w-fit rounded-lg border border-gray-200 px-3 py-1.5 text-theme-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40">+ Tambah baris</button>
+                      {question.gridCorrect.some((label) => !label) ? (
+                        <p className="text-theme-xs text-warning-700">Beberapa baris belum diberi kunci; baris tanpa kunci akan dinilai salah.</p>
+                      ) : null}
                     </div>
                   </div>
                 ) : null}

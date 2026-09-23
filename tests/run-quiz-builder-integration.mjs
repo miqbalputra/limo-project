@@ -488,6 +488,25 @@ try {
     await prisma.bankSoal.deleteMany({ where: { id: { in: waliBankIds } } }).catch(() => undefined);
   }
 
+  const limitForm = await request("/api/v1/kuis", { method: "POST", cookie: guru.cookie, body: { ...basePayload(kelas.id), title: `Limit ${runId}`, maxAttempts: 1 } });
+  assert.equal(limitForm.response.status, 201, JSON.stringify(limitForm.payload));
+  const limitId = limitForm.payload.data.item.id;
+  await request(`/api/v1/kuis/${limitId}/publish`, { method: "POST", cookie: guru.cookie, body: {} });
+  const limitShare = await request(`/api/v1/ujian/${limitId}/share`, { method: "POST", cookie: guru.cookie, body: {} });
+  const limitToken = limitShare.payload.data.token;
+  const limitFirst = await request(`/api/v1/public/quiz/${limitToken}/responses`, { method: "POST", body: { respondentName: `Limit1 ${runId}` } });
+  assert.equal(limitFirst.response.status, 201, JSON.stringify(limitFirst.payload));
+  const limitSecond = await request(`/api/v1/public/quiz/${limitToken}/responses`, { method: "POST", body: { respondentName: `Limit2 ${runId}` } });
+  assert.equal(limitSecond.response.status, 409, "Batas attempt tautan publik harus ditegakkan");
+  ok("Batas pengerjaan (maxAttempts) ditegakkan pada tautan publik");
+
+  const limitBankIds = (await prisma.ujianSoal.findMany({ where: { ujianId: limitId }, select: { bankSoalId: true } })).map((row) => row.bankSoalId);
+  await prisma.ujian.delete({ where: { id: limitId } }).catch(() => undefined);
+  if (limitBankIds.length > 0) {
+    await prisma.opsiSoal.deleteMany({ where: { bankSoalId: { in: limitBankIds } } }).catch(() => undefined);
+    await prisma.bankSoal.deleteMany({ where: { id: { in: limitBankIds } } }).catch(() => undefined);
+  }
+
   const blockedAfterResponse = await request(`/api/v1/kuis/${ujianId}`, { method: "PATCH", cookie: guru.cookie, body: basePayload(kelas.id) });
   assert.equal(blockedAfterResponse.response.status, 409);
   ok("Kuis yang sudah dikerjakan tidak dapat diubah (409)");

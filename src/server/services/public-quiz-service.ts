@@ -212,6 +212,7 @@ export async function startPublicQuizResponse(token: string, input: unknown, con
       id: true,
       status: true,
       durationMinutes: true,
+      maxAttempts: true,
       shuffleQuestions: true,
       shuffleOptions: true,
       collectRespondentName: true,
@@ -242,6 +243,14 @@ export async function startPublicQuizResponse(token: string, input: unknown, con
 
   const questionOrder: QuestionOrder = { questions: orderedQuestionIds, options: optionOrder };
   const respondentName = ujian.collectRespondentName ? parsed.data.respondentName : parsed.data.respondentName || "Responden";
+  const ipHash = hashIp(context.ipAddress);
+
+  if (ipHash) {
+    const usedAttempts = await prisma.quizResponse.count({ where: { ujianId: ujian.id, ipHash } });
+    if (usedAttempts >= ujian.maxAttempts) {
+      throw new ConflictError("Batas pengerjaan tautan ini sudah tercapai.");
+    }
+  }
 
   const response = await prisma.quizResponse.create({
     data: {
@@ -251,7 +260,7 @@ export async function startPublicQuizResponse(token: string, input: unknown, con
       status: "IN_PROGRESS",
       expiresAt: new Date(Date.now() + ujian.durationMinutes * 60 * 1000),
       questionOrder: questionOrder as Prisma.InputJsonValue,
-      ipHash: hashIp(context.ipAddress),
+      ipHash,
     },
     select: { id: true, expiresAt: true },
   });

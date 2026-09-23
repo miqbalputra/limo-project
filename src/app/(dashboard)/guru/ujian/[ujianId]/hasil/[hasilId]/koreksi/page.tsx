@@ -23,6 +23,7 @@ export default async function GuruKoreksiHasilUjianPage({ params }: { params: Pr
       selectedOptions: Array.isArray(answer.selectedOptions) ? answer.selectedOptions.map(String) : [],
       shortAnswer: answer.shortAnswer,
       essayAnswer: answer.essayAnswer,
+      structuredAnswer: answer.structuredAnswer && typeof answer.structuredAnswer === "object" ? (answer.structuredAnswer as Record<string, unknown>) : undefined,
       essayScore: answer.score?.toString() || "",
     } satisfies InitialExamAnswer,
   ]));
