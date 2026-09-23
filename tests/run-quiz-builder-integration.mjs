@@ -47,7 +47,7 @@ function baseQuestions() {
       sectionIndex: 0,
       branchRules: [{ label: "B", goToSectionIndex: 1 }],
       options: [
-        { label: "A", content: "Jakarta" },
+        { label: "A", content: "Jakarta", mediaUrl: "/api/v1/public/quiz-media/opt-a" },
         { label: "B", content: "Bandung" },
         { label: "C", content: "Surabaya" },
       ],
@@ -157,6 +157,7 @@ try {
   assert.equal(saved.sections[0].title, "Bagian 1");
   assert.equal(saved.questions[3].sectionIndex, 1);
   assert.deepEqual(saved.questions[0].branchRules, [{ label: "B", goToSectionIndex: 1 }]);
+  assert.equal(saved.questions[0].options[0].mediaUrl, "/api/v1/public/quiz-media/opt-a");
   ok("Buat formulir dengan kartu soal (PG, multi, benar/salah, isian) + kunci tersimpan");
 
   const soalIds = await prisma.ujianSoal.findMany({ where: { ujianId }, select: { bankSoalId: true } });
@@ -199,6 +200,15 @@ try {
   const published = await request(`/api/v1/kuis/${ujianId}/publish`, { method: "POST", cookie: guru.cookie, body: {} });
   assert.equal(published.response.status, 200, JSON.stringify(published.payload));
 
+  const pdfRes = await fetch(`${origin}/api/v1/kuis/${ujianId}/pdf?kunci=1`, { headers: { Cookie: guru.cookie } });
+  assert.equal(pdfRes.status, 200, "Cetak PDF harus berhasil untuk guru");
+  assert.match(pdfRes.headers.get("content-type") || "", /application\/pdf/);
+  const pdfBytes = Buffer.from(await pdfRes.arrayBuffer());
+  assert.equal(pdfBytes.subarray(0, 4).toString("latin1"), "%PDF");
+  const pdfForbidden = await fetch(`${origin}/api/v1/kuis/${ujianId}/pdf`, { headers: { Cookie: wali.cookie } });
+  assert.equal(pdfForbidden.status, 403, "Wali tidak boleh mencetak PDF soal");
+  ok("Cetak PDF soal (termasuk kunci) tersedia untuk guru, ditolak untuk non-guru");
+
   const editableBeforeAttempt = await request(`/api/v1/kuis/${ujianId}`, { method: "PATCH", cookie: guru.cookie, body: basePayload(kelas.id) });
   assert.equal(editableBeforeAttempt.response.status, 200, "Kuis terbit tanpa pengerjaan masih boleh diedit");
 
@@ -224,6 +234,7 @@ try {
   assert.equal(questions[0].required, true);
   assert.ok(!("isCorrect" in questions[0].options[0]));
   assert.deepEqual(questions.find((question) => question.type === "PILIHAN_GANDA").branchRules, [{ label: "B", goToSectionIndex: 1 }]);
+  assert.equal(questions.find((question) => question.type === "PILIHAN_GANDA").options[0].mediaUrl, "/api/v1/public/quiz-media/opt-a");
   assert.equal(questions.find((question) => question.type === "ISIAN_SINGKAT").sectionIndex, 1);
 
   const pg = questions.find((question) => question.type === "PILIHAN_GANDA");

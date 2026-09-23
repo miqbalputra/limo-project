@@ -52,7 +52,7 @@ type PublicQuestion = {
   language: string | null;
   direction: string | null;
   allowOther: boolean;
-  options: { label: string; content: string }[];
+  options: { label: string; content: string; mediaUrl: string | null }[];
 };
 
 type DraftAnswer = {
@@ -348,6 +348,9 @@ export function PublicQuizRunner({ token }: { token: string }) {
               {remainingSeconds !== null ? <span className={`rounded-full px-3 py-1 text-theme-xs font-semibold ${remainingSeconds <= 60 ? "bg-error-50 text-error-700" : "bg-limo-blue-50 text-limo-blue-600"}`}>Sisa {formatDuration(remainingSeconds)}</span> : null}
             </div>
           </div>
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+            <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: accent }} />
+          </div>
           {error ? <p className="mt-3 tailadmin-alert-error">{error}</p> : null}
         </section>
 
@@ -361,11 +364,14 @@ export function PublicQuizRunner({ token }: { token: string }) {
         <div className="mt-4 space-y-4">
           {visibleQuestions.map((question, index) => (
             <section key={question.id} className="tailadmin-card p-5">
-              <p className="text-theme-sm font-semibold text-limo-blue-600">Soal {index + 1}{question.required ? " *" : ""} / {question.weight} poin</p>
+              <div className="flex items-center gap-2">
+                <span className="grid size-7 shrink-0 place-items-center rounded-full text-theme-xs font-bold text-white" style={{ backgroundColor: accent }}>{index + 1}</span>
+                <span className="text-theme-xs font-semibold uppercase tracking-wide text-gray-400">{question.required ? "Wajib" : "Opsional"} · {question.weight} poin</span>
+              </div>
               {question.stimulusText ? <LocalizedContent as="p" text={question.stimulusText} language={question.language} direction={question.direction} className="mt-3 rounded-2xl bg-gray-50 p-4 text-theme-sm leading-7 text-gray-700">{question.stimulusText}</LocalizedContent> : null}
               <MediaBlock type={question.type} mediaUrl={question.mediaUrl} />
               <LocalizedContent as="p" text={question.question} language={question.language} direction={question.direction} className="mt-3 text-lg font-semibold leading-8 text-gray-900">{question.question}</LocalizedContent>
-              <AnswerInput question={question} answer={answers[question.id]} onChange={(patch) => setAnswer(question.id, patch)} />
+              <AnswerInput accent={accent} question={question} answer={answers[question.id]} onChange={(patch) => setAnswer(question.id, patch)} />
             </section>
           ))}
         </div>
@@ -439,18 +445,32 @@ function MediaBlock({ type, mediaUrl }: { type: string; mediaUrl: string | null 
   return <a href={mediaUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-theme-sm font-semibold text-limo-blue-600">Buka media soal</a>;
 }
 
-function AnswerInput({ question, answer, onChange }: { question: PublicQuestion; answer?: DraftAnswer; onChange: (_patch: Partial<DraftAnswer>) => void }) {
+function AnswerInput({ question, answer, onChange, accent }: { question: PublicQuestion; answer?: DraftAnswer; onChange: (_patch: Partial<DraftAnswer>) => void; accent: string }) {
   if (question.type === "PILIHAN_GANDA") {
     return (
       <div className="mt-3 grid gap-2">
-        {question.options.map((option) => (
-          <label key={option.label} className="flex cursor-pointer gap-3 rounded-xl border border-gray-200 bg-white p-3 text-theme-sm text-gray-700">
-            <input type="radio" name={`q-${question.id}`} value={option.label} checked={answer?.selectedOption === option.label} onChange={() => onChange({ selectedOption: option.label })} className="mt-1 accent-limo-blue-500" />
-            <span><b>{option.label}.</b> <LocalizedContent text={option.content} language={question.language} direction="auto">{option.content}</LocalizedContent></span>
-          </label>
-        ))}
+        {question.options.map((option) => {
+          const selected = answer?.selectedOption === option.label;
+          return (
+            <label
+              key={option.label}
+              style={selected ? { borderColor: accent, backgroundColor: `${accent}0d` } : undefined}
+              className={`flex cursor-pointer gap-3 rounded-xl border bg-white p-3 text-theme-sm text-gray-700 transition ${selected ? "" : "border-gray-200 hover:border-gray-300"}`}
+            >
+              <input type="radio" name={`q-${question.id}`} value={option.label} checked={selected} onChange={() => onChange({ selectedOption: option.label })} className="mt-1 accent-limo-blue-500" />
+              <span className="flex-1"><b>{option.label}.</b> <LocalizedContent text={option.content} language={question.language} direction="auto">{option.content}</LocalizedContent></span>
+              {option.mediaUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={option.mediaUrl} alt={`Opsi ${option.label}`} className="h-16 w-24 shrink-0 rounded-lg object-cover ring-1 ring-gray-100" />
+              ) : null}
+            </label>
+          );
+        })}
         {question.allowOther ? (
-          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-theme-sm text-gray-700">
+          <label
+            style={answer?.selectedOption === "OTHER" ? { borderColor: accent, backgroundColor: `${accent}0d` } : undefined}
+            className={`flex cursor-pointer items-center gap-3 rounded-xl border bg-white p-3 text-theme-sm text-gray-700 ${answer?.selectedOption === "OTHER" ? "" : "border-gray-200"}`}
+          >
             <input type="radio" name={`q-${question.id}`} value="OTHER" checked={answer?.selectedOption === "OTHER"} onChange={() => onChange({ selectedOption: "OTHER" })} className="accent-limo-blue-500" />
             <span className="shrink-0 font-semibold">Lainnya:</span>
             <input type="text" value={answer?.selectedOption === "OTHER" ? answer?.shortAnswer ?? "" : ""} onChange={(event) => onChange({ selectedOption: "OTHER", shortAnswer: event.target.value })} disabled={answer?.selectedOption !== "OTHER"} placeholder="Tulis jawaban" dir="auto" className="tailadmin-input flex-1 py-1.5" />
@@ -464,18 +484,29 @@ function AnswerInput({ question, answer, onChange }: { question: PublicQuestion;
     const selected = answer?.selectedOptions ?? [];
     return (
       <div className="mt-3 grid gap-2">
-        {question.options.map((option) => (
-          <label key={option.label} className="flex cursor-pointer gap-3 rounded-xl border border-gray-200 bg-white p-3 text-theme-sm text-gray-700">
-            <input
-              type="checkbox"
-              value={option.label}
-              checked={selected.includes(option.label)}
-              onChange={() => onChange({ selectedOptions: selected.includes(option.label) ? selected.filter((item) => item !== option.label) : [...selected, option.label] })}
-              className="mt-1 accent-limo-blue-500"
-            />
-            <span><b>{option.label}.</b> <LocalizedContent text={option.content} language={question.language} direction="auto">{option.content}</LocalizedContent></span>
-          </label>
-        ))}
+        {question.options.map((option) => {
+          const isChecked = selected.includes(option.label);
+          return (
+            <label
+              key={option.label}
+              style={isChecked ? { borderColor: accent, backgroundColor: `${accent}0d` } : undefined}
+              className={`flex cursor-pointer gap-3 rounded-xl border bg-white p-3 text-theme-sm text-gray-700 transition ${isChecked ? "" : "border-gray-200 hover:border-gray-300"}`}
+            >
+              <input
+                type="checkbox"
+                value={option.label}
+                checked={isChecked}
+                onChange={() => onChange({ selectedOptions: isChecked ? selected.filter((item) => item !== option.label) : [...selected, option.label] })}
+                className="mt-1 accent-limo-blue-500"
+              />
+              <span className="flex-1"><b>{option.label}.</b> <LocalizedContent text={option.content} language={question.language} direction="auto">{option.content}</LocalizedContent></span>
+              {option.mediaUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={option.mediaUrl} alt={`Opsi ${option.label}`} className="h-16 w-24 shrink-0 rounded-lg object-cover ring-1 ring-gray-100" />
+              ) : null}
+            </label>
+          );
+        })}
         {question.allowOther ? (
           <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-theme-sm text-gray-700">
             <input type="checkbox" value="OTHER" checked={selected.includes("OTHER")} onChange={() => onChange({ selectedOptions: selected.includes("OTHER") ? selected.filter((item) => item !== "OTHER") : [...selected, "OTHER"] })} className="accent-limo-blue-500" />
@@ -490,8 +521,19 @@ function AnswerInput({ question, answer, onChange }: { question: PublicQuestion;
   if (question.type === "BENAR_SALAH") {
     return (
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <label className="rounded-2xl bg-gray-50 p-4 text-theme-sm font-semibold text-gray-700"><input type="radio" name={`q-${question.id}`} value="benar" checked={answer?.selectedOption === "benar"} onChange={() => onChange({ selectedOption: "benar" })} className="me-2 accent-limo-blue-500" />Benar</label>
-        <label className="rounded-2xl bg-gray-50 p-4 text-theme-sm font-semibold text-gray-700"><input type="radio" name={`q-${question.id}`} value="salah" checked={answer?.selectedOption === "salah"} onChange={() => onChange({ selectedOption: "salah" })} className="me-2 accent-limo-blue-500" />Salah</label>
+        {[{ value: "benar", label: "Benar" }, { value: "salah", label: "Salah" }].map((item) => {
+          const selected = answer?.selectedOption === item.value;
+          return (
+            <label
+              key={item.value}
+              style={selected ? { borderColor: accent, backgroundColor: `${accent}0d` } : undefined}
+              className={`cursor-pointer rounded-2xl border p-4 text-theme-sm font-semibold text-gray-700 transition ${selected ? "" : "border-transparent bg-gray-50 hover:bg-gray-100"}`}
+            >
+              <input type="radio" name={`q-${question.id}`} value={item.value} checked={selected} onChange={() => onChange({ selectedOption: item.value })} className="me-2 accent-limo-blue-500" />
+              {item.label}
+            </label>
+          );
+        })}
       </div>
     );
   }

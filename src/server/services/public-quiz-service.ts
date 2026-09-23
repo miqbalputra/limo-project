@@ -63,13 +63,13 @@ function sanitizeQuestion(question: {
     language: string | null;
     direction: string | null;
     allowOther: boolean;
-    options: { label: string; content: string }[];
+    options: { label: string; content: string; mediaUrl: string | null }[];
   };
 }, optionOrder: string[] | undefined) {
   const options = optionOrder
     ? optionOrder
         .map((label) => question.bankSoal.options.find((option) => option.label === label))
-        .filter((option): option is { label: string; content: string } => Boolean(option))
+        .filter((option): option is { label: string; content: string; mediaUrl: string | null } => Boolean(option))
     : question.bankSoal.options;
 
   return {
@@ -85,7 +85,7 @@ function sanitizeQuestion(question: {
     language: question.bankSoal.language,
     direction: question.bankSoal.direction,
     allowOther: question.bankSoal.allowOther,
-    options: options.map((option) => ({ label: option.label, content: option.content })),
+    options: options.map((option) => ({ label: option.label, content: option.content, mediaUrl: option.mediaUrl })),
   };
 }
 
@@ -95,7 +95,7 @@ const quizInclude = {
     orderBy: { order: "asc" as const },
     include: {
       bankSoal: {
-        include: { options: { orderBy: { order: "asc" as const }, select: { label: true, content: true, isCorrect: true } } },
+        include: { options: { orderBy: { order: "asc" as const }, select: { label: true, content: true, mediaUrl: true, isCorrect: true } } },
       },
     },
   },

@@ -1308,6 +1308,7 @@ model OpsiSoal {
   bankSoal   BankSoal @relation(fields: [bankSoalId], references: [id], onDelete: Cascade)
   label      String   @db.VarChar(8)
   content    String   @db.Text
+  mediaUrl   String?  @db.VarChar(500)
   isCorrect  Boolean  @default(false)
   order      Int      @default(0)
 

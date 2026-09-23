@@ -49,7 +49,7 @@ function toPayload(form: QuizFormState) {
         label: rule.label,
         goToSectionIndex: rule.goToSectionKey ? (sectionIndexByKey.get(rule.goToSectionKey) ?? null) : null,
       })),
-      options: question.options.map((option, index) => ({ label: LABELS[index], content: option.content })),
+      options: question.options.map((option, index) => ({ label: LABELS[index], content: option.content, mediaUrl: option.mediaUrl })),
       correctLabels: question.options.map((option, index) => (option.isCorrect ? LABELS[index] : null)).filter(Boolean),
     })),
   };
@@ -184,7 +184,7 @@ export function QuizBuilder({
     patchQuestion(key, {
       type,
       expectedAnswer: type === "BENAR_SALAH" ? "benar" : "",
-      options: type === "PILIHAN_GANDA" || type === "MULTI_SELECT" ? [{ content: "", isCorrect: false }, { content: "", isCorrect: false }] : [],
+      options: type === "PILIHAN_GANDA" || type === "MULTI_SELECT" ? [{ content: "", isCorrect: false, mediaUrl: "" }, { content: "", isCorrect: false, mediaUrl: "" }] : [],
     });
   }
 
@@ -257,6 +257,18 @@ export function QuizBuilder({
     }
   }
 
+  async function uploadOptionMedia(key: string, optionIndex: number, file: File) {
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      const result = await requestJson<{ item: { url: string } }>("/api/v1/kuis/media", { method: "POST", body: formData, fallbackMessage: "Gagal mengunggah gambar opsi" });
+      updateOption(key, optionIndex, { mediaUrl: result.data.item.url });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Gagal mengunggah gambar opsi");
+    }
+  }
+
   function duplicateQuestion(key: string) {
     setForm((current) => {
       const index = current.questions.findIndex((question) => question.key === key);
@@ -297,7 +309,7 @@ export function QuizBuilder({
     setSaveState("idle");
   }
 
-  function updateOption(key: string, index: number, patch: { content?: string; isCorrect?: boolean }) {
+  function updateOption(key: string, index: number, patch: { content?: string; isCorrect?: boolean; mediaUrl?: string }) {
     patchQuestion(key, {
       options: form.questions.find((question) => question.key === key)?.options.map((option, position) => {
         if (position !== index) {
@@ -312,7 +324,7 @@ export function QuizBuilder({
   function addOption(key: string) {
     const question = form.questions.find((item) => item.key === key);
     if (!question || question.options.length >= 10) return;
-    patchQuestion(key, { options: [...question.options, { content: "", isCorrect: false }] });
+    patchQuestion(key, { options: [...question.options, { content: "", isCorrect: false, mediaUrl: "" }] });
   }
 
   function removeOption(key: string, index: number) {
@@ -328,6 +340,8 @@ export function QuizBuilder({
           <span className={`rounded-full px-3 py-1 text-theme-xs font-bold ${currentStatus === "PUBLISHED" ? "bg-success-50 text-success-700" : "bg-gray-100 text-gray-600"}`}>{currentStatus === "PUBLISHED" ? "Terbit" : "Draf"}</span>
           <div className="flex flex-wrap items-center gap-2">
             {saveState !== "idle" ? <span className={`text-theme-xs font-semibold ${saveState === "error" ? "text-error-600" : saveState === "saving" ? "text-warning-700" : "text-success-700"}`}>{saveState === "saving" ? "Menyimpan..." : saveState === "error" ? "Gagal menyimpan" : "Tersimpan"}</span> : null}
+            {id ? <a href={`/api/v1/kuis/${id}/pdf`} target="_blank" rel="noreferrer" className="tailadmin-button-outline px-4 py-2">Cetak PDF</a> : null}
+            {id ? <a href={`/api/v1/kuis/${id}/pdf?kunci=1`} target="_blank" rel="noreferrer" className="tailadmin-button-outline px-4 py-2">PDF + Kunci</a> : null}
             <button type="button" onClick={() => void save()} disabled={saveState === "saving"} className="tailadmin-button-outline px-4 py-2">Simpan</button>
             <button
               type="button"
@@ -488,25 +502,49 @@ export function QuizBuilder({
                 {question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" ? (
                   <div className="grid gap-2">
                     {question.options.map((option, optionIndex) => (
-                      <div key={optionIndex} className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => updateOption(question.key, optionIndex, { isCorrect: !option.isCorrect })}
-                          aria-pressed={option.isCorrect}
-                          aria-label={`Tandai opsi ${LABELS[optionIndex]} benar`}
-                          className={`grid size-8 shrink-0 place-items-center rounded-full border text-theme-xs font-bold ${option.isCorrect ? "border-success-500 bg-success-50 text-success-700" : "border-gray-300 text-gray-500"}`}
-                        >
-                          {option.isCorrect ? "✓" : LABELS[optionIndex]}
-                        </button>
-                        <input
-                          value={option.content}
-                          onChange={(event) => updateOption(question.key, optionIndex, { content: event.target.value })}
-                          placeholder={`Opsi ${LABELS[optionIndex]}`}
-                          aria-label={`Opsi ${LABELS[optionIndex]} soal ${index + 1}`}
-                          dir="auto"
-                          className="tailadmin-input"
-                        />
-                        <button type="button" onClick={() => removeOption(question.key, optionIndex)} disabled={question.options.length <= 2} className="rounded-lg border border-gray-200 px-2 py-1.5 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">Hapus</button>
+                      <div key={optionIndex} className="rounded-xl border border-gray-200 bg-white p-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => updateOption(question.key, optionIndex, { isCorrect: !option.isCorrect })}
+                            aria-pressed={option.isCorrect}
+                            aria-label={`Tandai opsi ${LABELS[optionIndex]} benar`}
+                            className={`grid size-8 shrink-0 place-items-center rounded-full border text-theme-xs font-bold ${option.isCorrect ? "border-success-500 bg-success-50 text-success-700" : "border-gray-300 text-gray-500"}`}
+                          >
+                            {option.isCorrect ? "✓" : LABELS[optionIndex]}
+                          </button>
+                          <input
+                            value={option.content}
+                            onChange={(event) => updateOption(question.key, optionIndex, { content: event.target.value })}
+                            placeholder={`Opsi ${LABELS[optionIndex]}`}
+                            aria-label={`Opsi ${LABELS[optionIndex]} soal ${index + 1}`}
+                            dir="auto"
+                            className="tailadmin-input"
+                          />
+                          <label className="shrink-0 cursor-pointer rounded-lg border border-gray-200 px-2 py-1.5 text-theme-xs text-gray-500 hover:bg-gray-50" title="Tambah gambar opsi">
+                            🖼
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              className="hidden"
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                event.target.value = "";
+                                if (file) void uploadOptionMedia(question.key, optionIndex, file);
+                              }}
+                            />
+                          </label>
+                          <button type="button" onClick={() => removeOption(question.key, optionIndex)} disabled={question.options.length <= 2} className="shrink-0 rounded-lg border border-gray-200 px-2 py-1.5 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">Hapus</button>
+                        </div>
+                        {option.mediaUrl ? (
+                          <div className="mt-2 flex items-center gap-2 ps-10">
+                            {option.mediaUrl.startsWith("/api/v1/public/quiz-media/") ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={option.mediaUrl} alt={`Gambar opsi ${LABELS[optionIndex]}`} className="h-16 w-24 rounded-lg object-cover ring-1 ring-gray-200" />
+                            ) : null}
+                            <button type="button" onClick={() => updateOption(question.key, optionIndex, { mediaUrl: "" })} className="text-theme-xs font-semibold text-error-600">Hapus gambar</button>
+                          </div>
+                        ) : null}
                       </div>
                     ))}
                     <button type="button" onClick={() => addOption(question.key)} disabled={question.options.length >= 10} className="w-fit rounded-lg border border-gray-200 px-3 py-1.5 text-theme-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40">+ Tambah opsi</button>

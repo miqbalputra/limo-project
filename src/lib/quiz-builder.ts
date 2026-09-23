@@ -21,7 +21,7 @@ export type QuizQuestion = {
   expectedAnswer: string;
   sectionKey: string;
   branchRules: QuizBranchRule[];
-  options: { content: string; isCorrect: boolean }[];
+  options: { content: string; isCorrect: boolean; mediaUrl: string }[];
 };
 
 export type QuizFormState = {
@@ -72,7 +72,7 @@ export function newQuestion(type = "PILIHAN_GANDA", sectionKey = ""): QuizQuesti
     expectedAnswer: type === "BENAR_SALAH" ? "benar" : "",
     sectionKey,
     branchRules: [],
-    options: type === "PILIHAN_GANDA" || type === "MULTI_SELECT" ? [{ content: "", isCorrect: false }, { content: "", isCorrect: false }] : [],
+    options: type === "PILIHAN_GANDA" || type === "MULTI_SELECT" ? [{ content: "", isCorrect: false, mediaUrl: "" }, { content: "", isCorrect: false, mediaUrl: "" }] : [],
   };
 }
 

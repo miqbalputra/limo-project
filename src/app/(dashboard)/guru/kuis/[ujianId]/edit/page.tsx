@@ -56,7 +56,7 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
         goToSectionKey: rule.goToSectionIndex !== null ? (sectionKeys[rule.goToSectionIndex] ?? null) : null,
       })),
       options: question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT"
-        ? question.options.map((option) => ({ content: option.content, isCorrect: question.correctLabels.includes(option.label) }))
+        ? question.options.map((option) => ({ content: option.content, isCorrect: question.correctLabels.includes(option.label), mediaUrl: option.mediaUrl ?? "" }))
         : [],
     })),
   };

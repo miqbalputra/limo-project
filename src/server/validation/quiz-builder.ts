@@ -8,6 +8,13 @@ export const QUIZ_THEME_COLORS = ["blue", "green", "purple", "orange", "red", "t
 const optionSchema = z.object({
   label: z.string().trim().min(1).max(8),
   content: z.string().trim().min(1).max(2000),
+  mediaUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .or(z.literal(""))
+    .refine((value) => !value || /^https:\/\//.test(value) || value.startsWith("/"), "Media opsi harus HTTPS atau path lokal"),
 });
 
 const questionSchema = z
