@@ -2,7 +2,7 @@
 
 Dokumen ini adalah checklist kerja menuju klaim 100% production-ready. Item yang membutuhkan kredensial, domain, atau server nyata tidak bisa ditutup hanya dari repository lokal.
 
-Panduan pendukung: `docs/MARIADB_MIGRATION_RUNBOOK.md` (migrasi + parity database), `docs/DEPLOYMENT.md` (deploy VPS/Nginx/PM2), `docs/DOKPLOY.md` (deploy Dokploy).
+Panduan pendukung: `docs/REDEPLOY_CHECKLIST.md` (agar semua fitur aktif setelah redeploy — flag & cron), `docs/MARIADB_MIGRATION_RUNBOOK.md` (migrasi + parity database), `docs/DEPLOYMENT.md` (deploy VPS/Nginx/PM2), `docs/DOKPLOY.md` (deploy Dokploy).
 
 ## Gate 1: Repo Ready
 

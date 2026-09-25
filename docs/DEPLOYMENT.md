@@ -2,6 +2,8 @@
 
 Runbook ini mengikuti arsitektur satu aplikasi Next.js di belakang Nginx + PM2 + MariaDB lokal/private. Untuk deployment berbasis Dokploy dengan database terpisah, gunakan `docs/DOKPLOY.md`.
 
+Panduan terkait: `docs/REDEPLOY_CHECKLIST.md` (agar semua fitur aktif setelah redeploy, termasuk flag & cron), `docs/MARIADB_MIGRATION_RUNBOOK.md` (migrasi + parity database).
+
 ## Persiapan VPS
 
 - Node.js 22+ dan npm 10+.
