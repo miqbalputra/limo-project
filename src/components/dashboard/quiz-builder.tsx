@@ -70,6 +70,11 @@ function toPayload(form: QuizFormState) {
       validationMax: question.validationMax.trim() === "" ? null : Number(question.validationMax),
       validationPattern: question.validationPattern,
       validationMessage: question.validationMessage,
+      acceptedAnswers: question.acceptedAnswers.map((value) => value.trim()).filter(Boolean),
+      feedbackCorrect: question.feedbackCorrect,
+      feedbackIncorrect: question.feedbackIncorrect,
+      uploadAllowedTypes: question.uploadAllowedTypes.map((value) => value.trim()).filter(Boolean),
+      uploadMaxSizeMb: question.uploadMaxSizeMb,
       sectionIndex: sectionIndexByKey.get(question.sectionKey) ?? 0,
       branchRules: question.branchRules.map((rule) => ({
         label: rule.label,
@@ -123,12 +128,14 @@ export function QuizBuilder({
   shareToken,
   initial,
   kelasOptions,
+  importOptions = [],
 }: {
   ujianId?: string;
   status?: string;
   shareToken?: string | null;
   initial: QuizFormState;
   kelasOptions: KelasOption[];
+  importOptions?: { id: string; title: string }[];
 }) {
   const [form, setForm] = useState<QuizFormState>(initial);
   const [id, setId] = useState(ujianId ?? "");
@@ -142,6 +149,27 @@ export function QuizBuilder({
   const [busy, setBusy] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [dragKey, setDragKey] = useState<string | null>(null);
+  const [importSourceId, setImportSourceId] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
+  const [importList, setImportList] = useState<{ id: string; question: string; type: string }[]>([]);
+  const [importSelected, setImportSelected] = useState<string[]>([]);
+  const [importBusy, setImportBusy] = useState(false);
+  const [collapsedQuestions, setCollapsedQuestions] = useState<Record<string, boolean>>({});
+  const [questionSearch, setQuestionSearch] = useState("");
+  const historyRef = useRef<QuizFormState[]>([initial]);
+  const redoRef = useRef<QuizFormState[]>([]);
+  const historyTimerRef = useRef<number | null>(null);
+  const historyReadyRef = useRef(false);
+  const restoringRef = useRef(false);
+  const [historyDepth, setHistoryDepth] = useState({ undo: 1, redo: 0 });
+  const [bankOpen, setBankOpen] = useState(false);
+  const [bankTerm, setBankTerm] = useState("");
+  const [bankResults, setBankResults] = useState<{ id: string; type: string; question: string }[]>([]);
+  const [bankSelected, setBankSelected] = useState<string[]>([]);
+  const [bankBusy, setBankBusy] = useState(false);
+  const [dragOption, setDragOption] = useState<{ key: string; index: number } | null>(null);
+  const [dragRow, setDragRow] = useState<{ key: string; index: number } | null>(null);
+  const [dragSection, setDragSection] = useState<string | null>(null);
   const firstRender = useRef(true);
   const timerRef = useRef<number | null>(null);
 
@@ -213,6 +241,77 @@ export function QuizBuilder({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form]);
 
+  useEffect(() => {
+    if (!historyReadyRef.current) {
+      historyReadyRef.current = true;
+      return;
+    }
+    if (restoringRef.current) {
+      restoringRef.current = false;
+      return;
+    }
+    if (historyTimerRef.current) window.clearTimeout(historyTimerRef.current);
+    historyTimerRef.current = window.setTimeout(() => {
+      historyTimerRef.current = null;
+      historyRef.current = [...historyRef.current.slice(-49), form];
+      redoRef.current = [];
+      setHistoryDepth({ undo: historyRef.current.length, redo: 0 });
+    }, 700);
+  }, [form]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || target?.isContentEditable) return;
+      if (!event.ctrlKey && !event.metaKey) return;
+
+      const key = event.key.toLowerCase();
+      if (key === "z" && !event.shiftKey) {
+        event.preventDefault();
+        undo();
+      } else if ((key === "z" && event.shiftKey) || key === "y") {
+        event.preventDefault();
+        redo();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
+  function flushHistory() {
+    if (!historyTimerRef.current) return;
+    window.clearTimeout(historyTimerRef.current);
+    historyTimerRef.current = null;
+    historyRef.current = [...historyRef.current.slice(-49), form];
+    redoRef.current = [];
+  }
+
+  function undo() {
+    flushHistory();
+    if (historyRef.current.length <= 1) return;
+    const current = historyRef.current[historyRef.current.length - 1];
+    const previous = historyRef.current[historyRef.current.length - 2];
+    historyRef.current = historyRef.current.slice(0, -1);
+    redoRef.current = [...redoRef.current, current];
+    restoringRef.current = true;
+    setForm(previous);
+    setSaveState("idle");
+    setHistoryDepth({ undo: historyRef.current.length, redo: redoRef.current.length });
+  }
+
+  function redo() {
+    if (redoRef.current.length === 0) return;
+    const next = redoRef.current[redoRef.current.length - 1];
+    redoRef.current = redoRef.current.slice(0, -1);
+    historyRef.current = [...historyRef.current, next];
+    restoringRef.current = true;
+    setForm(next);
+    setSaveState("idle");
+    setHistoryDepth({ undo: historyRef.current.length, redo: redoRef.current.length });
+  }
+
   function patchForm(patch: Partial<QuizFormState>) {
     setForm((current) => ({ ...current, ...patch }));
     setSaveState("idle");
@@ -242,8 +341,13 @@ export function QuizBuilder({
       gridRows: type === "GRID" ? ["", ""] : [],
       gridCorrect: type === "GRID" ? ["", ""] : [],
       gridMultiple: false,
-      branchRules: type === "PILIHAN_GANDA" ? form.questions.find((question) => question.key === key)?.branchRules ?? [] : [],
+      branchRules: CHOICE_TYPES.has(type) ? form.questions.find((question) => question.key === key)?.branchRules ?? [] : [],
       allowOther: type === "ESAI" ? false : form.questions.find((question) => question.key === key)?.allowOther ?? false,
+      validationType: "NONE",
+      validationMin: "",
+      validationMax: "",
+      validationPattern: "",
+      validationMessage: "",
     });
   }
 
@@ -376,6 +480,88 @@ export function QuizBuilder({
     }
   }
 
+  async function loadImportQuestions(sourceId: string) {
+    if (!sourceId) {
+      setImportList([]);
+      setImportSelected([]);
+      return;
+    }
+
+    setImportBusy(true);
+    setError("");
+    try {
+      const result = await requestJson<{ item: { questions: { id: string; question: string; type: string }[] } }>(`/api/v1/kuis/${sourceId}`, { fallbackMessage: "Gagal memuat soal sumber" });
+      setImportList(result.data.item.questions);
+      setImportSelected(result.data.item.questions.map((question) => question.id));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Gagal memuat soal sumber");
+      setImportList([]);
+      setImportSelected([]);
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  async function importQuestions(ids?: string[]) {
+    if (!id || !importSourceId) return;
+    setError("");
+    setNotice("");
+    setBusy(true);
+    try {
+      const payload = ids && ids.length > 0 ? { sourceUjianId: importSourceId, questionIds: ids } : { sourceUjianId: importSourceId };
+      const result = await requestJson<{ imported: number }>(`/api/v1/kuis/${id}/import-questions`, { method: "POST", body: payload, fallbackMessage: "Gagal mengimpor soal" });
+      setNotice(`${result.data.imported} soal berhasil disalin dari formulir lain.`);
+      window.location.reload();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Gagal mengimpor soal");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const questionTerm = questionSearch.trim().toLowerCase();
+  const visibleQuestionEntries = form.questions
+    .map((question, index) => ({ question, index }))
+    .filter(({ question }) => !questionTerm
+      || question.question.toLowerCase().includes(questionTerm)
+      || question.helpText.toLowerCase().includes(questionTerm));
+
+  async function searchBankSoal(term: string) {
+    setBankBusy(true);
+    setError("");
+    try {
+      const query = new URLSearchParams({ pageSize: "50" });
+      if (term.trim()) query.set("search", term.trim());
+      const result = await requestJson<{ items: { id: string; type: string; question: string }[] }>(`/api/v1/bank-soal?${query.toString()}`, { fallbackMessage: "Gagal memuat bank soal" });
+      setBankResults(result.data.items);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Gagal memuat bank soal");
+    } finally {
+      setBankBusy(false);
+    }
+  }
+
+  function openBankPicker() {
+    setBankOpen(true);
+    setBankSelected([]);
+    void searchBankSoal(bankTerm);
+  }
+
+  async function addSelectedFromBank() {
+    if (!id || bankSelected.length === 0) return;
+    setBankBusy(true);
+    setError("");
+    try {
+      const result = await requestJson<{ added: number; skipped: number }>(`/api/v1/kuis/${id}/questions`, { method: "POST", body: { bankSoalIds: bankSelected }, fallbackMessage: "Gagal menambahkan soal" });
+      setNotice(`${result.data.added} soal ditambahkan dari bank soal${result.data.skipped > 0 ? `, ${result.data.skipped} dilewati karena sudah ada` : ""}.`);
+      window.location.reload();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Gagal menambahkan soal");
+    } finally {
+      setBankBusy(false);
+    }
+  }
+
   async function duplicateForm() {
     if (!id) return;
     setError("");
@@ -430,6 +616,51 @@ export function QuizBuilder({
     setSaveState("idle");
   }
 
+  function moveItem<T>(items: T[], from: number, to: number) {
+    if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return items;
+    const copy = [...items];
+    const [moved] = copy.splice(from, 1);
+    copy.splice(to, 0, moved);
+    return copy;
+  }
+
+  function patchQuestionByKey(key: string, updater: (_question: QuizQuestion) => QuizQuestion) {
+    setForm((current) => ({ ...current, questions: current.questions.map((question) => (question.key === key ? updater(question) : question)) }));
+    setSaveState("idle");
+  }
+
+  function moveOption(key: string, from: number, to: number) {
+    patchQuestionByKey(key, (question) => {
+      const options = moveItem(question.options, from, to);
+      if (question.type !== "GRID") return { ...question, options };
+
+      const order = moveItem(Array.from({ length: question.options.length }, (_, index) => index), from, to);
+      const oldToNew = new Map<number, number>();
+      order.forEach((oldIndex, newIndex) => oldToNew.set(oldIndex, newIndex));
+      const gridCorrect = question.gridRows.map((_, rowIndex) => {
+        const currentLabel = question.gridCorrect[rowIndex];
+        if (!currentLabel) return "";
+        const newIndex = oldToNew.get(LABELS.indexOf(currentLabel));
+        return newIndex === undefined ? currentLabel : LABELS[newIndex];
+      });
+
+      return { ...question, options, gridCorrect };
+    });
+  }
+
+  function moveGridRow(key: string, from: number, to: number) {
+    patchQuestionByKey(key, (question) => ({
+      ...question,
+      gridRows: moveItem(question.gridRows, from, to),
+      gridCorrect: moveItem(question.gridCorrect, from, to),
+    }));
+  }
+
+  function moveSection(from: number, to: number) {
+    setForm((current) => ({ ...current, sections: moveItem(current.sections, from, to) }));
+    setSaveState("idle");
+  }
+
   function updateOption(key: string, index: number, patch: { content?: string; isCorrect?: boolean; mediaUrl?: string }) {
     patchQuestion(key, {
       options: form.questions.find((question) => question.key === key)?.options.map((option, position) => {
@@ -461,6 +692,8 @@ export function QuizBuilder({
           <span className={`rounded-full px-3 py-1 text-theme-xs font-bold ${currentStatus === "PUBLISHED" ? "bg-success-50 text-success-700" : "bg-gray-100 text-gray-600"}`}>{currentStatus === "PUBLISHED" ? "Terbit" : "Draf"}</span>
           <div className="flex flex-wrap items-center gap-2">
             {saveState !== "idle" ? <span className={`text-theme-xs font-semibold ${saveState === "error" ? "text-error-600" : saveState === "saving" ? "text-warning-700" : "text-success-700"}`}>{saveState === "saving" ? "Menyimpan..." : saveState === "error" ? "Gagal menyimpan" : "Tersimpan"}</span> : null}
+            <button type="button" onClick={undo} disabled={historyDepth.undo <= 1} className="tailadmin-button-outline px-3 py-2 disabled:opacity-40" aria-label="Batalkan perubahan terakhir">Undo</button>
+            <button type="button" onClick={redo} disabled={historyDepth.redo === 0} className="tailadmin-button-outline px-3 py-2 disabled:opacity-40" aria-label="Ulangi perubahan">Redo</button>
             <button type="button" onClick={() => setPreviewOpen(true)} className="tailadmin-button-outline px-4 py-2">Pratinjau</button>
             {id ? <a href={`/api/v1/kuis/${id}/pdf`} target="_blank" rel="noreferrer" className="tailadmin-button-outline px-4 py-2">Cetak PDF</a> : null}
             {id ? <a href={`/api/v1/kuis/${id}/pdf?kunci=1`} target="_blank" rel="noreferrer" className="tailadmin-button-outline px-4 py-2">PDF + Kunci</a> : null}
@@ -526,12 +759,36 @@ export function QuizBuilder({
             </div>
             <div className="mt-3 grid gap-3">
               {form.sections.map((section, index) => (
-                <div key={section.key} className="grid gap-2 rounded-xl border border-gray-200 p-3">
+                <div
+                  key={section.key}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => {
+                    if (dragSection) {
+                      const from = form.sections.findIndex((item) => item.key === dragSection);
+                      if (from !== -1) moveSection(from, index);
+                    }
+                    setDragSection(null);
+                  }}
+                  className={`grid gap-2 rounded-xl border p-3 ${dragSection === section.key ? "border-dashed border-limo-blue-400 opacity-60" : "border-gray-200"}`}
+                >
                   <div className="flex items-center gap-2">
+                    <span
+                      draggable
+                      onDragStart={() => setDragSection(section.key)}
+                      onDragEnd={() => setDragSection(null)}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Tarik untuk mengurutkan bagian ${index + 1}`}
+                      className="flex min-h-11 min-w-11 shrink-0 cursor-grab select-none items-center justify-center rounded-lg border border-gray-200 text-theme-xs text-gray-400 hover:bg-gray-50"
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="size-4"><circle cx="9" cy="7" r="1.6" /><circle cx="15" cy="7" r="1.6" /><circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="9" cy="17" r="1.6" /><circle cx="15" cy="17" r="1.6" /></svg>
+                    </span>
                     <span className="shrink-0 text-theme-xs font-bold text-gray-400">Bagian {index + 1}</span>
                     <input value={section.title} onChange={(event) => patchSection(section.key, { title: event.target.value })} placeholder="Judul bagian" dir="auto" className="tailadmin-input" />
+                    <button type="button" onClick={() => moveSection(index, index - 1)} disabled={index === 0} aria-label="Naikkan bagian" className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-3 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">↑</button>
+                    <button type="button" onClick={() => moveSection(index, index + 1)} disabled={index === form.sections.length - 1} aria-label="Turunkan bagian" className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-3 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">↓</button>
                     {form.sections.length > 1 ? (
-                      <button type="button" onClick={() => removeSection(section.key)} className="rounded-lg border border-error-200 px-2 py-1 text-theme-xs text-error-600 hover:bg-error-50">Hapus</button>
+                      <button type="button" onClick={() => removeSection(section.key)} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-error-200 px-3 text-theme-xs text-error-600 hover:bg-error-50">Hapus</button>
                     ) : null}
                   </div>
                   <input value={section.description} onChange={(event) => patchSection(section.key, { description: event.target.value })} placeholder="Deskripsi bagian (opsional)" dir="auto" className="tailadmin-input" />
@@ -540,7 +797,111 @@ export function QuizBuilder({
             </div>
           </section>
 
-          {form.questions.map((question, index) => (
+          {id && importOptions.length > 0 ? (
+            <section className="tailadmin-card p-5">
+              <h2 className="font-semibold text-gray-900">Impor soal dari formulir lain</h2>
+              <p className="mt-1 text-theme-xs text-gray-500">Pilih formulir sumber, lalu pilih soal mana yang ingin disalin atau salin semuanya.</p>
+              <button type="button" onClick={() => { setImportOpen(true); setImportSourceId(""); setImportList([]); setImportSelected([]); }} className="tailadmin-button-outline mt-3 px-4 py-2">Buka impor soal</button>
+
+              {importOpen ? (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/40 p-4" role="presentation">
+                  <section role="dialog" aria-modal="true" aria-labelledby="import-questions-title" className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-2xl bg-white p-5 shadow-theme-xl">
+                    <h3 id="import-questions-title" className="text-lg font-semibold text-gray-900">Impor soal</h3>
+                    <label className="mt-3 block text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Formulir sumber
+                      <select value={importSourceId} onChange={(event) => { setImportSourceId(event.target.value); void loadImportQuestions(event.target.value); }} aria-label="Pilih formulir sumber" className="mt-1 tailadmin-input">
+                        <option value="">Pilih formulir sumber</option>
+                        {importOptions.map((option) => <option key={option.id} value={option.id}>{option.title}</option>)}
+                      </select>
+                    </label>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="text-theme-xs text-gray-500">{importBusy ? "Memuat soal..." : `${importSelected.length} dari ${importList.length} soal dipilih`}</span>
+                      {importList.length > 0 ? (
+                        <button type="button" onClick={() => setImportSelected(importSelected.length === importList.length ? [] : importList.map((question) => question.id))} className="tailadmin-button-outline px-3 py-1.5 text-theme-xs">
+                          {importSelected.length === importList.length ? "Kosongkan pilihan" : "Pilih semua"}
+                        </button>
+                      ) : null}
+                    </div>
+                    <ul className="mt-3 flex-1 space-y-2 overflow-y-auto">
+                      {importList.length === 0 && !importBusy && importSourceId ? <li className="text-theme-sm text-gray-500">Formulir sumber belum memiliki soal.</li> : null}
+                      {importList.map((item) => (
+                        <li key={item.id} className="flex items-start gap-3 rounded-xl border border-gray-200 px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={importSelected.includes(item.id)}
+                            onChange={(event) => setImportSelected((current) => (event.target.checked ? [...current, item.id] : current.filter((value) => value !== item.id)))}
+                            aria-label={`Pilih soal ${item.question.slice(0, 40)}`}
+                            className="mt-1 accent-limo-blue-500"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-400">{item.type}</p>
+                            <p className="mt-0.5 line-clamp-2 text-theme-sm text-gray-700" dir="auto">{item.question}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-4 flex flex-wrap justify-end gap-2">
+                      <button type="button" onClick={() => setImportOpen(false)} disabled={busy} className="tailadmin-button-outline px-4 py-2.5">Tutup</button>
+                      <button type="button" onClick={() => void importQuestions()} disabled={busy || !importSourceId} className="tailadmin-button-outline px-4 py-2.5">{busy ? "Mengimpor..." : "Impor semua soal"}</button>
+                      <button type="button" onClick={() => void importQuestions(importSelected)} disabled={busy || importSelected.length === 0} className="tailadmin-button-primary px-5 py-2.5">{busy ? "Mengimpor..." : "Impor soal terpilih"}</button>
+                    </div>
+                  </section>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
+          {form.questions.length > 1 ? (
+            <div className="tailadmin-card flex flex-wrap items-center gap-3 p-4">
+              <input value={questionSearch} onChange={(event) => setQuestionSearch(event.target.value)} placeholder="Cari soal berdasarkan pertanyaan atau petunjuk" aria-label="Cari soal" className="tailadmin-input sm:max-w-sm" />
+              <span className="text-theme-xs text-gray-500">{questionTerm ? `${visibleQuestionEntries.length} dari ${form.questions.length} soal cocok` : `${form.questions.length} soal`}</span>
+            </div>
+          ) : null}
+
+          {id ? (
+            <section className="tailadmin-card p-5">
+              <h2 className="font-semibold text-gray-900">Ambil dari bank soal</h2>
+              <p className="mt-1 text-theme-xs text-gray-500">Tambahkan soal yang sudah pernah Anda buat tanpa menyalin ulang.</p>
+              <button type="button" onClick={openBankPicker} className="tailadmin-button-outline mt-3 px-4 py-2">Buka bank soal</button>
+
+              {bankOpen ? (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/40 p-4" role="presentation">
+                  <section role="dialog" aria-modal="true" aria-labelledby="bank-picker-title" className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-2xl bg-white p-5 shadow-theme-xl">
+                    <h3 id="bank-picker-title" className="text-lg font-semibold text-gray-900">Bank soal</h3>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <input value={bankTerm} onChange={(event) => setBankTerm(event.target.value)} placeholder="Cari pertanyaan" aria-label="Cari bank soal" className="tailadmin-input sm:max-w-xs" />
+                      <button type="button" onClick={() => void searchBankSoal(bankTerm)} disabled={bankBusy} className="tailadmin-button-outline px-3 py-2">{bankBusy ? "Memuat..." : "Cari"}</button>
+                      <span className="text-theme-xs text-gray-500">{bankSelected.length} dipilih</span>
+                    </div>
+                    <ul className="mt-3 flex-1 space-y-2 overflow-y-auto">
+                      {bankResults.length === 0 ? <li className="text-theme-sm text-gray-500">Tidak ada soal ditemukan.</li> : null}
+                      {bankResults.map((item) => (
+                        <li key={item.id} className="flex items-start gap-3 rounded-xl border border-gray-200 px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={bankSelected.includes(item.id)}
+                            onChange={(event) => setBankSelected((current) => (event.target.checked ? [...current, item.id] : current.filter((value) => value !== item.id)))}
+                            aria-label={`Pilih soal ${item.question.slice(0, 40)}`}
+                            className="mt-1 accent-limo-blue-500"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-400">{item.type}</p>
+                            <p className="mt-0.5 line-clamp-2 text-theme-sm text-gray-700" dir="auto">{item.question}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-4 flex flex-wrap justify-end gap-2">
+                      <button type="button" onClick={() => setBankOpen(false)} disabled={bankBusy} className="tailadmin-button-outline px-4 py-2.5">Tutup</button>
+                      <button type="button" onClick={() => void addSelectedFromBank()} disabled={bankBusy || bankSelected.length === 0} className="tailadmin-button-primary px-5 py-2.5">{bankBusy ? "Menambahkan..." : "Tambahkan ke formulir"}</button>
+                    </div>
+                  </section>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
+          {visibleQuestionEntries.map(({ question, index }) => (
             <article
               key={question.key}
               onDragOver={(event) => event.preventDefault()}
@@ -559,20 +920,23 @@ export function QuizBuilder({
                     role="button"
                     tabIndex={0}
                     aria-label={`Tarik untuk mengurutkan soal ${index + 1}`}
-                    className="cursor-grab select-none rounded-lg border border-gray-200 px-2 py-1 text-theme-xs text-gray-400 hover:bg-gray-50"
+                    className="flex min-h-11 min-w-11 cursor-grab select-none items-center justify-center rounded-lg border border-gray-200 text-theme-xs text-gray-400 hover:bg-gray-50"
                   >
-                    ⠿
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="size-4"><circle cx="9" cy="7" r="1.6" /><circle cx="15" cy="7" r="1.6" /><circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="9" cy="17" r="1.6" /><circle cx="15" cy="17" r="1.6" /></svg>
                   </span>
                   <p className="text-theme-sm font-bold text-gray-700">Soal {index + 1}</p>
+                  {question.question.trim() ? <span className="hidden max-w-48 truncate text-theme-xs text-gray-400 sm:inline">· {question.question}</span> : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <button type="button" onClick={() => moveQuestion(question.key, -1)} disabled={index === 0} aria-label="Naikkan soal" className="rounded-lg border border-gray-200 px-2 py-1 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">↑</button>
-                  <button type="button" onClick={() => moveQuestion(question.key, 1)} disabled={index === form.questions.length - 1} aria-label="Turunkan soal" className="rounded-lg border border-gray-200 px-2 py-1 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">↓</button>
-                  <button type="button" onClick={() => duplicateQuestion(question.key)} className="rounded-lg border border-gray-200 px-2 py-1 text-theme-xs text-gray-500 hover:bg-gray-50">Duplikat</button>
-                  <button type="button" onClick={() => removeQuestion(question.key)} disabled={form.questions.length <= 1} className="rounded-lg border border-error-200 px-2 py-1 text-theme-xs text-error-600 hover:bg-error-50 disabled:opacity-40">Hapus</button>
+                  <button type="button" onClick={() => setCollapsedQuestions((current) => ({ ...current, [question.key]: !current[question.key] }))} aria-expanded={!collapsedQuestions[question.key]} aria-label={`${collapsedQuestions[question.key] ? "Buka" : "Lipat"} soal ${index + 1}`} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-200 px-3 text-theme-xs text-gray-500 hover:bg-gray-50">{collapsedQuestions[question.key] ? "Buka" : "Lipat"}</button>
+                  <button type="button" onClick={() => moveQuestion(question.key, -1)} disabled={index === 0} aria-label="Naikkan soal" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-200 px-3 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">↑</button>
+                  <button type="button" onClick={() => moveQuestion(question.key, 1)} disabled={index === form.questions.length - 1} aria-label="Turunkan soal" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-200 px-3 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">↓</button>
+                  <button type="button" onClick={() => duplicateQuestion(question.key)} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-200 px-3 text-theme-xs text-gray-500 hover:bg-gray-50">Duplikat</button>
+                  <button type="button" onClick={() => removeQuestion(question.key)} disabled={form.questions.length <= 1} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-error-200 px-3 text-theme-xs text-error-600 hover:bg-error-50 disabled:opacity-40">Hapus</button>
                 </div>
               </div>
 
+              {collapsedQuestions[question.key] ? null : (
               <div className="mt-3 grid gap-3">
                 <select value={question.type} onChange={(event) => changeType(question.key, event.target.value)} aria-label={`Tipe soal ${index + 1}`} className="tailadmin-input sm:max-w-xs">
                   {QUESTION_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label} — {type.hint}</option>)}
@@ -644,8 +1008,27 @@ export function QuizBuilder({
                   <div className="grid gap-2">
                     {question.type === "GRID" ? <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">Kolom pilihan</p> : null}
                     {question.options.map((option, optionIndex) => (
-                      <div key={optionIndex} className="rounded-xl border border-gray-200 bg-white p-2">
+                      <div
+                        key={optionIndex}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={() => {
+                          if (dragOption && dragOption.key === question.key) moveOption(question.key, dragOption.index, optionIndex);
+                          setDragOption(null);
+                        }}
+                        className={`rounded-xl border bg-white p-2 ${dragOption && dragOption.key === question.key && dragOption.index === optionIndex ? "border-dashed border-limo-blue-400 opacity-60" : "border-gray-200"}`}
+                      >
                         <div className="flex items-center gap-2">
+                          <span
+                            draggable
+                            onDragStart={() => setDragOption({ key: question.key, index: optionIndex })}
+                            onDragEnd={() => setDragOption(null)}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Tarik untuk mengurutkan ${question.type === "GRID" ? "kolom" : "opsi"} ${LABELS[optionIndex]}`}
+                            className="flex min-h-11 min-w-9 shrink-0 cursor-grab select-none items-center justify-center text-theme-xs text-gray-400"
+                          >
+                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="size-4"><circle cx="9" cy="7" r="1.6" /><circle cx="15" cy="7" r="1.6" /><circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="9" cy="17" r="1.6" /><circle cx="15" cy="17" r="1.6" /></svg>
+                          </span>
                           {question.type === "GRID" ? (
                             <span className="grid size-8 shrink-0 place-items-center rounded-full border border-gray-300 text-theme-xs font-bold text-gray-500">{LABELS[optionIndex]}</span>
                           ) : (
@@ -667,8 +1050,10 @@ export function QuizBuilder({
                             dir="auto"
                             className="tailadmin-input"
                           />
-                          <label className="shrink-0 cursor-pointer rounded-lg border border-gray-200 px-2 py-1.5 text-theme-xs text-gray-500 hover:bg-gray-50 focus-within:ring-2 focus-within:ring-limo-blue-500" title="Tambah gambar opsi">
-                            🖼
+                          <button type="button" onClick={() => moveOption(question.key, optionIndex, optionIndex - 1)} disabled={optionIndex === 0} aria-label={`Naikkan ${question.type === "GRID" ? "kolom" : "opsi"} ${LABELS[optionIndex]}`} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-3 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">↑</button>
+                          <button type="button" onClick={() => moveOption(question.key, optionIndex, optionIndex + 1)} disabled={optionIndex === question.options.length - 1} aria-label={`Turunkan ${question.type === "GRID" ? "kolom" : "opsi"} ${LABELS[optionIndex]}`} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-3 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">↓</button>
+                          <label className="inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-gray-200 px-3 text-theme-xs text-gray-500 hover:bg-gray-50 focus-within:ring-2 focus-within:ring-limo-blue-500" title="Tambah gambar opsi">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className="size-4"><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9.5" r="1.5" /><path d="m21 15-5-5L5 20" /></svg>
                             <input
                               type="file"
                               accept="image/jpeg,image/png,image/webp"
@@ -680,7 +1065,7 @@ export function QuizBuilder({
                               }}
                             />
                           </label>
-                          <button type="button" onClick={() => removeOption(question.key, optionIndex)} disabled={question.options.length <= 2} className="shrink-0 rounded-lg border border-gray-200 px-2 py-1.5 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">Hapus</button>
+                          <button type="button" onClick={() => removeOption(question.key, optionIndex)} disabled={question.options.length <= 2} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-3 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">Hapus</button>
                         </div>
                         {option.mediaUrl ? (
                           <div className="mt-2 flex items-center gap-2 ps-10">
@@ -694,7 +1079,7 @@ export function QuizBuilder({
                       </div>
                     ))}
                     <button type="button" onClick={() => addOption(question.key)} disabled={question.options.length >= 10} className="w-fit rounded-lg border border-gray-200 px-3 py-1.5 text-theme-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40">{question.type === "GRID" ? "+ Tambah kolom" : "+ Tambah opsi"}</button>
-                    {question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" ? (
+                    {CHOICE_TYPES.has(question.type) ? (
                       <label className="mt-1 flex items-center gap-2 text-theme-sm text-gray-700">
                         <input type="checkbox" checked={question.allowOther} onChange={(event) => patchQuestion(question.key, { allowOther: event.target.checked })} className="accent-limo-blue-500" />
                         Tambahkan opsi &quot;Lainnya&quot;
@@ -714,7 +1099,26 @@ export function QuizBuilder({
                     </div>
                     <div className="mt-2 grid gap-2">
                       {question.gridRows.map((row, rowIndex) => (
-                        <div key={rowIndex} className="flex flex-wrap items-center gap-2">
+                        <div
+                          key={rowIndex}
+                          onDragOver={(event) => event.preventDefault()}
+                          onDrop={() => {
+                            if (dragRow && dragRow.key === question.key) moveGridRow(question.key, dragRow.index, rowIndex);
+                            setDragRow(null);
+                          }}
+                          className={`flex flex-wrap items-center gap-2 rounded-xl border p-2 ${dragRow && dragRow.key === question.key && dragRow.index === rowIndex ? "border-dashed border-limo-blue-400 opacity-60" : "border-gray-200"}`}
+                        >
+                          <span
+                            draggable
+                            onDragStart={() => setDragRow({ key: question.key, index: rowIndex })}
+                            onDragEnd={() => setDragRow(null)}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Tarik untuk mengurutkan baris ${rowIndex + 1}`}
+                            className="flex min-h-11 min-w-9 shrink-0 cursor-grab select-none items-center justify-center text-theme-xs text-gray-400"
+                          >
+                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="size-4"><circle cx="9" cy="7" r="1.6" /><circle cx="15" cy="7" r="1.6" /><circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="9" cy="17" r="1.6" /><circle cx="15" cy="17" r="1.6" /></svg>
+                          </span>
                           <input value={row} onChange={(event) => updateGridRow(question.key, rowIndex, event.target.value)} placeholder={`Pernyataan ${rowIndex + 1}`} dir="auto" className="tailadmin-input flex-1" />
                           <label className="flex items-center gap-1 text-theme-xs text-gray-500">
                             Kunci
@@ -723,7 +1127,9 @@ export function QuizBuilder({
                               {question.options.map((_, columnIndex) => <option key={columnIndex} value={LABELS[columnIndex]}>{LABELS[columnIndex]}</option>)}
                             </select>
                           </label>
-                          <button type="button" onClick={() => removeGridRow(question.key, rowIndex)} disabled={question.gridRows.length <= 1} className="rounded-lg border border-gray-200 px-2 py-1.5 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">Hapus</button>
+                          <button type="button" onClick={() => moveGridRow(question.key, rowIndex, rowIndex - 1)} disabled={rowIndex === 0} aria-label={`Naikkan baris ${rowIndex + 1}`} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-3 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">↑</button>
+                          <button type="button" onClick={() => moveGridRow(question.key, rowIndex, rowIndex + 1)} disabled={rowIndex === question.gridRows.length - 1} aria-label={`Turunkan baris ${rowIndex + 1}`} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-3 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">↓</button>
+                          <button type="button" onClick={() => removeGridRow(question.key, rowIndex)} disabled={question.gridRows.length <= 1} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-3 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">Hapus</button>
                         </div>
                       ))}
                       <button type="button" onClick={() => addGridRow(question.key)} disabled={question.gridRows.length >= 20} className="w-fit rounded-lg border border-gray-200 px-3 py-1.5 text-theme-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40">+ Tambah baris</button>
@@ -768,11 +1174,46 @@ export function QuizBuilder({
                   </label>
                 ) : null}
 
-                {question.type === "FILE_UPLOAD" ? (
-                  <p className="rounded-xl bg-limo-blue-50 px-4 py-3 text-theme-sm text-limo-blue-700">Responden akan mengunggah satu berkas (PDF, dokumen, gambar, audio, video, atau zip). Dinilai manual oleh guru.</p>
+                {["ISIAN_SINGKAT", "CLOZE", "TANGGAL", "WAKTU"].includes(question.type) ? (
+                  <label className="block text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Kunci alternatif yang juga diterima (opsional, satu per baris)
+                    <textarea
+                      value={question.acceptedAnswers.join("\n")}
+                      onChange={(event) => patchQuestion(question.key, { acceptedAnswers: event.target.value.split("\n").map((line) => line.trim()).filter(Boolean) })}
+                      dir="auto"
+                      rows={2}
+                      placeholder="Contoh:&#10;DKI Jakarta&#10;jakarta"
+                      className="mt-2 tailadmin-input"
+                    />
+                  </label>
                 ) : null}
 
-                {question.type === "PILIHAN_GANDA" && form.sections.length > 1 ? (
+                <div className="grid gap-3 rounded-xl border border-gray-200 p-3 sm:grid-cols-2">
+                  <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Umpan balik jika benar (opsional)
+                    <textarea value={question.feedbackCorrect} onChange={(event) => patchQuestion(question.key, { feedbackCorrect: event.target.value })} dir="auto" rows={2} className="mt-1 tailadmin-input" />
+                  </label>
+                  <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Umpan balik jika salah (opsional)
+                    <textarea value={question.feedbackIncorrect} onChange={(event) => patchQuestion(question.key, { feedbackIncorrect: event.target.value })} dir="auto" rows={2} className="mt-1 tailadmin-input" />
+                  </label>
+                </div>
+
+                {question.type === "FILE_UPLOAD" ? (
+                  <div className="grid gap-3 rounded-xl border border-gray-200 p-3 sm:grid-cols-2">
+                    <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Tipe berkas diizinkan (satu per baris, kosong = semua)
+                      <textarea value={question.uploadAllowedTypes.join("\n")} onChange={(event) => patchQuestion(question.key, { uploadAllowedTypes: event.target.value.split("\n").map((line) => line.trim()).filter(Boolean) })} rows={2} placeholder="application/pdf&#10;image/png" className="mt-1 tailadmin-input" />
+                    </label>
+                    <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Ukuran maksimum (MB, 0 = tanpa batas)
+                      <input type="number" min={0} max={200} value={question.uploadMaxSizeMb} onChange={(event) => patchQuestion(question.key, { uploadMaxSizeMb: Number(event.target.value) || 0 })} className="mt-1 tailadmin-input" />
+                    </label>
+                    <p className="rounded-xl bg-limo-blue-50 px-4 py-3 text-theme-sm text-limo-blue-700 sm:col-span-2">Responden akan mengunggah satu berkas (PDF, dokumen, gambar, audio, video, atau zip). Dinilai manual oleh guru.</p>
+                  </div>
+                ) : null}
+
+                {CHOICE_TYPES.has(question.type) && form.sections.length > 1 ? (
                   <div className="rounded-xl border border-gray-200 p-3">
                     <p className="text-theme-sm font-semibold text-gray-700">Lompatan antar bagian (branching)</p>
                     <p className="mt-1 text-theme-xs text-gray-500">Setelah responden memilih, arahkan ke bagian tertentu.</p>
@@ -805,29 +1246,32 @@ export function QuizBuilder({
                   </div>
                 ) : null}
 
-                {question.type === "ISIAN_SINGKAT" ? (
+                {["ISIAN_SINGKAT", "ESAI", "MULTI_SELECT"].includes(question.type) ? (
                   <div className="grid gap-3 rounded-xl border border-gray-200 p-3 sm:grid-cols-2">
-                    <label className="block text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Kunci jawaban
-                      <input value={question.expectedAnswer} onChange={(event) => patchQuestion(question.key, { expectedAnswer: event.target.value })} placeholder="Jawaban benar" dir="auto" className="mt-2 tailadmin-input" />
-                    </label>
+                    {question.type === "ISIAN_SINGKAT" ? (
+                      <label className="block text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Kunci jawaban
+                        <input value={question.expectedAnswer} onChange={(event) => patchQuestion(question.key, { expectedAnswer: event.target.value })} placeholder="Jawaban benar" dir="auto" className="mt-2 tailadmin-input" />
+                      </label>
+                    ) : null}
                     <label className="block text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
                       Validasi jawaban
                       <select value={question.validationType} onChange={(event) => patchQuestion(question.key, { validationType: event.target.value })} className="mt-2 tailadmin-input">
                         <option value="NONE">Tidak ada</option>
-                        <option value="NUMBER">Angka (rentang)</option>
-                        <option value="LENGTH">Panjang teks</option>
-                        <option value="TEXT">Cocok pola (regex)</option>
+                        {question.type === "ISIAN_SINGKAT" ? <option value="NUMBER">Angka (rentang)</option> : null}
+                        {question.type !== "MULTI_SELECT" ? <option value="LENGTH">Panjang teks</option> : null}
+                        {question.type === "ISIAN_SINGKAT" ? <option value="TEXT">Cocok pola (regex)</option> : null}
+                        {question.type === "MULTI_SELECT" ? <option value="CHECKBOX">Jumlah pilihan</option> : null}
                       </select>
                     </label>
-                    {question.validationType === "NUMBER" || question.validationType === "LENGTH" ? (
+                    {question.validationType === "NUMBER" || question.validationType === "LENGTH" || question.validationType === "CHECKBOX" ? (
                       <>
                         <label className="block text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-                          {question.validationType === "NUMBER" ? "Nilai minimum" : "Panjang minimum"}
+                          {question.validationType === "NUMBER" ? "Nilai minimum" : question.validationType === "CHECKBOX" ? "Jumlah pilihan minimum" : "Panjang minimum"}
                           <input type="number" min={0} value={question.validationMin} onChange={(event) => patchQuestion(question.key, { validationMin: event.target.value })} className="mt-2 tailadmin-input" />
                         </label>
                         <label className="block text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-                          {question.validationType === "NUMBER" ? "Nilai maksimum" : "Panjang maksimum"}
+                          {question.validationType === "NUMBER" ? "Nilai maksimum" : question.validationType === "CHECKBOX" ? "Jumlah pilihan maksimum" : "Panjang maksimum"}
                           <input type="number" min={0} value={question.validationMax} onChange={(event) => patchQuestion(question.key, { validationMax: event.target.value })} className="mt-2 tailadmin-input" />
                         </label>
                       </>
@@ -873,6 +1317,7 @@ export function QuizBuilder({
                   ) : null}
                 </div>
               </div>
+              )}
             </article>
           ))}
 
@@ -898,6 +1343,7 @@ export function QuizBuilder({
             Mode pengiriman
             <select value={form.deliveryMode} onChange={(event) => patchForm({ deliveryMode: event.target.value })} className="mt-2 tailadmin-input">
               <option value="ONLINE_VIA_WALI">Online via wali</option>
+              <option value="ONLINE_VIA_SISWA">Online via siswa</option>
               <option value="BOTH">Online + input guru</option>
               <option value="TEACHER_ENTRY">Input guru saja</option>
             </select>
@@ -922,6 +1368,20 @@ export function QuizBuilder({
             Tersedia sampai
             <input type="date" value={form.availableUntil} onChange={(event) => patchForm({ availableUntil: event.target.value })} className="mt-2 tailadmin-input" />
           </label>
+          <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+            Tampilan soal
+            <select value={form.presentationMode} onChange={(event) => patchForm({ presentationMode: event.target.value })} className="mt-2 tailadmin-input">
+              <option value="ALL">Semua soal per halaman</option>
+              <option value="ONE_PER_PAGE">Satu soal per halaman</option>
+            </select>
+          </label>
+          <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+            Rilis nilai
+            <select value={form.releaseMode} onChange={(event) => patchForm({ releaseMode: event.target.value })} className="mt-2 tailadmin-input">
+              <option value="IMMEDIATE">Langsung setelah submit</option>
+              <option value="AFTER_REVIEW">Setelah guru merilis</option>
+            </select>
+          </label>
           <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2">
             <Toggle label="Acak urutan soal" checked={form.shuffleQuestions} onChange={(value) => patchForm({ shuffleQuestions: value })} />
             <Toggle label="Acak urutan opsi" checked={form.shuffleOptions} onChange={(value) => patchForm({ shuffleOptions: value })} />
@@ -929,6 +1389,12 @@ export function QuizBuilder({
             <Toggle label="Tampilkan kunci & pembahasan" checked={form.showAnswersAfterSubmit} onChange={(value) => patchForm({ showAnswersAfterSubmit: value })} />
             <Toggle label="Minta nama responden (tautan publik)" checked={form.collectRespondentName} onChange={(value) => patchForm({ collectRespondentName: value })} />
             <Toggle label="Tampilkan hasil ke wali" checked={form.showResultToWali} onChange={(value) => patchForm({ showResultToWali: value })} />
+            <Toggle label="Tampilkan nilai ke siswa" checked={form.showResultToSiswa} onChange={(value) => patchForm({ showResultToSiswa: value })} />
+            <Toggle label="Mode aman (deteksi pindah tab)" checked={form.secureMode} onChange={(value) => patchForm({ secureMode: value })} />
+            <Toggle label="Kumpulkan email responden" checked={form.collectRespondentEmail} onChange={(value) => patchForm({ collectRespondentEmail: value })} />
+            <Toggle label="Kirim salinan jawaban ke responden" checked={form.sendCopyToRespondent} onChange={(value) => patchForm({ sendCopyToRespondent: value })} />
+            <Toggle label="Batasi 1 respons per email" checked={form.oneResponsePerEmail} onChange={(value) => patchForm({ oneResponsePerEmail: value })} />
+            <Toggle label="Notifikasi guru saat ada respons" checked={form.notifyGuruOnResponse} onChange={(value) => patchForm({ notifyGuruOnResponse: value })} />
           </div>
           <div className="sm:col-span-2">
             <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">Gambar header (opsional)</p>

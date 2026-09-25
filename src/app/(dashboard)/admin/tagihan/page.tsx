@@ -2,8 +2,10 @@ import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { listKelas, listPrograms } from "@/server/services/master-data-service";
 import { getTagihanSummary, listTagihan, listTarif } from "@/server/services/billing-service";
+import { listVouchers } from "@/server/services/voucher-service";
 import { listPaymentGatewaySettings } from "@/server/services/payment-gateway-service";
 import { GenerateInvoiceForm, TarifForm } from "@/components/dashboard/billing-forms";
+import { VoucherForm, VoucherToggleButton } from "@/components/dashboard/voucher-forms";
 import { AdminBillingWorkspace, type AdminBillingInvoice } from "@/components/dashboard/admin-billing-workspace";
 import { DashboardHero, SectionHeader } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
@@ -22,13 +24,14 @@ export default async function AdminTagihanPage({ searchParams }: { searchParams:
   const requestedStatus = String(Array.isArray(params.status) ? params.status[0] || "" : params.status || "");
   const parsedStatus = tagihanStatusSchema.safeParse(requestedStatus);
   const status = parsedStatus.success ? parsedStatus.data : undefined;
-  const [{ items: tagihan, pagination: tagihanPagination }, { items: tarif }, { items: programs }, { items: kelas }, summary, gatewaySettings] = await Promise.all([
+  const [{ items: tagihan, pagination: tagihanPagination }, { items: tarif }, { items: programs }, { items: kelas }, summary, gatewaySettings, { items: vouchers }] = await Promise.all([
     listTagihan(actor, { page, pageSize: 20 }, { search, status }),
     listTarif(actor),
     listPrograms(actor),
     listKelas(actor),
     getTagihanSummary(actor),
     listPaymentGatewaySettings(actor),
+    listVouchers(actor),
   ]);
   const activeGatewaySettings = gatewaySettings.filter((item) => item.enabled && item.apiKeyConfigured);
   const gatewayLabel = activeGatewaySettings.length > 0 ? activeGatewaySettings.map((item) => item.provider === "mayar" ? "Mayar" : "Pakasir").join(" + ") : "Belum dikonfigurasi";
@@ -56,11 +59,20 @@ export default async function AdminTagihanPage({ searchParams }: { searchParams:
       />
 
       <section id="invoice-tools" className="space-y-4">
-        <SectionHeader title="Pusat operasional" description="Siapkan tarif dan buat tagihan bulanan tanpa meninggalkan halaman keuangan." />
-        <div className="grid gap-4 lg:grid-cols-2">
+        <SectionHeader title="Pusat operasional" description="Siapkan tarif, voucher, dan buat tagihan bulanan tanpa meninggalkan halaman keuangan." />
+        <div className="grid gap-4 lg:grid-cols-3">
           <TarifForm programs={programs.map((program) => ({ id: program.id, name: program.name }))} kelas={kelas.map((item) => ({ id: item.id, name: `${item.program.name} - ${item.name}` }))} />
           <GenerateInvoiceForm />
+          <VoucherForm programs={programs.map((program) => ({ id: program.id, name: program.name }))} kelas={kelas.map((item) => ({ id: item.id, name: `${item.program.name} - ${item.name}` }))} />
         </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <article id="voucher-catalog" className="tailadmin-card overflow-hidden">
+          <div className="border-b border-gray-100 px-5 py-4 sm:px-6"><div className="flex items-center justify-between gap-3"><div><p className="text-theme-xs font-semibold uppercase tracking-[0.16em] text-limo-blue-700">Daftar voucher</p><h2 className="mt-1 font-semibold text-gray-900">Voucher & diskon</h2><p className="mt-1 text-theme-xs text-gray-500">Wali memasukkan kode saat melunasi tagihan.</p></div><span className="rounded-full bg-limo-blue-50 px-2.5 py-1 text-[10px] font-semibold text-limo-blue-700">{vouchers.filter((item) => item.usable).length} aktif</span></div></div>
+          {vouchers.length > 0 ? <div className="divide-y divide-gray-100">{vouchers.map((item) => <div key={item.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-mono font-semibold text-gray-800">{item.code}</p><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${item.usable ? "bg-success-50 text-success-700" : "bg-gray-100 text-gray-500"}`}>{item.usable ? "Aktif" : item.isActive ? "Tidak berlaku" : "Arsip"}</span></div><p className="mt-1 text-theme-sm text-gray-500">{item.discountType === "PERCENT" ? `${item.discountValue}%` : `Rp ${item.discountValue.toLocaleString("id-ID")}`}{item.minAmount ? ` · min Rp ${item.minAmount.toLocaleString("id-ID")}` : ""}{item.maxUses !== null ? ` · kuota ${item.usedCount}/${item.maxUses}` : ""}</p>{item.description ? <p className="mt-1 text-theme-xs text-gray-400">{item.description}</p> : null}<p className="mt-1 text-theme-xs text-gray-400">Cakupan: {item.kelasName ?? item.programName ?? "Semua program"}</p></div><VoucherToggleButton id={item.id} isActive={item.isActive} /></div>)}</div> : <p className="px-6 py-10 text-center text-theme-sm text-gray-500">Belum ada voucher. Tambahkan melalui formulir di atas.</p>}
+        </article>
+        <article className="tailadmin-card p-5 sm:p-6"><p className="text-theme-xs font-semibold uppercase tracking-[0.16em] text-limo-blue-700">Kuitansi</p><h2 className="mt-1 font-semibold text-gray-900">Kuitansi otomatis</h2><p className="mt-2 text-theme-sm leading-6 text-gray-500">Setiap tagihan yang sudah lunas dapat diunduh sebagai kuitansi PDF dari detail tagihan, baik oleh Admin maupun Wali.</p></article>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
@@ -83,6 +95,9 @@ function serializeInvoice(item: Awaited<ReturnType<typeof listTagihan>>["items"]
     jenis: item.jenis,
     description: item.description,
     amount: Number(item.amount),
+    subtotal: item.subtotal,
+    discountAmount: item.discountAmount,
+    voucherCode: item.voucherCode,
     status: item.status,
     dueDate: item.dueDate.toISOString(),
     paidAt: item.paidAt?.toISOString() ?? null,

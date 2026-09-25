@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { getUjianInputContext, listHasilUjian } from "@/server/services/exam-service";
 import { HasilUjianForm } from "@/components/dashboard/hasil-ujian-form";
+import { ExamResultReleaseButton } from "@/components/dashboard/exam-result-release-button";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { formatUiLabel } from "@/lib/ui-labels";
@@ -38,6 +39,7 @@ export default async function GuruInputHasilUjianPage({ params, searchParams }: 
               <p className="font-semibold text-gray-900">{item.siswa.name}</p>
               <p className="text-theme-sm text-gray-500">Status {formatUiLabel(item.status)} / Skor {item.totalScore?.toString() ?? "-"}</p>
               {["NEEDS_REVIEW", "FINAL", "CORRECTED"].includes(item.status) ? <Link href={`/guru/ujian/${ujianId}/hasil/${item.id}/koreksi`} className="mt-2 inline-block text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">{item.status === "NEEDS_REVIEW" ? "Tinjau hasil" : "Buka koreksi"}</Link> : null}
+              {["FINAL", "CORRECTED"].includes(item.status) ? <div className="mt-2"><ExamResultReleaseButton hasilId={item.id} released={Boolean(item.releasedAt)} /></div> : null}
             </article>
           )) : <EmptyState icon="exam" title="Belum ada hasil tersimpan" description="Hasil ujian akan muncul setelah Guru menginput jawaban siswa." />}
         </div>

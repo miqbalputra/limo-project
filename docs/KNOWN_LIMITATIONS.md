@@ -23,13 +23,15 @@ Dokumen ini mencatat gap MVP saat ini agar tidak dianggap selesai diam-diam.
 ## UI/UX
 
 - Dashboard shell sudah memakai pola TailAdmin termasuk sidebar collapse, command search, profile dropdown, breadcrumb, dan dropdown notifikasi berbasis data; polish visual per modul masih bisa dilanjutkan.
-- Banyak modul belum memiliki edit/update/delete/arsip lengkap.
+- Modul akun Guru/Wali sudah memiliki CRUD, arsip/restore, reset password, kirim ulang aktivasi, dan impor CSV; modul lain belum semuanya memiliki edit/update/delete/arsip lengkap.
 - Tabel besar belum semua memakai pagination UI penuh, meskipun query utama dibatasi.
 
 ## Akademik
 
-- Online exam MVP via akun wali sudah tersedia untuk tipe soal dasar; autosave/resume, network-loss warning, global child selector, materi Wali, operational notification triggers, dan FAQ/pusat bantuan tersedia. Recording speaking, matching/sequencing interaktif, dan akun siswa mandiri masih menjadi backlog.
+- Online exam kini memiliki paritas Google Forms: penegakan jawaban wajib di server, grace window + auto-submit, kunci alternatif, validasi kotak centang/paragraf, branching semua tipe pilihan, email responden + limit per email, salinan/notifikasi respons, rilis nilai tertunda, mode satu soal per halaman, dan impor soal. Yang masih backlog: rekaman suara (speaking), interaksi menjodohkan/urutan berbasis drag di pemutar, dan impor soal per-butir (saat ini seluruh soal formulir sumber).
+- Ujian mandiri siswa: siswa dapat mengerjakan ujian daring dari akun sendiri (mode `ONLINE_VIA_SISWA`/`BOTH`) melalui portal `/siswa/ujian`; attempt ter-scope ke `siswaAccountId`. Mode aman (`Ujian.secureMode`) mencatat perpindahan tab pada attempt, nilai dapat ditahan guru lewat `Ujian.showResultToSiswa`, dan siswa dapat mengunduh berkas jawabannya sendiri. Backlog: mode aman lebih kuat (fullscreen/anti-paste) serta rilis nilai per attempt, bukan per ujian.
 - Hasil `NEEDS_REVIEW`, `FINAL`, dan `CORRECTED` memiliki jalur review/koreksi Guru; hasil final tetap dikunci dari input biasa.
+- Pengumuman & diskusi kelas tersedia (fase A/B/C dari Fase 9 `rencana.md`): pengumuman dengan audience, prioritas, jadwal terbit/berakhir, dan status baca; thread + balasan dengan pin/kunci/sembunyikan/soft-delete + audit; lapor konten ke antrean admin; lampiran thread berpenyimpanan privat. Yang masih backlog: Q&A per materi/modul (entri `ModuleItemType.DISCUSSION` masih ditolak service), lampiran pada balasan (hanya thread), pengumuman sekolah-wide (`kelasId` null), notifikasi langsung untuk materi baru, dan laporan isi dari siswa per konten dengan bukti.
 - Sesi Guru memiliki workflow finalisasi yang mengunci presensi dan progres setelah data lengkap.
 
 ## Operasional

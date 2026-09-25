@@ -11,9 +11,10 @@ export type FeatureFlagKey =
   | "calendarEnabled"
   | "activityCompletionEnabled"
   | "remedialEnabled"
-  | "classDiscussionEnabled"
   | "periodicReportsEnabled"
-  | "guardianAssistedSubmissionEnabled";
+  | "guardianAssistedSubmissionEnabled"
+  | "studentSelfExamEnabled"
+  | "classDiscussionEnabled";
 
 export type FeatureFlags = Record<FeatureFlagKey, boolean>;
 
@@ -25,9 +26,10 @@ const developmentDefaults: FeatureFlags = {
   calendarEnabled: true,
   activityCompletionEnabled: true,
   remedialEnabled: true,
-  classDiscussionEnabled: true,
   periodicReportsEnabled: true,
   guardianAssistedSubmissionEnabled: false,
+  studentSelfExamEnabled: true,
+  classDiscussionEnabled: true,
 };
 
 const productionDefaults: FeatureFlags = {
@@ -38,9 +40,10 @@ const productionDefaults: FeatureFlags = {
   calendarEnabled: false,
   activityCompletionEnabled: false,
   remedialEnabled: false,
-  classDiscussionEnabled: false,
   periodicReportsEnabled: false,
   guardianAssistedSubmissionEnabled: false,
+  studentSelfExamEnabled: false,
+  classDiscussionEnabled: false,
 };
 
 export function getFeatureFlags(): FeatureFlags {
@@ -55,9 +58,10 @@ export function getFeatureFlags(): FeatureFlags {
     calendarEnabled: env.CALENDAR_ENABLED ?? defaults.calendarEnabled,
     activityCompletionEnabled: env.ACTIVITY_COMPLETION_ENABLED ?? defaults.activityCompletionEnabled,
     remedialEnabled: env.REMEDIAL_ENABLED ?? defaults.remedialEnabled,
-    classDiscussionEnabled: env.CLASS_DISCUSSION_ENABLED ?? defaults.classDiscussionEnabled,
     periodicReportsEnabled: env.PERIODIC_REPORTS_ENABLED ?? defaults.periodicReportsEnabled,
     guardianAssistedSubmissionEnabled: env.GUARDIAN_ASSISTED_SUBMISSION_ENABLED ?? defaults.guardianAssistedSubmissionEnabled,
+    studentSelfExamEnabled: env.STUDENT_SELF_EXAM_ENABLED ?? defaults.studentSelfExamEnabled,
+    classDiscussionEnabled: env.CLASS_DISCUSSION_ENABLED ?? defaults.classDiscussionEnabled,
   };
 }
 

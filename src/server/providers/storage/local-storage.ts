@@ -264,19 +264,28 @@ const allowedQuizSubmissionTypes = new Map<string, string>([
   ["video/quicktime", "mov"],
 ]);
 
-export async function storeQuizSubmissionFile(file: File, folder: string): Promise<StoredFile> {
+export async function storeQuizSubmissionFile(file: File, folder: string, options: { allowedTypes?: string[]; maxSizeMb?: number } = {}): Promise<StoredFile> {
   if (file.size < 1) throw new ValidationError("File jawaban kosong");
-  const maxMb = getEnv().MAX_QUIZ_UPLOAD_MB;
+
+  const mimeType = baseMimeType(file.type);
+  const extension = allowedQuizSubmissionTypes.get(mimeType);
+  if (!extension) throw new ValidationError("Tipe file tidak diizinkan untuk jawaban");
+
+  const allowedTypes = (options.allowedTypes || []).map((value) => value.toLowerCase()).filter(Boolean);
+  if (allowedTypes.length > 0 && !allowedTypes.includes(mimeType)) {
+    throw new ValidationError(`Tipe berkas soal ini dibatasi: ${allowedTypes.join(", ")}`);
+  }
+
+  const maxMb = options.maxSizeMb && options.maxSizeMb > 0 ? options.maxSizeMb : getEnv().MAX_QUIZ_UPLOAD_MB;
   if (maxMb > 0 && file.size > maxMb * 1024 * 1024) {
     throw new ValidationError(`Ukuran file jawaban maksimal ${maxMb} MB`);
   }
-  const mimeType = baseMimeType(file.type);
-  const extension = allowedQuizSubmissionTypes.get(mimeType);
+
   const fileExtension = path.extname(file.name).slice(1).toLowerCase();
-  if (!extension) throw new ValidationError("Tipe file tidak diizinkan untuk jawaban");
   if (fileExtension !== extension && !(mimeType === "image/jpeg" && fileExtension === "jpeg")) {
     throw new ValidationError("Ekstensi file tidak sesuai dengan tipe file");
   }
+
   const bytes = new Uint8Array(await file.arrayBuffer());
   validateAssignmentMagicBytes(bytes, file.type);
   return writePrivateFile({ file, folder, extension, bytes });

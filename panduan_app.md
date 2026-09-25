@@ -762,9 +762,10 @@ Modul berikut dapat diaktifkan melalui environment variable:
 | Kalender | `CALENDAR_ENABLED` | Kalender, event, agenda, dan pekerjaan yang perlu ditindaklanjuti |
 | Activity completion | `ACTIVITY_COMPLETION_ENABLED` | Aturan penyelesaian dan progres aktivitas |
 | Remedial | `REMEDIAL_ENABLED` | Remedial, score policy, dan revision request |
-| Class discussion | `CLASS_DISCUSSION_ENABLED` | Konfigurasi diskusi kelas bila implementasi diaktifkan |
 | Periodic reports | `PERIODIC_REPORTS_ENABLED` | Konfigurasi laporan periodik bila implementasi tersedia |
 | Guardian assisted submission | `GUARDIAN_ASSISTED_SUBMISSION_ENABLED` | Selalu aktifkan hanya setelah kebijakan dan UAT disetujui |
+| Ujian mandiri siswa | `STUDENT_SELF_EXAM_ENABLED` | Siswa mengerjakan ujian daring dari akun sendiri |
+| Pengumuman & diskusi kelas | `CLASS_DISCUSSION_ENABLED` | Pengumuman kelas dengan status baca dan ruang tanya jawab kelas |
 
 Pada `NODE_ENV=production`, fitur tambahan default-nya nonaktif. Admin teknis harus mengaktifkan feature flag secara sengaja setelah UAT.
 

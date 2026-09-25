@@ -29,6 +29,9 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
       { label: "Integrasi Pembayaran", href: "/admin/pembayaran/pengaturan", icon: "billing", section: "Administrasi" },
      { label: "Laporan", href: "/admin/laporan", icon: "audit", section: "Administrasi" },
       { label: "Notifikasi", href: "/admin/notifikasi", icon: "bell", section: "Administrasi" },
+      { label: "Sertifikat", href: "/admin/sertifikat", icon: "exam", section: "Administrasi" },
+      { label: "Laporan Diskusi", href: "/admin/diskusi-laporan", icon: "audit", section: "Administrasi", requiredFeatures: ["classDiscussionEnabled"] },
+      { label: "Pengumuman", href: "/admin/pengumuman", icon: "bell", section: "Administrasi", requiredFeatures: ["classDiscussionEnabled"] },
       { label: "Pengguna", href: "/admin/users", icon: "users", section: "Administrasi" },
     { label: "Audit", href: "/admin/audit", icon: "audit", section: "Administrasi" },
     { label: "Ubah Password", href: "/ubah-password", icon: "lock", section: "Akun" },
@@ -53,7 +56,9 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
   WALI: [
     { label: "Beranda", href: "/wali", icon: "dashboard", section: "Ringkasan" },
      { label: "Tugas Anak", href: "/wali/tugas", icon: "exam", section: "Perkembangan Anak", requiredFeatures: ["assignmentsEnabled"] },
-    { label: "Materi", href: "/wali/materi", icon: "materials", section: "Perkembangan Anak" },
+      { label: "Materi", href: "/wali/materi", icon: "materials", section: "Perkembangan Anak" },
+      { label: "Pengumuman", href: "/wali/pengumuman", icon: "bell", section: "Perkembangan Anak", requiredFeatures: ["classDiscussionEnabled"] },
+      { label: "Diskusi", href: "/wali/diskusi", icon: "audit", section: "Perkembangan Anak", requiredFeatures: ["classDiscussionEnabled"] },
     { label: "RPP", href: "/wali/rpp", icon: "materials", section: "Perkembangan Anak" },
     { label: "Progres", href: "/wali/progres", icon: "progress", section: "Perkembangan Anak" },
      { label: "Kalender", href: "/wali/kalender", icon: "calendar", section: "Perkembangan Anak", requiredFeatures: ["calendarEnabled"] },
@@ -69,6 +74,7 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
   SISWA: [
      { label: "Beranda", href: "/siswa", icon: "dashboard", section: "Ringkasan", requiredFeatures: ["studentPortalEnabled"] },
      { label: "Kelas Saya", href: "/siswa/kelas", icon: "classes", section: "Belajar", requiredFeatures: ["studentPortalEnabled"] },
+     { label: "Ujian", href: "/siswa/ujian", icon: "exam", section: "Belajar", requiredFeatures: ["studentPortalEnabled", "studentSelfExamEnabled"] },
      { label: "Remedial", href: "/siswa/remedial", icon: "exam", section: "Belajar", requiredFeatures: ["studentPortalEnabled", "assignmentsEnabled", "remedialEnabled"] },
      { label: "Kalender", href: "/siswa/kalender", icon: "calendar", section: "Belajar", requiredFeatures: ["studentPortalEnabled", "calendarEnabled"] },
      { label: "Perlu Ditindaklanjuti", href: "/siswa/todo", icon: "todo", section: "Belajar", requiredFeatures: ["studentPortalEnabled", "calendarEnabled"] },

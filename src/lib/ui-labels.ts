@@ -117,6 +117,7 @@ const labels: Record<string, string> = {
   COMING_SOON: "Segera dibuka",
   TEACHER_ENTRY: "Input oleh guru",
   ONLINE_VIA_WALI: "Dikerjakan melalui akun Wali",
+  ONLINE_VIA_SISWA: "Dikerjakan melalui akun Siswa",
   EASY: "Mudah",
   MEDIUM: "Sedang",
   HARD: "Sulit",
@@ -132,6 +133,12 @@ const labels: Record<string, string> = {
   SUMMATIVE: "Sumatif",
   PLACEMENT: "Penempatan",
   DIAGNOSTIC: "Diagnostik",
+  NORMAL: "Normal",
+  IMPORTANT: "Penting",
+  URGENT: "Mendesak",
+  SEMUA: "Siswa dan wali",
+  HIDDEN: "Disembunyikan",
+  VISIBLE: "Tampil",
 };
 
 const tones: Record<string, UiTone> = {
@@ -160,11 +167,13 @@ const tones: Record<string, UiTone> = {
   NEEDS_REVIEW: "warning",
   NEEDS_REVISION: "warning",
   LATE: "warning",
+  IMPORTANT: "warning",
   OVERDUE: "danger",
   FAILED: "danger",
   REJECTED: "danger",
   EXPIRED: "danger",
   MISSING: "danger",
+  URGENT: "danger",
 };
 
 const toneClasses: Record<UiTone, string> = {

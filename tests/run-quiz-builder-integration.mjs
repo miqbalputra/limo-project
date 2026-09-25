@@ -266,7 +266,14 @@ try {
   const otherPg = otherContext.payload.data.questions.find((question) => question.type === "PILIHAN_GANDA");
   const otherSubmit = await request(`/api/v1/public/quiz/${token}/responses/${otherId}/submit`, {
     method: "POST",
-    body: { answers: [{ ujianSoalId: otherPg.id, selectedOption: "OTHER", shortAnswer: "Medan" }] },
+    body: {
+      answers: [
+        { ujianSoalId: otherPg.id, selectedOption: "OTHER", shortAnswer: "Medan" },
+        { ujianSoalId: multi.id, selectedOptions: [multi.options.find((option) => option.content === "2").label, multi.options.find((option) => option.content === "4").label] },
+        { ujianSoalId: bs.id, selectedOption: "benar" },
+        { ujianSoalId: isian.id, shortAnswer: "h2o" },
+      ],
+    },
   });
   assert.equal(otherSubmit.response.status, 200, JSON.stringify(otherSubmit.payload));
   assert.equal(otherSubmit.payload.data.result.needsReview, true);
@@ -292,7 +299,7 @@ try {
       { type: "DROPDOWN", question: `Pilih warna ${runId}`, required: true, points: 1, sectionIndex: 0, shuffleOptions: true, options: [{ label: "A", content: "Merah" }, { label: "B", content: "Biru" }], correctLabels: ["B"] },
       { type: "SKALA", question: `Nilai ${runId}`, required: true, points: 1, sectionIndex: 0, scaleMin: 1, scaleMax: 5, scaleMinLabel: "Rendah", scaleMaxLabel: "Tinggi", expectedAnswer: "4", options: [1, 2, 3, 4, 5].map((value, index) => ({ label: "ABCDE"[index], content: String(value) })), correctLabels: ["D"] },
       { type: "TANGGAL", question: `Tanggal ${runId}`, required: true, points: 1, sectionIndex: 0, expectedAnswer: "2026-08-17", options: [], correctLabels: [] },
-      { type: "ISIAN_SINGKAT", question: `Berapa jumlah ${runId}`, required: true, points: 1, sectionIndex: 0, expectedAnswer: "7", validationType: "NUMBER", validationMin: 1, validationMax: 10, options: [], correctLabels: [] },
+      { type: "ISIAN_SINGKAT", question: `Berapa jumlah ${runId}`, required: true, points: 1, sectionIndex: 0, expectedAnswer: "7", acceptedAnswers: ["7", "tujuh"], feedbackCorrect: "Tepat sekali", feedbackIncorrect: "Coba lagi", validationType: "NUMBER", validationMin: 1, validationMax: 10, options: [], correctLabels: [] },
       { type: "GRID", question: `Tabel ${runId}`, required: true, points: 1, sectionIndex: 0, gridRows: ["Baris satu", "Baris dua"], gridMultiple: false, gridCorrect: ["A", "B"], options: [{ label: "A", content: "Ya" }, { label: "B", content: "Tidak" }], correctLabels: [] },
     ],
   };
@@ -343,6 +350,38 @@ try {
 
   const advancedDetail = await request(`/api/v1/kuis/${advancedId}`, { cookie: guru.cookie });
   assert.equal(advancedDetail.payload.data.item.questions.find((question) => question.type === "DROPDOWN").shuffleOptions, true);
+  const detailIsian = advancedDetail.payload.data.item.questions.find((question) => question.type === "ISIAN_SINGKAT");
+  assert.deepEqual(detailIsian.acceptedAnswers, ["7", "tujuh"], "Kunci alternatif harus tersimpan dan dibaca kembali");
+  assert.equal(detailIsian.feedbackCorrect, "Tepat sekali");
+  assert.equal(detailIsian.feedbackIncorrect, "Coba lagi");
+
+  const bankFilter = await request(`/api/v1/bank-soal?search=${encodeURIComponent(`Pilih warna ${runId}`)}&type=DROPDOWN`, { cookie: guru.cookie });
+  assert.equal(bankFilter.response.status, 200, JSON.stringify(bankFilter.payload));
+  assert.ok(bankFilter.payload.data.items.length >= 1, "Filter bank soal (search + type) harus menyaring");
+  assert.equal(bankFilter.payload.data.items[0].type, "DROPDOWN");
+
+  const bankQuestionId = bankFilter.payload.data.items[0].id;
+  const addDuplicate = await request(`/api/v1/kuis/${advancedId}/questions`, { method: "POST", cookie: guru.cookie, body: { bankSoalIds: [bankQuestionId] } });
+  assert.equal(addDuplicate.response.status, 201, JSON.stringify(addDuplicate.payload));
+  assert.equal(addDuplicate.payload.data.added, 0, "Soal yang sudah ada di formulir harus dilewati");
+  assert.equal(addDuplicate.payload.data.skipped, 1);
+
+  const addToOtherForm = await request(`/api/v1/kuis/${ujianId}/questions`, { method: "POST", cookie: guru.cookie, body: { bankSoalIds: [bankQuestionId] } });
+  assert.equal(addToOtherForm.response.status, 201, JSON.stringify(addToOtherForm.payload));
+  assert.equal(addToOtherForm.payload.data.added, 1, "Soal dari bank harus bisa ditambahkan ke formulir lain");
+  ok("Bank soal picker: menambahkan soal ke formulir lain & melewati duplikat");
+
+  const advancedForImport = await request(`/api/v1/kuis/${advancedId}`, { cookie: guru.cookie });
+  const subsetQuestionId = advancedForImport.payload.data.item.questions[0].id;
+  const importSubset = await request(`/api/v1/kuis/${ujianId}/import-questions`, { method: "POST", cookie: guru.cookie, body: { sourceUjianId: advancedId, questionIds: [subsetQuestionId] } });
+  assert.equal(importSubset.response.status, 200, JSON.stringify(importSubset.payload));
+  assert.equal(importSubset.payload.data.imported, 1, "Impor per-butir harus menyalin tepat satu soal");
+  ok("Impor soal per-butir hanya menyalin soal terpilih");
+
+  const ujianFilter = await request(`/api/v1/ujian?search=${encodeURIComponent(`Formulir Tipe Baru ${runId}`)}&status=PUBLISHED`, { cookie: guru.cookie });
+  assert.equal(ujianFilter.response.status, 200, JSON.stringify(ujianFilter.payload));
+  assert.ok(ujianFilter.payload.data.items.length >= 1, "Filter ujian (search + status) harus menyaring");
+  ok("Filter bank soal & ujian (search/type/status) bekerja di API");
 
   const csvRes = await fetch(`${origin}/api/v1/kuis/${advancedId}/responses/export`, { headers: { Cookie: guru.cookie } });
   assert.equal(csvRes.status, 200, "Ekspor CSV respons harus berhasil");
@@ -365,7 +404,7 @@ try {
     durationMinutes: 15,
     maxAttempts: 1,
     sections: [{ title: "Bagian 1", description: "" }],
-    questions: [{ type: "FILE_UPLOAD", question: `Unggah tugas ${runId}`, required: true, points: 1, sectionIndex: 0, options: [], correctLabels: [] }],
+    questions: [{ type: "FILE_UPLOAD", question: `Unggah tugas ${runId}`, required: true, points: 1, sectionIndex: 0, uploadAllowedTypes: ["text/plain"], uploadMaxSizeMb: 1, options: [], correctLabels: [] }],
   };
   const uploadForm = await request("/api/v1/kuis", { method: "POST", cookie: guru.cookie, body: uploadPayload });
   assert.equal(uploadForm.response.status, 201, JSON.stringify(uploadForm.payload));
@@ -379,9 +418,18 @@ try {
   const uploadContext = await request(`/api/v1/public/quiz/${uploadToken}/responses/${uploadResponseId}`);
   const fileQuestion = uploadContext.payload.data.questions.find((question) => question.type === "FILE_UPLOAD");
   assert.ok(fileQuestion, "Soal unggah file harus tersedia di publik");
+  assert.deepEqual(fileQuestion.uploadAllowedTypes, ["text/plain"], "Konfigurasi tipe berkas soal harus tersedia di pemutar");
+  assert.equal(fileQuestion.uploadMaxSizeMb, 1, "Batas ukuran berkas soal harus tersedia di pemutar");
+
+  const rejectedUpload = new FormData();
+  rejectedUpload.set("file", new File([Buffer.from("%PDF-1.4\n", "utf8")], "tugas.pdf", { type: "application/pdf" }));
+  rejectedUpload.set("ujianSoalId", fileQuestion.id);
+  const rejectedRes = await fetch(`${origin}/api/v1/public/quiz/${uploadToken}/responses/${uploadResponseId}/upload`, { method: "POST", headers: { Origin: origin }, body: rejectedUpload });
+  assert.equal(rejectedRes.status, 400, "Tipe berkas di luar konfigurasi soal harus ditolak");
 
   const uploadFormData = new FormData();
   uploadFormData.set("file", new File([Buffer.from("halo limo\n", "utf8")], "tugas.txt", { type: "text/plain" }));
+  uploadFormData.set("ujianSoalId", fileQuestion.id);
   const uploadRes = await fetch(`${origin}/api/v1/public/quiz/${uploadToken}/responses/${uploadResponseId}/upload`, { method: "POST", headers: { Origin: origin }, body: uploadFormData });
   const uploadBody = await uploadRes.json();
   assert.equal(uploadRes.status, 201, JSON.stringify(uploadBody));
@@ -505,6 +553,106 @@ try {
   if (limitBankIds.length > 0) {
     await prisma.opsiSoal.deleteMany({ where: { bankSoalId: { in: limitBankIds } } }).catch(() => undefined);
     await prisma.bankSoal.deleteMany({ where: { id: { in: limitBankIds } } }).catch(() => undefined);
+  }
+
+  const emailForm = await request("/api/v1/kuis", {
+    method: "POST",
+    cookie: guru.cookie,
+    body: {
+      ...basePayload(kelas.id),
+      title: `Email ${runId}`,
+      collectRespondentEmail: true,
+      oneResponsePerEmail: true,
+      releaseMode: "AFTER_REVIEW",
+      presentationMode: "ONE_PER_PAGE",
+      questions: [{ type: "PILIHAN_GANDA", question: `Soal email ${runId}`, required: true, points: 1, sectionIndex: 0, options: [{ label: "A", content: "Ya" }, { label: "B", content: "Tidak" }], correctLabels: ["A"] }],
+    },
+  });
+  assert.equal(emailForm.response.status, 201, JSON.stringify(emailForm.payload));
+  const emailId = emailForm.payload.data.item.id;
+  await request(`/api/v1/kuis/${emailId}/publish`, { method: "POST", cookie: guru.cookie, body: {} });
+  const emailShare = await request(`/api/v1/ujian/${emailId}/share`, { method: "POST", cookie: guru.cookie, body: {} });
+  const emailToken = emailShare.payload.data.token;
+
+  const noEmail = await request(`/api/v1/public/quiz/${emailToken}/responses`, { method: "POST", body: { respondentName: `Tanpa Email ${runId}` } });
+  assert.equal(noEmail.response.status, 400, "Email wajib diminta bila kuis mengumpulkan email");
+
+  const emailStart = await request(`/api/v1/public/quiz/${emailToken}/responses`, { method: "POST", body: { respondentName: `Kiki ${runId}`, respondentEmail: `kiki-${runId}@example.test` } });
+  assert.equal(emailStart.response.status, 201, JSON.stringify(emailStart.payload));
+  const emailResponseId = emailStart.payload.data.responseId;
+  const emailContext = await request(`/api/v1/public/quiz/${emailToken}/responses/${emailResponseId}`);
+  assert.equal(emailContext.payload.data.quiz.presentationMode, "ONE_PER_PAGE", "Mode presentasi harus tersimpan");
+  const emailQuestion = emailContext.payload.data.questions[0];
+  const emailSubmit = await request(`/api/v1/public/quiz/${emailToken}/responses/${emailResponseId}/submit`, { method: "POST", body: { answers: [{ ujianSoalId: emailQuestion.id, selectedOption: "A" }] } });
+  assert.equal(emailSubmit.response.status, 200, JSON.stringify(emailSubmit.payload));
+
+  const heldResult = await request(`/api/v1/public/quiz/${emailToken}/responses/${emailResponseId}/result`);
+  assert.equal(heldResult.payload.data.result.releasePending, true, "Nilai harus ditahan sampai dirilis");
+  assert.equal(heldResult.payload.data.result.score, null);
+
+  const duplicateEmail = await request(`/api/v1/public/quiz/${emailToken}/responses`, { method: "POST", body: { respondentName: `Kiki 2 ${runId}`, respondentEmail: `kiki-${runId}@example.test` } });
+  assert.equal(duplicateEmail.response.status, 409, "Satu email hanya boleh satu respons");
+
+  const importRes = await request(`/api/v1/kuis/${emailId}/import-questions`, { method: "POST", cookie: guru.cookie, body: { sourceUjianId: ujianId } });
+  assert.equal(importRes.response.status, 200, JSON.stringify(importRes.payload));
+  assert.ok(importRes.payload.data.imported >= 1, "Impor soal harus menyalin minimal satu soal");
+
+  const releaseRes = await request(`/api/v1/kuis/${emailId}/release`, { method: "POST", cookie: guru.cookie, body: {} });
+  assert.equal(releaseRes.response.status, 200, JSON.stringify(releaseRes.payload));
+  const releasedResult = await request(`/api/v1/public/quiz/${emailToken}/responses/${emailResponseId}/result`);
+  assert.equal(releasedResult.payload.data.result.releasePending, false);
+  assert.equal(releasedResult.payload.data.result.score, 100);
+  ok("Email wajib + anti-duplikat, rilis nilai tertunda, dan impor soal berfungsi");
+
+  const emailBankIds = (await prisma.ujianSoal.findMany({ where: { ujianId: emailId }, select: { bankSoalId: true } })).map((row) => row.bankSoalId);
+  await prisma.quizResponse.deleteMany({ where: { ujianId: emailId } }).catch(() => undefined);
+  await prisma.ujian.delete({ where: { id: emailId } }).catch(() => undefined);
+  if (emailBankIds.length > 0) {
+    await prisma.opsiSoal.deleteMany({ where: { bankSoalId: { in: emailBankIds } } }).catch(() => undefined);
+    await prisma.bankSoal.deleteMany({ where: { id: { in: emailBankIds } } }).catch(() => undefined);
+  }
+
+  const manualForm = await request("/api/v1/kuis", {
+    method: "POST",
+    cookie: guru.cookie,
+    body: {
+      ...basePayload(kelas.id),
+      title: `Manual ${runId}`,
+      questions: [
+        { type: "ESAI", question: `Ceritakan ${runId}`, required: true, points: 2, sectionIndex: 0, options: [], correctLabels: [] },
+        { type: "PILIHAN_GANDA", question: `Pilih ${runId}`, required: true, points: 2, sectionIndex: 0, options: [{ label: "A", content: "Ya" }, { label: "B", content: "Tidak" }], correctLabels: ["A"] },
+      ],
+    },
+  });
+  assert.equal(manualForm.response.status, 201, JSON.stringify(manualForm.payload));
+  const manualId = manualForm.payload.data.item.id;
+  await request(`/api/v1/kuis/${manualId}/publish`, { method: "POST", cookie: guru.cookie, body: {} });
+  const manualShare = await request(`/api/v1/ujian/${manualId}/share`, { method: "POST", cookie: guru.cookie, body: {} });
+  const manualToken = manualShare.payload.data.token;
+  const manualStart = await request(`/api/v1/public/quiz/${manualToken}/responses`, { method: "POST", body: { respondentName: `Manual ${runId}` } });
+  const manualResponseId = manualStart.payload.data.responseId;
+  const manualContext = await request(`/api/v1/public/quiz/${manualToken}/responses/${manualResponseId}`);
+  const essayQuestion = manualContext.payload.data.questions.find((question) => question.type === "ESAI");
+  const choiceQuestion = manualContext.payload.data.questions.find((question) => question.type === "PILIHAN_GANDA");
+  const manualSubmit = await request(`/api/v1/public/quiz/${manualToken}/responses/${manualResponseId}/submit`, {
+    method: "POST",
+    body: { answers: [{ ujianSoalId: essayQuestion.id, essayAnswer: "Jawaban esai" }, { ujianSoalId: choiceQuestion.id, selectedOption: "A" }] },
+  });
+  assert.equal(manualSubmit.response.status, 200, JSON.stringify(manualSubmit.payload));
+  assert.equal(manualSubmit.payload.data.result.needsReview, true);
+
+  const gradeRes = await request(`/api/v1/kuis/${manualId}/responses/${manualResponseId}/grade`, { method: "PATCH", cookie: guru.cookie, body: { answers: [{ ujianSoalId: essayQuestion.id, score: 2 }] } });
+  assert.equal(gradeRes.response.status, 200, JSON.stringify(gradeRes.payload));
+  assert.equal(gradeRes.payload.data.item.score, 100);
+  assert.equal(gradeRes.payload.data.item.needsReview, false);
+  ok("Guru dapat menilai manual respons publik (esai) sampai nilai final");
+
+  const manualBankIds = (await prisma.ujianSoal.findMany({ where: { ujianId: manualId }, select: { bankSoalId: true } })).map((row) => row.bankSoalId);
+  await prisma.quizResponse.deleteMany({ where: { ujianId: manualId } }).catch(() => undefined);
+  await prisma.ujian.delete({ where: { id: manualId } }).catch(() => undefined);
+  if (manualBankIds.length > 0) {
+    await prisma.opsiSoal.deleteMany({ where: { bankSoalId: { in: manualBankIds } } }).catch(() => undefined);
+    await prisma.bankSoal.deleteMany({ where: { id: { in: manualBankIds } } }).catch(() => undefined);
   }
 
   const blockedAfterResponse = await request(`/api/v1/kuis/${ujianId}`, { method: "PATCH", cookie: guru.cookie, body: basePayload(kelas.id) });

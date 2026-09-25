@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
   try {
     const actor = await requireActor();
-    const result = await listPrograms(actor);
+    const result = await listPrograms(actor, Object.fromEntries(new URL(request.url).searchParams));
     return apiOk(result, { requestId });
   } catch (error) {
     return apiError(error, { requestId });

@@ -5,7 +5,17 @@ import { useState } from "react";
 import { withWaliChildContext } from "@/lib/wali-selector";
 import { requestJson } from "@/lib/api-json-client";
 
-export function StartExamAttemptButton({ siswaId, ujianId, label = "Mulai Kerjakan" }: { siswaId: string; ujianId: string; label?: string }) {
+export function StartExamAttemptButton({
+  endpoint,
+  redirectBase,
+  childId,
+  label = "Mulai Kerjakan",
+}: {
+  endpoint: string;
+  redirectBase: string;
+  childId?: string | null;
+  label?: string;
+}) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [isStarting, setIsStarting] = useState(false);
@@ -15,10 +25,11 @@ export function StartExamAttemptButton({ siswaId, ujianId, label = "Mulai Kerjak
     setIsStarting(true);
 
     try {
-      const response = await requestJson<{ attemptId?: string }>(`/api/v1/wali/tugas/${siswaId}/ujian/${ujianId}/attempt`, { method: "POST", fallbackMessage: "Ujian gagal dimulai" });
+      const response = await requestJson<{ attemptId?: string }>(endpoint, { method: "POST", fallbackMessage: "Ujian gagal dimulai" });
       if (!response.data.attemptId) throw new Error("Ujian gagal dimulai");
 
-      router.push(withWaliChildContext(`/wali/tugas/attempt/${response.data.attemptId}`, siswaId));
+      const href = `${redirectBase}/${response.data.attemptId}`;
+      router.push(childId ? withWaliChildContext(href, childId) : href);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Ujian gagal dimulai");
     } finally {

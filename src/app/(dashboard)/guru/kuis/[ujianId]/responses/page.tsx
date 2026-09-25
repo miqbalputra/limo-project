@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { getQuizResponses } from "@/server/services/quiz-builder-service";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
+import { QuizReleaseButton } from "@/components/dashboard/quiz-release-button";
 import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Respons Kuis" };
@@ -20,6 +21,7 @@ export default async function GuruKuisResponsesPage({ params }: { params: Promis
         <p className="mt-2 tailadmin-muted">Ringkasan jawaban dari tautan publik dan pengerjaan online via wali.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <a href={`/api/v1/kuis/${ujianId}/responses/export`} className="tailadmin-button-outline px-4 py-2">Ekspor CSV</a>
+          {data.quiz.releaseMode === "AFTER_REVIEW" ? <QuizReleaseButton ujianId={ujianId} label="Rilis semua nilai" /> : null}
         </div>
       </div>
 
@@ -64,11 +66,19 @@ export default async function GuruKuisResponsesPage({ params }: { params: Promis
                 <div key={response.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
                   <div>
                     <Link href={`/guru/kuis/${ujianId}/responses/${response.id}`} className="text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">{response.respondentName}</Link>
+                    {response.respondentEmail ? <p className="text-theme-xs text-gray-500">{response.respondentEmail}</p> : null}
                     <p className="text-theme-xs text-gray-500">{response.submittedAt ? formatDate(response.submittedAt) : "Belum dikirim"}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-theme-sm font-bold text-gray-900">{response.score === null ? "-" : response.score}</p>
-                    <p className={`text-theme-xs font-semibold ${response.passed === true ? "text-success-700" : response.passed === false ? "text-error-700" : "text-warning-700"}`}>{response.passed === true ? "Lulus" : response.passed === false ? "Belum lulus" : "Menunggu review"}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-theme-sm font-bold text-gray-900">{response.score === null ? "-" : response.score}</p>
+                      <p className={`text-theme-xs font-semibold ${response.passed === true ? "text-success-700" : response.passed === false ? "text-error-700" : "text-warning-700"}`}>{response.passed === true ? "Lulus" : response.passed === false ? "Belum lulus" : "Menunggu review"}</p>
+                    </div>
+                    {data.quiz.releaseMode === "AFTER_REVIEW" ? (
+                      response.released
+                        ? <span className="rounded-full bg-success-50 px-2.5 py-1 text-theme-xs font-semibold text-success-700">Nilai dirilis</span>
+                        : <QuizReleaseButton ujianId={ujianId} responseId={response.id} label="Rilis nilai" />
+                    ) : null}
                   </div>
                 </div>
               ))}

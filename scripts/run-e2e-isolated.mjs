@@ -24,9 +24,10 @@ const specEnvOverrides = {
     CALENDAR_ENABLED: "false",
     ACTIVITY_COMPLETION_ENABLED: "false",
     REMEDIAL_ENABLED: "false",
-    CLASS_DISCUSSION_ENABLED: "false",
     PERIODIC_REPORTS_ENABLED: "false",
     GUARDIAN_ASSISTED_SUBMISSION_ENABLED: "false",
+    STUDENT_SELF_EXAM_ENABLED: "false",
+    CLASS_DISCUSSION_ENABLED: "false",
   },
 };
 
@@ -60,6 +61,7 @@ for (const [index, specFile] of specFiles.entries()) {
   const databaseUrl = `file:./${databaseFile}`;
   const env = {
     ...process.env,
+    NODE_ENV: "development",
     DATABASE_URL: databaseUrl,
     LIMO_SQLITE_DATABASE_URL: databaseUrl,
     PLAYWRIGHT_REUSE_EXISTING_SERVER: "false",

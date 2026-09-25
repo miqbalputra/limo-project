@@ -47,6 +47,13 @@ export function formatJakartaPeriod(date = new Date()) {
   return `${parts.year}-${String(parts.month).padStart(2, "0")}`;
 }
 
+/** Nilai untuk input `datetime-local` (dinding jam Asia/Jakarta, tanpa offset). */
+export function formatJakartaDateTimeLocal(date: Date | null | undefined) {
+  if (!date) return "";
+  const parts = getJakartaDateParts(date);
+  return `${formatJakartaDate(date)}T${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}`;
+}
+
 export function getJakartaDayRange(startOffsetDays = 0, endOffsetDays = 1) {
   const { year, month, day } = getJakartaDateParts();
   const base = Date.UTC(year, month - 1, day) - JAKARTA_OFFSET_MS;

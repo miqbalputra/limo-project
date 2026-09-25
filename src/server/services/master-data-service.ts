@@ -10,10 +10,25 @@ function requireAdmin(actor: Actor) {
   }
 }
 
-export async function listPrograms(actor: Actor) {
+function parseListFilters(input: unknown) {
+  const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+  const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : undefined);
+  const status = text(raw.status);
+  const allowedStatus = ["ACTIVE", "INACTIVE", "ARCHIVED"] as const;
+
+  return {
+    search: text(raw.search),
+    programId: text(raw.programId),
+    status: allowedStatus.find((value) => value === status),
+  };
+}
+
+export async function listPrograms(actor: Actor, input: unknown = {}) {
   requireAdmin(actor);
+  const { search } = parseListFilters(input);
 
   const items = await prisma.program.findMany({
+    where: search ? { name: { contains: search } } : undefined,
     orderBy: [{ kind: "asc" }, { name: "asc" }],
     select: {
       id: true,
@@ -86,10 +101,24 @@ export async function archiveProgram(actor: Actor, id: string) {
   return { item };
 }
 
-export async function listLevels(actor: Actor) {
+export async function restoreProgram(actor: Actor, id: string) {
   requireAdmin(actor);
+  const existing = await prisma.program.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) throw new NotFoundError("Program tidak ditemukan");
+  const item = await prisma.program.update({ where: { id }, data: { isActive: true }, select: { id: true, name: true, isActive: true } });
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "PROGRAM_RESTORED", entityType: "Program", entityId: id } });
+  return { item };
+}
+
+export async function listLevels(actor: Actor, input: unknown = {}) {
+  requireAdmin(actor);
+  const { search, programId } = parseListFilters(input);
 
   const items = await prisma.level.findMany({
+    where: {
+      ...(search ? { name: { contains: search } } : {}),
+      ...(programId ? { programId } : {}),
+    },
     orderBy: [{ program: { name: "asc" } }, { order: "asc" }, { name: "asc" }],
     select: {
       id: true,
@@ -161,10 +190,25 @@ export async function archiveLevel(actor: Actor, id: string) {
   return { item };
 }
 
-export async function listKelas(actor: Actor) {
+export async function restoreLevel(actor: Actor, id: string) {
   requireAdmin(actor);
+  const existing = await prisma.level.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) throw new NotFoundError("Level tidak ditemukan");
+  const item = await prisma.level.update({ where: { id }, data: { isActive: true }, select: { id: true, name: true, isActive: true } });
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "LEVEL_RESTORED", entityType: "Level", entityId: id } });
+  return { item };
+}
+
+export async function listKelas(actor: Actor, input: unknown = {}) {
+  requireAdmin(actor);
+  const { search, programId, status } = parseListFilters(input);
 
   const items = await prisma.kelas.findMany({
+    where: {
+      ...(search ? { name: { contains: search } } : {}),
+      ...(programId ? { programId } : {}),
+      ...(status ? { status } : {}),
+    },
     orderBy: [{ program: { name: "asc" } }, { level: { order: "asc" } }, { name: "asc" }],
     select: {
       id: true,
@@ -261,6 +305,15 @@ export async function archiveKelas(actor: Actor, id: string) {
   if (!existing) throw new NotFoundError("Kelas tidak ditemukan");
   const item = await prisma.kelas.update({ where: { id }, data: { status: "ARCHIVED" }, select: { id: true, name: true, status: true } });
   await prisma.auditLog.create({ data: { actorId: actor.id, action: "KELAS_ARCHIVED", entityType: "Kelas", entityId: id } });
+  return { item };
+}
+
+export async function restoreKelas(actor: Actor, id: string) {
+  requireAdmin(actor);
+  const existing = await prisma.kelas.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) throw new NotFoundError("Kelas tidak ditemukan");
+  const item = await prisma.kelas.update({ where: { id }, data: { status: "ACTIVE" }, select: { id: true, name: true, status: true } });
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "KELAS_RESTORED", entityType: "Kelas", entityId: id } });
   return { item };
 }
 

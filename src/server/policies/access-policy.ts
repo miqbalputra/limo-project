@@ -1,6 +1,8 @@
 import type { UserRole } from "@prisma/client";
 import type { Actor } from "../auth/session.ts";
 import { prisma } from "../db/prisma.ts";
+import { ForbiddenError, NotFoundError } from "../errors/application-error.ts";
+import { requireFeature } from "../features/feature-flags.ts";
 
 export function canManageUsers(actor: Actor) {
   return actor.role === "ADMIN";
@@ -217,4 +219,87 @@ export async function canDownloadFile(actor: Actor, fileId: string) {
 
 export function hasRole(actor: Actor, roles: UserRole[]) {
   return roles.includes(actor.role);
+}
+
+function assertClassForumFeature() {
+  requireFeature("classDiscussionEnabled", "Fitur pengumuman dan diskusi kelas belum diaktifkan");
+}
+
+/**
+ * Hanya Guru pengampu (atau Admin) yang boleh membuat/mengubah pengumuman,
+ * thread, dan memoderasi diskusi kelas.
+ */
+export async function assertManageKelasForum(actor: Actor, kelasId: string) {
+  assertClassForumFeature();
+
+  if (await canManageClass(actor, kelasId)) {
+    return;
+  }
+
+  throw new ForbiddenError("Anda tidak memiliki akses mengelola kelas ini");
+}
+
+/**
+ * Membaca pengumuman/diskusi kelas: Admin semua, Guru pengampu,
+ * Siswa dengan enrollment aktif, Wali yang anaknya terdaftar di kelas itu.
+ * Siswa/wali di luar kelas mendapat 404 agar keberadaan kelas tidak bocor.
+ */
+export async function assertViewKelasForum(actor: Actor, kelasId: string) {
+  assertClassForumFeature();
+
+  if (actor.role === "ADMIN") {
+    return;
+  }
+
+  if (actor.role === "GURU") {
+    if (await canManageClass(actor, kelasId)) {
+      return;
+    }
+    throw new ForbiddenError("Anda tidak memiliki akses ke kelas ini");
+  }
+
+  if (actor.role === "SISWA") {
+    const account = await prisma.siswaAccount.findUnique({
+      where: { userId: actor.id },
+      select: { status: true, siswaId: true, siswa: { select: { status: true, deletedAt: true } } },
+    });
+
+    if (!account || account.status !== "ACTIVE" || account.siswa.status !== "ACTIVE" || account.siswa.deletedAt) {
+      throw new ForbiddenError("Akun siswa belum aktif");
+    }
+
+    const enrollment = await prisma.kelasSiswa.findFirst({
+      where: { kelasId, siswaId: account.siswaId, status: "ACTIVE", kelas: { status: "ACTIVE" } },
+      select: { id: true },
+    });
+
+    if (!enrollment) {
+      throw new NotFoundError("Kelas tidak ditemukan");
+    }
+
+    return;
+  }
+
+  if (actor.role === "WALI") {
+    const relation = await prisma.waliSiswa.findFirst({
+      where: {
+        endedAt: null,
+        waliProfile: { userId: actor.id },
+        siswa: {
+          status: "ACTIVE",
+          deletedAt: null,
+          enrollments: { some: { kelasId, status: "ACTIVE", kelas: { status: "ACTIVE" } } },
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!relation) {
+      throw new NotFoundError("Kelas tidak ditemukan");
+    }
+
+    return;
+  }
+
+  throw new ForbiddenError();
 }

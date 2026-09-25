@@ -10,6 +10,8 @@ import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Beranda Siswa" };
 
+const STUDENT_ONLINE_MODES = ["ONLINE_VIA_SISWA", "BOTH"];
+
 export default async function StudentDashboardPage() {
   if (!isFeatureEnabled("studentPortalEnabled")) notFound();
   const actor = await requireActor();
@@ -52,7 +54,13 @@ export default async function StudentDashboardPage() {
 
         <div>
           <SectionHeader title="Evaluasi Tersedia" description="Ujian yang dipublikasikan untuk kelas aktif Anda." />
-          {dashboard.exams.length > 0 ? <div className="space-y-3">{dashboard.exams.map((item) => <article key={item.id} className="tailadmin-card p-4"><p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-700">{item.kelas.name}</p><h2 className="mt-1 font-semibold text-gray-900">{item.title}</h2><p className="mt-2 text-theme-xs text-gray-500">{item.examDate ? `Tanggal ${formatDateTime(item.examDate)}` : "Tanggal belum ditentukan"} / Durasi {item.durationMinutes} menit</p><p className="mt-2 text-theme-xs text-gray-500">Mode {formatUiLabel(item.deliveryMode)}. Akses pengerjaan akan tersedia setelah alur tugas Siswa diaktifkan.</p></article>)}</div> : <EmptyState icon="exam" title="Belum ada evaluasi" description="Ujian yang sudah diterbitkan Guru akan tampil di sini." />}
+          {dashboard.exams.length > 0 ? <div className="space-y-3">{dashboard.exams.map((item) => {
+            const canWork = STUDENT_ONLINE_MODES.includes(item.deliveryMode);
+            const attemptStatus = item.latestAttempt?.status;
+            const canResume = attemptStatus === "IN_PROGRESS" && (!item.latestAttempt.expiresAt || item.latestAttempt.expiresAt > new Date());
+            const finished = attemptStatus === "FINAL" || attemptStatus === "CORRECTED" || attemptStatus === "NEEDS_REVIEW";
+            return <article key={item.id} className="tailadmin-card p-4"><p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-700">{item.kelas.name}</p><h2 className="mt-1 font-semibold text-gray-900">{item.title}</h2><p className="mt-2 text-theme-xs text-gray-500">{item.examDate ? `Tanggal ${formatDateTime(item.examDate)}` : "Tanggal belum ditentukan"} / Durasi {item.durationMinutes} menit</p>{canWork && isFeatureEnabled("studentSelfExamEnabled") ? <div className="mt-3">{canResume ? <Link href={`/siswa/ujian/attempt/${item.latestAttempt.id}`} className="tailadmin-button-primary px-4 py-2">Lanjutkan</Link> : finished ? <span className="inline-flex rounded-xl bg-gray-50 px-4 py-2 text-theme-xs font-semibold text-gray-500">Sudah dikerjakan</span> : <Link href={`/siswa/ujian/${item.id}`} className="tailadmin-button-primary px-4 py-2">Buka instruksi</Link>}</div> : <p className="mt-2 text-theme-xs text-gray-500">Mode {formatUiLabel(item.deliveryMode)}.</p>}</article>;
+          })}</div> : <EmptyState icon="exam" title="Belum ada evaluasi" description="Ujian yang sudah diterbitkan Guru akan tampil di sini." />}
         </div>
       </section>
 

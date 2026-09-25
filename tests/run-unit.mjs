@@ -10,7 +10,19 @@ import { addModuleItemSchema, createLearningModuleSchema, reorderModuleItemsSche
 import { createAssignmentSchema, saveAssignmentDraftSchema, submitAssignmentSchema } from "../src/server/validation/assignment.ts";
 import { getReminderWindow } from "../src/server/services/reminder-service.ts";
 import { applyRemedialScorePolicy } from "../src/server/services/remedial-score-policy.ts";
+import { personListSchema, importPersonRowSchema, importPeopleSchema } from "../src/server/validation/master-data.ts";
+import { parseCsv } from "../src/lib/csv.ts";
+import {
+  findMissingRequiredAnswers,
+  gradeObjectiveAnswer,
+  isAnswerFilled,
+  isTextAnswerAccepted,
+  isWithinSubmitGrace,
+  readFileUploadConfig,
+} from "../src/server/services/quiz-grading.ts";
 import { containsArabicText, resolveLocalizedContent } from "../src/lib/localized-content.ts";
+import { canRecordAudio, formatFileSize, readQuizUploadConfig, uploadAcceptAttribute } from "../src/lib/quiz-upload.ts";
+import { computeVoucherDiscount } from "../src/lib/billing-discount.ts";
 import { formatRupiah } from "../src/lib/money.ts";
 import { ApiJsonError, requestJson } from "../src/lib/api-json-client.ts";
 import { formatUiLabel, getUiTone, getUiToneClass } from "../src/lib/ui-labels.ts";
@@ -432,6 +444,118 @@ const tests = [
       assert.equal(applyRemedialScorePolicy({ policy: "AVERAGE", originalScore: 40, remedialScore: 75 }), 57.5);
       assert.equal(applyRemedialScorePolicy({ policy: "CAPPED", originalScore: 40, remedialScore: 95, scoreCap: 80 }), 80);
       assert.equal(applyRemedialScorePolicy({ policy: "CAPPED", originalScore: 85, remedialScore: 60, scoreCap: 80 }), 85);
+    },
+  },
+  {
+    name: "CSV parser handles quoted fields, escaped quotes, and CRLF rows",
+    run: () => {
+      const rows = parseCsv('name,email,phone,address\r\n"Ahmad, S.",ahmad@example.com,08123,"Jl. Mawar 1"\r\nHasan,hasan@example.com,,\r\n');
+      assert.deepEqual(rows, [
+        ["name", "email", "phone", "address"],
+        ["Ahmad, S.", "ahmad@example.com", "08123", "Jl. Mawar 1"],
+        ["Hasan", "hasan@example.com", "", ""],
+      ]);
+      assert.deepEqual(parseCsv('a,"b""c"\r\n'), [["a", 'b"c']]);
+      assert.deepEqual(parseCsv("\n\n"), []);
+    },
+  },
+  {
+    name: "person list schema coerces the archive flag and trims search",
+    run: () => {
+      const parsed = personListSchema.safeParse({ page: "2", search: "  Ahmad  ", includeArchived: "1" });
+      assert.equal(parsed.success, true);
+      if (parsed.success) {
+        assert.equal(parsed.data.page, 2);
+        assert.equal(parsed.data.search, "Ahmad");
+        assert.equal(parsed.data.includeArchived, true);
+      }
+      const defaults = personListSchema.safeParse({});
+      assert.equal(defaults.success, true);
+      if (defaults.success) assert.equal(defaults.data.includeArchived, false);
+    },
+  },
+  {
+    name: "import schemas require a valid name and email and default to preview",
+    run: () => {
+      assert.equal(importPersonRowSchema.safeParse({ name: "Ahmad", email: "ahmad@example.com" }).success, true);
+      assert.equal(importPersonRowSchema.safeParse({ name: "A", email: "ahmad@example.com" }).success, false);
+      assert.equal(importPersonRowSchema.safeParse({ name: "Ahmad", email: "bukan-email" }).success, false);
+      const request = importPeopleSchema.safeParse({ csv: "name,email\nAhmad,ahmad@example.com" });
+      assert.equal(request.success, true);
+      if (request.success) assert.equal(request.data.dryRun, false);
+    },
+  },
+  {
+    name: "quiz grading accepts alternative short answers and flags unkeyed questions for review",
+    run: () => {
+      assert.equal(isTextAnswerAccepted({ answer: "Jakarta", expectedAnswer: "DKI Jakarta", acceptedAnswers: ["jakarta", "DKI"] }), true);
+      assert.equal(isTextAnswerAccepted({ answer: "Bandung", expectedAnswer: "DKI Jakarta", acceptedAnswers: ["jakarta"] }), false);
+      assert.equal(isTextAnswerAccepted({ answer: "", expectedAnswer: "" }), false);
+
+      const mcq = gradeObjectiveAnswer({ type: "PILIHAN_GANDA", weight: 2, correctLabels: ["A"], expectedAnswer: null, acceptedAnswers: null, structuredPayload: null, answer: { ujianSoalId: "q1", selectedOption: "a" } });
+      assert.deepEqual(mcq, { score: 2, correct: true });
+
+      const multi = gradeObjectiveAnswer({ type: "MULTI_SELECT", weight: 3, correctLabels: ["A", "C"], expectedAnswer: null, acceptedAnswers: null, structuredPayload: null, answer: { ujianSoalId: "q1", selectedOptions: ["C", "A"] } });
+      assert.deepEqual(multi, { score: 3, correct: true });
+
+      const other = gradeObjectiveAnswer({ type: "PILIHAN_GANDA", weight: 2, correctLabels: ["A"], expectedAnswer: null, acceptedAnswers: null, structuredPayload: null, answer: { ujianSoalId: "q1", selectedOption: "OTHER", shortAnswer: "Jawaban bebas" } });
+      assert.deepEqual(other, { score: null, correct: null });
+
+      const unkeyed = gradeObjectiveAnswer({ type: "ISIAN_SINGKAT", weight: 1, correctLabels: [], expectedAnswer: null, acceptedAnswers: null, structuredPayload: null, answer: { ujianSoalId: "q1", shortAnswer: "apa saja" } });
+      assert.deepEqual(unkeyed, { score: null, correct: null });
+    },
+  },
+  {
+    name: "required enforcement skips questions in branched-away sections",
+    run: () => {
+      const questions = [
+        { id: "q1", required: true, sectionIndex: 0, type: "PILIHAN_GANDA", branchRules: [{ label: "B", goToSectionIndex: 2 }] },
+        { id: "q2", required: true, sectionIndex: 1, type: "ISIAN_SINGKAT", branchRules: [] },
+        { id: "q3", required: true, sectionIndex: 2, type: "ESAI", branchRules: [] },
+      ];
+
+      assert.equal(findMissingRequiredAnswers({ questions, answers: [{ ujianSoalId: "q1", selectedOption: "B" }], sectionCount: 3 }).length, 1);
+      assert.equal(findMissingRequiredAnswers({ questions, answers: [{ ujianSoalId: "q1", selectedOption: "B" }, { ujianSoalId: "q3", essayAnswer: "Jawaban" }], sectionCount: 3 }).length, 0);
+    },
+  },
+  {
+    name: "answer-filled and submit grace helpers behave consistently",
+    run: () => {
+      assert.equal(isAnswerFilled({ ujianSoalId: "q1", selectedOption: "A" }), true);
+      assert.equal(isAnswerFilled({ ujianSoalId: "q1", selectedOption: "OTHER" }), false);
+      assert.equal(isAnswerFilled({ ujianSoalId: "q1", selectedOption: "OTHER", shortAnswer: "Lain" }), true);
+
+      const expiry = new Date("2026-09-24T10:00:00.000Z");
+      assert.equal(isWithinSubmitGrace(expiry, new Date("2026-09-24T10:00:10.000Z")), true);
+      assert.equal(isWithinSubmitGrace(expiry, new Date("2026-09-24T10:05:00.000Z")), false);
+
+      assert.deepEqual(readFileUploadConfig({ allowedTypes: ["application/pdf", " "], maxSizeMb: 500 }), { allowedTypes: ["application/pdf"], maxSizeMb: 200 });
+      assert.deepEqual(readFileUploadConfig(null), { allowedTypes: [], maxSizeMb: 0 });
+    },
+  },
+  {
+    name: "quiz upload config helper normalizes types and gates audio recording",
+    run: () => {
+      assert.deepEqual(readQuizUploadConfig({ allowedTypes: ["Audio/WebM", " "], maxSizeMb: 30 }), { allowedTypes: ["audio/webm"], maxSizeMb: 30 });
+      assert.deepEqual(readQuizUploadConfig({ allowedTypes: [], maxSizeMb: 900 }), { allowedTypes: [], maxSizeMb: 200 });
+      assert.deepEqual(readQuizUploadConfig(undefined), { allowedTypes: [], maxSizeMb: 0 });
+
+      assert.equal(canRecordAudio([]), true);
+      assert.equal(canRecordAudio(["audio/webm"]), true);
+      assert.equal(canRecordAudio(["application/pdf"]), false);
+      assert.equal(uploadAcceptAttribute(["audio/webm", "audio/ogg"]), "audio/webm,audio/ogg");
+      assert.equal(formatFileSize(2048), "2 KB");
+    },
+  },
+  {
+    name: "voucher discount computes percent/fixed values bounded by the subtotal",
+    run: () => {
+      assert.equal(computeVoucherDiscount(100000, { discountType: "PERCENT", discountValue: 25 }), 25000);
+      assert.equal(computeVoucherDiscount(100000, { discountType: "FIXED", discountValue: 40000 }), 40000);
+      assert.equal(computeVoucherDiscount(100000, { discountType: "FIXED", discountValue: 250000 }), 100000);
+      assert.equal(computeVoucherDiscount(33333, { discountType: "PERCENT", discountValue: 10 }), 3333);
+      assert.equal(computeVoucherDiscount(0, { discountType: "PERCENT", discountValue: 25 }), 0);
+      assert.equal(computeVoucherDiscount(100000, { discountType: "PERCENT", discountValue: 0 }), 0);
     },
   },
 ];

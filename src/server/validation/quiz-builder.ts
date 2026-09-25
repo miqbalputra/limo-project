@@ -54,11 +54,16 @@ const questionSchema = z
     gridRows: z.array(z.string().trim().min(1).max(500)).max(20).default([]),
     gridMultiple: z.boolean().default(false),
     gridCorrect: z.array(z.string().trim().max(8)).max(20).default([]),
-    validationType: z.enum(["NONE", "NUMBER", "TEXT", "LENGTH"]).default("NONE"),
+    validationType: z.enum(["NONE", "NUMBER", "TEXT", "LENGTH", "CHECKBOX"]).default("NONE"),
     validationMin: z.coerce.number().int().min(0).max(100000).nullable().optional(),
     validationMax: z.coerce.number().int().min(0).max(100000).nullable().optional(),
     validationPattern: z.string().trim().max(200).optional().or(z.literal("")),
     validationMessage: z.string().trim().max(200).optional().or(z.literal("")),
+    acceptedAnswers: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
+    feedbackCorrect: z.string().trim().max(2000).optional().or(z.literal("")),
+    feedbackIncorrect: z.string().trim().max(2000).optional().or(z.literal("")),
+    uploadAllowedTypes: z.array(z.string().trim().min(3).max(100)).max(20).default([]),
+    uploadMaxSizeMb: z.coerce.number().int().min(0).max(200).default(0),
     options: z.array(optionSchema).max(10).default([]),
     correctLabels: z.array(z.string().trim().min(1).max(8)).max(10).default([]),
   })
@@ -137,7 +142,7 @@ export const saveQuizFormSchema = z.object({
   title: z.string().trim().min(2).max(200),
   description: z.string().trim().max(2000).optional().or(z.literal("")),
   mode: z.enum(["UJIAN", "LATIHAN"]).default("UJIAN"),
-  deliveryMode: z.enum(["TEACHER_ENTRY", "ONLINE_VIA_WALI", "BOTH"]).default("ONLINE_VIA_WALI"),
+  deliveryMode: z.enum(["TEACHER_ENTRY", "ONLINE_VIA_WALI", "ONLINE_VIA_SISWA", "BOTH"]).default("ONLINE_VIA_WALI"),
   durationMinutes: z.coerce.number().int().min(1).max(600).default(30),
   maxAttempts: z.coerce.number().int().min(1).max(5).default(1),
   shuffleQuestions: z.boolean().default(false),
@@ -150,9 +155,17 @@ export const saveQuizFormSchema = z.object({
   showAnswersAfterSubmit: z.boolean().default(false),
   collectRespondentName: z.boolean().default(true),
   showResultToWali: z.boolean().default(true),
+  showResultToSiswa: z.boolean().default(true),
+  secureMode: z.boolean().default(false),
   themeColor: z.enum(QUIZ_THEME_COLORS).default("blue"),
   headerImageUrl: z.string().trim().max(512).default(""),
   confirmationMessage: z.string().trim().max(2000).optional().or(z.literal("")),
+  collectRespondentEmail: z.boolean().default(false),
+  sendCopyToRespondent: z.boolean().default(false),
+  oneResponsePerEmail: z.boolean().default(false),
+  notifyGuruOnResponse: z.boolean().default(false),
+  presentationMode: z.enum(["ALL", "ONE_PER_PAGE"]).default("ALL"),
+  releaseMode: z.enum(["IMMEDIATE", "AFTER_REVIEW"]).default("IMMEDIATE"),
   availableFrom: dateField,
   availableUntil: dateField,
   sections: z
@@ -176,6 +189,18 @@ export const saveQuizFormSchema = z.object({
       }
     });
   });
+});
+
+export const gradeQuizResponseSchema = z.object({
+  answers: z.array(z.object({
+    ujianSoalId: z.string().min(8).max(64),
+    score: z.coerce.number().min(0).max(1000),
+  })).min(1).max(100),
+});
+
+export const importQuestionsSchema = z.object({
+  sourceUjianId: z.string().min(8).max(64),
+  questionIds: z.array(z.string().min(8).max(64)).max(100).optional(),
 });
 
 export type SaveQuizFormInput = z.infer<typeof saveQuizFormSchema>;

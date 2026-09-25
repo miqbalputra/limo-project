@@ -4,9 +4,10 @@ import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canManageClass } from "@/server/policies/access-policy";
-import { notifyWaliForStudents } from "@/server/services/notification-service";
+import { notifySiswaForStudents, notifyWaliForStudents } from "@/server/services/notification-service";
 import { getQuizMedia } from "@/server/services/quiz-media-service";
-import { saveQuizFormSchema, type SaveQuizFormInput } from "@/server/validation/quiz-builder";
+import { saveQuizFormSchema, importQuestionsSchema, gradeQuizResponseSchema, type SaveQuizFormInput } from "@/server/validation/quiz-builder";
+import { gradeObjectiveAnswer, type GradableAnswer } from "@/server/services/quiz-grading";
 
 type Tx = Prisma.TransactionClient;
 type QuestionInput = SaveQuizFormInput["questions"][number];
@@ -55,6 +56,13 @@ function structuredPayloadFor(question: QuestionInput): Prisma.InputJsonValue | 
   return Object.keys(payload).length > 0 ? (payload as Prisma.InputJsonValue) : undefined;
 }
 
+function fileUploadFields(value: unknown) {
+  const config = value && typeof value === "object" ? (value as { allowedTypes?: unknown; maxSizeMb?: unknown }) : {};
+  const allowedTypes = Array.isArray(config.allowedTypes) ? config.allowedTypes.filter((item): item is string => typeof item === "string") : [];
+  const maxSizeMb = typeof config.maxSizeMb === "number" && Number.isFinite(config.maxSizeMb) ? config.maxSizeMb : 0;
+  return { uploadAllowedTypes: allowedTypes, uploadMaxSizeMb: maxSizeMb };
+}
+
 async function createSectionsAndQuestions(tx: Tx, ujianId: string, kelasId: string, data: { sections: Array<{ title: string; description?: string }>; questions: QuestionInput[] }, actorId: string) {
   const sectionIds = new Map<number, string>();
   for (const [index, section] of data.sections.entries()) {
@@ -80,6 +88,12 @@ async function createSectionsAndQuestions(tx: Tx, ujianId: string, kelasId: stri
           explanation: question.explanation?.trim() || undefined,
           allowOther: question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" || question.type === "DROPDOWN" ? question.allowOther : false,
           shuffleOptions: question.shuffleOptions,
+          acceptedAnswers: question.acceptedAnswers.length > 0 ? (question.acceptedAnswers as Prisma.InputJsonValue) : undefined,
+          feedbackCorrect: question.feedbackCorrect?.trim() || undefined,
+          feedbackIncorrect: question.feedbackIncorrect?.trim() || undefined,
+          fileUploadConfig: question.uploadAllowedTypes.length > 0 || question.uploadMaxSizeMb > 0
+            ? ({ allowedTypes: question.uploadAllowedTypes, maxSizeMb: question.uploadMaxSizeMb } as Prisma.InputJsonValue)
+            : undefined,
           createdById: actorId,
         },
         select: { id: true },
@@ -136,9 +150,17 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
       showAnswersAfterSubmit: true,
       collectRespondentName: true,
       showResultToWali: true,
+      showResultToSiswa: true,
+      secureMode: true,
       themeColor: true,
       headerImageUrl: true,
       confirmationMessage: true,
+      collectRespondentEmail: true,
+      sendCopyToRespondent: true,
+      oneResponsePerEmail: true,
+      notifyGuruOnResponse: true,
+      presentationMode: true,
+      releaseMode: true,
       availableFrom: true,
       availableUntil: true,
       shareToken: true,
@@ -165,6 +187,10 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
               structuredPayload: true,
               allowOther: true,
               shuffleOptions: true,
+              acceptedAnswers: true,
+              feedbackCorrect: true,
+              feedbackIncorrect: true,
+              fileUploadConfig: true,
               options: { orderBy: { order: "asc" }, select: { label: true, content: true, mediaUrl: true, isCorrect: true } },
             },
           },
@@ -218,6 +244,10 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
           validationMax: payload?.validation?.max ?? null,
           validationPattern: payload?.validation?.pattern ?? "",
           validationMessage: payload?.validation?.message ?? "",
+          acceptedAnswers: Array.isArray(question.bankSoal.acceptedAnswers) ? question.bankSoal.acceptedAnswers.filter((value): value is string => typeof value === "string") : [],
+          feedbackCorrect: question.bankSoal.feedbackCorrect ?? "",
+          feedbackIncorrect: question.bankSoal.feedbackIncorrect ?? "",
+          ...fileUploadFields(question.bankSoal.fileUploadConfig),
           options: question.bankSoal.options.map((option) => ({ label: option.label, content: option.content, mediaUrl: option.mediaUrl })),
           correctLabels: question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label),
         };
@@ -253,9 +283,17 @@ export async function createQuizForm(actor: Actor, input: unknown) {
         showAnswersAfterSubmit: parsed.data.showAnswersAfterSubmit,
         collectRespondentName: parsed.data.collectRespondentName,
         showResultToWali: parsed.data.showResultToWali,
+        showResultToSiswa: parsed.data.showResultToSiswa,
+        secureMode: parsed.data.secureMode,
         themeColor: parsed.data.themeColor,
         headerImageUrl: parsed.data.headerImageUrl ? parsed.data.headerImageUrl : null,
         confirmationMessage: parsed.data.confirmationMessage ? parsed.data.confirmationMessage : null,
+        collectRespondentEmail: parsed.data.collectRespondentEmail,
+        sendCopyToRespondent: parsed.data.sendCopyToRespondent,
+        oneResponsePerEmail: parsed.data.oneResponsePerEmail,
+        notifyGuruOnResponse: parsed.data.notifyGuruOnResponse,
+        presentationMode: parsed.data.presentationMode,
+        releaseMode: parsed.data.releaseMode,
         availableFrom: parseDate(parsed.data.availableFrom),
         availableUntil: parseDate(parsed.data.availableUntil),
         createdById: actor.id,
@@ -313,9 +351,17 @@ export async function updateQuizForm(actor: Actor, ujianId: string, input: unkno
         showAnswersAfterSubmit: parsed.data.showAnswersAfterSubmit,
         collectRespondentName: parsed.data.collectRespondentName,
         showResultToWali: parsed.data.showResultToWali,
+        showResultToSiswa: parsed.data.showResultToSiswa,
+        secureMode: parsed.data.secureMode,
         themeColor: parsed.data.themeColor,
         headerImageUrl: parsed.data.headerImageUrl ? parsed.data.headerImageUrl : null,
         confirmationMessage: parsed.data.confirmationMessage ? parsed.data.confirmationMessage : null,
+        collectRespondentEmail: parsed.data.collectRespondentEmail,
+        sendCopyToRespondent: parsed.data.sendCopyToRespondent,
+        oneResponsePerEmail: parsed.data.oneResponsePerEmail,
+        notifyGuruOnResponse: parsed.data.notifyGuruOnResponse,
+        presentationMode: parsed.data.presentationMode,
+        releaseMode: parsed.data.releaseMode,
         availableFrom: parseDate(parsed.data.availableFrom),
         availableUntil: parseDate(parsed.data.availableUntil),
       },
@@ -390,6 +436,7 @@ export async function getQuizResponses(actor: Actor, ujianId: string) {
       kelasId: true,
       status: true,
       passingScore: true,
+      releaseMode: true,
       questions: {
         orderBy: { order: "asc" },
         select: { id: true, weight: true, bankSoal: { select: { type: true, question: true, expectedAnswer: true, structuredPayload: true, options: { select: { label: true, isCorrect: true } } } } },
@@ -407,7 +454,7 @@ export async function getQuizResponses(actor: Actor, ujianId: string) {
     prisma.quizResponse.findMany({
       where: { ujianId },
       orderBy: { createdAt: "desc" },
-      select: { id: true, respondentName: true, status: true, score: true, passed: true, submittedAt: true, finalAnswers: true },
+      select: { id: true, respondentName: true, respondentEmail: true, status: true, score: true, passed: true, scoreReleasedAt: true, submittedAt: true, finalAnswers: true },
     }),
     prisma.ujianAttempt.findMany({
       where: { ujianId },
@@ -440,7 +487,7 @@ export async function getQuizResponses(actor: Actor, ujianId: string) {
   });
 
   return {
-    quiz: { id: ujian.id, title: ujian.title, status: ujian.status, passingScore: ujian.passingScore },
+    quiz: { id: ujian.id, title: ujian.title, status: ujian.status, passingScore: ujian.passingScore, releaseMode: ujian.releaseMode },
     stats: {
       responses: responses.length,
       attempts: attempts.length,
@@ -452,9 +499,11 @@ export async function getQuizResponses(actor: Actor, ujianId: string) {
     responses: responses.map((response) => ({
       id: response.id,
       respondentName: response.respondentName,
+      respondentEmail: response.respondentEmail,
       status: response.status,
       score: response.score === null ? null : Number(response.score),
       passed: response.passed,
+      released: Boolean(response.scoreReleasedAt),
       submittedAt: response.submittedAt,
     })),
     attempts: attempts.map((attempt) => ({
@@ -465,6 +514,242 @@ export async function getQuizResponses(actor: Actor, ujianId: string) {
       submittedAt: attempt.submittedAt,
     })),
   };
+}
+
+export async function releaseQuizResponse(actor: Actor, ujianId: string, responseId: string) {
+  const ujian = await prisma.ujian.findUnique({ where: { id: ujianId }, select: { id: true, kelasId: true } });
+  if (!ujian) throw new NotFoundError("Kuis tidak ditemukan");
+  await assertClassScope(actor, ujian.kelasId);
+
+  const response = await prisma.quizResponse.findFirst({ where: { id: responseId, ujianId }, select: { id: true } });
+  if (!response) throw new NotFoundError("Respons tidak ditemukan");
+
+  await prisma.$transaction([
+    prisma.quizResponse.update({ where: { id: responseId }, data: { scoreReleasedAt: new Date() } }),
+    prisma.auditLog.create({ data: { actorId: actor.id, action: "QUIZ_RESPONSE_RELEASED", entityType: "QuizResponse", entityId: responseId, metadata: { ujianId } } }),
+  ]);
+
+  return { success: true };
+}
+
+export async function releaseAllQuizResponses(actor: Actor, ujianId: string) {
+  const ujian = await prisma.ujian.findUnique({ where: { id: ujianId }, select: { id: true, kelasId: true } });
+  if (!ujian) throw new NotFoundError("Kuis tidak ditemukan");
+  await assertClassScope(actor, ujian.kelasId);
+
+  const result = await prisma.quizResponse.updateMany({
+    where: { ujianId, scoreReleasedAt: null, status: { in: ["SUBMITTED", "NEEDS_REVIEW"] } },
+    data: { scoreReleasedAt: new Date() },
+  });
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "QUIZ_RESPONSES_RELEASED", entityType: "Ujian", entityId: ujianId, metadata: { count: result.count } } });
+
+  return { released: result.count };
+}
+
+export async function importQuizQuestions(actor: Actor, targetUjianId: string, input: unknown) {
+  const parsed = importQuestionsSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Permintaan impor belum valid", parsed.error.flatten().fieldErrors);
+
+  const target = await prisma.ujian.findUnique({ where: { id: targetUjianId }, select: { id: true, kelasId: true } });
+  if (!target) throw new NotFoundError("Kuis tujuan tidak ditemukan");
+  await assertClassScope(actor, target.kelasId);
+
+  const source = await prisma.ujian.findUnique({
+    where: { id: parsed.data.sourceUjianId },
+    select: {
+      id: true,
+      questions: {
+        orderBy: { order: "asc" },
+        select: {
+          id: true,
+          weight: true,
+          required: true,
+          bankSoal: {
+            select: {
+              type: true,
+              question: true,
+              helpText: true,
+              stimulusText: true,
+              mediaUrl: true,
+              expectedAnswer: true,
+              structuredPayload: true,
+              rubric: true,
+              language: true,
+              direction: true,
+              cognitiveLevel: true,
+              skill: true,
+              difficulty: true,
+              standard: true,
+              assessmentType: true,
+              allowOther: true,
+              shuffleOptions: true,
+              explanation: true,
+              acceptedAnswers: true,
+              feedbackCorrect: true,
+              feedbackIncorrect: true,
+              fileUploadConfig: true,
+              options: { orderBy: { order: "asc" }, select: { label: true, content: true, mediaUrl: true, isCorrect: true, order: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!source) throw new NotFoundError("Kuis sumber tidak ditemukan");
+
+  const questionsToImport = parsed.data.questionIds && parsed.data.questionIds.length > 0
+    ? source.questions.filter((question) => parsed.data.questionIds!.includes(question.id))
+    : source.questions;
+  if (questionsToImport.length === 0) throw new ValidationError("Tidak ada soal yang dipilih");
+
+  const last = await prisma.ujianSoal.aggregate({ where: { ujianId: targetUjianId }, _max: { order: true } });
+
+  await prisma.$transaction(async (tx) => {
+    let order = (last._max.order ?? -1) + 1;
+
+    for (const question of questionsToImport) {
+      const soal = await tx.bankSoal.create({
+        data: {
+          kelasId: target.kelasId,
+          type: question.bankSoal.type,
+          question: question.bankSoal.question,
+          helpText: question.bankSoal.helpText ?? undefined,
+          stimulusText: question.bankSoal.stimulusText ?? undefined,
+          mediaUrl: question.bankSoal.mediaUrl ?? undefined,
+          expectedAnswer: question.bankSoal.expectedAnswer ?? undefined,
+          structuredPayload: question.bankSoal.structuredPayload ?? undefined,
+          rubric: question.bankSoal.rubric ?? undefined,
+          language: question.bankSoal.language ?? undefined,
+          direction: question.bankSoal.direction ?? undefined,
+          cognitiveLevel: question.bankSoal.cognitiveLevel,
+          skill: question.bankSoal.skill,
+          difficulty: question.bankSoal.difficulty,
+          standard: question.bankSoal.standard ?? undefined,
+          assessmentType: question.bankSoal.assessmentType,
+          allowOther: question.bankSoal.allowOther,
+          shuffleOptions: question.bankSoal.shuffleOptions,
+          explanation: question.bankSoal.explanation ?? undefined,
+          acceptedAnswers: question.bankSoal.acceptedAnswers ?? undefined,
+          feedbackCorrect: question.bankSoal.feedbackCorrect ?? undefined,
+          feedbackIncorrect: question.bankSoal.feedbackIncorrect ?? undefined,
+          fileUploadConfig: question.bankSoal.fileUploadConfig ?? undefined,
+          createdById: actor.id,
+        },
+        select: { id: true },
+      });
+
+      if (question.bankSoal.options.length > 0) {
+        await tx.opsiSoal.createMany({
+          data: question.bankSoal.options.map((option) => ({
+            bankSoalId: soal.id,
+            label: option.label,
+            content: option.content,
+            mediaUrl: option.mediaUrl ?? undefined,
+            isCorrect: option.isCorrect,
+            order: option.order,
+          })),
+        });
+      }
+
+      await tx.ujianSoal.create({
+        data: { ujianId: targetUjianId, bankSoalId: soal.id, order, weight: question.weight, required: question.required },
+      });
+      order += 1;
+    }
+
+    await tx.auditLog.create({
+      data: { actorId: actor.id, action: "QUIZ_QUESTIONS_IMPORTED", entityType: "Ujian", entityId: targetUjianId, metadata: { sourceUjianId: source.id, count: questionsToImport.length } },
+    });
+  });
+
+  return { imported: questionsToImport.length };
+}
+
+export async function gradeQuizResponse(actor: Actor, ujianId: string, responseId: string, input: unknown) {
+  const parsed = gradeQuizResponseSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Penilaian belum valid", parsed.error.flatten().fieldErrors);
+
+  const ujian = await prisma.ujian.findUnique({
+    where: { id: ujianId },
+    select: {
+      id: true,
+      kelasId: true,
+      passingScore: true,
+      questions: {
+        select: {
+          id: true,
+          weight: true,
+          bankSoal: { select: { type: true, expectedAnswer: true, acceptedAnswers: true, structuredPayload: true, options: { select: { label: true, isCorrect: true } } } },
+        },
+      },
+    },
+  });
+  if (!ujian) throw new NotFoundError("Kuis tidak ditemukan");
+  await assertClassScope(actor, ujian.kelasId);
+
+  const response = await prisma.quizResponse.findUnique({ where: { id: responseId }, select: { id: true, ujianId: true, finalAnswers: true, manualScores: true } });
+  if (!response || response.ujianId !== ujianId) throw new NotFoundError("Respons tidak ditemukan");
+
+  const overrides: Record<string, number> = response.manualScores && typeof response.manualScores === "object" && !Array.isArray(response.manualScores)
+    ? { ...(response.manualScores as Record<string, number>) }
+    : {};
+  for (const entry of parsed.data.answers) overrides[entry.ujianSoalId] = entry.score;
+
+  const rawAnswers = Array.isArray(response.finalAnswers) ? (response.finalAnswers as GradableAnswer[]) : [];
+  const answerById = new Map(rawAnswers.map((answer) => [answer.ujianSoalId, answer]));
+
+  let earned = 0;
+  let total = 0;
+  let needsReview = false;
+
+  for (const question of ujian.questions) {
+    total += Number(question.weight);
+    const manual = overrides[question.id];
+
+    if (typeof manual === "number" && Number.isFinite(manual)) {
+      earned += Math.min(Math.max(manual, 0), Number(question.weight));
+      continue;
+    }
+
+    const correctLabels = question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label.toUpperCase()).sort();
+    const graded = gradeObjectiveAnswer({
+      type: question.bankSoal.type,
+      weight: Number(question.weight),
+      correctLabels,
+      expectedAnswer: question.bankSoal.expectedAnswer ?? null,
+      acceptedAnswers: question.bankSoal.acceptedAnswers,
+      structuredPayload: question.bankSoal.structuredPayload,
+      answer: answerById.get(question.id),
+    });
+
+    if (graded.score === null) {
+      needsReview = true;
+      continue;
+    }
+
+    earned += graded.score;
+  }
+
+  const percent = total > 0 ? Number(((earned / total) * 100).toFixed(2)) : 0;
+  const passingScore = ujian.passingScore;
+
+  const item = await prisma.$transaction(async (tx) => {
+    const updated = await tx.quizResponse.update({
+      where: { id: responseId },
+      data: {
+        manualScores: overrides as Prisma.InputJsonValue,
+        score: percent,
+        maxScore: 100,
+        status: needsReview ? "NEEDS_REVIEW" : "SUBMITTED",
+        passed: needsReview || passingScore === null ? null : percent >= passingScore,
+      },
+      select: { id: true, score: true, status: true, passed: true },
+    });
+    await tx.auditLog.create({ data: { actorId: actor.id, action: "QUIZ_RESPONSE_GRADED", entityType: "QuizResponse", entityId: responseId, metadata: { ujianId, score: percent, needsReview } } });
+    return updated;
+  });
+
+  return { item: { id: item.id, score: item.score === null ? null : Number(item.score), status: item.status, passed: item.passed, needsReview } };
 }
 
 export async function getQuizResponseDetail(actor: Actor, ujianId: string, responseId: string) {
@@ -502,12 +787,16 @@ export async function getQuizResponseDetail(actor: Actor, ujianId: string, respo
 
   const response = await prisma.quizResponse.findUnique({
     where: { id: responseId },
-    select: { id: true, ujianId: true, respondentName: true, status: true, score: true, passed: true, submittedAt: true, finalAnswers: true, draftAnswers: true },
+    select: { id: true, ujianId: true, respondentName: true, status: true, score: true, passed: true, submittedAt: true, finalAnswers: true, draftAnswers: true, manualScores: true },
   });
 
   if (!response || response.ujianId !== ujianId) {
     throw new NotFoundError("Respons tidak ditemukan");
   }
+
+  const manualScores: Record<string, number> = response.manualScores && typeof response.manualScores === "object" && !Array.isArray(response.manualScores)
+    ? { ...(response.manualScores as Record<string, number>) }
+    : {};
 
   const rawAnswers = Array.isArray(response.finalAnswers)
     ? (response.finalAnswers as Array<Record<string, unknown>>)
@@ -557,7 +846,7 @@ export async function getQuizResponseDetail(actor: Actor, ujianId: string, respo
       answerText = (typeof record.shortAnswer === "string" && record.shortAnswer) || (typeof record.essayAnswer === "string" && record.essayAnswer) || "-";
     }
 
-    return { id: question.id, type, question: question.bankSoal.question, answerText, correct, weight: Number(question.weight), fileId };
+    return { id: question.id, type, question: question.bankSoal.question, answerText, correct, weight: Number(question.weight), fileId, manualScore: manualScores[question.id] ?? null };
   });
 
   return {
@@ -640,9 +929,17 @@ export async function duplicateQuizForm(actor: Actor, ujianId: string) {
       showAnswersAfterSubmit: true,
       collectRespondentName: true,
       showResultToWali: true,
+      showResultToSiswa: true,
+      secureMode: true,
       themeColor: true,
       headerImageUrl: true,
       confirmationMessage: true,
+      collectRespondentEmail: true,
+      sendCopyToRespondent: true,
+      oneResponsePerEmail: true,
+      notifyGuruOnResponse: true,
+      presentationMode: true,
+      releaseMode: true,
       availableFrom: true,
       availableUntil: true,
       sections: { orderBy: { order: "asc" }, select: { id: true, order: true, title: true, description: true } },
@@ -672,7 +969,12 @@ export async function duplicateQuizForm(actor: Actor, ujianId: string) {
               standard: true,
               assessmentType: true,
               allowOther: true,
+              shuffleOptions: true,
               explanation: true,
+              acceptedAnswers: true,
+              feedbackCorrect: true,
+              feedbackIncorrect: true,
+              fileUploadConfig: true,
               options: { orderBy: { order: "asc" }, select: { label: true, content: true, mediaUrl: true, isCorrect: true, order: true } },
             },
           },
@@ -705,9 +1007,17 @@ export async function duplicateQuizForm(actor: Actor, ujianId: string) {
         showAnswersAfterSubmit: source.showAnswersAfterSubmit,
         collectRespondentName: source.collectRespondentName,
         showResultToWali: source.showResultToWali,
+        showResultToSiswa: source.showResultToSiswa,
+        secureMode: source.secureMode,
         themeColor: source.themeColor,
         headerImageUrl: source.headerImageUrl ?? undefined,
         confirmationMessage: source.confirmationMessage ?? undefined,
+        collectRespondentEmail: source.collectRespondentEmail,
+        sendCopyToRespondent: source.sendCopyToRespondent,
+        oneResponsePerEmail: source.oneResponsePerEmail,
+        notifyGuruOnResponse: source.notifyGuruOnResponse,
+        presentationMode: source.presentationMode,
+        releaseMode: source.releaseMode,
         availableFrom: source.availableFrom,
         availableUntil: source.availableUntil,
         createdById: actor.id,
@@ -745,7 +1055,12 @@ export async function duplicateQuizForm(actor: Actor, ujianId: string) {
           standard: question.bankSoal.standard ?? undefined,
           assessmentType: question.bankSoal.assessmentType,
           allowOther: question.bankSoal.allowOther,
+          shuffleOptions: question.bankSoal.shuffleOptions,
           explanation: question.bankSoal.explanation ?? undefined,
+          acceptedAnswers: question.bankSoal.acceptedAnswers ?? undefined,
+          feedbackCorrect: question.bankSoal.feedbackCorrect ?? undefined,
+          feedbackIncorrect: question.bankSoal.feedbackIncorrect ?? undefined,
+          fileUploadConfig: question.bankSoal.fileUploadConfig ?? undefined,
           createdById: actor.id,
         },
         select: { id: true },
@@ -806,15 +1121,27 @@ export async function publishQuizForm(actor: Actor, ujianId: string) {
     await prisma.ujian.update({ where: { id: ujianId }, data: { status: "PUBLISHED" } });
     await prisma.auditLog.create({ data: { actorId: actor.id, action: "QUIZ_FORM_PUBLISHED", entityType: "Ujian", entityId: ujianId } });
 
-    if (["ONLINE_VIA_WALI", "BOTH"].includes(ujian.deliveryMode)) {
+    if (["ONLINE_VIA_WALI", "BOTH", "ONLINE_VIA_SISWA"].includes(ujian.deliveryMode)) {
       const students = await prisma.kelasSiswa.findMany({ where: { kelasId: ujian.kelasId, status: "ACTIVE" }, select: { siswaId: true } });
-      await notifyWaliForStudents({
-        siswaIds: students.map((student) => student.siswaId),
-        template: "online-exam-published",
-        subject: `Tugas baru: ${ujian.title}`,
-        body: `Ujian online ${ujian.title} sudah tersedia untuk dikerjakan melalui menu Tugas Anak.`,
-        metadata: { ujianId: ujian.id },
-      });
+      const siswaIds = students.map((student) => student.siswaId);
+      if (["ONLINE_VIA_WALI", "BOTH"].includes(ujian.deliveryMode)) {
+        await notifyWaliForStudents({
+          siswaIds,
+          template: "online-exam-published",
+          subject: `Tugas baru: ${ujian.title}`,
+          body: `Ujian online ${ujian.title} sudah tersedia untuk dikerjakan melalui menu Tugas Anak.`,
+          metadata: { ujianId: ujian.id },
+        });
+      }
+      if (["ONLINE_VIA_SISWA", "BOTH"].includes(ujian.deliveryMode)) {
+        await notifySiswaForStudents({
+          siswaIds,
+          template: "online-exam-published",
+          subject: `Ujian baru: ${ujian.title}`,
+          body: `Ujian online ${ujian.title} sudah tersedia untuk dikerjakan melalui menu Ujian di portal siswa.`,
+          metadata: { ujianId: ujian.id },
+        });
+      }
     }
   }
 

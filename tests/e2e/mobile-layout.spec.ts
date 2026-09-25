@@ -158,7 +158,7 @@ test("Wali Arabic material isolates bidi content and preserves child context", a
   await childSelector.selectOption(bilalId);
   await expect(page).toHaveURL(new RegExp(`/wali/materi\\?anak=${bilalId}$`), { timeout: 15_000 });
 
-  const materialCard = page.getByTestId("wali-material-card").filter({ hasText: "Sapaan Bahasa Arab" });
+  const materialCard = page.getByTestId("wali-material-card").filter({ hasText: "Arabic for Kids" }).filter({ hasText: "Sapaan Bahasa Arab" });
   await expect(materialCard).toContainText("Untuk: Bilal Pratama (LIMO-DEV-003)");
   const arabicContent = materialCard.getByTestId("wali-material-content");
   await expect(arabicContent).toContainText("السلام عليكم");

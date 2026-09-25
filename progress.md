@@ -1,6 +1,6 @@
 # Progress Implementasi LIMO
 
-Terakhir diperbarui: 29 Juli 2026
+Terakhir diperbarui: 25 September 2026
 
 ## Status Saat Ini
 
@@ -245,3 +245,72 @@ PID dapat berubah jika server dijalankan ulang.
 2. Lanjutkan target Minggu 4: integrasi final, pengujian, deployment production, dan pelatihan.
 3. Siapkan MariaDB, buat migration production dari `prisma/schema.prisma`, seed, dan jalankan parity test.
 4. Selesaikan workflow n8n/GOWA, credential Mayar production, dan UAT payment end-to-end.
+
+## Ujian Mandiri untuk Siswa (25 Sep 2026)
+
+- Siswa dapat mengerjakan ujian daring dari akun sendiri (bukan hanya lewat akun wali). Mode baru `ONLINE_VIA_SISWA` (selain `BOTH`) dipilih Guru pada form ujian dan builder kuis; ujian `TEACHER_ENTRY` tetap tidak dapat dikerjakan siswa.
+- Skema: `UjianAttempt.waliProfileId` menjadi nullable, ditambah `siswaAccountId` (FK ke `SiswaAccount`, `onDelete: SetNull`) dan `startedByRole` (`WALI`/`SISWA`); migration `20260925010000_student_self_exam`.
+- Service `online-exam-service` digeneralisasi dengan "attempt scope" bersama (wali/siswa) sehingga logika mulai/draf/unggah/kumpulkan dinilai satu jalur; ditambah `listStudentExams`, `getStudentExamInstruction`, `startStudentExamAttempt`, `getStudentAttemptContext`, `saveStudentAttemptDraft`, `uploadStudentAttemptFile`, `submitStudentAttempt`. Jalur wali tetap utuh.
+- API siswa baru: `GET /api/v1/siswa/ujian`, `POST /api/v1/siswa/ujian/[ujianId]/attempt`, `PATCH/POST /api/v1/siswa/attempt/[attemptId]` (+`/submit`, `/upload`).
+- UI: pemutar `OnlineExamPlayer` menerima `basePath`/`submittedHref`, tombol mulai menerima `endpoint`/`redirectBase` (dipakai wali & siswa); halaman baru `/siswa/ujian`, `/siswa/ujian/[ujianId]`, `/siswa/ujian/attempt/[attemptId]`; entri menu "Ujian" dan CTA di beranda/detail kelas siswa.
+- Feature flag baru `STUDENT_SELF_EXAM_ENABLED` (`studentSelfExamEnabled`), default development aktif dan production nonaktif; disinkronkan ke env/contoh env, Docker Compose, CI, dan dokumentasi.
+- Notifikasi publish: ujian mode siswa memicu `notifySiswaForStudents`; mode wali tetap `notifyWaliForStudents`.
+- Isolasi: attempt ter-scope ke pemilik (wali↔siswa dan antar siswa ditolak), dan hanya satu attempt aktif per (ujian, siswa). `maxAttempts` dihitung per (ujian, siswa) lintas pemilik.
+- Verifikasi (semua hijau): `npm run sqlite:setup` · `npm run typecheck` · `npm run lint` 0 error · `npm test` 34 lulus · `test:siswa-ujian` 10/10 (termasuk render halaman) · regresi `test:quiz-builder` 22/22, `test:accounts` 11/11, `test:sertifikat` 7/7.
+- Backlog fase berikutnya: rekaman speaking langsung, serta diskusi kelas + pengumuman.
+
+## Mode Aman, Rilis Nilai, & Unduh Berkas Siswa (25 Sep 2026)
+
+- **Mode aman**: `Ujian.secureMode` (toggle di form ujian & tab Pengaturan builder) membuat pemutar mencatat perpindahan tab (`visibilitychange`) ke `UjianAttempt.violationCount`/`lastViolationAt`. Laporan dikirim lewat `POST /api/v1/{siswa,wali}/attempt/[attemptId]/violation` (hanya pemilik attempt, rate-limit 120/jam). Badge "Mode aman · n peringatan" tampil di pemutar, dan Guru melihatnya sebagai peringatan di halaman koreksi hasil ujian.
+- **Rilis nilai ke siswa**: `Ujian.showResultToSiswa` (toggle di form ujian & builder). Saat nilai ditahan, daftar ujian siswa menampilkan status **Dikirim** tanpa nilai, dan nilai tidak muncul di beranda siswa. Status `SUBMITTED` ditambahkan ke perhitungan status baris tugas.
+- **Unduh berkas jawaban siswa**: `GET /api/v1/siswa/attempt/[attemptId]/files/[fileId]` ber-scope `siswaAccountId` + verifikasi fileId ada di draf/jawaban; nama berkas pada pemutar kini menjadi tautan unduh.
+- Migrasi `20260925020000_exam_secure_mode_result_release` (4 kolom: `Ujian.secureMode`, `Ujian.showResultToSiswa`, `UjianAttempt.violationCount`, `UjianAttempt.lastViolationAt`).
+- Verifikasi (semua hijau): `npm run typecheck` · `npm run lint` 0 error · `npm test` 34 · `test:siswa-ujian` **13/13** · regresi `test:quiz-builder` 22/22 · `test:accounts` 11/11 · `test:sertifikat` 7/7.
+- Backlog lanjutan: mode aman lebih kuat (fullscreen/anti-paste), rilis nilai per attempt, rekaman speaking.
+
+## Pengumuman & Diskusi Kelas (Fase 9 — 25 Sep 2026)
+
+Dibangun 3 fase sesuai `rencana.md` FASE 9, di balik flag **`CLASS_DISCUSSION_ENABLED`** (dipakai sungguhan, bukan flag mati).
+
+- **Fase A — Pengumuman + status baca.** Model `Pengumuman` (title, content, `priority` NORMAL/IMPORTANT/URGENT, `audience` SISWA/WALI/SEMUA, `publishAt`/`expiresAt`, `notifiedAt`) + `PengumumanRead` (unique per penerima per pengumuman). Migrasi `20260925030000_pengumuman`. Service `pengumuman-service.ts`: create/update/status/read/list + `listWaliPengumuman`. Visibilitas dihitung saat query → jadwal & kedaluwarsa idempoten tanpa job. Notifikasi `pengumuman-baru` lewat `notifyKelasAktif` (baru) instan untuk yang sudah terbit, dan disusul oleh job `npm run pengumuman:publish` (`scripts/send-due-pengumuman.ts`, klaim atomik `notifiedAt`).
+- **Fase B — Ruang tanya jawab.** Model `DiskusiThread` (status OPEN/LOCKED/HIDDEN, `isPinned`, `replyCount`, `lastReplyAt`, `deletedAt`) + `DiskusiBalasan` (`parentReplyId`, `isTeacherAnswer`, VISIBLE/HIDDEN, `deletedAt`). Migrasi `20260925040000_diskusi`. Service `diskusi-service.ts`: list (sematan → aktivitas terakhir → terbaru), create thread (**WALI ditolak**), balas (WALI boleh), edit 15 menit, moderasi pin/kunci/sembunyikan/soft-delete + audit `DISKUSI_*`, notifikasi `diskusi-baru`/`diskusi-balasan` ke guru + pembuat thread.
+- **Fase C — Moderasi lanjutan.** Model `DiskusiLaporan` + `FileOwnerType += DISKUSI` + FK `FileAsset.diskusiThreadId` (migrasi `20260925050000_diskusi_moderasi`). Lampiran thread berpenyimpanan privat (`storeMaterialFile`) dengan unduh/hapus ber-scope kelas; lapor konten (idempoten, rate-limited) ke antrean admin `/admin/diskusi-laporan` + halaman tinjau.
+- **Scoping** terpusat: `assertViewKelasForum` / `assertManageKelasForum` di `access-policy.ts` (Admin ✓, Guru pengampu ✓, Siswa dengan enrollment aktif ✓, Wali dengan anak terdaftar ✓; siswa/wali luar kelas → 404, guru non-pengampu → 403).
+- **Entri**: tombol **Pengumuman** + **Diskusi** di halaman detail kelas guru & siswa, menu **Pengumuman**/**Diskusi** untuk WALI, menu **Laporan Diskusi** untuk ADMIN. Halaman: guru/siswa `/kelas/{id}/{pengumuman,diskusi}` (+ thread), wali `/wali/{pengumuman,diskusi}`, admin `/admin/diskusi-laporan`.
+- **Deviasi terhadap spesifikasi (disetujui)**: wali boleh membalas thread (FASE 9 menyebut read-only); wali tidak boleh membuat thread.
+- **Penyempurnaan antar run**: halaman daftar diskusi kini menerima `?pageSize=` (dibatasi `resolvePagination`) sehingga pagination dapat diuji tanpa membuat puluh thread.
+
+**Verifikasi (semua hijau):** `sqlite:setup` · `typecheck` ✓ · `lint` 0 error ✓ · `npm test` **34** · **`test:diskusi` 23/23** (dijalankan 2×, repeatable) · regresi `test:quiz-builder` **22/22**, `test:accounts` **11/11**, `test:sertifikat` **7/7**, `test:siswa-ujian` **13/13**.
+
+**Catatan operasional**: rate limit aplikasi in-process. `test:diskusi` membuat akun luar kelas segar tiap run untuk uji rate limit; bila dijalankan berulang lebih dari ~3 kali dalam 15 menit, kuota akun utama (guru/admin/siswa) bisa habis — restart dev server untuk reset.
+
+## Rekaman Suara, Antrean Unggah Persisten, Voucher & Kuitansi (25 Sep 2026)
+
+- **Rekaman speaking langsung (MediaRecorder).** Komponen baru `src/components/quiz/audio-recorder.tsx` (rekam/jeda/berhenti, batas 5 menit, pratinjau, rekam ulang) dipakai di pemutar wali/siswa (`online-exam-player.tsx`) **dan** tautan publik (`public-quiz-runner.tsx`) pada soal `FILE_UPLOAD`. Hasil rekaman (audio/webm) memakai jalur unggah yang sudah ada — MIME audio sudah diizinkan `storeQuizSubmissionFile`.
+- **Konfigurasi unggah soal disurfacekan.** `sanitizeQuestion` (`public-quiz-service.ts`) dan pemetaan halaman attempt wali/siswa kini mengirim `uploadAllowedTypes`/`uploadMaxSizeMb` → input berkas memakai `accept`, batas ukuran divalidasi di klien lebih awal, dan tombol rekam hanya tampil bila soal mengizinkan audio (`canRecordAudio`).
+- **Antrean unggah persisten (IndexedDB).** Helper `src/lib/upload-queue.ts`; kedua pemutar menyimpan berkas gagal/offline ke IndexedDB, memulihkannya setelah reload, dan mengunggah otomatis saat koneksi pulih atau saat halaman dimuat kembali dalam keadaan online. Kuota antrean dibersihkan setelah submit sukses.
+- **Voucher/diskon.** Model `Voucher` (+ enum `VoucherDiscountType`) dan kolom `Tagihan.subtotal`/`discountAmount`/`voucherId` (migrasi `20260925060000_vouchers_and_receipts`). Service `voucher-service.ts`: buat/aktifkan/arsipkan + terapkan/lepas kode dengan penegakan masa berlaku, minimal tagihan, dan kuota secara atomik (audit `VOUCHER_*`). Route: `GET/POST /api/v1/admin/voucher`, `PATCH /api/v1/admin/voucher/[id]`, `POST/DELETE /api/v1/tagihan/[id]/voucher`. UI: form + katalog voucher di `/admin/tagihan`; form pakai kode di kartu tagihan Wali/Admin (berlaku hanya untuk tagihan UNPAID/OVERDUE).
+- **Kuitansi PDF.** `receipt-pdf-service.ts` (pdfkit) + `GET /api/v1/tagihan/[id]/kuitansi` (hanya tagihan lunas; memuat subtotal, diskon/voucher, total dibayar, metode, referensi). Tombol unduh di workspace Admin & Wali.
+- **Belum dikerjakan:** cicilan/angsuran (butuh kebijakan pembayaran parsial) dan cakupan voucher per program/kelas.
+- **Verifikasi (semua hijau):** `sqlite:setup` ✓ · `typecheck` ✓ · `lint` 0 error ✓ · `npm test` **36** · **`test:billing-voucher` 8/8** (baru) · regresi `test:quiz-builder` 22/22, `test:siswa-ujian` 13/13, `test:quiz-share` 5/5, `test:payment` 1/1. Catatan: `test:week3` gagal karena sebab pra-ada (assert teks `Gerbang Pembayaran: {label}` terpecah antar text node + gateway Mayar tidak terkonfigurasi di seed), bukan akibat perubahan ini.
+
+## E2E Fitur Baru + Perbaikan Permissions-Policy (25 Sep 2026)
+
+- **E2E baru** (runner terisolasi, DB + server per spec, setup Prisma sendiri + cleanup):
+  - `tests/e2e/student-exam.spec.ts` — ujian mandiri siswa end-to-end termasuk **rekaman suara nyata** (MediaRecorder + `--use-fake-device-for-media-stream`) dan audit axe pemutar.
+  - `tests/e2e/class-forum.spec.ts` — guru buat pengumuman → siswa tandai dibaca → siswa buat diskusi → wali balas → guru sematkan.
+  - `tests/e2e/billing-voucher.spec.ts` — admin buat voucher → wali pakai → rekonsiliasi admin → wali unduh kuitansi PDF.
+- **🐞 Bug produksi (ditemukan e2e, diperbaiki):** `next.config.ts` mengirim `Permissions-Policy: camera=(), microphone=()` → `getUserMedia` selalu `NotAllowedError`, sehingga rekaman suara ujian **dan** rekaman audio/video pada pengumpulan tugas tidak mungkin berjalan. Diubah ke `camera=(self), microphone=(self), geolocation=()`.
+- **Kontras (temuan axe e2e):** badge "Bobot" pemutar ujian + teks `AudioRecorder` + teks bantuan unggahan pemutar publik dinaikkan ke rasio ≥4.5.
+- **Kartu tagihan Wali** diberi `data-invoice-id` untuk selector e2e yang stabil.
+- **Verifikasi:** e2e `student-exam` 1/1 · `class-forum` 1/1 · `billing-voucher` 1/1 · `mobile-layout` 16/16 · `quiz-builder` 2/2 (semua lulus di runner terisolasi); `typecheck` ✓ · `lint` 0 error ✓.
+
+## Pengumuman Sekolah, Mode Aman Lebih Kuat, Cakupan Voucher (25 Sep 2026)
+
+- **Pengumuman sekolah-wide** (`kelasId` null, hanya Admin). Service `pengumuman-service.ts`: `createPengumuman` menerima `kelasId` kosong bila actor ADMIN; visibilitas siswa/wali menyertakan `kelasId: null`; `countUnreadPengumuman` ikut menghitung pengumuman sekolah; fungsi baru `listSchoolPengumuman`. Notifikasi baru `notifySekolahAktif` (semua siswa/wali aktif) dipakai `pengumuman-job-service` untuk `kelasId` null; job `pengumuman:publish` tidak lagi menyaring `kelasId not null`. UI: halaman **`/admin/pengumuman`** + entri menu "Pengumuman". Verifikasi: `test:diskusi` **24/24**.
+- **Mode aman lebih kuat** (`online-exam-player.tsx`): tombol **Aktifkan layar penuh**, blokir tempel/salin/potong/klik-kanan (masing-masing tercatat sebagai pelanggaran lewat endpoint `/violation`), dan keluar layar penuh dicatat. Verifikasi: e2e `student-exam` **2/2**.
+- **Cakupan voucher per program/kelas**: `Voucher.programId`/`kelasId` + relasi (migrasi `20260925070000_voucher_scope`); `applyVoucher` menolak voucher yang tidak sesuai program/kelas siswa; `VoucherForm` menambah pemilih cakupan; katalog menampilkan cakupan. Verifikasi: `test:billing-voucher` **9/9**.
+- **Lampiran pada balasan diskusi**: `FileAsset.diskusiBalasanId` + `DiskusiBalasan.attachments` (migrasi `20260925080000_diskusi_balasan_lampiran`); service `attachDiskusiReplyFile`/`getDiskusiReplyFile`/`removeDiskusiReplyAttachment` (penulis balasan atau pengelola kelas; unduh ber-scope kelas); route `diskusi/replies/[replyId]/attachments[/fileId[/remove]]`; UI lampiran di kartu balasan (`diskusi-attachments.tsx`, `diskusi-thread-view.tsx`).
+- **Rilis nilai per attempt/hasil**: `HasilUjian.releasedAt` (migrasi `20260925090000_exam_result_release_per_student`); service `releaseHasilUjian` (guru pengampu/admin, hanya FINAL/CORRECTED) + route `POST /api/v1/hasil-ujian/[hasilId]/release` + tombol `ExamResultReleaseButton` di halaman hasil guru. Query visibilitas nilai (daftar ujian siswa/wali, beranda siswa, beranda wali, laporan) kini `OR` dengan `releasedAt`, melampaui flag global `showResultToSiswa/Wali`.
+- **Belum dikerjakan:** cicilan/angsuran (butuh kebijakan pembayaran parsial), Q&A per materi/modul (enum `DISCUSSION`), mode "angkat & pindah" drag keyboard penuh.
+- **Verifikasi:** `typecheck` ✓ · `lint` 0 error ✓ · `npm test` 36 · `test:diskusi` **25/25** · `test:siswa-ujian` **14/14** · `test:billing-voucher` 9/9 · e2e `student-exam` 2/2, `class-forum` 1/1, `billing-voucher` 1/1, `mobile-layout` 16/16.

@@ -59,13 +59,15 @@ export const createUjianSchema = z.object({
   title: z.string().trim().min(2).max(200),
   description: z.string().trim().max(2000).optional().or(z.literal("")),
   status: z.enum(["DRAFT", "PUBLISHED"]).default("DRAFT"),
-  deliveryMode: z.enum(["TEACHER_ENTRY", "ONLINE_VIA_WALI", "BOTH"]).default("TEACHER_ENTRY"),
+  deliveryMode: z.enum(["TEACHER_ENTRY", "ONLINE_VIA_WALI", "ONLINE_VIA_SISWA", "BOTH"]).default("TEACHER_ENTRY"),
   examDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
   availableFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
   availableUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
   durationMinutes: z.coerce.number().int().min(1).max(600).default(60),
   maxAttempts: z.coerce.number().int().min(1).max(5).default(1),
   showResultToWali: z.boolean().default(true),
+  showResultToSiswa: z.boolean().default(true),
+  secureMode: z.boolean().default(false),
   mode: z.enum(["UJIAN", "LATIHAN"]).default("UJIAN"),
   shuffleQuestions: z.boolean().default(false),
   shuffleOptions: z.boolean().default(false),
@@ -116,6 +118,7 @@ export const correctHasilUjianSchema = z.object({
 
 export const startPublicQuizSchema = z.object({
   respondentName: z.string().trim().min(2).max(120),
+  respondentEmail: z.string().trim().email().max(255).optional().or(z.literal("")),
 });
 
 export const publicQuizDraftSchema = z.object({
@@ -128,4 +131,8 @@ export const submitPublicQuizSchema = z.object({
 
 export const updateUjianShareSchema = z.object({
   regenerate: z.boolean().default(false),
+});
+
+export const addBankSoalToQuizSchema = z.object({
+  bankSoalIds: z.array(z.string().min(8).max(64)).min(1).max(100),
 });

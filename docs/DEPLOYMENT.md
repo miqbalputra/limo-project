@@ -56,9 +56,12 @@ flock -n /var/lock/limo-session-cleanup.lock npm run sessions:cleanup
 flock -n /var/lock/limo-notification-retry.lock npm run --silent notifications:retry -- --limit=50
 flock -n /var/lock/limo-deadline-reminders.lock npm run reminders:send
 flock -n /var/lock/limo-invoice-reminders.lock npm run reminders:invoices
+flock -n /var/lock/limo-pengumuman-publish.lock npm run pengumuman:publish
 ```
 
 Jadwalkan `notifications:retry` **setiap menit** (senyap saat idle). Jadwalkan `reminders:send` dan `reminders:invoices` **harian** (mis. pagi hari WIB) untuk reminder deadline tugas/ujian dan tagihan (H-3/H-1/jatuh tempo/terlambat) lewat email + WhatsApp ke wali. Jadwal final mengikuti timezone operasional `Asia/Jakarta`.
+
+Jadwalkan `pengumuman:publish` **setiap menit**: mengirim notifikasi untuk pengumuman kelas berjadwal yang sudah lewat waktu terbit. Idempoten (klaim atomik kolom `notifiedAt`); tampilan pengumuman tidak bergantung pada job karena visibilitas dihitung dari `publishAt`/`expiresAt` saat query.
 
 ## Rollback
 

@@ -4,6 +4,7 @@ import { requireActor, requireRole } from "@/server/auth/session";
 import { getWaliAttemptContext } from "@/server/services/online-exam-service";
 import { OnlineExamPlayer } from "@/components/dashboard/online-exam-player";
 import { withWaliChildContext } from "@/lib/wali-selector";
+import { readQuizUploadConfig } from "@/lib/quiz-upload";
 import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Kerjakan Ujian" };
@@ -50,6 +51,7 @@ export default async function WaliAttemptPage({ params, searchParams }: { params
       ...attempt.ujian,
       questions: attempt.ujian.questions.map((question) => {
         const payload = (question.bankSoal.structuredPayload ?? null) as StructuredPayload;
+        const upload = readQuizUploadConfig(question.bankSoal.fileUploadConfig);
         return {
           id: question.id,
           weight: question.weight.toString(),
@@ -66,6 +68,8 @@ export default async function WaliAttemptPage({ params, searchParams }: { params
             direction: question.bankSoal.direction,
             allowOther: question.bankSoal.allowOther,
             options: question.bankSoal.options,
+            uploadAllowedTypes: upload.allowedTypes,
+            uploadMaxSizeMb: upload.maxSizeMb,
             scale: { min: payload?.min ?? null, max: payload?.max ?? null, minLabel: payload?.minLabel ?? null, maxLabel: payload?.maxLabel ?? null, kind: payload?.kind ?? null },
             grid: { rows: Array.isArray(payload?.rows) ? payload!.rows : [], multiple: Boolean(payload?.multiple) },
             validation: payload?.validation ?? null,

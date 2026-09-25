@@ -456,6 +456,7 @@ Flag yang dibutuhkan oleh `rencana.md`:
 - `classDiscussionEnabled`
 - `periodicReportsEnabled`
 - `guardianAssistedSubmissionEnabled`
+- `studentSelfExamEnabled`
 
 Mapping environment menggunakan uppercase snake case, misalnya `STUDENT_PORTAL_ENABLED`. Default development/test aktif untuk fitur utama agar dapat dikembangkan bertahap, sedangkan default production nonaktif sampai UAT fase terkait selesai. `GUARDIAN_ASSISTED_SUBMISSION_ENABLED` default selalu nonaktif.
 
@@ -523,7 +524,7 @@ Implemented for assignment sources. `RemedialAssignment`, `RemedialParticipant`,
 
 ### Fase 9: Pengumuman dan Ruang Tanya Jawab
 
-Belum ada announcement, read receipt, discussion thread/reply, moderasi, content report, atau attachment diskusi.
+Sebagian besar selesai (dibangun 25 Sep 2026, flag `CLASS_DISCUSSION_ENABLED`): model `Pengumuman` + `PengumumanRead` (read receipt), `DiskusiThread` + `DiskusiBalasan`, `DiskusiLaporan` (content report), dan lampiran thread privat. Belum ada: attachment pada balasan, laporan isi per-balasan dengan bukti, pengumuman sekolah-wide (`classId` null), serta tautan thread ke `moduleItemId`.
 
 ### Fase 10: Laporan Perkembangan Berkala
 

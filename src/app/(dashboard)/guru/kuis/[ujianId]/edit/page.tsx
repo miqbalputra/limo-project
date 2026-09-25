@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { getQuizForm } from "@/server/services/quiz-builder-service";
 import { listMyKelas } from "@/server/services/lms-service";
+import { listUjian } from "@/server/services/exam-service";
 import { QuizBuilder } from "@/components/dashboard/quiz-builder";
 import type { QuizFormState } from "@/lib/quiz-builder";
 
@@ -13,7 +14,7 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
   const actor = await requireActor();
   requireRole(actor, ["GURU"]);
   const { ujianId } = await params;
-  const [{ item }, { items: kelas }] = await Promise.all([getQuizForm(actor, ujianId), listMyKelas(actor)]);
+  const [{ item }, { items: kelas }, { items: ujianList }] = await Promise.all([getQuizForm(actor, ujianId), listMyKelas(actor), listUjian(actor, { page: 1, pageSize: 100 })]);
 
   const sectionKeys = item.sections.map((_, index) => `s-${item.id}-${index}`);
   if (sectionKeys.length === 0) sectionKeys.push(`s-${item.id}-0`);
@@ -33,9 +34,17 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
     showAnswersAfterSubmit: item.showAnswersAfterSubmit,
     collectRespondentName: item.collectRespondentName,
     showResultToWali: item.showResultToWali,
+    showResultToSiswa: item.showResultToSiswa ?? true,
+    secureMode: item.secureMode ?? false,
     themeColor: item.themeColor ?? "blue",
     headerImageUrl: item.headerImageUrl ?? "",
     confirmationMessage: item.confirmationMessage ?? "",
+    collectRespondentEmail: item.collectRespondentEmail ?? false,
+    sendCopyToRespondent: item.sendCopyToRespondent ?? false,
+    oneResponsePerEmail: item.oneResponsePerEmail ?? false,
+    notifyGuruOnResponse: item.notifyGuruOnResponse ?? false,
+    presentationMode: item.presentationMode ?? "ALL",
+    releaseMode: item.releaseMode ?? "IMMEDIATE",
     availableFrom: item.availableFrom ?? "",
     availableUntil: item.availableUntil ?? "",
     sections: item.sections.length > 0
@@ -65,6 +74,11 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
       validationMax: question.validationMax === null || question.validationMax === undefined ? "" : String(question.validationMax),
       validationPattern: question.validationPattern ?? "",
       validationMessage: question.validationMessage ?? "",
+      acceptedAnswers: question.acceptedAnswers ?? [],
+      feedbackCorrect: question.feedbackCorrect ?? "",
+      feedbackIncorrect: question.feedbackIncorrect ?? "",
+      uploadAllowedTypes: question.uploadAllowedTypes ?? [],
+      uploadMaxSizeMb: question.uploadMaxSizeMb ?? 0,
       sectionKey: sectionKeys[question.sectionIndex] ?? sectionKeys[0],
       branchRules: (Array.isArray(question.branchRules) ? (question.branchRules as Array<{ label: string; goToSectionIndex: number | null }>) : []).map((rule) => ({
         label: rule.label,
@@ -89,6 +103,7 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
         shareToken={item.shareToken}
         initial={initial}
         kelasOptions={kelas.map((entry) => ({ id: entry.id, name: `${entry.program.name} - ${entry.name}` }))}
+        importOptions={ujianList.filter((entry) => entry.id !== item.id).map((entry) => ({ id: entry.id, title: entry.title }))}
       />
     </main>
   );

@@ -76,6 +76,8 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
           durationMinutes: Number(data.get("durationMinutes") || 60),
           maxAttempts: Number(data.get("maxAttempts") || 1),
           showResultToWali: data.get("showResultToWali") === "on",
+          showResultToSiswa: data.get("showResultToSiswa") === "on",
+          secureMode: data.get("secureMode") === "on",
           mode: String(data.get("mode") || "UJIAN"),
           shuffleQuestions: data.get("shuffleQuestions") === "on",
           shuffleOptions: data.get("shuffleOptions") === "on",
@@ -121,6 +123,7 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
         <select name="deliveryMode" defaultValue="TEACHER_ENTRY" className="tailadmin-input">
           <option value="TEACHER_ENTRY">{formatUiLabel("TEACHER_ENTRY")}</option>
           <option value="ONLINE_VIA_WALI">{formatUiLabel("ONLINE_VIA_WALI")}</option>
+          <option value="ONLINE_VIA_SISWA">{formatUiLabel("ONLINE_VIA_SISWA")}</option>
           <option value="BOTH">Luring dan daring</option>
         </select>
         <input name="maxAttempts" type="number" min={1} max={5} defaultValue={1} className="tailadmin-input" placeholder="Maksimal percobaan" />
@@ -132,6 +135,14 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
       <label className="flex items-center gap-2 rounded-xl bg-gray-50 p-3 text-theme-sm text-gray-700">
         <input name="showResultToWali" type="checkbox" defaultChecked className="accent-limo-blue-500" />
         Tampilkan hasil ke wali setelah final
+      </label>
+      <label className="flex items-center gap-2 rounded-xl bg-gray-50 p-3 text-theme-sm text-gray-700">
+        <input name="showResultToSiswa" type="checkbox" defaultChecked className="accent-limo-blue-500" />
+        Tampilkan nilai ke siswa setelah final
+      </label>
+      <label className="flex items-center gap-2 rounded-xl bg-gray-50 p-3 text-theme-sm text-gray-700">
+        <input name="secureMode" type="checkbox" className="accent-limo-blue-500" />
+        Mode aman (catat perpindahan tab saat siswa mengerjakan)
       </label>
       <div className="rounded-xl border border-gray-200 p-4">
         <p className="text-theme-sm font-semibold text-gray-700">Pengaturan kuis</p>

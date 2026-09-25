@@ -12,7 +12,8 @@ export async function GET(request: Request) {
 
   try {
     const actor = await requireActor();
-    return apiOk(await listWali(actor), { requestId });
+    const url = new URL(request.url);
+    return apiOk(await listWali(actor, Object.fromEntries(url.searchParams)), { requestId });
   } catch (error) {
     return apiError(error, { requestId });
   }

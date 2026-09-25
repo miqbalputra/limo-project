@@ -25,6 +25,7 @@ free-react-tailwind-admin-dashboard-main/
 limo_image/
 
 # Konfigurasi tooling AI lokal (bukan bagian source aplikasi)
+.commandcode/
 .agents/
 .augment/
 .claude/

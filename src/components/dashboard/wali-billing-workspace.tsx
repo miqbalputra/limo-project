@@ -8,6 +8,7 @@ import { MetricCard, MetricStat } from "@/components/dashboard/metric-card";
 import { Money } from "@/components/dashboard/money";
 import { PaymentButton } from "@/components/dashboard/payment-button";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { VoucherApplyForm } from "@/components/dashboard/voucher-forms";
 import { summarizeBilling } from "@/lib/billing-summary";
 import { formatRupiah } from "@/lib/money";
 import { formatUiLabel, getUiToneClass } from "@/lib/ui-labels";
@@ -27,6 +28,9 @@ export type WaliBillingInvoice = {
   jenis: string;
   description: string | null;
   amount: number;
+  subtotal: number | null;
+  discountAmount: number;
+  voucherCode: string | null;
   status: BillingStatus;
   dueDate: string;
   paidAt: string | null;
@@ -354,7 +358,7 @@ function InvoiceMonthGroup({ group }: { group: InvoiceGroup }) {
 function WaliInvoiceCard({ item }: { item: WaliBillingInvoice }) {
   const isPayable = ["UNPAID", "PENDING", "OVERDUE"].includes(item.status);
   return (
-    <article className="min-w-0 rounded-xl border border-gray-200 bg-white p-4 shadow-theme-xs transition hover:bg-gray-25 hover:shadow-theme-sm">
+    <article data-invoice-id={item.id} className="min-w-0 rounded-xl border border-gray-200 bg-white p-4 shadow-theme-xs transition hover:bg-gray-25 hover:shadow-theme-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 gap-3">
           <span
@@ -385,6 +389,12 @@ function WaliInvoiceCard({ item }: { item: WaliBillingInvoice }) {
         <MetricStat align="center" truncateLabel label="Jatuh tempo" value={formatDate(item.dueDate)} />
         <MetricStat align="center" truncateLabel label="Periode" value={formatMonth(item.period)} />
       </div>
+      {item.discountAmount > 0 ? (
+        <p className="mt-2 text-theme-xs text-success-700">
+          Diskon {item.voucherCode ? `${item.voucherCode} ` : ""}sebesar <Money value={item.discountAmount} />
+          {item.subtotal !== null ? <> dari harga normal <Money value={item.subtotal} /></> : null}.
+        </p>
+      ) : null}
       {item.status === "PAID" ? (
         <div className="mt-4 rounded-xl border border-success-100 bg-success-50 p-3 text-theme-sm text-success-700">
           <p className="font-semibold">Pembayaran diterima.</p>
@@ -399,6 +409,9 @@ function WaliInvoiceCard({ item }: { item: WaliBillingInvoice }) {
           >
             Lihat konfirmasi pembayaran
           </Link>
+          <a href={`/api/v1/tagihan/${item.id}/kuitansi`} className="mt-1 inline-flex font-semibold underline">
+            Unduh kuitansi PDF
+          </a>
         </div>
       ) : isPayable && item.paymentAvailable ? (
         <PaymentButton
@@ -418,6 +431,15 @@ function WaliInvoiceCard({ item }: { item: WaliBillingInvoice }) {
           Tagihan berstatus {formatUiLabel(item.status).toLowerCase()}.
         </p>
       )}
+      {isPayable ? (
+        <VoucherApplyForm
+          tagihanId={item.id}
+          subtotal={item.subtotal}
+          discountAmount={item.discountAmount}
+          voucherCode={item.voucherCode}
+          disabled={false}
+        />
+      ) : null}
       {item.paymentHistory.length > 0 ? (
         <details className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
           <summary className="cursor-pointer text-theme-sm font-semibold text-gray-700">

@@ -5,46 +5,28 @@ import { prisma } from "@/server/db/prisma";
 import { ConflictError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { assertRateLimit } from "@/server/security/rate-limit";
 import { storeQuizSubmissionFile } from "@/server/providers/storage/local-storage";
+import { createNotificationIfMissing } from "@/server/services/notification-service";
 import { publicQuizDraftSchema, startPublicQuizSchema, submitPublicQuizSchema } from "@/server/validation/exam";
-
-const manualReviewTypes = new Set(["SPEAKING", "WRITING", "ROLEPLAY", "ESAI", "FILE_UPLOAD"]);
+import {
+  answerValidationProblem,
+  findMissingRequiredAnswers,
+  gradeObjectiveAnswer,
+  isWithinSubmitGrace,
+  parseBranchRules,
+  readFileUploadConfig,
+  resolveFeedbackText,
+  type AnswerValidation,
+  type GradableAnswer,
+  type GradableQuestion,
+} from "@/server/services/quiz-grading";
 
 type QuestionOrder = {
   questions: string[];
   options: Record<string, string[]>;
 };
 
-function normalizeText(value: string | null | undefined) {
-  return (value || "").trim().toLowerCase().replace(/\s+/g, " ");
-}
-
 function sortedLabels(values: string[] | undefined) {
   return [...(values || [])].map((value) => value.toUpperCase()).sort();
-}
-
-function jsonEquals(left: unknown, right: unknown) {
-  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
-}
-
-function shortAnswerProblem(value: string, config: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null }) {
-  if (config.type === "NUMBER") {
-    const numeric = Number(value);
-    if (Number.isNaN(numeric)) return "harus berupa angka";
-    if (config.min !== null && config.min !== undefined && numeric < config.min) return `nilai minimal ${config.min}`;
-    if (config.max !== null && config.max !== undefined && numeric > config.max) return `nilai maksimal ${config.max}`;
-  }
-  if (config.type === "LENGTH") {
-    if (config.min !== null && config.min !== undefined && value.length < config.min) return `minimal ${config.min} karakter`;
-    if (config.max !== null && config.max !== undefined && value.length > config.max) return `maksimal ${config.max} karakter`;
-  }
-  if (config.type === "TEXT" && config.pattern) {
-    try {
-      if (!new RegExp(config.pattern).test(value)) return config.message || "format jawaban tidak sesuai";
-    } catch {
-      return null;
-    }
-  }
-  return null;
 }
 
 function hashIp(ip: string | null | undefined) {
@@ -84,6 +66,7 @@ function sanitizeQuestion(question: {
     stimulusText: string | null;
     mediaUrl: string | null;
     structuredPayload: unknown;
+    fileUploadConfig: unknown;
     language: string | null;
     direction: string | null;
     allowOther: boolean;
@@ -99,6 +82,7 @@ function sanitizeQuestion(question: {
   const payload = (question.bankSoal.structuredPayload ?? null) as
     | { min?: number; max?: number; minLabel?: string; maxLabel?: string; kind?: string; rows?: string[]; multiple?: boolean; validation?: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null } }
     | null;
+  const upload = readFileUploadConfig(question.bankSoal.fileUploadConfig);
 
   return {
     id: question.id,
@@ -121,6 +105,8 @@ function sanitizeQuestion(question: {
     kind: payload?.kind ?? null,
     gridRows: Array.isArray(payload?.rows) ? payload!.rows : [],
     gridMultiple: Boolean(payload?.multiple),
+    uploadAllowedTypes: question.bankSoal.type === "FILE_UPLOAD" ? upload.allowedTypes : [],
+    uploadMaxSizeMb: question.bankSoal.type === "FILE_UPLOAD" ? upload.maxSizeMb : 0,
     validation: payload?.validation
       ? { type: payload.validation.type ?? "NONE", min: payload.validation.min ?? null, max: payload.validation.max ?? null, pattern: payload.validation.pattern ?? null, message: payload.validation.message ?? null }
       : null,
@@ -153,6 +139,7 @@ export async function getPublicQuizIntro(token: string) {
       maxAttempts: true,
       passingScore: true,
       collectRespondentName: true,
+      collectRespondentEmail: true,
       showScoreImmediately: true,
       showAnswersAfterSubmit: true,
       shuffleQuestions: true,
@@ -181,6 +168,7 @@ export async function getPublicQuizIntro(token: string) {
       questionCount: ujian._count.questions,
       passingScore: ujian.passingScore,
       collectRespondentName: ujian.collectRespondentName,
+      collectRespondentEmail: ujian.collectRespondentEmail,
       showScoreImmediately: ujian.showScoreImmediately,
       showAnswersAfterSubmit: ujian.showAnswersAfterSubmit,
       shuffleQuestions: ujian.shuffleQuestions,
@@ -216,6 +204,8 @@ export async function startPublicQuizResponse(token: string, input: unknown, con
       shuffleQuestions: true,
       shuffleOptions: true,
       collectRespondentName: true,
+      collectRespondentEmail: true,
+      oneResponsePerEmail: true,
       availableFrom: true,
       availableUntil: true,
       questions: { orderBy: { order: "asc" }, select: { id: true, bankSoal: { select: { shuffleOptions: true, options: { select: { label: true } } } } } },
@@ -243,7 +233,12 @@ export async function startPublicQuizResponse(token: string, input: unknown, con
 
   const questionOrder: QuestionOrder = { questions: orderedQuestionIds, options: optionOrder };
   const respondentName = ujian.collectRespondentName ? parsed.data.respondentName : parsed.data.respondentName || "Responden";
+  const respondentEmail = (parsed.data.respondentEmail || "").trim().toLowerCase() || null;
   const ipHash = hashIp(context.ipAddress);
+
+  if (ujian.collectRespondentEmail && !respondentEmail) {
+    throw new ValidationError("Email responden wajib diisi untuk kuis ini");
+  }
 
   if (ipHash) {
     const usedAttempts = await prisma.quizResponse.count({ where: { ujianId: ujian.id, ipHash } });
@@ -252,11 +247,19 @@ export async function startPublicQuizResponse(token: string, input: unknown, con
     }
   }
 
+  if (respondentEmail && ujian.oneResponsePerEmail) {
+    const existing = await prisma.quizResponse.count({ where: { ujianId: ujian.id, respondentEmail } });
+    if (existing > 0) {
+      throw new ConflictError("Email ini sudah pernah mengirim respons untuk kuis ini.");
+    }
+  }
+
   const response = await prisma.quizResponse.create({
     data: {
       ujianId: ujian.id,
       shareToken: token,
       respondentName,
+      respondentEmail,
       status: "IN_PROGRESS",
       expiresAt: new Date(Date.now() + ujian.durationMinutes * 60 * 1000),
       questionOrder: questionOrder as Prisma.InputJsonValue,
@@ -341,6 +344,7 @@ export async function getPublicQuizResponseContext(token: string, responseId: st
       themeColor: response.ujian.themeColor,
       headerImageUrl: response.ujian.headerImageUrl,
       confirmationMessage: response.ujian.confirmationMessage,
+      presentationMode: response.ujian.presentationMode,
       language: null as string | null,
     },
     sections,
@@ -388,13 +392,17 @@ export async function submitPublicQuizResponse(token: string, responseId: string
   if (response.shareToken !== token) {
     throw new NotFoundError("Respons kuis tidak ditemukan");
   }
-  if (response.status !== "IN_PROGRESS") {
+  if (response.status !== "IN_PROGRESS" && response.status !== "EXPIRED") {
     throw new ConflictError("Kuis sudah dikumpulkan");
   }
-  if (response.expiresAt && response.expiresAt < new Date()) {
+
+  const submittedAt = new Date();
+  if (!isWithinSubmitGrace(response.expiresAt, submittedAt)) {
     await prisma.quizResponse.update({ where: { id: response.id }, data: { status: "EXPIRED" } });
     throw new ConflictError("Waktu pengerjaan sudah habis");
   }
+
+  const submittedWithinWindow = !response.expiresAt || response.expiresAt >= submittedAt;
 
   const answersByQuestion = new Map(parsed.data.answers.map((answer) => [answer.ujianSoalId, answer]));
   const questionIds = new Set(response.ujian.questions.map((question) => question.id));
@@ -404,13 +412,28 @@ export async function submitPublicQuizResponse(token: string, responseId: string
     }
   }
 
+  if (submittedWithinWindow) {
+    const sectionIndexById = new Map(response.ujian.sections.map((section, index) => [section.id, index]));
+    const questions: GradableQuestion[] = response.ujian.questions.map((question) => ({
+      id: question.id,
+      required: question.required,
+      type: question.bankSoal.type,
+      sectionIndex: question.sectionId ? (sectionIndexById.get(question.sectionId) ?? 0) : 0,
+      branchRules: parseBranchRules(question.branchRules),
+    }));
+    const missing = findMissingRequiredAnswers({
+      questions,
+      answers: parsed.data.answers,
+      sectionCount: response.ujian.sections.length > 0 ? response.ujian.sections.length : 1,
+    });
+    if (missing.length > 0) {
+      throw new ValidationError(`Masih ada ${missing.length} soal wajib yang belum diisi`);
+    }
+  }
+
   for (const question of response.ujian.questions) {
-    if (question.bankSoal.type !== "ISIAN_SINGKAT") continue;
-    const config = (question.bankSoal.structuredPayload as { validation?: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null } } | null)?.validation;
-    if (!config?.type || config.type === "NONE") continue;
-    const value = (answersByQuestion.get(question.id)?.shortAnswer || "").trim();
-    if (!value) continue;
-    const problem = shortAnswerProblem(value, config);
+    const config = (question.bankSoal.structuredPayload as { validation?: AnswerValidation } | null)?.validation;
+    const problem = answerValidationProblem({ validation: config, answer: answersByQuestion.get(question.id) });
     if (problem) {
       throw new ValidationError(`Jawaban untuk "${question.bankSoal.question.slice(0, 60)}" tidak valid: ${problem}`);
     }
@@ -419,69 +442,25 @@ export async function submitPublicQuizResponse(token: string, responseId: string
   let earnedWeight = 0;
   let needsReview = false;
   const totalWeight = response.ujian.questions.reduce((sum, question) => sum + Number(question.weight), 0);
-  const feedback: Array<{ ujianSoalId: string; correct: boolean | null }> = [];
 
   for (const question of response.ujian.questions) {
     const answer = answersByQuestion.get(question.id);
-    const correctOptions = sortedLabels(question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label));
-    let score = 0;
+    const correctLabels = sortedLabels(question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label));
+    const graded = gradeObjectiveAnswer({
+      type: question.bankSoal.type,
+      weight: Number(question.weight),
+      correctLabels,
+      expectedAnswer: question.bankSoal.expectedAnswer ?? null,
+      acceptedAnswers: question.bankSoal.acceptedAnswers,
+      structuredPayload: question.bankSoal.structuredPayload,
+      answer,
+    });
 
-    if (["PILIHAN_GANDA", "DROPDOWN", "SKALA", "RATING"].includes(question.bankSoal.type)) {
-      const selected = answer?.selectedOption?.toUpperCase() || "";
-      if (selected === "OTHER") {
-        needsReview = true;
-        feedback.push({ ujianSoalId: question.id, correct: null });
-      } else {
-        score = selected && correctOptions[0] === selected ? Number(question.weight) : 0;
-        feedback.push({ ujianSoalId: question.id, correct: score > 0 });
-      }
-    } else if (question.bankSoal.type === "MULTI_SELECT") {
-      const rawSelected = (answer?.selectedOptions ?? []).map((label) => label.toUpperCase());
-      if (rawSelected.includes("OTHER")) {
-        needsReview = true;
-        feedback.push({ ujianSoalId: question.id, correct: null });
-      } else {
-        const selected = sortedLabels(answer?.selectedOptions);
-        score = selected.length > 0 && jsonEquals(selected, correctOptions) ? Number(question.weight) : 0;
-        feedback.push({ ujianSoalId: question.id, correct: score > 0 });
-      }
-    } else if (question.bankSoal.type === "GRID") {
-      const payload = (question.bankSoal.structuredPayload ?? null) as { rows?: string[]; correct?: Record<string, string> } | null;
-      const rows = Array.isArray(payload?.rows) ? payload!.rows : [];
-      const given = (answer?.structuredAnswer ?? null) as Record<string, unknown> | null;
-      let answered = false;
-      let allCorrect = rows.length > 0;
-      for (let index = 0; index < rows.length; index += 1) {
-        const raw = given ? given[String(index)] : undefined;
-        const expected = (payload?.correct?.[String(index)] || "").toUpperCase();
-        const selected = Array.isArray(raw) ? raw.map((value) => String(value).toUpperCase()).sort() : raw ? [String(raw).toUpperCase()] : [];
-        if (selected.length > 0) answered = true;
-        if (JSON.stringify(selected) !== JSON.stringify(expected ? [expected] : [])) allCorrect = false;
-      }
-      if (!answered) {
-        feedback.push({ ujianSoalId: question.id, correct: null });
-      } else {
-        score = allCorrect ? Number(question.weight) : 0;
-        feedback.push({ ujianSoalId: question.id, correct: score > 0 });
-      }
-    } else if (question.bankSoal.type === "BENAR_SALAH") {
-      score = normalizeText(answer?.selectedOption) === normalizeText(question.bankSoal.expectedAnswer) ? Number(question.weight) : 0;
-      feedback.push({ ujianSoalId: question.id, correct: score > 0 });
-    } else if (["ISIAN_SINGKAT", "CLOZE", "GAMBAR", "LISTENING", "READING", "TANGGAL", "WAKTU"].includes(question.bankSoal.type)) {
-      score = normalizeText(answer?.shortAnswer) === normalizeText(question.bankSoal.expectedAnswer) ? Number(question.weight) : 0;
-      feedback.push({ ujianSoalId: question.id, correct: score > 0 });
-    } else if (["MENJODOHKAN", "URUTAN"].includes(question.bankSoal.type)) {
-      const answerKey = (question.bankSoal.structuredPayload as { answerKey?: unknown } | null)?.answerKey;
-      score = jsonEquals(answer?.structuredAnswer, answerKey) ? Number(question.weight) : 0;
-      feedback.push({ ujianSoalId: question.id, correct: score > 0 });
-    } else if (manualReviewTypes.has(question.bankSoal.type)) {
+    if (graded.score === null) {
       needsReview = true;
-      feedback.push({ ujianSoalId: question.id, correct: null });
     } else {
-      feedback.push({ ujianSoalId: question.id, correct: null });
+      earnedWeight += graded.score;
     }
-
-    earnedWeight += score;
   }
 
   const percent = totalWeight > 0 ? Number(((earnedWeight / totalWeight) * 100).toFixed(2)) : 0;
@@ -509,6 +488,37 @@ export async function submitPublicQuizResponse(token: string, responseId: string
     },
   });
 
+  if (response.ujian.notifyGuruOnResponse || (response.ujian.sendCopyToRespondent && response.respondentEmail)) {
+    const summary = `${response.respondentName || "Responden"} mengirim respons untuk "${response.ujian.title}".`;
+
+    if (response.ujian.notifyGuruOnResponse && response.ujian.createdById) {
+      const guru = await prisma.user.findUnique({ where: { id: response.ujian.createdById }, select: { email: true } });
+      if (guru?.email) {
+        await createNotificationIfMissing({
+          channel: "in_app",
+          template: "quiz-response-received",
+          recipient: guru.email,
+          subject: "Respons kuis baru",
+          body: summary,
+          dedupeKey: `quiz-response-received:${response.id}`,
+          metadata: { ujianId: response.ujianId, responseId: response.id },
+        });
+      }
+    }
+
+    if (response.ujian.sendCopyToRespondent && response.respondentEmail) {
+      await createNotificationIfMissing({
+        channel: "email",
+        template: "quiz-response-copy",
+        recipient: response.respondentEmail,
+        subject: `Salinan jawaban: ${response.ujian.title}`,
+        body: `${summary}\n\nTerima kasih telah mengerjakan.`,
+        dedupeKey: `quiz-response-copy:${response.id}`,
+        metadata: { ujianId: response.ujianId, responseId: response.id },
+      });
+    }
+  }
+
   return {
     result: {
       score: percent,
@@ -520,7 +530,7 @@ export async function submitPublicQuizResponse(token: string, responseId: string
   };
 }
 
-export async function uploadPublicQuizFile(token: string, responseId: string, file: File | null) {
+export async function uploadPublicQuizFile(token: string, responseId: string, file: File | null, ujianSoalId?: string | null) {
   if (!file) {
     throw new ValidationError("File jawaban wajib dipilih");
   }
@@ -539,7 +549,12 @@ export async function uploadPublicQuizFile(token: string, responseId: string, fi
 
   assertRateLimit({ key: `quiz-upload:${response.id}`, limit: 60, windowMs: 60 * 60 * 1000, message: "Terlalu banyak unggahan. Coba lagi nanti." });
 
-  const stored = await storeQuizSubmissionFile(file, "quiz-submission");
+  const question = ujianSoalId ? response.ujian.questions.find((item) => item.id === ujianSoalId) : undefined;
+  if (ujianSoalId && !question) {
+    throw new ValidationError("Soal unggahan tidak ditemukan pada kuis ini");
+  }
+
+  const stored = await storeQuizSubmissionFile(file, "quiz-submission", readFileUploadConfig(question?.bankSoal.fileUploadConfig));
   const media = await prisma.quizMedia.create({
     data: {
       originalName: stored.originalName,
@@ -564,6 +579,8 @@ export async function getPublicQuizResult(token: string, responseId: string) {
     throw new ConflictError("Kuis belum dikumpulkan");
   }
 
+  const releasePending = response.ujian.releaseMode === "AFTER_REVIEW" && !response.scoreReleasedAt;
+
   const feedback: Array<{
     ujianSoalId: string;
     question: string;
@@ -571,18 +588,38 @@ export async function getPublicQuizResult(token: string, responseId: string) {
     correctOption: string | null;
     correctAnswer: string | null;
     explanation: string | null;
+    feedbackText: string | null;
   }> = [];
 
-  if (response.ujian.showAnswersAfterSubmit) {
+  if (response.ujian.showAnswersAfterSubmit && !releasePending) {
+    const finalAnswers = Array.isArray(response.finalAnswers) ? (response.finalAnswers as GradableAnswer[]) : [];
+    const finalByQuestion = new Map(finalAnswers.map((answer) => [answer.ujianSoalId, answer]));
+
     for (const question of response.ujian.questions) {
       const correctOptions = question.bankSoal.options.filter((option) => option.isCorrect);
+      const correctLabels = sortedLabels(question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label));
+      const alternatives = Array.isArray(question.bankSoal.acceptedAnswers)
+        ? question.bankSoal.acceptedAnswers.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        : [];
+      const graded = gradeObjectiveAnswer({
+        type: question.bankSoal.type,
+        weight: Number(question.weight),
+        correctLabels,
+        expectedAnswer: question.bankSoal.expectedAnswer ?? null,
+        acceptedAnswers: question.bankSoal.acceptedAnswers,
+        structuredPayload: question.bankSoal.structuredPayload,
+        answer: finalByQuestion.get(question.id),
+      });
+      const primaryAnswer = question.bankSoal.expectedAnswer ?? (correctOptions.length > 0 ? correctOptions.map((option) => option.content).join(", ") : null);
+
       feedback.push({
         ujianSoalId: question.id,
         question: question.bankSoal.question,
-        correct: null,
+        correct: graded.correct,
         correctOption: correctOptions[0]?.label ?? null,
-        correctAnswer: question.bankSoal.expectedAnswer ?? (correctOptions.length > 0 ? correctOptions.map((option) => option.content).join(", ") : null),
+        correctAnswer: [primaryAnswer, ...alternatives].filter((value): value is string => Boolean(value)).join(" / ") || null,
         explanation: question.bankSoal.explanation,
+        feedbackText: resolveFeedbackText({ correct: graded.correct, feedbackCorrect: question.bankSoal.feedbackCorrect, feedbackIncorrect: question.bankSoal.feedbackIncorrect }),
       });
     }
   }
@@ -591,13 +628,14 @@ export async function getPublicQuizResult(token: string, responseId: string) {
     result: {
       respondentName: response.respondentName,
       status: response.status,
-      score: response.score === null ? null : Number(response.score),
-      maxScore: response.maxScore === null ? null : Number(response.maxScore),
-      passed: response.passed,
+      score: releasePending ? null : response.score === null ? null : Number(response.score),
+      maxScore: releasePending ? null : response.maxScore === null ? null : Number(response.maxScore),
+      passed: releasePending ? null : response.passed,
       passingScore: response.ujian.passingScore,
       submittedAt: response.submittedAt,
       showScoreImmediately: response.ujian.showScoreImmediately,
       showAnswersAfterSubmit: response.ujian.showAnswersAfterSubmit,
+      releasePending,
       feedback,
     },
   };

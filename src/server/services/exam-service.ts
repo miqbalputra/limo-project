@@ -1,15 +1,17 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
+import { PublishStatus, SoalType } from "@prisma/client";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canManageClass } from "@/server/policies/access-policy";
 import { generateOpaqueToken } from "@/server/security/crypto";
-import { correctHasilUjianSchema, createBankSoalSchema, createUjianSchema, submitHasilUjianSchema, updateUjianShareSchema, updateUjianStatusSchema } from "@/server/validation/exam";
-import { notifyWaliForStudents } from "@/server/services/notification-service";
+import { correctHasilUjianSchema, createBankSoalSchema, createUjianSchema, submitHasilUjianSchema, updateUjianShareSchema, updateUjianStatusSchema, addBankSoalToQuizSchema } from "@/server/validation/exam";
+import { notifySiswaForStudents, notifyWaliForStudents } from "@/server/services/notification-service";
 import { syncGradebookForSource } from "@/server/services/gradebook-service";
 import { syncActivityCompletionForExam } from "@/server/services/activity-completion-service";
 import { getQuizMedia } from "@/server/services/quiz-media-service";
+import { isTextAnswerAccepted } from "@/server/services/quiz-grading";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 
 const optionBasedTypes = new Set(["PILIHAN_GANDA", "MULTI_SELECT"]);
@@ -59,12 +61,33 @@ async function assertQuestionScope(actor: Actor, kelasId?: string | null) {
   }
 }
 
-export async function listBankSoal(actor: Actor, paginationInput?: PaginationInput) {
+function parseExamListFilters(input: unknown) {
+  const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+  const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : undefined);
+  const page = Number(raw.page);
+  const pageSize = Number(raw.pageSize);
+  const type = text(raw.type);
+  const status = text(raw.status);
+
+  return {
+    pagination: {
+      ...(Number.isInteger(page) && page > 0 ? { page } : {}),
+      ...(Number.isInteger(pageSize) && pageSize > 0 ? { pageSize } : {}),
+    } satisfies PaginationInput,
+    search: text(raw.search),
+    kelasId: text(raw.kelasId),
+    type: Object.values(SoalType).find((value) => value === type),
+    status: Object.values(PublishStatus).find((value) => value === status),
+  };
+}
+
+export async function listBankSoal(actor: Actor, input?: unknown) {
   if (actor.role === "WALI") {
     throw new ForbiddenError();
   }
 
-  const where = actor.role === "ADMIN"
+  const filters = parseExamListFilters(input);
+  const scope = actor.role === "ADMIN"
     ? {}
     : {
         OR: [
@@ -72,8 +95,16 @@ export async function listBankSoal(actor: Actor, paginationInput?: PaginationInp
           { kelas: { guruProfile: { userId: actor.id } } },
         ],
       };
+  const where = {
+    AND: [
+      scope,
+      ...(filters.search ? [{ question: { contains: filters.search } }] : []),
+      ...(filters.type ? [{ type: filters.type }] : []),
+      ...(filters.kelasId ? [{ kelasId: filters.kelasId }] : []),
+    ],
+  };
 
-  const pagination = resolvePagination(paginationInput, 100);
+  const pagination = resolvePagination(filters.pagination, 100);
   const totalItems = await prisma.bankSoal.count({ where });
   const paginationMeta = createPaginationMeta(pagination.page, pagination.pageSize, totalItems);
   const items = await prisma.bankSoal.findMany({
@@ -198,16 +229,72 @@ function parseDate(value: string | undefined) {
   return value ? new Date(`${value}T00:00:00.000Z`) : undefined;
 }
 
-export async function listUjian(actor: Actor, paginationInput?: PaginationInput) {
+export async function addBankSoalToQuiz(actor: Actor, ujianId: string, input: unknown) {
   if (actor.role === "WALI") {
     throw new ForbiddenError();
   }
 
-  const where = actor.role === "ADMIN"
+  const parsed = addBankSoalToQuizSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Permintaan belum valid", parsed.error.flatten().fieldErrors);
+
+  const ujian = await prisma.ujian.findUnique({ where: { id: ujianId }, select: { id: true, kelasId: true, status: true } });
+  if (!ujian) throw new NotFoundError("Kuis tidak ditemukan");
+
+  if (actor.role !== "ADMIN") {
+    const kelas = await prisma.kelas.findUnique({ where: { id: ujian.kelasId }, select: { guruProfile: { select: { userId: true } } } });
+    if (kelas?.guruProfile?.userId !== actor.id) throw new ForbiddenError();
+  }
+
+  const soal = await prisma.bankSoal.findMany({
+    where: {
+      id: { in: parsed.data.bankSoalIds },
+      ...(actor.role === "ADMIN" ? {} : { OR: [{ kelasId: null }, { kelas: { guruProfile: { userId: actor.id } } }] }),
+    },
+    select: { id: true },
+  });
+  if (soal.length === 0) throw new NotFoundError("Soal tidak ditemukan atau bukan milik Anda");
+
+  const existing = await prisma.ujianSoal.findMany({ where: { ujianId, bankSoalId: { in: soal.map((item) => item.id) } }, select: { bankSoalId: true } });
+  const existingIds = new Set(existing.map((item) => item.bankSoalId));
+  const last = await prisma.ujianSoal.aggregate({ where: { ujianId }, _max: { order: true } });
+
+  const added = await prisma.$transaction(async (tx) => {
+    let order = (last._max.order ?? -1) + 1;
+    let count = 0;
+
+    for (const item of soal) {
+      if (existingIds.has(item.id)) continue;
+      await tx.ujianSoal.create({ data: { ujianId, bankSoalId: item.id, order, weight: 1, required: true } });
+      order += 1;
+      count += 1;
+    }
+
+    await tx.auditLog.create({ data: { actorId: actor.id, action: "QUIZ_QUESTIONS_ADDED_FROM_BANK", entityType: "Ujian", entityId: ujianId, metadata: { count } } });
+    return count;
+  });
+
+  return { added, skipped: soal.length - added };
+}
+
+export async function listUjian(actor: Actor, input?: unknown) {
+  if (actor.role === "WALI") {
+    throw new ForbiddenError();
+  }
+
+  const filters = parseExamListFilters(input);
+  const scope = actor.role === "ADMIN"
     ? {}
     : { kelas: { guruProfile: { userId: actor.id } } };
+  const where = {
+    AND: [
+      scope,
+      ...(filters.search ? [{ title: { contains: filters.search } }] : []),
+      ...(filters.status ? [{ status: filters.status }] : []),
+      ...(filters.kelasId ? [{ kelasId: filters.kelasId }] : []),
+    ],
+  };
 
-  const pagination = resolvePagination(paginationInput, 100);
+  const pagination = resolvePagination(filters.pagination, 100);
   const totalItems = await prisma.ujian.count({ where });
   const paginationMeta = createPaginationMeta(pagination.page, pagination.pageSize, totalItems);
   const items = await prisma.ujian.findMany({
@@ -293,6 +380,8 @@ export async function createUjian(actor: Actor, input: unknown) {
         durationMinutes: parsed.data.durationMinutes,
         maxAttempts: parsed.data.maxAttempts,
         showResultToWali: parsed.data.showResultToWali,
+        showResultToSiswa: parsed.data.showResultToSiswa,
+        secureMode: parsed.data.secureMode,
         mode: parsed.data.mode,
         shuffleQuestions: parsed.data.shuffleQuestions,
         shuffleOptions: parsed.data.shuffleOptions,
@@ -321,15 +410,27 @@ export async function createUjian(actor: Actor, input: unknown) {
     return ujian;
   });
 
-  if (parsed.data.status === "PUBLISHED" && ["ONLINE_VIA_WALI", "BOTH"].includes(parsed.data.deliveryMode)) {
+  if (parsed.data.status === "PUBLISHED" && ["ONLINE_VIA_WALI", "BOTH", "ONLINE_VIA_SISWA"].includes(parsed.data.deliveryMode)) {
     const students = await prisma.kelasSiswa.findMany({ where: { kelasId: parsed.data.kelasId, status: "ACTIVE" }, select: { siswaId: true } });
-    await notifyWaliForStudents({
-      siswaIds: students.map((student) => student.siswaId),
-      template: "online-exam-published",
-      subject: `Tugas baru: ${item.title}`,
-      body: `Ujian online ${item.title} sudah tersedia untuk dikerjakan melalui menu Tugas Anak.`,
-      metadata: { ujianId: item.id },
-    });
+    const siswaIds = students.map((student) => student.siswaId);
+    if (["ONLINE_VIA_WALI", "BOTH"].includes(parsed.data.deliveryMode)) {
+      await notifyWaliForStudents({
+        siswaIds,
+        template: "online-exam-published",
+        subject: `Tugas baru: ${item.title}`,
+        body: `Ujian online ${item.title} sudah tersedia untuk dikerjakan melalui menu Tugas Anak.`,
+        metadata: { ujianId: item.id },
+      });
+    }
+    if (["ONLINE_VIA_SISWA", "BOTH"].includes(parsed.data.deliveryMode)) {
+      await notifySiswaForStudents({
+        siswaIds,
+        template: "online-exam-published",
+        subject: `Ujian baru: ${item.title}`,
+        body: `Ujian online ${item.title} sudah tersedia untuk dikerjakan melalui menu Ujian di portal siswa.`,
+        metadata: { ujianId: item.id },
+      });
+    }
   }
 
   return { item };
@@ -347,6 +448,8 @@ export async function duplicateUjian(actor: Actor, ujianId: string) {
       durationMinutes: true,
       maxAttempts: true,
       showResultToWali: true,
+      showResultToSiswa: true,
+      secureMode: true,
       mode: true,
       shuffleQuestions: true,
       shuffleOptions: true,
@@ -378,6 +481,8 @@ export async function duplicateUjian(actor: Actor, ujianId: string) {
         durationMinutes: source.durationMinutes,
         maxAttempts: source.maxAttempts,
         showResultToWali: source.showResultToWali,
+        showResultToSiswa: source.showResultToSiswa,
+        secureMode: source.secureMode,
         mode: source.mode,
         shuffleQuestions: source.shuffleQuestions,
         shuffleOptions: source.shuffleOptions,
@@ -472,15 +577,27 @@ export async function updateUjianStatus(actor: Actor, ujianId: string, input: un
   const item = await prisma.ujian.update({ where: { id: ujianId }, data: { status: parsed.data.status }, select: { id: true, title: true, status: true } });
   await prisma.auditLog.create({ data: { actorId: actor.id, action: `UJIAN_${parsed.data.status}`, entityType: "Ujian", entityId: ujianId } });
 
-  if (parsed.data.status === "PUBLISHED" && existing.status !== "PUBLISHED" && ["ONLINE_VIA_WALI", "BOTH"].includes(existing.deliveryMode)) {
+  if (parsed.data.status === "PUBLISHED" && existing.status !== "PUBLISHED" && ["ONLINE_VIA_WALI", "BOTH", "ONLINE_VIA_SISWA"].includes(existing.deliveryMode)) {
     const students = await prisma.kelasSiswa.findMany({ where: { kelasId: existing.kelasId, status: "ACTIVE" }, select: { siswaId: true } });
-    await notifyWaliForStudents({
-      siswaIds: students.map((student) => student.siswaId),
-      template: "online-exam-published",
-      subject: `Tugas baru: ${existing.title}`,
-      body: `Ujian online ${existing.title} sudah tersedia untuk dikerjakan melalui menu Tugas Anak.`,
-      metadata: { ujianId },
-    });
+    const siswaIds = students.map((student) => student.siswaId);
+    if (["ONLINE_VIA_WALI", "BOTH"].includes(existing.deliveryMode)) {
+      await notifyWaliForStudents({
+        siswaIds,
+        template: "online-exam-published",
+        subject: `Tugas baru: ${existing.title}`,
+        body: `Ujian online ${existing.title} sudah tersedia untuk dikerjakan melalui menu Tugas Anak.`,
+        metadata: { ujianId },
+      });
+    }
+    if (["ONLINE_VIA_SISWA", "BOTH"].includes(existing.deliveryMode)) {
+      await notifySiswaForStudents({
+        siswaIds,
+        template: "online-exam-published",
+        subject: `Ujian baru: ${existing.title}`,
+        body: `Ujian online ${existing.title} sudah tersedia untuk dikerjakan melalui menu Ujian di portal siswa.`,
+        metadata: { ujianId },
+      });
+    }
   }
 
   return { item };
@@ -572,6 +689,7 @@ export async function listHasilUjian(actor: Actor, options: PaginationInput & { 
       status: true,
       totalScore: true,
       finalizedAt: true,
+      releasedAt: true,
       siswa: { select: { id: true, name: true, nomorInduk: true } },
       ujian: { select: { id: true, title: true, kelas: { select: { name: true } } } },
       _count: { select: { answers: true } },
@@ -579,6 +697,43 @@ export async function listHasilUjian(actor: Actor, options: PaginationInput & { 
   });
 
   return { items, pagination: paginationMeta };
+}
+
+/**
+ * Rilis nilai satu hasil ujian (per siswa/attempt). Mengalahkan pengaturan global
+ * `Ujian.showResultToSiswa`/`showResultToWali` sehingga guru dapat merilis nilai
+ * bertahap (mis. setelah koreksi esai selesai untuk siswa tertentu).
+ */
+export async function releaseHasilUjian(actor: Actor, hasilId: string) {
+  if (actor.role !== "GURU" && actor.role !== "ADMIN") {
+    throw new ForbiddenError();
+  }
+
+  const hasil = await prisma.hasilUjian.findUnique({
+    where: { id: hasilId },
+    select: { id: true, status: true, releasedAt: true, ujianId: true, siswaId: true, ujian: { select: { kelasId: true } } },
+  });
+  if (!hasil) throw new NotFoundError("Hasil ujian tidak ditemukan");
+
+  if (actor.role === "GURU" && !(await canManageClass(actor, hasil.ujian.kelasId))) {
+    throw new ForbiddenError();
+  }
+
+  if (!["FINAL", "CORRECTED"].includes(hasil.status)) {
+    throw new ConflictError("Nilai hanya dapat dirilis setelah hasil berstatus final");
+  }
+
+  if (hasil.releasedAt) {
+    return { item: { id: hasil.id, releasedAt: hasil.releasedAt, already: true } };
+  }
+
+  const releasedAt = new Date();
+  await prisma.hasilUjian.update({ where: { id: hasil.id }, data: { releasedAt } });
+  await prisma.auditLog.create({
+    data: { actorId: actor.id, action: "EXAM_RESULT_RELEASED", entityType: "HasilUjian", entityId: hasil.id, metadata: { ujianId: hasil.ujianId, siswaId: hasil.siswaId } },
+  });
+
+  return { item: { id: hasil.id, releasedAt, already: false } };
 }
 
 export async function listEssayReviewQueue(actor: Actor, options: PaginationInput = {}) {
@@ -688,7 +843,12 @@ export async function getHasilUjianCorrectionContext(actor: Actor, hasilId: stri
     throw new ConflictError("Hasil ujian belum dapat dikoreksi");
   }
 
-  return hasil;
+  const attempt = await prisma.ujianAttempt.findFirst({
+    where: { hasilUjianId: hasil.id },
+    select: { violationCount: true, lastViolationAt: true, startedByRole: true, submittedAt: true },
+  });
+
+  return { ...hasil, attempt: attempt ?? null };
 }
 
 type SubmitHasilUjianOptions = {
@@ -826,9 +986,11 @@ export async function submitHasilUjian(actor: Actor, input: unknown, options: Su
       };
     }
 
-    if (["ISIAN_SINGKAT", "CLOZE", "TANGGAL", "WAKTU"].includes(question.bankSoal.type) && question.bankSoal.expectedAnswer) {
+    const hasTextKey = Boolean(question.bankSoal.expectedAnswer) || (Array.isArray(question.bankSoal.acceptedAnswers) && question.bankSoal.acceptedAnswers.length > 0);
+
+    if (["ISIAN_SINGKAT", "CLOZE", "TANGGAL", "WAKTU"].includes(question.bankSoal.type) && hasTextKey) {
       const shortAnswer = answer?.shortAnswer || "";
-      const score = normalizeText(shortAnswer) === normalizeText(question.bankSoal.expectedAnswer) ? Number(question.weight) : 0;
+      const score = isTextAnswerAccepted({ answer: shortAnswer, expectedAnswer: question.bankSoal.expectedAnswer, acceptedAnswers: question.bankSoal.acceptedAnswers }) ? Number(question.weight) : 0;
       earnedWeight += score;
 
       return {

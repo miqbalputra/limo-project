@@ -91,6 +91,7 @@ enum FileOwnerType {
   USER
   SISWA
   RPP
+  DISKUSI
 }
 
 enum MateriType {
@@ -337,12 +338,52 @@ enum PaymentGatewayProvider {
   PAKASIR
 }
 
+enum VoucherDiscountType {
+  PERCENT
+  FIXED
+}
+
 enum NotificationStatus {
   PENDING
   PROCESSING
   SENT
   FAILED
   CANCELLED
+}
+
+enum PengumumanPriority {
+  NORMAL
+  IMPORTANT
+  URGENT
+}
+
+enum PengumumanAudience {
+  SISWA
+  WALI
+  SEMUA
+}
+
+enum PengumumanStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum DiskusiThreadStatus {
+  OPEN
+  LOCKED
+  HIDDEN
+}
+
+enum DiskusiBalasanStatus {
+  VISIBLE
+  HIDDEN
+}
+
+enum DiskusiLaporanStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
 }
 
 enum JobStatus {
@@ -384,6 +425,13 @@ model User {
   moduleItemsArchived        ModuleItem[]           @relation("ModuleItemArchiver")
   remedialsCreated           RemedialAssignment[]   @relation("RemedialCreator")
   revisionRequestsMade       AssignmentRevisionRequest[] @relation("RevisionRequester")
+  sertifikatIssued           Sertifikat[]           @relation("SertifikatIssuer")
+  pengumumanCreated          Pengumuman[]           @relation("PengumumanCreator")
+  pengumumanReads            PengumumanRead[]
+  diskusiThreadsCreated      DiskusiThread[]        @relation("DiskusiThreadCreator")
+  diskusiBalasanCreated      DiskusiBalasan[]       @relation("DiskusiBalasanCreator")
+  diskusiLaporanMade         DiskusiLaporan[]       @relation("DiskusiLaporanReporter")
+  diskusiLaporanResolved     DiskusiLaporan[]       @relation("DiskusiLaporanResolver")
 }
 
 model Session {
@@ -435,7 +483,7 @@ model WaliProfile {
   updatedAt      DateTime       @updatedAt
   siswaRelations WaliSiswa[]
   pendaftaran    Pendaftaran[]
-  ujianAttempts  UjianAttempt[]
+  ujianAttempts   UjianAttempt[]
 }
 
 model SiswaAccount {
@@ -453,6 +501,7 @@ model SiswaAccount {
   lastLoginAt     DateTime?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
+  ujianAttempts   UjianAttempt[]
 
   @@index([status])
 }
@@ -505,6 +554,7 @@ model Program {
   siswa       Siswa[]
   kelas       Kelas[]
   tarif       Tarif[]
+  voucher     Voucher[]
 }
 
 model HeroSlide {
@@ -632,6 +682,7 @@ model Siswa {
   revisionRequests       AssignmentRevisionRequest[]
   tagihan               Tagihan[]
   ujianAttempts         UjianAttempt[]
+  sertifikat            Sertifikat[]
 }
 
 model WaliSiswa {
@@ -676,6 +727,10 @@ model Kelas {
   bankSoal        BankSoal[]
   ujian           Ujian[]
   tarif           Tarif[]
+  sertifikat      Sertifikat[]
+  pengumuman      Pengumuman[]
+  diskusiThreads  DiskusiThread[]
+  voucher         Voucher[]
 
   @@unique([programId, levelId, name])
   @@index([guruProfileId])
@@ -724,6 +779,10 @@ model FileAsset {
   pendaftaran    Pendaftaran?   @relation(fields: [pendaftaranId], references: [id], onDelete: Cascade)
   materiId       String?
   materi         Materi?        @relation(fields: [materiId], references: [id], onDelete: Cascade)
+  diskusiThreadId String?
+  diskusiThread  DiskusiThread? @relation(fields: [diskusiThreadId], references: [id], onDelete: Cascade)
+  diskusiBalasanId String?
+  diskusiBalasan DiskusiBalasan? @relation(fields: [diskusiBalasanId], references: [id], onDelete: Cascade)
   rppId          String?
   rpp            Rpp?           @relation(fields: [rppId], references: [id], onDelete: Cascade)
   originalName   String
@@ -740,7 +799,8 @@ model FileAsset {
   @@index([ownerType, ownerId])
   @@index([pendaftaranId])
   @@index([materiId])
-  @@index([rppId])
+  @@index([diskusiThreadId])
+  @@index([diskusiBalasanId])
 }
 
 model Materi {
@@ -1301,6 +1361,10 @@ model BankSoal {
   allowOther        Boolean        @default(false)
   shuffleOptions    Boolean        @default(false)
   explanation       String?        @db.Text
+  acceptedAnswers   Json?
+  feedbackCorrect   String?        @db.Text
+  feedbackIncorrect String?        @db.Text
+  fileUploadConfig  Json?
   createdById       String?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
@@ -1339,6 +1403,8 @@ model Ujian {
   availableUntil   DateTime?
   maxAttempts      Int            @default(1)
   showResultToWali Boolean        @default(true)
+  showResultToSiswa Boolean       @default(true)
+  secureMode       Boolean        @default(false)
   shareToken       String?        @unique @db.VarChar(64)
   shuffleQuestions Boolean        @default(false)
   shuffleOptions   Boolean        @default(false)
@@ -1349,6 +1415,12 @@ model Ujian {
   themeColor       String         @default("blue") @db.VarChar(16)
   headerImageUrl   String?        @db.VarChar(512)
   confirmationMessage String?     @db.Text
+  collectRespondentEmail Boolean  @default(false)
+  sendCopyToRespondent   Boolean  @default(false)
+  oneResponsePerEmail    Boolean  @default(false)
+  notifyGuruOnResponse   Boolean  @default(false)
+  presentationMode       String   @default("ALL") @db.VarChar(16)
+  releaseMode            String   @default("IMMEDIATE") @db.VarChar(24)
   createdById      String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
@@ -1392,10 +1464,14 @@ model QuizResponse {
   maxScore       Decimal?  @db.Decimal(8, 2)
   passed         Boolean?
   ipHash         String?   @db.VarChar(64)
+  respondentEmail String?  @db.VarChar(255)
+  scoreReleasedAt DateTime?
+  manualScores   Json?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   @@index([ujianId, status])
+  @@index([ujianId, respondentEmail])
   @@index([shareToken, createdAt])
 }
 
@@ -1413,25 +1489,31 @@ model QuizMedia {
 }
 
 model UjianAttempt {
-  id            String      @id @default(cuid())
-  ujianId       String
-  ujian         Ujian       @relation(fields: [ujianId], references: [id], onDelete: Cascade)
-  siswaId       String
-  siswa         Siswa       @relation(fields: [siswaId], references: [id], onDelete: Restrict)
-  waliProfileId String
-  waliProfile   WaliProfile @relation(fields: [waliProfileId], references: [id], onDelete: Restrict)
-  hasilUjianId  String?
-  status        String      @default("IN_PROGRESS") @db.VarChar(32)
-  startedAt     DateTime    @default(now())
-  submittedAt   DateTime?
-  expiresAt     DateTime?
-  draftAnswers  Json?
-  draftSavedAt  DateTime?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id             String       @id @default(cuid())
+  ujianId        String
+  ujian          Ujian        @relation(fields: [ujianId], references: [id], onDelete: Cascade)
+  siswaId        String
+  siswa          Siswa        @relation(fields: [siswaId], references: [id], onDelete: Restrict)
+  waliProfileId  String?
+  waliProfile    WaliProfile? @relation(fields: [waliProfileId], references: [id], onDelete: Restrict)
+  siswaAccountId String?
+  siswaAccount   SiswaAccount? @relation(fields: [siswaAccountId], references: [id], onDelete: SetNull)
+  startedByRole  String       @default("WALI") @db.VarChar(16)
+  hasilUjianId   String?
+  status         String       @default("IN_PROGRESS") @db.VarChar(32)
+  startedAt      DateTime     @default(now())
+  submittedAt    DateTime?
+  expiresAt      DateTime?
+  draftAnswers   Json?
+  draftSavedAt   DateTime?
+  violationCount Int          @default(0)
+  lastViolationAt DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@index([ujianId, siswaId])
   @@index([waliProfileId, status])
+  @@index([siswaAccountId, status])
 }
 
 model UjianSoal {
@@ -1462,6 +1544,7 @@ model HasilUjian {
   status      HasilUjianStatus @default(DRAFT)
   totalScore  Decimal?         @db.Decimal(10, 2)
   finalizedAt DateTime?
+  releasedAt  DateTime?
   createdById String?
   updatedById String?
   createdAt   DateTime         @default(now())
@@ -1513,25 +1596,55 @@ model Tarif {
   @@index([kelasId, effectiveFrom])
 }
 
+model Voucher {
+  id            String              @id @default(cuid())
+  code          String              @unique @db.VarChar(32)
+  description   String?             @db.VarChar(191)
+  discountType  VoucherDiscountType
+  discountValue Decimal             @db.Decimal(14, 2)
+  minAmount     Decimal?            @db.Decimal(14, 2)
+  maxUses       Int?
+  usedCount     Int                 @default(0)
+  programId     String?
+  program       Program?            @relation(fields: [programId], references: [id], onDelete: SetNull)
+  kelasId       String?
+  kelas         Kelas?              @relation(fields: [kelasId], references: [id], onDelete: SetNull)
+  validFrom     DateTime?
+  validUntil    DateTime?
+  isActive      Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  tagihan       Tagihan[]
+
+  @@index([isActive, validUntil])
+  @@index([programId])
+  @@index([kelasId])
+}
+
 model Tagihan {
-  id          String        @id @default(cuid())
-  siswaId     String
-  siswa       Siswa         @relation(fields: [siswaId], references: [id], onDelete: Restrict)
-  tarifId     String?
-  tarif       Tarif?        @relation(fields: [tarifId], references: [id], onDelete: SetNull)
-  periode     DateTime
-  jenis       String        @db.VarChar(64)
-  description String?
-  amount      Decimal       @db.Decimal(14, 2)
-  status      TagihanStatus @default(DRAFT)
-  dueDate     DateTime
-  paidAt      DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  pembayaran  Pembayaran[]
+  id             String        @id @default(cuid())
+  siswaId        String
+  siswa          Siswa         @relation(fields: [siswaId], references: [id], onDelete: Restrict)
+  tarifId        String?
+  tarif          Tarif?        @relation(fields: [tarifId], references: [id], onDelete: SetNull)
+  periode        DateTime
+  jenis          String        @db.VarChar(64)
+  description    String?
+  amount         Decimal       @db.Decimal(14, 2)
+  subtotal       Decimal?      @db.Decimal(14, 2)
+  discountAmount Decimal       @default(0) @db.Decimal(14, 2)
+  voucherId      String?
+  voucher        Voucher?      @relation(fields: [voucherId], references: [id], onDelete: SetNull)
+  status         TagihanStatus @default(DRAFT)
+  dueDate        DateTime
+  paidAt         DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  pembayaran     Pembayaran[]
 
   @@unique([siswaId, periode, jenis])
   @@index([status, dueDate])
+  @@index([voucherId])
 }
 
 model Pembayaran {
@@ -1596,8 +1709,123 @@ model NotificationDelivery {
   @@index([notificationId, status])
 }
 
+model Sertifikat {
+  id         String    @id @default(cuid())
+  code       String    @unique @db.VarChar(48)
+  siswaId    String
+  siswa      Siswa     @relation(fields: [siswaId], references: [id], onDelete: Cascade)
+  kelasId    String
+  kelas      Kelas     @relation(fields: [kelasId], references: [id], onDelete: Restrict)
+  title      String    @db.VarChar(200)
+  note       String?   @db.Text
+  issuedById String?
+  issuedBy   User?     @relation("SertifikatIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+  issuedAt   DateTime  @default(now())
+  revokedAt  DateTime?
+  revokedById String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([siswaId, kelasId, title])
+  @@index([siswaId, issuedAt])
+  @@index([kelasId, issuedAt])
+}
+
+model Pengumuman {
+  id           String              @id @default(cuid())
+  kelasId      String?
+  kelas        Kelas?              @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  title        String              @db.VarChar(200)
+  content      String              @db.Text
+  priority     PengumumanPriority  @default(NORMAL)
+  audience     PengumumanAudience  @default(SEMUA)
+  status       PengumumanStatus    @default(PUBLISHED)
+  publishAt    DateTime?
+  expiresAt    DateTime?
+  notifiedAt   DateTime?
+  createdById  String?
+  createdBy    User?               @relation("PengumumanCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  reads        PengumumanRead[]
+
+  @@index([kelasId, status, publishAt])
+  @@index([status, expiresAt])
+}
+
+model PengumumanRead {
+  id            String      @id @default(cuid())
+  pengumumanId  String
+  pengumuman    Pengumuman  @relation(fields: [pengumumanId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt        DateTime    @default(now())
+
+  @@unique([pengumumanId, userId])
+  @@index([userId, readAt])
+}
+
+model DiskusiThread {
+  id           String              @id @default(cuid())
+  kelasId      String
+  kelas        Kelas               @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  title        String              @db.VarChar(200)
+  content      String              @db.Text
+  createdById  String?
+  createdBy    User?               @relation("DiskusiThreadCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  status       DiskusiThreadStatus @default(OPEN)
+  isPinned     Boolean             @default(false)
+  replyCount   Int                 @default(0)
+  lastReplyAt  DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  replies      DiskusiBalasan[]
+  laporans     DiskusiLaporan[]
+  attachments  FileAsset[]
+
+  @@index([kelasId, status, isPinned, lastReplyAt])
+  @@index([createdAt])
+}
+
+model DiskusiLaporan {
+  id           String                @id @default(cuid())
+  threadId     String
+  thread       DiskusiThread         @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  replyId      String?
+  alasan       String                @db.VarChar(500)
+  reporterId   String?
+  reporter     User?                 @relation("DiskusiLaporanReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  status       DiskusiLaporanStatus  @default(OPEN)
+  resolvedById String?
+  resolvedBy   User?                 @relation("DiskusiLaporanResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolvedAt   DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model DiskusiBalasan {
+  id              String               @id @default(cuid())
+  threadId        String
+  thread          DiskusiThread        @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  content         String               @db.Text
+  createdById     String?
+  createdBy       User?                @relation("DiskusiBalasanCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  parentReplyId   String?
+  isTeacherAnswer Boolean              @default(false)
+  status          DiskusiBalasanStatus @default(VISIBLE)
+  deletedAt       DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  attachments     FileAsset[]
+
+  @@index([threadId, createdAt])
+}
+
 model JobRun {
-  id           String    @id @default(cuid())
+  id           String      @id @default(cuid())
   name         String
   status       JobStatus @default(RUNNING)
   startedAt    DateTime  @default(now())

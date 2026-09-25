@@ -90,7 +90,7 @@ export async function getActorDashboardContext(actor: Actor, selectedStudentId: 
               program: { select: { name: true } },
               presensi: { select: { status: true } },
               progresBelajar: { orderBy: { createdAt: "desc" }, take: 5, select: { understandingScore: true, publicNote: true } },
-              hasilUjian: { where: { status: { in: ["FINAL", "CORRECTED"] }, ujian: { showResultToWali: true } }, orderBy: { updatedAt: "desc" }, take: 3, select: { totalScore: true, ujian: { select: { title: true } } } },
+              hasilUjian: { where: { status: { in: ["FINAL", "CORRECTED"] }, OR: [{ ujian: { showResultToWali: true } }, { releasedAt: { not: null } }] }, orderBy: { updatedAt: "desc" }, take: 3, select: { totalScore: true, ujian: { select: { title: true } } } },
               tagihan: { where: { status: { in: ["UNPAID", "PENDING", "OVERDUE"] } }, orderBy: { dueDate: "asc" }, take: 3, select: { id: true, status: true, amount: true, dueDate: true } },
             },
           },

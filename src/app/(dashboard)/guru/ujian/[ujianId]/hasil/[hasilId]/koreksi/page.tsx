@@ -37,6 +37,12 @@ export default async function GuruKoreksiHasilUjianPage({ params }: { params: Pr
         <h1 className="mt-1 tailadmin-page-title">Koreksi: {hasil.siswa.name}</h1>
         <p className="mt-2 tailadmin-muted">{hasil.ujian.title}. Nilai sebelumnya {hasil.totalScore?.toString() ?? "-"}; perubahan akan disimpan sebagai {formatUiLabel("CORRECTED")} dan dicatat di log audit.</p>
       </div>
+      {hasil.attempt && hasil.attempt.violationCount > 0 ? (
+        <p role="alert" className="tailadmin-alert-error">
+          Mode aman mencatat {hasil.attempt.violationCount} perpindahan tab saat {hasil.siswa.name} mengerjakan ujian ini
+          {hasil.attempt.lastViolationAt ? ` (terakhir ${new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(hasil.attempt.lastViolationAt)})` : ""}.
+        </p>
+      ) : null}
       <HasilUjianForm
         ujianId={hasil.ujian.id}
         students={[hasil.siswa]}

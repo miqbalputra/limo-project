@@ -2,36 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArabicTextField, LocalizedContent } from "@/components/localized-content";
+import { AudioRecorder } from "@/components/quiz/audio-recorder";
 import { requestJson } from "@/lib/api-json-client";
-
-const QUIZ_THEME_HEX: Record<string, string> = {
-  blue: "#465fff",
-  green: "#12b76a",
-  purple: "#7a5af8",
-  orange: "#f79009",
-  red: "#f04438",
-  teal: "#15b79e",
-  slate: "#475467",
-};
-
-function themeAccent(slug?: string | null) {
-  return (slug && QUIZ_THEME_HEX[slug]) || QUIZ_THEME_HEX.blue;
-}
-
-function accentTextOn(hex: string) {
-  const value = hex.replace("#", "");
-  const r = parseInt(value.slice(0, 2), 16);
-  const g = parseInt(value.slice(2, 4), 16);
-  const b = parseInt(value.slice(4, 6), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.62 ? "#101828" : "#ffffff";
-}
-
-function darken(hex: string, amount: number) {
-  const value = hex.replace("#", "");
-  const channels = [value.slice(0, 2), value.slice(2, 4), value.slice(4, 6)].map((channel) => Math.max(0, Math.round(parseInt(channel, 16) * (1 - amount))));
-  return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
-}
+import { canRecordAudio, formatFileSize, uploadAcceptAttribute } from "@/lib/quiz-upload";
+import { accentTextOn, darken, themeAccent } from "@/lib/quiz-theme";
+import { clearQueuedUploads, loadQueuedUploads, removeQueuedUpload, saveQueuedUpload } from "@/lib/upload-queue";
 
 type QuizIntro = {
   title: string;
@@ -41,6 +16,7 @@ type QuizIntro = {
   questionCount: number;
   passingScore: number | null;
   collectRespondentName: boolean;
+  collectRespondentEmail: boolean;
   showScoreImmediately: boolean;
   showAnswersAfterSubmit: boolean;
   shuffleQuestions: boolean;
@@ -76,6 +52,8 @@ type PublicQuestion = {
   kind: string | null;
   gridRows: string[];
   gridMultiple: boolean;
+  uploadAllowedTypes: string[];
+  uploadMaxSizeMb: number;
   validation: { type: string; min: number | null; max: number | null; pattern: string | null; message: string | null } | null;
   options: { label: string; content: string; mediaUrl: string | null }[];
 };
@@ -91,7 +69,7 @@ type DraftAnswer = {
 
 type AttemptContext = {
   response: { id: string; status: string; expiresAt: string | null; draftAnswers: unknown; respondentName: string };
-  quiz: { title: string; description: string | null; durationMinutes: number; passingScore: number | null; showScoreImmediately: boolean; showAnswersAfterSubmit: boolean; themeColor: string | null; headerImageUrl: string | null; confirmationMessage: string | null };
+  quiz: { title: string; description: string | null; durationMinutes: number; passingScore: number | null; showScoreImmediately: boolean; showAnswersAfterSubmit: boolean; themeColor: string | null; headerImageUrl: string | null; confirmationMessage: string | null; presentationMode?: string };
   sections: PublicSection[];
   questions: PublicQuestion[];
 };
@@ -103,6 +81,7 @@ type FeedbackItem = {
   correctOption: string | null;
   correctAnswer: string | null;
   explanation: string | null;
+  feedbackText: string | null;
 };
 
 type QuizResult = {
@@ -115,6 +94,7 @@ type QuizResult = {
   submittedAt: string | null;
   showScoreImmediately: boolean;
   showAnswersAfterSubmit: boolean;
+  releasePending?: boolean;
   feedback: FeedbackItem[];
 };
 
@@ -132,19 +112,24 @@ export function PublicQuizRunner({ token }: { token: string }) {
   const [intro, setIntro] = useState<QuizIntro | null>(null);
   const [error, setError] = useState("");
   const [respondentName, setRespondentName] = useState("");
+  const [respondentEmail, setRespondentEmail] = useState("");
   const [context, setContext] = useState<AttemptContext | null>(null);
   const [answers, setAnswers] = useState<Record<string, DraftAnswer>>({});
   const [result, setResult] = useState<QuizResult | null>(null);
+  const [questionIndex, setQuestionIndex] = useState(0);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [submitting, setSubmitting] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [uploadingId, setUploadingId] = useState("");
   const [currentSection, setCurrentSection] = useState(0);
   const [errorQuestionId, setErrorQuestionId] = useState("");
+  const [queuedUploads, setQueuedUploads] = useState<Record<string, File>>({});
   const saveTimerRef = useRef<number | null>(null);
   const expiresAtRef = useRef<string | null>(null);
   const submitRef = useRef<((_auto?: boolean) => Promise<void>) | null>(null);
   const storageKey = `limo-quiz-${token}`;
+  const queueKey = `quiz:${context?.response.id ?? token}`;
 
   useEffect(() => {
     let active = true;
@@ -188,7 +173,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
     try {
       const started = await requestJson<{ responseId: string }>(`/api/v1/public/quiz/${token}/responses`, {
         method: "POST",
-        body: { respondentName: respondentName.trim() || "Responden" },
+        body: { respondentName: respondentName.trim() || "Responden", respondentEmail: respondentEmail.trim() },
         fallbackMessage: "Kuis gagal dimulai",
       });
       const ctx = await requestJson<AttemptContext>(`/api/v1/public/quiz/${token}/responses/${started.data.responseId}`);
@@ -229,17 +214,87 @@ export function PublicQuizRunner({ token }: { token: string }) {
     scheduleSave();
   }
 
+  function enqueueUpload(questionId: string, file: File) {
+    setQueuedUploads((current) => ({ ...current, [questionId]: file }));
+    void saveQueuedUpload(queueKey, questionId, file);
+  }
+
+  function dequeueUpload(questionId: string) {
+    setQueuedUploads((current) => {
+      if (!(questionId in current)) return current;
+      const next = { ...current };
+      delete next[questionId];
+      return next;
+    });
+    void removeQueuedUpload(queueKey, questionId);
+  }
+
+  async function flushQueuedUploads(entries: [string, File][]) {
+    if (!context) return;
+    for (const [questionId, file] of entries) {
+      try {
+        const formData = new FormData();
+        formData.set("file", file);
+        formData.set("ujianSoalId", questionId);
+        const uploaded = await requestJson<{ item: { id: string; name: string } }>(`/api/v1/public/quiz/${token}/responses/${context.response.id}/upload`, { method: "POST", body: formData, fallbackMessage: "Gagal mengunggah berkas" });
+        setAnswer(questionId, { structuredAnswer: { fileId: uploaded.data.item.id, name: uploaded.data.item.name } });
+        dequeueUpload(questionId);
+        setError("");
+      } catch {
+        return;
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (phase !== "quiz") return;
+    const onOnline = () => { void flushQueuedUploads(Object.entries(queuedUploads)); };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queuedUploads, phase, context?.response.id]);
+
+  useEffect(() => {
+    if (phase !== "quiz" || !context) return;
+    let active = true;
+    void loadQueuedUploads(queueKey).then((items) => {
+      if (!active || items.length === 0) return;
+      const restored = Object.fromEntries(items.map((item) => [item.questionId, item.file]));
+      setQueuedUploads((current) => ({ ...restored, ...current }));
+      if (navigator.onLine) void flushQueuedUploads(Object.entries(restored));
+    });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queueKey, phase]);
+
   async function uploadFileAnswer(questionId: string, file: File) {
     if (!context) return;
     setError("");
+
+    const question = context.questions.find((item) => item.id === questionId);
+    const maxSizeMb = question?.uploadMaxSizeMb ?? 0;
+    if (maxSizeMb > 0 && file.size > maxSizeMb * 1024 * 1024) {
+      setError(`Ukuran berkas maksimal ${maxSizeMb} MB (berkas ${formatFileSize(file.size)}).`);
+      return;
+    }
+
+    if (!navigator.onLine) {
+      enqueueUpload(questionId, file);
+      setError("Koneksi terputus. Berkas akan diunggah otomatis setelah koneksi pulih.");
+      return;
+    }
+
     setUploadingId(questionId);
     try {
       const formData = new FormData();
       formData.set("file", file);
+      formData.set("ujianSoalId", questionId);
       const result = await requestJson<{ item: { id: string; name: string } }>(`/api/v1/public/quiz/${token}/responses/${context.response.id}/upload`, { method: "POST", body: formData, fallbackMessage: "Gagal mengunggah berkas" });
       setAnswer(questionId, { structuredAnswer: { fileId: result.data.item.id, name: result.data.item.name } });
+      dequeueUpload(questionId);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Gagal mengunggah berkas");
+      enqueueUpload(questionId, file);
+      setError(`${caught instanceof Error ? caught.message : "Gagal mengunggah berkas"} Berkas disimpan di antrean dan dicoba lagi saat koneksi pulih.`);
     } finally {
       setUploadingId("");
     }
@@ -307,15 +362,50 @@ export function PublicQuizRunner({ token }: { token: string }) {
     });
   }
 
+  function focusQuestion(questionId: string | undefined) {
+    if (!questionId) return;
+    window.requestAnimationFrame(() => {
+      const element = document.getElementById(`q-${questionId}`);
+      element?.scrollIntoView({ behavior: "smooth", block: "start" });
+      element?.focus();
+    });
+  }
+
   function resolveBranchTarget(questions: PublicQuestion[]) {
     for (const question of questions) {
-      if (question.type !== "PILIHAN_GANDA") continue;
-      const selected = answers[question.id]?.selectedOption;
-      if (!selected) continue;
-      const rule = question.branchRules.find((item) => item.label === selected);
-      if (rule && rule.goToSectionIndex !== null) return rule.goToSectionIndex;
+      if (!["PILIHAN_GANDA", "DROPDOWN", "MULTI_SELECT"].includes(question.type)) continue;
+      const answer = answers[question.id];
+      const labels = question.type === "MULTI_SELECT"
+        ? (answer?.selectedOptions ?? [])
+        : [answer?.selectedOption ?? ""];
+
+      for (const label of labels) {
+        if (!label) continue;
+        const rule = question.branchRules.find((item) => item.label.toUpperCase() === label.toUpperCase());
+        if (rule && rule.goToSectionIndex !== null) return rule.goToSectionIndex;
+      }
     }
     return null;
+  }
+
+  async function sendAnswers() {
+    if (!context) return;
+    setReviewOpen(false);
+    setSubmitting(true);
+    setError("");
+    try {
+      await requestJson(`/api/v1/public/quiz/${token}/responses/${context.response.id}/submit`, { method: "POST", body: { answers: buildAnswers() }, fallbackMessage: "Jawaban gagal dikumpulkan" });
+      window.localStorage.removeItem(storageKey);
+      await clearQueuedUploads(queueKey);
+      const detail = await requestJson<{ result: QuizResult }>(`/api/v1/public/quiz/${token}/responses/${context.response.id}/result`);
+      setResult(detail.data.result);
+      setPhase("result");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Jawaban gagal dikumpulkan");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function submit(auto = false) {
@@ -329,22 +419,25 @@ export function PublicQuizRunner({ token }: { token: string }) {
         focusProblem(problem.questionId);
         return;
       }
-      if (!window.confirm("Kumpulkan jawaban? Jawaban tidak bisa diubah setelah dikirim.")) return;
+      setReviewOpen(true);
+      return;
     }
-    setSubmitting(true);
+    await sendAnswers();
+  }
+
+  function clearSection() {
+    if (!context) return;
+    const visible = context.questions.filter((question) => question.sectionIndex === currentSection);
+    if (visible.length === 0) return;
+    if (!window.confirm("Bersihkan jawaban pada bagian ini?")) return;
+    setAnswers((current) => {
+      const next = { ...current };
+      for (const question of visible) delete next[question.id];
+      return next;
+    });
     setError("");
-    try {
-      await requestJson(`/api/v1/public/quiz/${token}/responses/${context.response.id}/submit`, { method: "POST", body: { answers: buildAnswers() }, fallbackMessage: "Jawaban gagal dikumpulkan" });
-      window.localStorage.removeItem(storageKey);
-      const detail = await requestJson<{ result: QuizResult }>(`/api/v1/public/quiz/${token}/responses/${context.response.id}/result`);
-      setResult(detail.data.result);
-      setPhase("result");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Jawaban gagal dikumpulkan");
-    } finally {
-      setSubmitting(false);
-    }
+    setSaveState("idle");
+    scheduleSave();
   }
 
   useEffect(() => {
@@ -368,13 +461,52 @@ export function PublicQuizRunner({ token }: { token: string }) {
       void submit(false);
     } else {
       setCurrentSection(target);
+      setQuestionIndex(0);
+      focusQuestion(context?.questions.find((question) => question.sectionIndex === target)?.id);
+    }
+  }
+
+  function goPrevious() {
+    setError("");
+    if (onePerPage && questionIndex > 0) {
+      setQuestionIndex((value) => value - 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    if (currentSection > 0) {
+      setCurrentSection((value) => Math.max(0, value - 1));
+      setQuestionIndex(0);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
+  }
+
+  function goNextOnePerPage() {
+    if (!context) return;
+    const visible = context.questions.filter((question) => question.sectionIndex === currentSection);
+    const current = visible[questionIndex];
+    if (current) {
+      const problem = firstProblem([current]);
+      if (problem) {
+        setError(`Lengkapi jawaban sebelum lanjut. ${problem.message}`);
+        focusProblem(problem.questionId);
+        return;
+      }
+    }
+    setError("");
+    setErrorQuestionId("");
+    if (questionIndex < visible.length - 1) {
+      setQuestionIndex((value) => value + 1);
+      focusQuestion(visible[questionIndex + 1]?.id);
+      return;
+    }
+    goNext();
   }
 
   const sections = context?.sections ?? [];
   const isLastSection = currentSection >= sections.length - 1;
   const visibleQuestions = context ? context.questions.filter((question) => question.sectionIndex === currentSection) : [];
+  const onePerPage = context?.quiz.presentationMode === "ONE_PER_PAGE";
+  const shownQuestions = onePerPage ? visibleQuestions.slice(questionIndex, questionIndex + 1) : visibleQuestions;
   const activeSection = sections[currentSection];
   const accent = themeAccent(intro?.themeColor ?? context?.quiz.themeColor);
 
@@ -422,7 +554,14 @@ export function PublicQuizRunner({ token }: { token: string }) {
               <input value={respondentName} onChange={(event) => setRespondentName(event.target.value)} placeholder="Tulis nama lengkap" className="tailadmin-input mt-2" />
             </label>
           ) : null}
-          <button type="button" onClick={() => void start()} disabled={intro.collectRespondentName && respondentName.trim().length < 2} className="tailadmin-button-primary mt-6 w-full py-3" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>
+          {intro.collectRespondentEmail ? (
+            <label className="mt-4 block text-theme-sm font-semibold text-gray-700">
+              Email Anda
+              <input type="email" value={respondentEmail} onChange={(event) => setRespondentEmail(event.target.value)} placeholder="nama@email.com" className="tailadmin-input mt-2" />
+              <span className="mt-1 block text-theme-xs font-normal text-gray-500">Dipakai untuk salinan jawaban dan mencegah respons ganda.</span>
+            </label>
+          ) : null}
+          <button type="button" onClick={() => void start()} disabled={(intro.collectRespondentName && respondentName.trim().length < 2) || (intro.collectRespondentEmail && !/^\S+@\S+\.\S+$/.test(respondentEmail.trim()))} className="tailadmin-button-primary mt-6 w-full py-3" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>
             Mulai Kerjakan
           </button>
         </div>
@@ -442,11 +581,12 @@ export function PublicQuizRunner({ token }: { token: string }) {
             <div className="min-w-0">
               <h1 className="truncate font-semibold text-gray-900">{context.quiz.title}</h1>
               <p className="mt-1 text-theme-xs text-gray-500">
-                {sections.length > 1 ? `Bagian ${currentSection + 1} dari ${sections.length} · ` : ""}{progress}% terisi
+                {sections.length > 1 ? `Bagian ${currentSection + 1} dari ${sections.length} · ` : ""}{onePerPage ? `Soal ${questionIndex + 1} dari ${visibleQuestions.length} · ` : ""}{progress}% terisi
               </p>
             </div>
             <div className="flex items-center gap-2">
               {saveState !== "idle" ? <span className={`rounded-full px-3 py-1 text-theme-xs font-semibold ${saveState === "error" ? "bg-error-50 text-error-700" : saveState === "saving" ? "bg-warning-50 text-warning-700" : "bg-success-50 text-success-700"}`}>{saveState === "saving" ? "Menyimpan..." : saveState === "error" ? "Belum tersimpan" : "Tersimpan"}</span> : null}
+              {Object.keys(queuedUploads).length > 0 ? <span aria-live="polite" className="rounded-full bg-warning-50 px-3 py-1 text-theme-xs font-semibold text-warning-700">{Object.keys(queuedUploads).length} berkas menunggu koneksi</span> : null}
               {remainingSeconds !== null ? <span aria-live="polite" className={`rounded-full px-3 py-1 text-theme-xs font-semibold ${remainingSeconds <= 60 ? "bg-error-50 text-error-700" : "bg-limo-blue-50 text-limo-blue-600"}`}>Sisa {formatDuration(remainingSeconds)}</span> : null}
             </div>
           </div>
@@ -464,16 +604,16 @@ export function PublicQuizRunner({ token }: { token: string }) {
         ) : null}
 
         <div className="mt-4 space-y-4">
-          {visibleQuestions.map((question, index) => (
-            <section key={question.id} id={`q-${question.id}`} className={`tailadmin-card p-5 transition ${errorQuestionId === question.id ? "ring-2 ring-error-400" : ""}`}>
+          {shownQuestions.map((question, index) => (
+            <section key={question.id} id={`q-${question.id}`} tabIndex={-1} role="group" aria-labelledby={`q-text-${question.id}`} aria-describedby={question.helpText ? `q-help-${question.id}` : undefined} className={`tailadmin-card p-5 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-400 ${errorQuestionId === question.id ? "ring-2 ring-error-400" : ""}`}>
               <div className="flex items-center gap-2">
-                <span className="grid size-7 shrink-0 place-items-center rounded-full text-theme-xs font-bold text-white" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>{index + 1}</span>
-                <span className="text-theme-xs font-semibold uppercase tracking-wide text-gray-400">{question.required ? "Wajib" : "Opsional"} · {question.weight} poin</span>
+                <span className="grid size-7 shrink-0 place-items-center rounded-full text-theme-xs font-bold text-white" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>{onePerPage ? questionIndex + 1 : index + 1}</span>
+                <span className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">{question.required ? "Wajib" : "Opsional"} · {question.weight} poin</span>
               </div>
               {question.stimulusText ? <LocalizedContent as="p" text={question.stimulusText} language={question.language} direction={question.direction} className="mt-3 rounded-2xl bg-gray-50 p-4 text-theme-sm leading-7 text-gray-700">{question.stimulusText}</LocalizedContent> : null}
               <MediaBlock type={question.type} mediaUrl={question.mediaUrl} />
-              <LocalizedContent as="p" text={question.question} language={question.language} direction={question.direction} className="mt-3 text-lg font-semibold leading-8 text-gray-900">{question.question}</LocalizedContent>
-              {question.helpText ? <LocalizedContent as="p" text={question.helpText} language={question.language} direction="auto" className="mt-1 text-theme-sm text-gray-500">{question.helpText}</LocalizedContent> : null}
+              <LocalizedContent as="p" id={`q-text-${question.id}`} text={question.question} language={question.language} direction={question.direction} className="mt-3 text-lg font-semibold leading-8 text-gray-900">{question.question}</LocalizedContent>
+              {question.helpText ? <LocalizedContent as="p" id={`q-help-${question.id}`} text={question.helpText} language={question.language} direction="auto" className="mt-1 text-theme-sm text-gray-500">{question.helpText}</LocalizedContent> : null}
               <AnswerInput
                 accent={accent}
                 question={question}
@@ -487,19 +627,48 @@ export function PublicQuizRunner({ token }: { token: string }) {
         </div>
 
         <div className="mt-4 flex flex-col gap-3 tailadmin-card p-5 sm:flex-row sm:items-center sm:justify-between">
-          <button type="button" disabled={currentSection === 0 || submitting} onClick={() => { setError(""); setCurrentSection((value) => Math.max(0, value - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="tailadmin-button-outline px-5 py-3 disabled:opacity-40">Sebelumnya</button>
-          {isLastSection ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" disabled={submitting || (onePerPage ? currentSection === 0 && questionIndex === 0 : currentSection === 0)} onClick={goPrevious} className="tailadmin-button-outline px-5 py-3 disabled:opacity-40">Sebelumnya</button>
+            <button type="button" disabled={submitting} onClick={clearSection} className="tailadmin-button-outline px-4 py-3 text-error-700 disabled:opacity-40">Bersihkan</button>
+          </div>
+          {(onePerPage ? isLastSection && questionIndex >= visibleQuestions.length - 1 : isLastSection) ? (
             <button type="button" disabled={submitting} onClick={() => void submit(false)} className="tailadmin-button-primary px-6 py-3" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>{submitting ? "Mengirim..." : "Kumpulkan Jawaban"}</button>
           ) : (
-            <button type="button" onClick={goNext} className="tailadmin-button-primary px-6 py-3" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>Berikutnya</button>
+            <button type="button" onClick={() => (onePerPage ? goNextOnePerPage() : goNext())} className="tailadmin-button-primary px-6 py-3" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>Berikutnya</button>
           )}
         </div>
+
+        {reviewOpen && context ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/40 p-4" role="presentation">
+            <section role="dialog" aria-modal="true" aria-labelledby="quiz-review-title" className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-theme-xl">
+              <h2 id="quiz-review-title" className="text-lg font-semibold text-gray-900">Tinjau jawaban</h2>
+              <p className="mt-1 text-theme-sm text-gray-500">Periksa kelengkapan sebelum mengirim. Jawaban tidak dapat diubah setelah dikirim.</p>
+              <ul className="mt-4 space-y-2 text-theme-sm">
+                {context.sections.map((section, sectionIdx) => {
+                  const questions = context.questions.filter((question) => question.sectionIndex === sectionIdx);
+                  const answered = questions.filter((question) => isAnswerFilled(answers[question.id])).length;
+                  const unanswered = questions.length - answered;
+                  return (
+                    <li key={sectionIdx} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2">
+                      <span className="font-semibold text-gray-700">{section.title || `Bagian ${sectionIdx + 1}`}</span>
+                      <span className={unanswered > 0 ? "text-warning-700" : "text-success-700"}>{answered}/{questions.length} terisi{unanswered > 0 ? ` · ${unanswered} kosong` : ""}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-5 flex flex-wrap justify-end gap-2">
+                <button type="button" onClick={() => setReviewOpen(false)} disabled={submitting} className="tailadmin-button-outline px-4 py-2.5">Kembali</button>
+                <button type="button" onClick={() => void sendAnswers()} disabled={submitting} className="tailadmin-button-primary px-5 py-2.5" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>{submitting ? "Mengirim..." : "Kirim sekarang"}</button>
+              </div>
+            </section>
+          </div>
+        ) : null}
       </div>
     );
   }
 
   if (phase === "result" && result) {
-    const showScore = result.showScoreImmediately;
+    const showScore = result.showScoreImmediately && !result.releasePending;
     return (
       <div className="mx-auto max-w-3xl px-5 py-12 sm:py-16">
         <div className="tailadmin-card p-6 sm:p-8">
@@ -513,7 +682,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
               <InfoTile label="Status" value={result.passed === null ? "Menunggu peninjauan" : result.passed ? "Lulus" : "Belum lulus"} />
             </div>
           ) : (
-            <p className="mt-6 rounded-2xl bg-limo-blue-50 p-4 text-center text-theme-sm text-limo-blue-700">Skor akan diinformasikan oleh guru.</p>
+            <p className="mt-6 rounded-2xl bg-limo-blue-50 p-4 text-center text-theme-sm text-limo-blue-700">{result.releasePending ? "Nilai akan dirilis oleh guru setelah peninjauan." : "Skor akan diinformasikan oleh guru."}</p>
           )}
           {result.showAnswersAfterSubmit && result.feedback.length > 0 ? (
             <section className="mt-8">
@@ -523,6 +692,10 @@ export function PublicQuizRunner({ token }: { token: string }) {
                   <li key={item.ujianSoalId} className="rounded-xl border border-gray-200 p-4 text-theme-sm">
                     <p className="font-semibold text-gray-800">{index + 1}. {item.question}</p>
                     <p className="mt-1 text-gray-600">Kunci: {item.correctAnswer ?? item.correctOption ?? "-"}</p>
+                    {item.correct !== null ? (
+                      <p className={`mt-1 font-semibold ${item.correct ? "text-success-700" : "text-error-700"}`}>{item.correct ? "Jawaban benar" : "Jawaban salah"}</p>
+                    ) : null}
+                    {item.feedbackText ? <p className="mt-1 text-gray-700">{item.feedbackText}</p> : null}
                     {item.explanation ? <p className="mt-1 text-gray-500">{item.explanation}</p> : null}
                   </li>
                 ))}
@@ -783,22 +956,32 @@ function AnswerInput({ question, answer, onChange, accent, onUploadFile, uploadi
   if (question.type === "FILE_UPLOAD") {
     const rawName = answer?.structuredAnswer?.name;
     const fileName = typeof rawName === "string" ? rawName : "";
+    const allowedTypes = question.uploadAllowedTypes ?? [];
+    const maxSizeMb = question.uploadMaxSizeMb ?? 0;
+    const accept = uploadAcceptAttribute(allowedTypes);
+    const hint = allowedTypes.length > 0
+      ? `Berkas diizinkan: ${allowedTypes.join(", ")}${maxSizeMb > 0 ? ` · maksimal ${maxSizeMb} MB` : ""}.`
+      : `PDF, dokumen, gambar, audio, video, atau zip${maxSizeMb > 0 ? ` · maksimal ${maxSizeMb} MB` : ""}.`;
     return (
-      <div className="mt-3">
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-theme-sm font-semibold text-gray-700 hover:bg-gray-50">
-          {uploading ? "Mengunggah..." : fileName ? "Ganti berkas" : "Pilih berkas"}
-          <input
-            type="file"
-            className="hidden"
-            disabled={uploading}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              event.target.value = "";
-              if (file) onUploadFile(file);
-            }}
-          />
-        </label>
-        {fileName ? <p className="mt-2 text-theme-sm text-gray-600">Berkas: {fileName}</p> : <p className="mt-2 text-theme-xs text-gray-400">PDF, dokumen, gambar, audio, video, atau zip.</p>}
+      <div className="mt-3 space-y-3">
+        <div>
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-theme-sm font-semibold text-gray-700 hover:bg-gray-50">
+            {uploading ? "Mengunggah..." : fileName ? "Ganti berkas" : "Pilih berkas"}
+            <input
+              type="file"
+              accept={accept || undefined}
+              className="hidden"
+              disabled={uploading}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (file) onUploadFile(file);
+              }}
+            />
+          </label>
+          {fileName ? <p className="mt-2 text-theme-sm text-gray-600">Berkas: {fileName}</p> : <p className="mt-2 text-theme-xs text-gray-500">{hint}</p>}
+        </div>
+        {canRecordAudio(allowedTypes) ? <AudioRecorder onRecorded={onUploadFile} disabled={uploading} busy={uploading} /> : null}
       </div>
     );
   }

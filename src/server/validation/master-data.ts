@@ -46,6 +46,43 @@ export const createWaliSchema = z.object({
 export const updateGuruSchema = createGuruSchema;
 export const updateWaliSchema = createWaliSchema;
 
+const booleanFlag = z.preprocess(
+  (value) => (typeof value === "string" ? ["1", "true", "yes", "on"].includes(value.toLowerCase()) : value),
+  z.boolean().default(false),
+);
+
+const optionalBooleanFlag = z.preprocess(
+  (value) => (typeof value === "string" ? ["1", "true", "yes", "on"].includes(value.toLowerCase()) : value),
+  z.boolean().optional(),
+);
+
+export const personListSchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    search: z.string().trim().max(120).default(""),
+    includeArchived: booleanFlag,
+    arsip: optionalBooleanFlag,
+  })
+  .transform((value) => ({
+    page: value.page,
+    pageSize: value.pageSize,
+    search: value.search,
+    includeArchived: value.includeArchived || value.arsip === true,
+  }));
+
+export const importPersonRowSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().email().max(255),
+  phone: z.string().trim().max(32).optional().default(""),
+  address: z.string().trim().max(1000).optional().default(""),
+});
+
+export const importPeopleSchema = z.object({
+  csv: z.string().min(1).max(500_000),
+  dryRun: z.boolean().default(false),
+});
+
 export const createSiswaSchema = z.object({
   nomorInduk: z.string().trim().min(3).max(64),
   name: z.string().trim().min(2).max(120),

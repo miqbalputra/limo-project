@@ -92,6 +92,108 @@ export async function notifySiswaForStudents(input: {
   return { created };
 }
 
+/**
+ * Notifikasi in-app/e-mail ke seluruh anggota aktif sebuah kelas,
+ * disaring sesuai audience pengumuman (SISWA / WALI / SEMUA).
+ */
+export async function notifyKelasAktif(input: {
+  kelasId: string;
+  audience: "SISWA" | "WALI" | "SEMUA";
+  template: string;
+  subject: string;
+  body: string;
+  metadata?: Record<string, string | number | boolean | null>;
+  dedupeKey?: string;
+}) {
+  const enrollments = await prisma.kelasSiswa.findMany({
+    where: { kelasId: input.kelasId, status: "ACTIVE", siswa: { status: "ACTIVE", deletedAt: null } },
+    select: { siswaId: true },
+  });
+  const siswaIds = [...new Set(enrollments.map((enrollment) => enrollment.siswaId))];
+
+  let created = 0;
+  const payload = {
+    siswaIds,
+    template: input.template,
+    subject: input.subject,
+    body: input.body,
+    metadata: input.metadata,
+    dedupeKey: input.dedupeKey,
+  };
+
+  if (input.audience === "SISWA" || input.audience === "SEMUA") {
+    created += (await notifySiswaForStudents(payload)).created;
+  }
+  if (input.audience === "WALI" || input.audience === "SEMUA") {
+    created += (await notifyWaliForStudents(payload)).created;
+  }
+
+  return { created };
+}
+
+/**
+ * Notifikasi sekolah-wide (semua siswa dan/atau wali aktif), dipakai oleh
+ * pengumuman dengan `kelasId` null.
+ */
+export async function notifySekolahAktif(input: {
+  audience: "SISWA" | "WALI" | "SEMUA";
+  template: string;
+  subject: string;
+  body: string;
+  metadata?: Record<string, string | number | boolean | null>;
+  dedupeKey?: string;
+}) {
+  const students = await prisma.siswa.findMany({ where: { status: "ACTIVE", deletedAt: null }, select: { id: true } });
+  const siswaIds = students.map((student) => student.id);
+
+  let created = 0;
+  const payload = { siswaIds, template: input.template, subject: input.subject, body: input.body, metadata: input.metadata, dedupeKey: input.dedupeKey };
+
+  if (input.audience === "SISWA" || input.audience === "SEMUA") {
+    created += (await notifySiswaForStudents(payload)).created;
+  }
+  if (input.audience === "WALI" || input.audience === "SEMUA") {
+    created += (await notifyWaliForStudents(payload)).created;
+  }
+
+  return { created };
+}
+
+/**
+ * Notifikasi ke Guru pengampu sebuah kelas (dipakai saat siswa/wali
+ * memulai diskusi baru atau membalas thread).
+ */
+export async function notifyGuruForKelas(input: {
+  kelasId: string;
+  template: string;
+  subject: string;
+  body: string;
+  metadata?: Record<string, string | number | boolean | null>;
+  dedupeKey?: string;
+}) {
+  const kelas = await prisma.kelas.findUnique({
+    where: { id: input.kelasId },
+    select: { guruProfile: { select: { user: { select: { email: true, status: true } } } } },
+  });
+  const guru = kelas?.guruProfile?.user;
+
+  if (!guru || guru.status !== "ACTIVE") {
+    return { created: 0 };
+  }
+
+  const notificationId = await createNotificationIfMissing({
+    channel: "in_app",
+    template: input.template,
+    recipient: guru.email,
+    subject: input.subject,
+    body: input.body,
+    metadata: input.metadata,
+    dedupeKey: input.dedupeKey,
+  });
+
+  return { created: notificationId ? 1 : 0 };
+}
+
 export async function notifyAdmins(input: {
   template: string;
   subject: string;

@@ -4,7 +4,11 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { ArabicTextField, LocalizedContent } from "@/components/localized-content";
 import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
+import { AudioRecorder } from "@/components/quiz/audio-recorder";
 import { requestJson } from "@/lib/api-json-client";
+import { canRecordAudio, formatFileSize, uploadAcceptAttribute } from "@/lib/quiz-upload";
+import { accentTextOn, themeAccent } from "@/lib/quiz-theme";
+import { clearQueuedUploads, loadQueuedUploads, removeQueuedUpload, saveQueuedUpload } from "@/lib/upload-queue";
 import { formatUiLabel } from "@/lib/ui-labels";
 
 type DraftAnswer = {
@@ -36,6 +40,8 @@ type AttemptQuestion = {
     scale: { min: number | null; max: number | null; minLabel: string | null; maxLabel: string | null; kind: string | null };
     grid: { rows: string[]; multiple: boolean };
     validation: QuestionValidation;
+    uploadAllowedTypes: string[];
+    uploadMaxSizeMb: number;
     options: { label: string; content: string; mediaUrl: string | null }[];
   };
 };
@@ -48,11 +54,16 @@ type AttemptContext = {
   expiresAt: Date | string | null;
   draftAnswers: unknown;
   draftSavedAt: Date | string | null;
+  violationCount?: number;
   siswa: { id: string; name: string; nomorInduk: string };
   ujian: {
     id: string;
     title: string;
     durationMinutes: number;
+    presentationMode?: string;
+    themeColor?: string | null;
+    headerImageUrl?: string | null;
+    secureMode?: boolean;
     sections: AttemptSection[];
     questions: AttemptQuestion[];
   };
@@ -92,10 +103,13 @@ function validationMessage(question: AttemptQuestion, answer: DraftAnswer | unde
   return "";
 }
 
-export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
+export function OnlineExamPlayer({ attempt, basePath = "/api/v1/wali", submittedHref }: { attempt: AttemptContext; basePath?: string; submittedHref?: string }) {
   const router = useRouter();
+  const exitHref = submittedHref ?? `/wali/tugas/${attempt.siswa.id}`;
+  const queueKey = `exam:${attempt.id}`;
   const saveTimerRef = useRef<number | null>(null);
   const saveDraftRef = useRef<((_keepalive?: boolean) => Promise<void>) | null>(null);
+  const autoSubmitRef = useRef<(() => Promise<void>) | null>(null);
   const [answers, setAnswers] = useState<Record<string, DraftAnswer>>(() => {
     const entries = normalizeDraft(attempt.draftAnswers).map((answer) => [answer.ujianSoalId, answer] as const);
     return Object.fromEntries(entries);
@@ -105,14 +119,27 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  const [questionIndex, setQuestionIndex] = useState(0);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">(attempt.draftSavedAt ? "saved" : "idle");
   const [isOnline, setIsOnline] = useState(true);
+  const [queuedUploads, setQueuedUploads] = useState<Record<string, File>>({});
+  const [violations, setViolations] = useState(attempt.violationCount ?? 0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const fullscreenRequestedRef = useRef(false);
   const { confirm, dialog } = useConfirmDialog();
 
   useEffect(() => {
     if (!attempt.expiresAt) return;
     const expiresAt = new Date(attempt.expiresAt).getTime();
-    const update = () => setRemainingSeconds(Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000)));
+    let fired = false;
+    const update = () => {
+      const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+      setRemainingSeconds(remaining);
+      if (remaining === 0 && !fired) {
+        fired = true;
+        void autoSubmitRef.current?.();
+      }
+    };
     update();
     const timer = window.setInterval(update, 1000);
     return () => window.clearInterval(timer);
@@ -122,10 +149,89 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
     return attempt.ujian.questions.map((question) => answers[question.id] ?? { ujianSoalId: question.id });
   }
 
+  function scheduleDraftSave() {
+    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => {
+      saveTimerRef.current = null;
+      void saveDraftRef.current?.();
+    }, 800);
+  }
+
   function setAnswer(questionId: string, patch: Partial<DraftAnswer>) {
     setAnswers((current) => ({ ...current, [questionId]: { ...current[questionId], ujianSoalId: questionId, ...patch } }));
     scheduleDraftSave();
   }
+
+  function enqueueUpload(questionId: string, file: File) {
+    setQueuedUploads((current) => ({ ...current, [questionId]: file }));
+    void saveQueuedUpload(queueKey, questionId, file);
+  }
+
+  function dequeueUpload(questionId: string) {
+    setQueuedUploads((current) => {
+      if (!(questionId in current)) return current;
+      const next = { ...current };
+      delete next[questionId];
+      return next;
+    });
+    void removeQueuedUpload(queueKey, questionId);
+  }
+
+  async function flushQueuedUploads(entries: [string, File][]) {
+    for (const [questionId, file] of entries) {
+      try {
+        const formData = new FormData();
+        formData.set("file", file);
+        formData.set("ujianSoalId", questionId);
+        const result = await requestJson<{ item: { id: string; name: string } }>(`${basePath}/attempt/${attempt.id}/upload`, { method: "POST", body: formData, fallbackMessage: "Gagal mengunggah berkas" });
+        setAnswer(questionId, { structuredAnswer: { fileId: result.data.item.id, name: result.data.item.name } });
+        dequeueUpload(questionId);
+        setError("");
+      } catch {
+        return;
+      }
+    }
+  }
+
+  function recordViolation(reason: string, message: string) {
+    setViolations((value) => value + 1);
+    setError(message);
+    void requestJson(`${basePath}/attempt/${attempt.id}/violation`, {
+      method: "POST",
+      body: { reason },
+      keepalive: true,
+      fallbackMessage: "Gagal mencatat pelanggaran",
+    }).catch(() => undefined);
+  }
+
+  async function enterFullscreen() {
+    try {
+      await document.documentElement.requestFullscreen();
+      fullscreenRequestedRef.current = true;
+      setIsFullscreen(true);
+    } catch {
+      setError("Peramban menolak mode layar penuh. Lanjutkan tanpa layar penuh.");
+    }
+  }
+
+  useEffect(() => {
+    const onOnline = () => { void flushQueuedUploads(Object.entries(queuedUploads)); };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queuedUploads, attempt.id]);
+
+  useEffect(() => {
+    let active = true;
+    void loadQueuedUploads(queueKey).then((items) => {
+      if (!active || items.length === 0) return;
+      const restored = Object.fromEntries(items.map((item) => [item.questionId, item.file]));
+      setQueuedUploads((current) => ({ ...restored, ...current }));
+      if (navigator.onLine) void flushQueuedUploads(Object.entries(restored));
+    });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queueKey]);
 
   async function saveDraft(keepalive = false) {
     const payload = buildAnswers();
@@ -136,7 +242,7 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
     }
     setSaveState("saving");
     try {
-      await requestJson(`/api/v1/wali/attempt/${attempt.id}`, { method: "PATCH", body: { answers: payload }, keepalive, fallbackMessage: "Draf gagal disimpan" });
+      await requestJson(`${basePath}/attempt/${attempt.id}`, { method: "PATCH", body: { answers: payload }, keepalive, fallbackMessage: "Draf gagal disimpan" });
       setSaveState("saved");
     } catch (caught) {
       setSaveState("error");
@@ -148,14 +254,6 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
   useEffect(() => {
     saveDraftRef.current = saveDraft;
   });
-
-  function scheduleDraftSave() {
-    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = window.setTimeout(() => {
-      saveTimerRef.current = null;
-      void saveDraftRef.current?.();
-    }, 800);
-  }
 
   useEffect(() => {
     const flushDraft = () => {
@@ -184,16 +282,59 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
     };
   }, [attempt.id]);
 
+  useEffect(() => {
+    if (!attempt.ujian.secureMode) return;
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== "hidden") return;
+      recordViolation("visibility_hidden", "Mode aman aktif: perpindahan tab atau keluar halaman tercatat.");
+    };
+
+    const onFullscreenChange = () => {
+      const active = Boolean(document.fullscreenElement);
+      setIsFullscreen(active);
+      if (!active && fullscreenRequestedRef.current) {
+        fullscreenRequestedRef.current = false;
+        recordViolation("fullscreen_exit", "Mode aman: keluar dari layar penuh tercatat.");
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt.id, attempt.ujian.secureMode]);
+
   async function uploadFileAnswer(questionId: string, file: File) {
     setError("");
+
+    const question = attempt.ujian.questions.find((item) => item.id === questionId);
+    const maxSizeMb = question?.bankSoal.uploadMaxSizeMb ?? 0;
+    if (maxSizeMb > 0 && file.size > maxSizeMb * 1024 * 1024) {
+      setError(`Ukuran berkas maksimal ${maxSizeMb} MB (berkas ${formatFileSize(file.size)}).`);
+      return;
+    }
+
+    if (!navigator.onLine) {
+      enqueueUpload(questionId, file);
+      setError("Koneksi terputus. Berkas akan diunggah otomatis setelah koneksi pulih.");
+      return;
+    }
+
     setUploadingId(questionId);
     try {
       const formData = new FormData();
       formData.set("file", file);
-      const result = await requestJson<{ item: { id: string; name: string } }>(`/api/v1/wali/attempt/${attempt.id}/upload`, { method: "POST", body: formData, fallbackMessage: "Gagal mengunggah berkas" });
+      formData.set("ujianSoalId", questionId);
+      const result = await requestJson<{ item: { id: string; name: string } }>(`${basePath}/attempt/${attempt.id}/upload`, { method: "POST", body: formData, fallbackMessage: "Gagal mengunggah berkas" });
       setAnswer(questionId, { structuredAnswer: { fileId: result.data.item.id, name: result.data.item.name } });
+      dequeueUpload(questionId);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Gagal mengunggah berkas");
+      enqueueUpload(questionId, file);
+      setError(`${caught instanceof Error ? caught.message : "Gagal mengunggah berkas"} Berkas disimpan di antrean dan dicoba lagi saat koneksi pulih.`);
     } finally {
       setUploadingId("");
     }
@@ -205,11 +346,17 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
 
   function resolveBranchTarget(questions: AttemptQuestion[]) {
     for (const question of questions) {
-      if (question.bankSoal.type !== "PILIHAN_GANDA") continue;
-      const selected = answers[question.id]?.selectedOption;
-      if (!selected) continue;
-      const rule = question.branchRules.find((item) => item.label === selected);
-      if (rule && rule.goToSectionIndex !== null) return rule.goToSectionIndex;
+      if (!["PILIHAN_GANDA", "DROPDOWN", "MULTI_SELECT"].includes(question.bankSoal.type)) continue;
+      const answer = answers[question.id];
+      const labels = question.bankSoal.type === "MULTI_SELECT"
+        ? (answer?.selectedOptions ?? [])
+        : [answer?.selectedOption ?? ""];
+
+      for (const label of labels) {
+        if (!label) continue;
+        const rule = question.branchRules.find((item) => item.label.toUpperCase() === label.toUpperCase());
+        if (rule && rule.goToSectionIndex !== null) return rule.goToSectionIndex;
+      }
     }
     return null;
   }
@@ -236,8 +383,42 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
       void onSubmitFinal();
     } else {
       setCurrentSection(target);
+      setQuestionIndex(0);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
+  }
+
+  function goPrevious() {
+    setError("");
+    if (onePerPage && questionIndex > 0) {
+      setQuestionIndex((value) => value - 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    if (currentSection > 0) {
+      setCurrentSection((value) => Math.max(0, value - 1));
+      setQuestionIndex(0);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
+  function goNextOnePerPage() {
+    const visible = sectionQuestions(currentSection);
+    const current = visible[questionIndex];
+    if (current) {
+      const problem = current.required && !isAnswerFilled(answers[current.id]) ? "Soal wajib belum diisi." : validationMessage(current, answers[current.id]);
+      if (problem) {
+        setError(problem);
+        return;
+      }
+    }
+    setError("");
+    if (questionIndex < visible.length - 1) {
+      setQuestionIndex((value) => value + 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    goNext();
   }
 
   async function onSubmitFinal() {
@@ -260,8 +441,9 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
     setError("");
     setIsSubmitting(true);
     try {
-      await requestJson(`/api/v1/wali/attempt/${attempt.id}/submit`, { method: "POST", body: { answers: buildAnswers() }, fallbackMessage: "Jawaban gagal dikumpulkan" });
-      router.push(`/wali/tugas/${attempt.siswa.id}`);
+      await requestJson(`${basePath}/attempt/${attempt.id}/submit`, { method: "POST", body: { answers: buildAnswers() }, fallbackMessage: "Jawaban gagal dikumpulkan" });
+      await clearQueuedUploads(queueKey);
+      router.push(exitHref);
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Jawaban gagal dikumpulkan");
@@ -275,36 +457,74 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
     await onSubmitFinal();
   }
 
+  async function autoSubmit() {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await saveDraft(true).catch(() => undefined);
+      await requestJson(`${basePath}/attempt/${attempt.id}/submit`, { method: "POST", body: { answers: buildAnswers() }, fallbackMessage: "Jawaban gagal dikumpulkan" });
+      await clearQueuedUploads(queueKey);
+      router.push(exitHref);
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Waktu habis dan jawaban gagal dikumpulkan otomatis.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  useEffect(() => {
+    autoSubmitRef.current = autoSubmit;
+  });
+
   const sections = attempt.ujian.sections.length > 0 ? attempt.ujian.sections : [{ id: "single", order: 0, title: "", description: null }];
   const isLastSection = currentSection >= sections.length - 1;
   const visibleQuestions = sectionQuestions(currentSection);
+  const onePerPage = attempt.ujian.presentationMode === "ONE_PER_PAGE";
+  const shownQuestions = onePerPage ? visibleQuestions.slice(questionIndex, questionIndex + 1) : visibleQuestions;
   const activeSection = sections[currentSection];
   const answeredCount = attempt.ujian.questions.filter((question) => isAnswerFilled(answers[question.id])).length;
   const progress = attempt.ujian.questions.length > 0 ? Math.round((answeredCount / attempt.ujian.questions.length) * 100) : 0;
   const expiresAt = attempt.expiresAt ? new Date(attempt.expiresAt) : null;
   const submitDisabled = isSubmitting || remainingSeconds === 0 || !isOnline;
+  const accent = themeAccent(attempt.ujian.themeColor);
+  const accentText = accentTextOn(accent);
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form
+      onSubmit={onSubmit}
+      className="space-y-4"
+      onPaste={(event) => { if (!attempt.ujian.secureMode) return; event.preventDefault(); recordViolation("clipboard_paste", "Mode aman: menempel teks dinonaktifkan dan tercatat."); }}
+      onCopy={(event) => { if (!attempt.ujian.secureMode) return; event.preventDefault(); recordViolation("clipboard_copy", "Mode aman: menyalin teks dinonaktifkan dan tercatat."); }}
+      onCut={(event) => { if (!attempt.ujian.secureMode) return; event.preventDefault(); recordViolation("clipboard_cut", "Mode aman: memotong teks dinonaktifkan dan tercatat."); }}
+      onContextMenu={(event) => { if (!attempt.ujian.secureMode) return; event.preventDefault(); recordViolation("context_menu", "Mode aman: menu klik kanan dinonaktifkan."); }}
+    >
+      {attempt.ujian.headerImageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={attempt.ujian.headerImageUrl} alt="Header ujian" className="mb-4 h-32 w-full rounded-2xl object-cover sm:h-44" />
+      ) : null}
       <section className="tailadmin-card sticky top-4 z-10 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-500">{attempt.siswa.name}</p>
             <h2 className="font-semibold text-gray-900">{attempt.ujian.title}</h2>
             <p className="mt-1 text-theme-xs text-gray-500">
-              {sections.length > 1 ? `Bagian ${currentSection + 1} dari ${sections.length} · ` : ""}{attempt.ujian.questions.length} soal · {progress}% terisi{expiresAt ? ` · batas ${expiresAt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}` : ""}
+              {sections.length > 1 ? `Bagian ${currentSection + 1} dari ${sections.length} · ` : ""}{onePerPage ? `Soal ${questionIndex + 1} dari ${visibleQuestions.length} · ` : ""}{attempt.ujian.questions.length} soal · {progress}% terisi{expiresAt ? ` · batas ${expiresAt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}` : ""}
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
             <div className="flex flex-wrap items-center justify-end gap-2">
               {saveState !== "idle" ? <span aria-live="polite" className={`rounded-full px-3 py-1 text-center text-theme-xs font-semibold ${saveState === "error" ? "bg-error-50 text-error-700" : saveState === "saving" ? "bg-warning-50 text-warning-700" : "bg-success-50 text-success-700"}`}>{saveState === "saving" ? "Menyimpan draf..." : saveState === "error" ? "Draf belum tersimpan" : "Draf tersimpan"}</span> : null}
               {remainingSeconds !== null ? <span aria-live="polite" className={`rounded-full px-3 py-1 text-center text-theme-xs font-semibold ${remainingSeconds <= 60 ? "bg-error-50 text-error-700" : "bg-limo-blue-50 text-limo-blue-600"}`}>Sisa waktu {formatDuration(remainingSeconds)}</span> : null}
+              {Object.keys(queuedUploads).length > 0 ? <span aria-live="polite" className="rounded-full bg-warning-50 px-3 py-1 text-center text-theme-xs font-semibold text-warning-700">{Object.keys(queuedUploads).length} berkas menunggu koneksi</span> : null}
+              {attempt.ujian.secureMode ? <span aria-live="polite" className={`rounded-full px-3 py-1 text-center text-theme-xs font-semibold ${violations > 0 ? "bg-error-50 text-error-700" : "bg-gray-50 text-gray-600"}`}>Mode aman · {violations} peringatan</span> : null}
+              {attempt.ujian.secureMode && !isFullscreen ? <button type="button" onClick={() => void enterFullscreen()} className="tailadmin-button-outline px-3 py-1.5 text-theme-xs">Aktifkan layar penuh</button> : null}
             </div>
-            <button disabled={submitDisabled} className="tailadmin-button-primary px-4 py-2">{!isOnline ? "Menunggu koneksi" : isSubmitting ? "Mengumpulkan..." : remainingSeconds === 0 ? "Waktu Habis" : "Kumpulkan Jawaban"}</button>
+            <button disabled={submitDisabled} className="tailadmin-button-primary px-4 py-2" style={{ backgroundColor: accent, color: accentText }}>{!isOnline ? "Menunggu koneksi" : isSubmitting ? "Mengumpulkan..." : remainingSeconds === 0 ? "Waktu Habis" : "Kumpulkan Jawaban"}</button>
           </div>
         </div>
         <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label="Progres pengisian">
-          <div className="h-full rounded-full bg-limo-blue-500 transition-all" style={{ width: `${progress}%` }} />
+          <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: accent }} />
         </div>
         {!isOnline ? <p role="alert" className="mt-3 tailadmin-alert-error">Koneksi internet terputus. Jawaban tetap ada di halaman ini, tetapi draf dan submit akan dilanjutkan setelah koneksi pulih.</p> : null}
         {error ? <p role="alert" className="mt-3 tailadmin-alert-error">{error}</p> : null}
@@ -317,26 +537,26 @@ export function OnlineExamPlayer({ attempt }: { attempt: AttemptContext }) {
         </section>
       ) : null}
 
-      {visibleQuestions.map((question, index) => (
-        <section key={question.id} className="tailadmin-card min-w-0 p-5">
+      {shownQuestions.map((question, index) => (
+        <section key={question.id} id={`q-${question.id}`} role="group" aria-labelledby={`q-text-${question.id}`} aria-describedby={question.bankSoal.helpText ? `q-help-${question.id}` : undefined} className="tailadmin-card min-w-0 p-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-theme-sm font-semibold text-limo-blue-500">Soal {index + 1} / {formatUiLabel(question.bankSoal.type)}{question.required ? " *" : ""}</p>
-            <span className="w-fit rounded-full bg-gray-50 px-3 py-1 text-theme-xs font-semibold text-gray-500">Bobot {question.weight}</span>
+            <p className="text-theme-sm font-semibold text-limo-blue-500">Soal {onePerPage ? questionIndex + 1 : index + 1} / {formatUiLabel(question.bankSoal.type)}{question.required ? " *" : ""}</p>
+            <span className="w-fit rounded-full bg-gray-50 px-3 py-1 text-theme-xs font-semibold text-gray-600">Bobot {question.weight}</span>
           </div>
           {question.bankSoal.stimulusText ? <LocalizedContent as="p" text={question.bankSoal.stimulusText} language={question.bankSoal.language} direction={question.bankSoal.direction} className="mt-4 rounded-2xl bg-gray-50 p-4 text-theme-sm leading-7 text-gray-700">{question.bankSoal.stimulusText}</LocalizedContent> : null}
           <MediaBlock type={question.bankSoal.type} mediaUrl={question.bankSoal.mediaUrl} />
-          <LocalizedContent as="p" text={question.bankSoal.question} language={question.bankSoal.language} direction={question.bankSoal.direction} className="mt-4 text-lg font-semibold leading-8 text-gray-900">{question.bankSoal.question}</LocalizedContent>
-          {question.bankSoal.helpText ? <LocalizedContent as="p" text={question.bankSoal.helpText} language={question.bankSoal.language} direction="auto" className="mt-1 text-theme-sm text-gray-500">{question.bankSoal.helpText}</LocalizedContent> : null}
-          <AnswerInput question={question} answer={answers[question.id]} uploading={uploadingId === question.id} onUploadFile={(file) => void uploadFileAnswer(question.id, file)} onChange={(patch) => setAnswer(question.id, patch)} />
+          <LocalizedContent as="p" id={`q-text-${question.id}`} text={question.bankSoal.question} language={question.bankSoal.language} direction={question.bankSoal.direction} className="mt-4 text-lg font-semibold leading-8 text-gray-900">{question.bankSoal.question}</LocalizedContent>
+          {question.bankSoal.helpText ? <LocalizedContent as="p" id={`q-help-${question.id}`} text={question.bankSoal.helpText} language={question.bankSoal.language} direction="auto" className="mt-1 text-theme-sm text-gray-500">{question.bankSoal.helpText}</LocalizedContent> : null}
+          <AnswerInput question={question} answer={answers[question.id]} uploading={uploadingId === question.id} fileDownloadBase={`${basePath}/attempt/${attempt.id}/files`} onUploadFile={(file) => void uploadFileAnswer(question.id, file)} onChange={(patch) => setAnswer(question.id, patch)} />
         </section>
       ))}
 
       <section className="tailadmin-card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <button type="button" disabled={currentSection === 0} onClick={() => { setError(""); setCurrentSection((value) => Math.max(0, value - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="tailadmin-button-outline px-5 py-3 disabled:opacity-40">Sebelumnya</button>
-        {isLastSection ? (
-          <button type="button" disabled={submitDisabled} onClick={() => void onSubmitFinal()} className="tailadmin-button-primary px-6 py-3">{isSubmitting ? "Mengumpulkan..." : "Kumpulkan Jawaban"}</button>
+        <button type="button" disabled={onePerPage ? currentSection === 0 && questionIndex === 0 : currentSection === 0} onClick={goPrevious} className="tailadmin-button-outline px-5 py-3 disabled:opacity-40">Sebelumnya</button>
+        {(onePerPage ? isLastSection && questionIndex >= visibleQuestions.length - 1 : isLastSection) ? (
+          <button type="button" disabled={submitDisabled} onClick={() => void onSubmitFinal()} className="tailadmin-button-primary px-6 py-3" style={{ backgroundColor: accent, color: accentText }}>{isSubmitting ? "Mengumpulkan..." : "Kumpulkan Jawaban"}</button>
         ) : (
-          <button type="button" onClick={goNext} className="tailadmin-button-primary px-6 py-3">Berikutnya</button>
+          <button type="button" onClick={() => (onePerPage ? goNextOnePerPage() : goNext())} className="tailadmin-button-primary px-6 py-3" style={{ backgroundColor: accent, color: accentText }}>Berikutnya</button>
         )}
       </section>
       {dialog}
@@ -390,7 +610,7 @@ function MediaBlock({ type, mediaUrl }: { type: string; mediaUrl: string | null 
   return <a href={mediaUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex text-theme-sm font-semibold text-limo-blue-500 hover:text-limo-blue-600">Buka media soal</a>;
 }
 
-function AnswerInput({ question, answer, uploading, onUploadFile, onChange }: { question: AttemptQuestion; answer?: DraftAnswer; uploading: boolean; onUploadFile: (_file: File) => void; onChange: (_patch: Partial<DraftAnswer>) => void }) {
+function AnswerInput({ question, answer, uploading, fileDownloadBase, onUploadFile, onChange }: { question: AttemptQuestion; answer?: DraftAnswer; uploading: boolean; fileDownloadBase?: string; onUploadFile: (_file: File) => void; onChange: (_patch: Partial<DraftAnswer>) => void }) {
   const type = question.bankSoal.type;
   const options = question.bankSoal.options;
 
@@ -512,13 +732,29 @@ function AnswerInput({ question, answer, uploading, onUploadFile, onChange }: { 
   if (type === "FILE_UPLOAD") {
     const rawName = answer?.structuredAnswer?.name;
     const fileName = typeof rawName === "string" ? rawName : "";
+    const rawFileId = answer?.structuredAnswer?.fileId;
+    const fileId = typeof rawFileId === "string" ? rawFileId : "";
+    const downloadHref = fileId && fileDownloadBase ? `${fileDownloadBase}/${fileId}` : "";
+    const allowedTypes = question.bankSoal.uploadAllowedTypes ?? [];
+    const maxSizeMb = question.bankSoal.uploadMaxSizeMb ?? 0;
+    const accept = uploadAcceptAttribute(allowedTypes);
+    const hint = allowedTypes.length > 0
+      ? `Berkas diizinkan: ${allowedTypes.join(", ")}${maxSizeMb > 0 ? ` · maksimal ${maxSizeMb} MB` : ""}.`
+      : `PDF, dokumen, gambar, audio, video, atau zip${maxSizeMb > 0 ? ` · maksimal ${maxSizeMb} MB` : ""}.`;
     return (
-      <div className="mt-4">
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-theme-sm font-semibold text-gray-700 hover:bg-gray-50">
-          {uploading ? "Mengunggah..." : fileName ? "Ganti berkas" : "Pilih berkas"}
-          <input type="file" className="hidden" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) onUploadFile(file); }} />
-        </label>
-        {fileName ? <p className="mt-2 text-theme-sm text-gray-600">Berkas: {fileName}</p> : <p className="mt-2 text-theme-xs text-gray-400">PDF, dokumen, gambar, audio, video, atau zip.</p>}
+      <div className="mt-4 space-y-3">
+        <div>
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-theme-sm font-semibold text-gray-700 hover:bg-gray-50">
+            {uploading ? "Mengunggah..." : fileName ? "Ganti berkas" : "Pilih berkas"}
+            <input type="file" accept={accept || undefined} className="hidden" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) onUploadFile(file); }} />
+          </label>
+          {fileName ? (
+            <p className="mt-2 text-theme-sm text-gray-600">
+              Berkas: {downloadHref ? <a href={downloadHref} className="font-semibold text-limo-blue-600 underline">{fileName}</a> : fileName}
+            </p>
+          ) : <p className="mt-2 text-theme-xs text-gray-500">{hint}</p>}
+        </div>
+        {canRecordAudio(allowedTypes) ? <AudioRecorder onRecorded={onUploadFile} disabled={uploading} busy={uploading} /> : null}
       </div>
     );
   }

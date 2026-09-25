@@ -162,6 +162,9 @@ export async function listTagihan(actor: Actor, paginationInput: PaginationInput
         jenis: true,
         description: true,
         amount: true,
+        subtotal: true,
+        discountAmount: true,
+        voucher: { select: { code: true } },
         status: true,
         dueDate: true,
         paidAt: true,
@@ -173,10 +176,13 @@ export async function listTagihan(actor: Actor, paginationInput: PaginationInput
   ]);
 
   return {
-    items: items.map(({ pembayaran, _count, ...item }) => {
+    items: items.map(({ pembayaran, _count, voucher, ...item }) => {
       const latestPayment = pembayaran.find((payment) => getPaymentUrl(payment.rawPayload));
       return {
         ...item,
+        subtotal: item.subtotal === null ? null : Number(item.subtotal),
+        discountAmount: Number(item.discountAmount),
+        voucherCode: voucher?.code ?? null,
         paymentUrl: getPaymentUrl(latestPayment?.rawPayload),
         paymentProvider: latestPayment?.provider || null,
         paymentHistory: pembayaran.map(({ rawPayload: _rawPayload, ...payment }) => ({ ...payment, amount: Number(payment.amount) })),
@@ -211,6 +217,9 @@ export async function getTagihan(actor: Actor, id: string) {
       jenis: true,
       description: true,
       amount: true,
+      subtotal: true,
+      discountAmount: true,
+      voucher: { select: { code: true } },
       status: true,
       dueDate: true,
       paidAt: true,
@@ -223,7 +232,14 @@ export async function getTagihan(actor: Actor, id: string) {
     throw new NotFoundError("Tagihan tidak ditemukan");
   }
 
-  return { item };
+  return {
+    item: {
+      ...item,
+      subtotal: item.subtotal === null ? null : Number(item.subtotal),
+      discountAmount: Number(item.discountAmount),
+      voucherCode: item.voucher?.code ?? null,
+    },
+  };
 }
 
 export async function listPaymentLedger(actor: Actor, paginationInput: PaginationInput = {}, filters: PaymentLedgerFilters = {}, selectedStudentId: string | null = null) {

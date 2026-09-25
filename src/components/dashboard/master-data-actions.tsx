@@ -40,7 +40,7 @@ export function MasterDataActions({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { confirm, dialog } = useConfirmDialog();
 
-  async function request(path: string, method: "PATCH" | "DELETE", body?: unknown) {
+  async function request(path: string, method: "PATCH" | "DELETE" | "POST", body?: unknown) {
     setError("");
     setIsSubmitting(true);
     try {
@@ -69,6 +69,12 @@ export function MasterDataActions({
     }
   }
 
+  async function restore() {
+    if (await confirm({ title: `Pulihkan ${resource} ini?`, description: "Data akan aktif kembali.", confirmLabel: "Ya, pulihkan" })) {
+      void request(`/api/v1/admin/${resource}/${id}/restore`, "POST");
+    }
+  }
+
   if (editing) {
     return (
       <div className="mt-4 grid gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
@@ -85,5 +91,5 @@ export function MasterDataActions({
     );
   }
 
-  return <><div className="mt-4 flex flex-wrap items-center gap-2"><button type="button" onClick={() => setEditing(true)} disabled={archived || isSubmitting} className="tailadmin-button-outline px-3 py-2">Edit</button>{!archived ? <button type="button" onClick={() => void archive()} disabled={isSubmitting} className="inline-flex rounded-lg bg-error-50 px-3 py-2 text-theme-xs font-semibold text-error-700 hover:bg-error-100">Arsipkan</button> : <span className="rounded-full bg-gray-100 px-3 py-2 text-theme-xs font-semibold text-gray-500">Diarsipkan</span>}{error ? <p role="alert" className="w-full text-theme-xs text-error-700">{error}</p> : null}</div>{dialog}</>;
+  return <><div className="mt-4 flex flex-wrap items-center gap-2"><button type="button" onClick={() => setEditing(true)} disabled={archived || isSubmitting} className="tailadmin-button-outline px-3 py-2">Edit</button>{!archived ? <button type="button" onClick={() => void archive()} disabled={isSubmitting} className="inline-flex rounded-lg bg-error-50 px-3 py-2 text-theme-xs font-semibold text-error-700 hover:bg-error-100">Arsipkan</button> : <><span className="rounded-full bg-gray-100 px-3 py-2 text-theme-xs font-semibold text-gray-500">Diarsipkan</span><button type="button" onClick={() => void restore()} disabled={isSubmitting} className="tailadmin-button-primary px-3 py-2">Pulihkan</button></>}{error ? <p role="alert" className="w-full text-theme-xs text-error-700">{error}</p> : null}</div>{dialog}</>;
 }

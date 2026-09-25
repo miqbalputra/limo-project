@@ -14,7 +14,8 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     const { token, responseId } = await context.params;
     const formData = await request.formData();
     const file = formData.get("file");
-    return apiOk(await uploadPublicQuizFile(token, responseId, file instanceof File ? file : null), { requestId }, { status: 201 });
+    const ujianSoalId = formData.get("ujianSoalId");
+    return apiOk(await uploadPublicQuizFile(token, responseId, file instanceof File ? file : null, typeof ujianSoalId === "string" ? ujianSoalId : null), { requestId }, { status: 201 });
   } catch (error) {
     return apiError(error, { requestId });
   }

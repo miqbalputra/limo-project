@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useDeferredValue, useState } from "react";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import { ReconcilePaymentButton } from "@/components/dashboard/billing-forms";
+import { VoucherApplyForm } from "@/components/dashboard/voucher-forms";
 import { MetricCard, MetricStat } from "@/components/dashboard/metric-card";
 import { Money } from "@/components/dashboard/money";
 import { ResponsiveDataView } from "@/components/dashboard/responsive-data-view";
@@ -26,6 +27,9 @@ export type AdminBillingInvoice = {
   jenis: string;
   description: string | null;
   amount: number;
+  subtotal: number | null;
+  discountAmount: number;
+  voucherCode: string | null;
   status: BillingStatus;
   dueDate: string;
   paidAt: string | null;
@@ -495,6 +499,12 @@ function InvoiceDetails({ item }: { item: AdminBillingInvoice }) {
         {item.description ? (
           <p className="mt-2 text-theme-sm text-gray-600">{item.description}</p>
         ) : null}
+        {item.discountAmount > 0 ? (
+          <p className="mt-2 text-theme-xs text-success-700">
+            Diskon {item.voucherCode ? `${item.voucherCode} ` : ""}sebesar <Money value={item.discountAmount} />
+            {item.subtotal !== null ? <> dari harga normal <Money value={item.subtotal} /></> : null}.
+          </p>
+        ) : null}
         <div className="mt-4 rounded-xl border border-gray-200 bg-white p-3">
           <div className="flex items-center justify-between gap-3">
             <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-400">
@@ -555,6 +565,11 @@ function InvoiceDetails({ item }: { item: AdminBillingInvoice }) {
             item.status === "REFUNDED"
           }
         />
+        {item.status === "PAID" ? (
+          <a href={`/api/v1/tagihan/${item.id}/kuitansi`} className="tailadmin-button-outline px-3 py-2 text-theme-xs">
+            Unduh kuitansi PDF
+          </a>
+        ) : null}
         {item.paymentUrl ? (
           <a
             href={item.paymentUrl}
@@ -565,6 +580,13 @@ function InvoiceDetails({ item }: { item: AdminBillingInvoice }) {
             Buka halaman pembayaran Mayar
           </a>
         ) : null}
+        <VoucherApplyForm
+          tagihanId={item.id}
+          subtotal={item.subtotal}
+          discountAmount={item.discountAmount}
+          voucherCode={item.voucherCode}
+          disabled={!["UNPAID", "OVERDUE"].includes(item.status)}
+        />
       </div>
     </div>
   );

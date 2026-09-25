@@ -35,6 +35,11 @@ export type QuizQuestion = {
   validationMax: string;
   validationPattern: string;
   validationMessage: string;
+  acceptedAnswers: string[];
+  feedbackCorrect: string;
+  feedbackIncorrect: string;
+  uploadAllowedTypes: string[];
+  uploadMaxSizeMb: number;
   options: { content: string; isCorrect: boolean; mediaUrl: string }[];
 };
 
@@ -53,9 +58,17 @@ export type QuizFormState = {
   showAnswersAfterSubmit: boolean;
   collectRespondentName: boolean;
   showResultToWali: boolean;
+  showResultToSiswa: boolean;
+  secureMode: boolean;
   themeColor: string;
   headerImageUrl: string;
   confirmationMessage: string;
+  collectRespondentEmail: boolean;
+  sendCopyToRespondent: boolean;
+  oneResponsePerEmail: boolean;
+  notifyGuruOnResponse: boolean;
+  presentationMode: string;
+  releaseMode: string;
   availableFrom: string;
   availableUntil: string;
   sections: QuizSection[];
@@ -103,6 +116,11 @@ export function newQuestion(type = "PILIHAN_GANDA", sectionKey = ""): QuizQuesti
     validationMax: "",
     validationPattern: "",
     validationMessage: "",
+    acceptedAnswers: [],
+    feedbackCorrect: "",
+    feedbackIncorrect: "",
+    uploadAllowedTypes: [],
+    uploadMaxSizeMb: 0,
     options: withOptions ? [{ content: "", isCorrect: false, mediaUrl: "" }, { content: "", isCorrect: false, mediaUrl: "" }] : grid ? [{ content: "", isCorrect: false, mediaUrl: "" }, { content: "", isCorrect: false, mediaUrl: "" }, { content: "", isCorrect: false, mediaUrl: "" }] : [],
   };
 }
@@ -124,9 +142,17 @@ export function emptyQuizForm(): QuizFormState {
     showAnswersAfterSubmit: false,
     collectRespondentName: false,
     showResultToWali: true,
+    showResultToSiswa: true,
+    secureMode: false,
     themeColor: "blue",
     headerImageUrl: "",
     confirmationMessage: "",
+    collectRespondentEmail: false,
+    sendCopyToRespondent: false,
+    oneResponsePerEmail: false,
+    notifyGuruOnResponse: false,
+    presentationMode: "ALL",
+    releaseMode: "IMMEDIATE",
     availableFrom: "",
     availableUntil: "",
     sections: [{ key: sectionKey, title: "Bagian 1", description: "" }],

@@ -9,6 +9,8 @@ import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Detail Kelas" };
 
+const STUDENT_ONLINE_MODES = ["ONLINE_VIA_SISWA", "BOTH"];
+
 export default async function StudentClassDetailPage({ params }: { params: Promise<{ kelasId: string }> }) {
   if (!isFeatureEnabled("studentPortalEnabled")) notFound();
   const actor = await requireActor();
@@ -23,7 +25,7 @@ export default async function StudentClassDetailPage({ params }: { params: Promi
         eyebrow={`${kelas.program.name} / ${kelas.level.name}`}
         title={kelas.name}
         description={kelas.scheduleNote || "Ruang belajar kelas Anda."}
-        actions={<>{isFeatureEnabled("learningModulesEnabled") ? <Link href={`/siswa/kelas/${kelasId}/modul`} className="tailadmin-button-primary px-4 py-2">Lihat Alur Modul</Link> : null}{isFeatureEnabled("assignmentsEnabled") ? <Link href={`/siswa/kelas/${kelasId}/tugas`} className="tailadmin-button-outline px-4 py-2">Lihat Tugas</Link> : null}{isFeatureEnabled("gradebookEnabled") ? <Link href={`/siswa/kelas/${kelasId}/gradebook`} className="tailadmin-button-outline px-4 py-2">Lihat Nilai</Link> : null}</>}
+        actions={<>{isFeatureEnabled("learningModulesEnabled") ? <Link href={`/siswa/kelas/${kelasId}/modul`} className="tailadmin-button-primary px-4 py-2">Lihat Alur Modul</Link> : null}{isFeatureEnabled("classDiscussionEnabled") ? <><Link href={`/siswa/kelas/${kelasId}/pengumuman`} className="tailadmin-button-outline px-4 py-2">Pengumuman</Link><Link href={`/siswa/kelas/${kelasId}/diskusi`} className="tailadmin-button-outline px-4 py-2">Diskusi</Link></> : null}{isFeatureEnabled("assignmentsEnabled") ? <Link href={`/siswa/kelas/${kelasId}/tugas`} className="tailadmin-button-outline px-4 py-2">Lihat Tugas</Link> : null}{isFeatureEnabled("gradebookEnabled") ? <Link href={`/siswa/kelas/${kelasId}/gradebook`} className="tailadmin-button-outline px-4 py-2">Lihat Nilai</Link> : null}</>}
       />
 
       <section>
@@ -38,7 +40,10 @@ export default async function StudentClassDetailPage({ params }: { params: Promi
 
       <section>
         <SectionHeader title="Ujian" description="Evaluasi yang tersedia untuk kelas Anda." />
-        {exams.length > 0 ? <div className="tailadmin-card divide-y divide-gray-100">{exams.map((item) => <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-semibold text-gray-800">{item.title}</p><p className="mt-1 text-theme-xs text-gray-500">{formatDate(item.examDate)} / {formatUiLabel(item.deliveryMode)}</p></div><span className="rounded-full bg-success-50 px-3 py-1 text-theme-xs font-semibold text-success-700">Diterbitkan</span></div>)}</div> : <EmptyState icon="exam" title="Belum ada ujian" description="Ujian yang sudah diterbitkan akan tampil di sini." />}
+        {exams.length > 0 ? <div className="tailadmin-card divide-y divide-gray-100">{exams.map((item) => {
+          const canWork = STUDENT_ONLINE_MODES.includes(item.deliveryMode) && isFeatureEnabled("studentSelfExamEnabled");
+          return <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-semibold text-gray-800">{item.title}</p><p className="mt-1 text-theme-xs text-gray-500">{formatDate(item.examDate)} / {formatUiLabel(item.deliveryMode)}</p></div>{canWork ? <Link href={`/siswa/ujian/${item.id}`} className="tailadmin-button-primary px-4 py-2">Buka instruksi</Link> : <span className="rounded-full bg-success-50 px-3 py-1 text-theme-xs font-semibold text-success-700">Diterbitkan</span>}</div>;
+        })}</div> : <EmptyState icon="exam" title="Belum ada ujian" description="Ujian yang sudah diterbitkan akan tampil di sini." />}
       </section>
     </main>
   );

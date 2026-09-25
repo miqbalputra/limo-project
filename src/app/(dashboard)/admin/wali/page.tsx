@@ -4,7 +4,7 @@ import { listWali } from "@/server/services/people-service";
 import { WaliForm } from "@/components/dashboard/people-forms";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
-import { UserActions } from "@/components/dashboard/user-actions";
+import { PersonAccountActions } from "@/components/dashboard/person-account-actions";
 
 export const metadata = { title: "Wali" };
 
@@ -14,17 +14,41 @@ export default async function AdminWaliPage({ searchParams }: { searchParams: Pr
   const params = await searchParams;
   const search = Array.isArray(params.search) ? params.search[0] : params.search;
   const page = Number(Array.isArray(params.page) ? params.page[0] : params.page) || 1;
-  const { items, pagination } = await listWali(actor, { search, page, pageSize: 20 });
+  const includeArchived = (Array.isArray(params.arsip) ? params.arsip[0] : params.arsip) === "1";
+  const { items, pagination } = await listWali(actor, { search, page, pageSize: 20, includeArchived });
+
+  const toggleArchivedHref = includeArchived
+    ? `/admin/wali${search ? `?search=${encodeURIComponent(search)}` : ""}`
+    : `/admin/wali?${new URLSearchParams({ ...(search ? { search } : {}), arsip: "1" }).toString()}`;
 
   return (
     <main className="space-y-6">
-      <div><h1 className="tailadmin-page-title">Wali</h1><p className="mt-2 tailadmin-muted">Kelola akun wali dan relasi awal ke siswa.</p></div>
+      <div><h1 className="tailadmin-page-title">Wali</h1><p className="mt-2 tailadmin-muted">Kelola akun wali, relasi awal ke siswa, arsip, dan impor massal.</p></div>
+      <div className="flex flex-wrap justify-end gap-2"><Link href="/admin/wali/impor" className="tailadmin-button-outline px-3 py-2">Impor CSV</Link></div>
       <WaliForm />
-      <form method="get" className="tailadmin-card flex flex-col gap-3 p-4 sm:flex-row"><input name="search" defaultValue={search || ""} aria-label="Cari Wali" placeholder="Cari nama atau email Wali" className="tailadmin-input" /><button className="tailadmin-button-primary sm:w-auto">Cari</button></form>
+      <div className="flex flex-wrap items-center gap-2">
+        <form method="get" className="tailadmin-card flex flex-1 flex-col gap-3 p-4 sm:flex-row">
+          {includeArchived ? <input type="hidden" name="arsip" value="1" /> : null}
+          <input name="search" defaultValue={search || ""} aria-label="Cari Wali" placeholder="Cari nama atau email Wali" className="tailadmin-input" />
+          <button className="tailadmin-button-primary sm:w-auto">Cari</button>
+        </form>
+        <Link href={toggleArchivedHref} className="tailadmin-button-outline px-3 py-2">{includeArchived ? "Sembunyikan arsip" : "Tampilkan arsip"}</Link>
+      </div>
       {items.length > 0 ? <section className="grid gap-4 md:grid-cols-2">
-        {items.map((item) => <article key={item.id} className="tailadmin-card p-5"><h2 className="font-semibold text-gray-900">{item.user.name}</h2><p className="mt-1 text-theme-sm text-gray-500">{item.user.email}</p><p className="mt-1 text-theme-sm text-gray-500">{item._count.siswaRelations} siswa terhubung</p><Link href={`/admin/wali/${item.id}`} className="mt-3 inline-flex text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Lihat profil</Link><UserActions userId={item.user.id} active={item.user.status === "ACTIVE"} isSelf={item.user.id === actor.id} /></article>)}
-      </section> : <EmptyState icon="guardian" title="Belum ada Wali" description="Tambahkan akun Wali pertama menggunakan formulir di atas." />}
-      <PaginationControls basePath="/admin/wali" page={pagination.page} totalPages={pagination.totalPages} params={{ search }} />
+        {items.map((item) => <article key={item.id} className="tailadmin-card p-5">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h2 className="font-semibold text-gray-900">{item.user.name}</h2>
+              <p className="mt-1 text-theme-sm text-gray-500">{item.user.email}</p>
+              <p className="mt-1 text-theme-sm text-gray-500">{item._count.siswaRelations} siswa terhubung</p>
+            </div>
+            {item.user.deletedAt ? <span className="w-fit rounded-full bg-gray-100 px-2.5 py-1 text-theme-xs font-semibold text-gray-600">Arsip</span> : null}
+          </div>
+          <Link href={`/admin/wali/${item.id}`} className="mt-3 inline-flex text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Lihat profil</Link>
+          <PersonAccountActions kind="wali" profileId={item.id} userId={item.user.id} active={item.user.status === "ACTIVE"} archived={Boolean(item.user.deletedAt)} lastLoginAt={item.user.lastLoginAt ? item.user.lastLoginAt.toISOString() : null} isSelf={item.user.id === actor.id} />
+        </article>)}
+      </section> : <EmptyState icon="guardian" title={includeArchived ? "Tidak ada Wali pada filter ini" : "Belum ada Wali"} description="Tambahkan akun Wali pertama menggunakan formulir di atas." />}
+      <PaginationControls basePath="/admin/wali" page={pagination.page} totalPages={pagination.totalPages} params={{ search, ...(includeArchived ? { arsip: "1" } : {}) }} />
     </main>
   );
 }

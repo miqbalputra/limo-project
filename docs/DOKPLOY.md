@@ -131,9 +131,10 @@ GRADEBOOK_ENABLED=true
 CALENDAR_ENABLED=true
 ACTIVITY_COMPLETION_ENABLED=true
 REMEDIAL_ENABLED=true
-CLASS_DISCUSSION_ENABLED=true
 PERIODIC_REPORTS_ENABLED=true
 GUARDIAN_ASSISTED_SUBMISSION_ENABLED=false
+STUDENT_SELF_EXAM_ENABLED=true
+CLASS_DISCUSSION_ENABLED=true
 ```
 
 Jika suatu modul belum termasuk scope final, ubah flag modul tersebut menjadi `false`. `GUARDIAN_ASSISTED_SUBMISSION_ENABLED` tetap `false` kecuali sudah ada UAT dan kebijakan akses yang jelas.

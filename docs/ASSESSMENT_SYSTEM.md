@@ -42,3 +42,22 @@ Setiap soal dapat diberi metadata:
 - Soal objektif dihitung otomatis bila kunci tersedia.
 - Soal performa/esai masuk `NEEDS_REVIEW` jika guru belum mengisi skor manual.
 - Guru dapat mengisi transkrip/catatan performa pada input hasil offline.
+
+## Paritas Ujian Online dengan Google Forms
+
+- **Penegakan di server**: jawaban wajib divalidasi di server untuk submit publik maupun pengerjaan via wali (bukan hanya di klien). Soal pada bagian yang dilewati karena branching tidak diwajibkan.
+- **Grace window & auto-submit**: submit masih diterima dalam 20 detik setelah waktu habis; pemutar publik dan pemutar wali mengirim jawaban otomatis saat waktu habis. Job `npm run quiz:finalize` menilai draf yang ditinggalkan di luar grace agar jawaban tidak hilang.
+- **Kunci alternatif**: soal isian singkat/tanggal/waktu dapat menerima beberapa jawaban benar (`acceptedAnswers`).
+- **Validasi jawaban**: angka (rentang), panjang teks/paragraf, pola regex, dan jumlah pilihan untuk kotak centang (`CHECKBOX`), ditegakkan di server.
+- **Branching** tersedia untuk semua tipe pilihan (pilihan ganda, kotak centang, dropdown).
+- **Umpan balik kustom** benar/salah per soal, tampil di halaman hasil bersama pembahasan.
+- **Batas unggah per soal**: tipe MIME diizinkan dan ukuran maksimum (MB) untuk soal unggah berkas.
+- **Email responden** opsional per kuis: wajib diisi bila diaktifkan, dipakai untuk salinan jawaban dan pembatasan 1 respons per email.
+- **Notifikasi guru** saat ada respons baru dan **salinan jawaban** ke email responden (bila diaktifkan).
+- **Rilis nilai tertunda**: `releaseMode=AFTER_REVIEW` menahan skor/kunci sampai guru merilis lewat halaman Respons.
+- **Mode presentasi**: semua soal per halaman atau satu soal per halaman.
+- **Impor soal** dari formulir kuis lain (menyalin soal, opsi, kunci, dan pengaturannya).
+- **Penilaian manual respons publik**: guru memberi skor per soal untuk esai/unggah berkas/opsi "Lainnya" lewat halaman detail respons; total skor, status, dan kelulusan dihitung ulang otomatis.
+- **Pemutar wali** memiliki mode satu soal per halaman dan auto-submit yang sama dengan tautan publik.
+- **Aksesibilitas navigasi**: fokus berpindah ke soal berikutnya saat menekan Berikutnya, jawaban wajib divalidasi per soal sebelum lanjut.
+

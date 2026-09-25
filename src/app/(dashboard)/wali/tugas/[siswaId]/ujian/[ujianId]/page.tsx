@@ -19,7 +19,7 @@ export default async function WaliExamInstructionPage({ params }: { params: Prom
         eyebrow={`${siswa.nomorInduk} / ${ujian.kelas.program.name}`}
         title={ujian.title}
         description="Baca instruksi sebelum memulai. Orang tua mendampingi penggunaan perangkat, anak tetap menjawab sendiri."
-        actions={<><Link href={`/wali/tugas/${siswa.id}`} className="tailadmin-button-outline px-4 py-2">Kembali</Link><StartExamAttemptButton siswaId={siswa.id} ujianId={ujian.id} /></>}
+        actions={<><Link href={`/wali/tugas/${siswa.id}`} className="tailadmin-button-outline px-4 py-2">Kembali</Link><StartExamAttemptButton endpoint={`/api/v1/wali/tugas/${siswa.id}/ujian/${ujian.id}/attempt`} redirectBase="/wali/tugas/attempt" childId={siswa.id} /></>}
         aside={<div className="grid w-full min-w-0 grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs lg:w-auto lg:min-w-72"><MiniStat label="Soal" value={ujian._count.questions} /><MiniStat label="Menit" value={ujian.durationMinutes} /><MiniStat label="Percobaan" value={ujian.maxAttempts} /></div>}
       />
 

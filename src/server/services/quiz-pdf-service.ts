@@ -213,7 +213,8 @@ export async function createQuizPdf(actor: Actor, ujianId: string, options: { wi
       } else if (question.type === "GRID") {
         answer = question.gridCorrect.map((label, index) => `${index + 1}: ${label || "-"}`).join(", ") || "-";
       } else {
-        answer = question.expectedAnswer || "-";
+        const alternatives = question.acceptedAnswers.length > 0 ? ` (juga diterima: ${question.acceptedAnswers.join(", ")})` : "";
+        answer = `${question.expectedAnswer || "-"}${alternatives}`;
       }
       keyY = ensureSpace(doc, keyY, 18);
       keyY = putText(doc, `${keyNumber}. ${answer}`, { x: MARGIN, y: keyY, width: CONTENT_WIDTH, size: 10, color: INK }) + 2;

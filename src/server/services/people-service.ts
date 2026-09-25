@@ -6,11 +6,14 @@ import { createPasswordResetGrant } from "@/server/auth/password-reset";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { generateOpaqueToken } from "@/server/security/crypto";
-import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
+import { createPaginationMeta } from "@/server/pagination";
 import {
   createGuruSchema,
   createSiswaSchema,
   createWaliSchema,
+  importPeopleSchema,
+  importPersonRowSchema,
+  personListSchema,
   siswaListSchema,
   siswaWaliSchema,
   transferSiswaSchema,
@@ -18,6 +21,7 @@ import {
   updateSiswaSchema,
   updateWaliSchema,
 } from "@/server/validation/master-data";
+import { parseCsv } from "@/lib/csv";
 
 function requireAdmin(actor: Actor) {
   if (actor.role !== "ADMIN") {
@@ -33,29 +37,40 @@ async function createInitialPasswordHash() {
   return hashPassword(generateOpaqueToken(18));
 }
 
-export async function listGuru(actor: Actor, input: PaginationInput & { search?: string } = {}) {
-  requireAdmin(actor);
+function buildPersonWhere(input: { search: string; includeArchived: boolean }) {
+  return {
+    user: {
+      ...(input.includeArchived ? {} : { deletedAt: null }),
+      ...(input.search ? { OR: [{ name: { contains: input.search } }, { email: { contains: input.search } }] } : {}),
+    },
+  };
+}
 
-  const pagination = resolvePagination(input, 20);
-  const where = input.search ? { user: { OR: [{ name: { contains: input.search } }, { email: { contains: input.search } }] } } : {};
+export async function listGuru(actor: Actor, input: unknown = {}) {
+  requireAdmin(actor);
+  const parsed = personListSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Filter guru belum valid", parsed.error.flatten().fieldErrors);
+
+  const { page, pageSize, search, includeArchived } = parsed.data;
+  const where = buildPersonWhere({ search, includeArchived });
   const [totalItems, items] = await Promise.all([
     prisma.guruProfile.count({ where }),
     prisma.guruProfile.findMany({
       where,
       orderBy: { user: { name: "asc" } },
-      skip: pagination.skip,
-      take: pagination.take,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
       select: {
         id: true,
         phone: true,
         address: true,
-        user: { select: { id: true, name: true, email: true, status: true } },
+        user: { select: { id: true, name: true, email: true, status: true, deletedAt: true, lastLoginAt: true } },
         _count: { select: { kelas: true } },
       },
     }),
   ]);
 
-  return { items, pagination: createPaginationMeta(pagination.page, pagination.pageSize, totalItems) };
+  return { items, pagination: createPaginationMeta(page, pageSize, totalItems) };
 }
 
 export async function createGuru(actor: Actor, input: unknown) {
@@ -73,10 +88,10 @@ export async function createGuru(actor: Actor, input: unknown) {
     throw new ConflictError("Email sudah digunakan role lain");
   }
 
-  const activation = existing ? null : createPasswordResetGrant();
+  const activation = existing && !existing.deletedAt ? null : createPasswordResetGrant();
   const item = await prisma.$transaction(async (tx) => {
     const user = existing
-      ? await tx.user.update({ where: { id: existing.id }, data: { name: parsed.data.name, status: "ACTIVE" } })
+      ? await tx.user.update({ where: { id: existing.id }, data: { name: parsed.data.name, status: "ACTIVE", deletedAt: null } })
       : await tx.user.create({
           data: {
             email,
@@ -121,7 +136,7 @@ export async function getGuru(actor: Actor, id: string) {
       address: true,
       createdAt: true,
       updatedAt: true,
-      user: { select: { id: true, name: true, email: true, status: true } },
+      user: { select: { id: true, name: true, email: true, status: true, deletedAt: true, lastLoginAt: true } },
       kelas: {
         orderBy: { name: "asc" },
         select: { id: true, name: true, status: true, program: { select: { name: true } }, level: { select: { name: true } }, _count: { select: { enrollments: { where: { status: "ACTIVE" } } } } },
@@ -157,29 +172,31 @@ export async function updateGuru(actor: Actor, id: string, input: unknown) {
   return { item };
 }
 
-export async function listWali(actor: Actor, input: PaginationInput & { search?: string } = {}) {
+export async function listWali(actor: Actor, input: unknown = {}) {
   requireAdmin(actor);
+  const parsed = personListSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Filter wali belum valid", parsed.error.flatten().fieldErrors);
 
-  const pagination = resolvePagination(input, 20);
-  const where = input.search ? { user: { OR: [{ name: { contains: input.search } }, { email: { contains: input.search } }] } } : {};
+  const { page, pageSize, search, includeArchived } = parsed.data;
+  const where = buildPersonWhere({ search, includeArchived });
   const [totalItems, items] = await Promise.all([
     prisma.waliProfile.count({ where }),
     prisma.waliProfile.findMany({
       where,
       orderBy: { user: { name: "asc" } },
-      skip: pagination.skip,
-      take: pagination.take,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
       select: {
         id: true,
         phone: true,
         address: true,
-        user: { select: { id: true, name: true, email: true, status: true } },
+        user: { select: { id: true, name: true, email: true, status: true, deletedAt: true, lastLoginAt: true } },
         _count: { select: { siswaRelations: true } },
       },
     }),
   ]);
 
-  return { items, pagination: createPaginationMeta(pagination.page, pagination.pageSize, totalItems) };
+  return { items, pagination: createPaginationMeta(page, pageSize, totalItems) };
 }
 
 export async function createWali(actor: Actor, input: unknown) {
@@ -197,10 +214,10 @@ export async function createWali(actor: Actor, input: unknown) {
     throw new ConflictError("Email sudah digunakan role lain");
   }
 
-  const activation = existing ? null : createPasswordResetGrant();
+  const activation = existing && !existing.deletedAt ? null : createPasswordResetGrant();
   const item = await prisma.$transaction(async (tx) => {
     const user = existing
-      ? await tx.user.update({ where: { id: existing.id }, data: { name: parsed.data.name, status: "ACTIVE" } })
+      ? await tx.user.update({ where: { id: existing.id }, data: { name: parsed.data.name, status: "ACTIVE", deletedAt: null } })
       : await tx.user.create({
           data: {
             email,
@@ -245,7 +262,7 @@ export async function getWali(actor: Actor, id: string) {
       address: true,
       createdAt: true,
       updatedAt: true,
-      user: { select: { id: true, name: true, email: true, status: true } },
+      user: { select: { id: true, name: true, email: true, status: true, deletedAt: true, lastLoginAt: true } },
       siswaRelations: {
         where: { endedAt: null },
         orderBy: [{ isPrimary: "desc" }, { siswa: { name: "asc" } }],
@@ -576,4 +593,344 @@ export async function exportSiswaCsv(actor: Actor) {
 export async function listWaliOptions(actor: Actor) {
   const { items } = await listWali(actor);
   return { items: items.map((item) => ({ id: item.id, user: item.user })) };
+}
+
+function logOnlyInDevelopment(url: string) {
+  return process.env.NODE_ENV === "production" ? undefined : url;
+}
+
+async function issuePersonPasswordLink(input: {
+  actor: Actor;
+  userId: string;
+  email: string;
+  template: "password-reset" | "account-activation";
+  subject: string;
+  bodyPrefix: string;
+  action: string;
+  entityType: "GuruProfile" | "WaliProfile";
+  entityId: string;
+}) {
+  const grant = createPasswordResetGrant();
+
+  await prisma.$transaction([
+    prisma.passwordResetToken.create({ data: { tokenHash: grant.tokenHash, userId: input.userId, expiresAt: grant.expiresAt } }),
+    prisma.notifikasi.create({
+      data: {
+        channel: "email",
+        template: input.template,
+        recipient: input.email,
+        subject: input.subject,
+        body: `${input.bodyPrefix} ${grant.resetUrl}`,
+        metadata: { userId: input.userId },
+      },
+    }),
+    prisma.auditLog.create({ data: { actorId: input.actor.id, action: input.action, entityType: input.entityType, entityId: input.entityId } }),
+  ]);
+
+  return grant.resetUrl;
+}
+
+export async function archiveGuru(actor: Actor, id: string) {
+  requireAdmin(actor);
+  const profile = await prisma.guruProfile.findUnique({ where: { id }, select: { id: true, userId: true } });
+  if (!profile) throw new NotFoundError("Profil guru tidak ditemukan");
+  if (profile.userId === actor.id) throw new ValidationError("Admin tidak dapat mengarsipkan akunnya sendiri");
+
+  const now = new Date();
+  await prisma.$transaction([
+    prisma.session.updateMany({ where: { userId: profile.userId, revokedAt: null }, data: { revokedAt: now, revokedById: actor.id } }),
+    prisma.user.update({ where: { id: profile.userId }, data: { status: "INACTIVE", deletedAt: now } }),
+    prisma.auditLog.create({ data: { actorId: actor.id, action: "GURU_ARCHIVED", entityType: "GuruProfile", entityId: id } }),
+  ]);
+
+  return { success: true };
+}
+
+export async function restoreGuru(actor: Actor, id: string) {
+  requireAdmin(actor);
+  const profile = await prisma.guruProfile.findUnique({ where: { id }, select: { id: true, userId: true } });
+  if (!profile) throw new NotFoundError("Profil guru tidak ditemukan");
+
+  const item = await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: profile.userId }, data: { status: "ACTIVE", deletedAt: null } });
+    await tx.auditLog.create({ data: { actorId: actor.id, action: "GURU_RESTORED", entityType: "GuruProfile", entityId: id } });
+    return tx.guruProfile.findUnique({ where: { id }, select: { id: true, user: { select: { name: true, email: true, status: true } } } });
+  });
+
+  return { item };
+}
+
+export async function sendGuruPasswordReset(actor: Actor, id: string) {
+  requireAdmin(actor);
+  const profile = await prisma.guruProfile.findUnique({ where: { id }, select: { id: true, user: { select: { id: true, email: true, deletedAt: true } } } });
+  if (!profile) throw new NotFoundError("Profil guru tidak ditemukan");
+  if (profile.user.deletedAt) throw new ConflictError("Akun guru sedang diarsipkan");
+
+  const resetUrl = await issuePersonPasswordLink({
+    actor,
+    userId: profile.user.id,
+    email: profile.user.email,
+    template: "password-reset",
+    subject: "Reset Password Akun Guru LIMO",
+    bodyPrefix: "Atur ulang password akun LIMO melalui:",
+    action: "GURU_PASSWORD_RESET_SENT",
+    entityType: "GuruProfile",
+    entityId: id,
+  });
+
+  return { success: true, resetUrl: logOnlyInDevelopment(resetUrl) };
+}
+
+export async function resendGuruActivation(actor: Actor, id: string) {
+  requireAdmin(actor);
+  const profile = await prisma.guruProfile.findUnique({ where: { id }, select: { id: true, user: { select: { id: true, email: true, deletedAt: true, lastLoginAt: true } } } });
+  if (!profile) throw new NotFoundError("Profil guru tidak ditemukan");
+  if (profile.user.deletedAt) throw new ConflictError("Akun guru sedang diarsipkan");
+  if (profile.user.lastLoginAt) throw new ConflictError("Akun sudah pernah login; gunakan kirim link reset password");
+
+  const activationUrl = await issuePersonPasswordLink({
+    actor,
+    userId: profile.user.id,
+    email: profile.user.email,
+    template: "account-activation",
+    subject: "Aktivasi Akun Guru LIMO",
+    bodyPrefix: "Atur password akun LIMO melalui:",
+    action: "GURU_ACTIVATION_RESENT",
+    entityType: "GuruProfile",
+    entityId: id,
+  });
+
+  return { success: true, activationUrl: logOnlyInDevelopment(activationUrl) };
+}
+
+export async function archiveWali(actor: Actor, id: string) {
+  requireAdmin(actor);
+  const profile = await prisma.waliProfile.findUnique({ where: { id }, select: { id: true, userId: true } });
+  if (!profile) throw new NotFoundError("Profil wali tidak ditemukan");
+  if (profile.userId === actor.id) throw new ValidationError("Admin tidak dapat mengarsipkan akunnya sendiri");
+
+  const now = new Date();
+  await prisma.$transaction([
+    prisma.session.updateMany({ where: { userId: profile.userId, revokedAt: null }, data: { revokedAt: now, revokedById: actor.id } }),
+    prisma.user.update({ where: { id: profile.userId }, data: { status: "INACTIVE", deletedAt: now } }),
+    prisma.auditLog.create({ data: { actorId: actor.id, action: "WALI_ARCHIVED", entityType: "WaliProfile", entityId: id } }),
+  ]);
+
+  return { success: true };
+}
+
+export async function restoreWali(actor: Actor, id: string) {
+  requireAdmin(actor);
+  const profile = await prisma.waliProfile.findUnique({ where: { id }, select: { id: true, userId: true } });
+  if (!profile) throw new NotFoundError("Profil wali tidak ditemukan");
+
+  const item = await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: profile.userId }, data: { status: "ACTIVE", deletedAt: null } });
+    await tx.auditLog.create({ data: { actorId: actor.id, action: "WALI_RESTORED", entityType: "WaliProfile", entityId: id } });
+    return tx.waliProfile.findUnique({ where: { id }, select: { id: true, user: { select: { name: true, email: true, status: true } } } });
+  });
+
+  return { item };
+}
+
+export async function sendWaliPasswordReset(actor: Actor, id: string) {
+  requireAdmin(actor);
+  const profile = await prisma.waliProfile.findUnique({ where: { id }, select: { id: true, user: { select: { id: true, email: true, deletedAt: true } } } });
+  if (!profile) throw new NotFoundError("Profil wali tidak ditemukan");
+  if (profile.user.deletedAt) throw new ConflictError("Akun wali sedang diarsipkan");
+
+  const resetUrl = await issuePersonPasswordLink({
+    actor,
+    userId: profile.user.id,
+    email: profile.user.email,
+    template: "password-reset",
+    subject: "Reset Password Akun Wali LIMO",
+    bodyPrefix: "Atur ulang password akun LIMO melalui:",
+    action: "WALI_PASSWORD_RESET_SENT",
+    entityType: "WaliProfile",
+    entityId: id,
+  });
+
+  return { success: true, resetUrl: logOnlyInDevelopment(resetUrl) };
+}
+
+export async function resendWaliActivation(actor: Actor, id: string) {
+  requireAdmin(actor);
+  const profile = await prisma.waliProfile.findUnique({ where: { id }, select: { id: true, user: { select: { id: true, email: true, deletedAt: true, lastLoginAt: true } } } });
+  if (!profile) throw new NotFoundError("Profil wali tidak ditemukan");
+  if (profile.user.deletedAt) throw new ConflictError("Akun wali sedang diarsipkan");
+  if (profile.user.lastLoginAt) throw new ConflictError("Akun sudah pernah login; gunakan kirim link reset password");
+
+  const activationUrl = await issuePersonPasswordLink({
+    actor,
+    userId: profile.user.id,
+    email: profile.user.email,
+    template: "account-activation",
+    subject: "Aktivasi Akun Wali LIMO",
+    bodyPrefix: "Atur password akun LIMO melalui:",
+    action: "WALI_ACTIVATION_RESENT",
+    entityType: "WaliProfile",
+    entityId: id,
+  });
+
+  return { success: true, activationUrl: logOnlyInDevelopment(activationUrl) };
+}
+
+const MAX_IMPORT_ROWS = 500;
+
+type PersonImportKind = "guru" | "wali";
+type PersonImportStatus = "CREATE" | "RESTORE" | "SKIP" | "ERROR";
+type PersonImportRowResult = { row: number; name: string; email: string; status: PersonImportStatus; message: string };
+
+async function importPeople(actor: Actor, kind: PersonImportKind, input: unknown) {
+  requireAdmin(actor);
+  const parsed = importPeopleSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Permintaan impor belum valid", parsed.error.flatten().fieldErrors);
+
+  const rows = parseCsv(parsed.data.csv);
+  if (rows.length === 0) throw new ValidationError("File CSV kosong");
+
+  const header = rows[0].map((cell) => cell.trim().toLowerCase());
+  const column = { name: header.indexOf("name"), email: header.indexOf("email"), phone: header.indexOf("phone"), address: header.indexOf("address") };
+  if (column.name === -1 || column.email === -1) throw new ValidationError("Header CSV wajib memuat kolom name dan email");
+
+  const dataRows = rows.slice(1);
+  if (dataRows.length === 0) throw new ValidationError("CSV tidak memiliki baris data");
+  if (dataRows.length > MAX_IMPORT_ROWS) throw new ValidationError(`Maksimal ${MAX_IMPORT_ROWS} baris per impor`);
+
+  const role = kind === "guru" ? "GURU" : "WALI";
+  const entityType = kind === "guru" ? "GuruProfile" : "WaliProfile";
+  const results: PersonImportRowResult[] = [];
+  const validRows: { row: number; name: string; email: string; phone: string; address: string }[] = [];
+  const seenEmails = new Set<string>();
+
+  dataRows.forEach((cells, index) => {
+    const rowNumber = index + 2;
+    const cell = (position: number) => (position >= 0 ? (cells[position] ?? "").trim() : "");
+    const candidate = { name: cell(column.name), email: cell(column.email).toLowerCase(), phone: cell(column.phone), address: cell(column.address) };
+    const rowParsed = importPersonRowSchema.safeParse(candidate);
+
+    if (!rowParsed.success) {
+      results.push({ row: rowNumber, name: candidate.name, email: candidate.email, status: "ERROR", message: "Baris tidak valid (nama minimal 2 karakter, email harus valid)" });
+      return;
+    }
+
+    if (seenEmails.has(rowParsed.data.email)) {
+      results.push({ row: rowNumber, name: rowParsed.data.name, email: rowParsed.data.email, status: "ERROR", message: "Email duplikat di dalam file" });
+      return;
+    }
+
+    seenEmails.add(rowParsed.data.email);
+    validRows.push({ row: rowNumber, ...rowParsed.data });
+  });
+
+  const existingUsers = validRows.length > 0
+    ? await prisma.user.findMany({ where: { email: { in: validRows.map((entry) => entry.email) } }, select: { id: true, email: true, role: true, deletedAt: true } })
+    : [];
+  const existingByEmail = new Map(existingUsers.map((user) => [user.email, user]));
+
+  const plan: { action: "CREATE" | "RESTORE"; userId?: string; name: string; email: string; phone: string; address: string }[] = [];
+
+  for (const entry of validRows) {
+    const existing = existingByEmail.get(entry.email);
+
+    if (!existing) {
+      plan.push({ ...entry, action: "CREATE" });
+      results.push({ row: entry.row, name: entry.name, email: entry.email, status: "CREATE", message: "Akun baru akan dibuat" });
+      continue;
+    }
+
+    if (existing.role !== role) {
+      results.push({ row: entry.row, name: entry.name, email: entry.email, status: "ERROR", message: "Email sudah dipakai role lain" });
+      continue;
+    }
+
+    if (existing.deletedAt) {
+      plan.push({ ...entry, action: "RESTORE", userId: existing.id });
+      results.push({ row: entry.row, name: entry.name, email: entry.email, status: "RESTORE", message: "Akun arsip akan dipulihkan dan diperbarui" });
+      continue;
+    }
+
+    results.push({ row: entry.row, name: entry.name, email: entry.email, status: "SKIP", message: "Email sudah terdaftar dan aktif" });
+  }
+
+  let created = 0;
+  let restored = 0;
+
+  if (!parsed.data.dryRun) {
+    for (const entry of plan) {
+      if (entry.action === "CREATE") {
+        const activation = createPasswordResetGrant();
+        await prisma.$transaction(async (tx) => {
+          const user = await tx.user.create({
+            data: { email: entry.email, name: entry.name, role, status: "ACTIVE", passwordHash: await createInitialPasswordHash() },
+          });
+          if (kind === "guru") {
+            await tx.guruProfile.create({ data: { userId: user.id, phone: entry.phone || undefined, address: entry.address || undefined } });
+          } else {
+            await tx.waliProfile.create({ data: { userId: user.id, phone: entry.phone || undefined, address: entry.address || undefined } });
+          }
+          await tx.passwordResetToken.create({ data: { tokenHash: activation.tokenHash, userId: user.id, expiresAt: activation.expiresAt } });
+          await tx.notifikasi.create({
+            data: {
+              channel: "email",
+              template: "account-activation",
+              recipient: entry.email,
+              subject: `Aktivasi Akun ${kind === "guru" ? "Guru" : "Wali"} LIMO`,
+              body: `Atur password akun LIMO melalui: ${activation.resetUrl}`,
+            },
+          });
+          await tx.auditLog.create({ data: { actorId: actor.id, action: `${role}_IMPORT_CREATED`, entityType, entityId: user.id, metadata: { email: entry.email, source: "csv-import" } } });
+        });
+        created += 1;
+        continue;
+      }
+
+      const userId = entry.userId!;
+      await prisma.$transaction(async (tx) => {
+        await tx.user.update({ where: { id: userId }, data: { name: entry.name, status: "ACTIVE", deletedAt: null } });
+        if (kind === "guru") {
+          await tx.guruProfile.upsert({
+            where: { userId },
+            update: { phone: entry.phone || null, address: entry.address || null },
+            create: { userId, phone: entry.phone || undefined, address: entry.address || undefined },
+          });
+        } else {
+          await tx.waliProfile.upsert({
+            where: { userId },
+            update: { phone: entry.phone || null, address: entry.address || null },
+            create: { userId, phone: entry.phone || undefined, address: entry.address || undefined },
+          });
+        }
+        await tx.auditLog.create({ data: { actorId: actor.id, action: `${role}_IMPORT_RESTORED`, entityType, entityId: userId, metadata: { email: entry.email, source: "csv-import" } } });
+      });
+      restored += 1;
+    }
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: actor.id,
+        action: kind === "guru" ? "GURU_IMPORTED" : "WALI_IMPORTED",
+        entityType,
+        metadata: { created, restored, skipped: results.filter((entry) => entry.status === "SKIP").length, errors: results.filter((entry) => entry.status === "ERROR").length },
+      },
+    });
+  }
+
+  return {
+    dryRun: parsed.data.dryRun,
+    created,
+    restored,
+    skipped: results.filter((entry) => entry.status === "SKIP").length,
+    errors: results.filter((entry) => entry.status === "ERROR").length,
+    results,
+  };
+}
+
+export async function importGuruCsv(actor: Actor, input: unknown) {
+  return importPeople(actor, "guru", input);
+}
+
+export async function importWaliCsv(actor: Actor, input: unknown) {
+  return importPeople(actor, "wali", input);
 }

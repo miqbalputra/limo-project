@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { getQuizResponseDetail } from "@/server/services/quiz-builder-service";
+import { QuizResponseGradeForm } from "@/components/dashboard/quiz-response-grade-form";
 import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Detail Respons Kuis" };
@@ -33,6 +34,12 @@ export default async function GuruKuisResponseDetailPage({ params }: { params: P
           <p className="mt-2 text-lg font-semibold text-gray-900">{data.response.submittedAt ? formatDate(data.response.submittedAt) : "Belum dikirim"}</p>
         </article>
       </section>
+
+      <QuizResponseGradeForm
+        ujianId={ujianId}
+        responseId={responseId}
+        items={data.items.filter((item) => item.correct === null || item.manualScore !== null).map((item) => ({ id: item.id, question: item.question, weight: item.weight, correct: item.correct, manualScore: item.manualScore }))}
+      />
 
       <section className="tailadmin-card overflow-hidden">
         <div className="border-b border-gray-200 px-5 py-4">
