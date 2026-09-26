@@ -5,6 +5,7 @@ import { getEnv, isProduction } from "@/server/env";
 import { ForbiddenError, UnauthorizedError } from "@/server/errors/application-error";
 import { prisma } from "@/server/db/prisma";
 import { generateOpaqueToken, hashToken } from "@/server/security/crypto";
+import { getSessionTouchIntervalMs, isTransientSessionWriteError } from "@/server/auth/session-touch";
 
 export type Actor = {
   id: string;
@@ -83,7 +84,8 @@ export async function getActorFromToken(token: string | undefined): Promise<Acto
   });
 
   const now = new Date();
-  const idleCutoff = new Date(now.getTime() - getEnv().SESSION_IDLE_MINUTES * 60 * 1000);
+  const idleMinutes = getEnv().SESSION_IDLE_MINUTES;
+  const idleCutoff = new Date(now.getTime() - idleMinutes * 60 * 1000);
 
   if (!session || session.revokedAt || session.expiresAt <= now || (session.lastSeenAt ?? session.createdAt) <= idleCutoff) {
     return null;
@@ -93,10 +95,23 @@ export async function getActorFromToken(token: string | undefined): Promise<Acto
     return null;
   }
 
-  await prisma.session.update({
-    where: { id: session.id },
-    data: { lastSeenAt: now },
-  });
+  const touchIntervalMs = getSessionTouchIntervalMs(idleMinutes);
+  if (now.getTime() - (session.lastSeenAt ?? session.createdAt).getTime() >= touchIntervalMs) {
+    try {
+      // Guard `lastSeenAt` sebelumnya: bila request paralel sudah menulis lebih dulu,
+      // update ini cocok 0 baris (aman) alih-alih memicu konflik
+      // "Record has changed since last read" (MariaDB 1020) / deadlock.
+      await prisma.session.updateMany({
+        where: { id: session.id, lastSeenAt: session.lastSeenAt },
+        data: { lastSeenAt: now },
+      });
+    } catch (error) {
+      // Touch lastSeen tidak boleh menggagalkan autentikasi request yang valid.
+      if (!isTransientSessionWriteError(error)) {
+        throw error;
+      }
+    }
+  }
 
   return {
     id: session.user.id,

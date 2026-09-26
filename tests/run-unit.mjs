@@ -26,6 +26,7 @@ import { computeVoucherDiscount } from "../src/lib/billing-discount.ts";
 import { formatRupiah } from "../src/lib/money.ts";
 import { ApiJsonError, requestJson } from "../src/lib/api-json-client.ts";
 import { formatUiLabel, getUiTone, getUiToneClass, humanizeEnumLabel } from "../src/lib/ui-labels.ts";
+import { getSessionTouchIntervalMs, isTransientSessionWriteError } from "../src/server/auth/session-touch.ts";
 import { getWaliChildIdFromLocation, isWaliChildScopedPath, withWaliChildContext } from "../src/lib/wali-selector.ts";
 import { createMayarInvoice, verifyMayarWebhook } from "../src/server/providers/payment/mayar.ts";
 
@@ -115,6 +116,22 @@ const tests = [
       assert.equal(humanizeEnumLabel("SOME_FUTURE_ACTION"), "Some Future Action");
       assert.equal(humanizeEnumLabel("FinalGrade"), "Final Grade");
       assert.equal(humanizeEnumLabel(null), "");
+    },
+  },
+  {
+    name: "session touch throttle stays within idle window and never breaks auth",
+    run: () => {
+      assert.equal(getSessionTouchIntervalMs(10080), 60_000);
+      assert.equal(getSessionTouchIntervalMs(1), 6_000);
+      assert.equal(getSessionTouchIntervalMs(0), 5_000);
+
+      assert.equal(isTransientSessionWriteError({ code: "P2034" }), true);
+      assert.equal(isTransientSessionWriteError({ message: "Record has changed since last read in table 'Session'; try restarting transaction" }), true);
+      assert.equal(isTransientSessionWriteError({ message: "Deadlock found when trying to get lock" }), true);
+      assert.equal(isTransientSessionWriteError({ message: "Lock wait timeout exceeded" }), true);
+      assert.equal(isTransientSessionWriteError({ message: "Unique constraint failed on the fields: (`tokenHash`)" }), false);
+      assert.equal(isTransientSessionWriteError(null), false);
+      assert.equal(isTransientSessionWriteError(undefined), false);
     },
   },
   {

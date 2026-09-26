@@ -20,6 +20,13 @@ Landing page terbaru tersedia di `http://127.0.0.1:3000` saat development server
 - **Runner e2e:** pembersihan database diberi retry agar `EBUSY` (file lock Windows) tidak lagi menggagalkan exit code setelah test lulus.
 - **Blocked (butuh akses):** migrasi/parity MariaDB staging (`npm run db:parity`) dan UAT kredensial nyata (Mayar/SMTP/WhatsApp) belum dijalankan dari environment ini.
 
+## Hotfix Produksi: Kontensi Baris `Session` (26 Sep 2026)
+
+- **Gejala:** redeploy gagal; log produksi penuh `prisma.session.update()` dengan MariaDB `1020 Record has changed since last read in table 'Session'` → request 500 berulang.
+- **Akar masalah:** `getActorFromToken` (`src/server/auth/session.ts`) menulis `Session.lastSeenAt` pada **setiap** request terautentikasi (`findUnique` lalu `update`). Request paralel dengan cookie sesi sama berebut satu baris → konflik 1020/deadlock, dan error-nya tidak ditangani sehingga menggagalkan render halaman.
+- **Perbaikan:** interval touch minimum (`src/server/auth/session-touch.ts`, ≤60s dan ≤10% idle window) + `updateMany` dengan guard `lastSeenAt` sebelumnya (request yang kalah balapan jadi 0 baris, bukan error) + error transient (P2034, 1020, deadlock, lock wait timeout) tidak lagi menggagalkan autentikasi. Unit test ditambahkan.
+- **Verifikasi:** `typecheck` lulus · `lint` 0 error · `npm test` 38 lulus · e2e `accessibility` 5/5 & `week11` 3/3 (login 4 role tetap jalan).
+
 ## Revisi Alur Pendaftaran (Revisi v2)
 
 Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman sukses):
