@@ -56,6 +56,23 @@ function run(command, args, env) {
   }
 }
 
+async function removeWithRetry(filePath, attempts = 10) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      await rm(filePath, { force: true });
+      return;
+    } catch (error) {
+      const retryable = error && (error.code === "EBUSY" || error.code === "EPERM");
+      if (!retryable || attempt === attempts - 1) {
+        if (retryable) console.warn(`Peringatan: gagal menghapus ${filePath} setelah ${attempts} percobaan (${error.code}).`);
+        else throw error;
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+}
+
 for (const [index, specFile] of specFiles.entries()) {
   const databaseFile = `e2e-${runId}-${String(index + 1).padStart(2, "0")}.db`;
   const databaseUrl = `file:./${databaseFile}`;
@@ -77,6 +94,6 @@ for (const [index, specFile] of specFiles.entries()) {
       `${databaseFile}-journal`,
       `${databaseFile}-shm`,
       `${databaseFile}-wal`,
-    ].map((fileName) => rm(path.join(prismaDirectory, fileName), { force: true })));
+    ].map((fileName) => removeWithRetry(path.join(prismaDirectory, fileName))));
   }
 }

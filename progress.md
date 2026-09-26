@@ -1,12 +1,24 @@
 # Progress Implementasi LIMO
 
-Terakhir diperbarui: 25 September 2026
+Terakhir diperbarui: 26 September 2026
 
 ## Status Saat Ini
 
 Aplikasi LIMO telah dibangun sebagai satu aplikasi Next.js 16 App Router dengan Route Handlers pada `/api/v1/**`, Prisma, MariaDB sebagai target database, database session, dan UI berbasis TailAdmin/Tailwind CSS v4.
 
 Landing page terbaru tersedia di `http://127.0.0.1:3000` saat development server berjalan.
+
+## Penutupan Catatan Terbuka Dashboard Guru (26 Sep 2026)
+
+- **Label enum mentah (G4/T8):** `guru/penilaian-esai` memakai `formatUiLabel("NEEDS_REVIEW")`; `admin/audit` memakai `humanizeEnumLabel` (helper baru di `src/lib/ui-labels.ts`) sebagai fallback aksi/entitas. Unit test `humanize enum label never leaks raw enum tokens` ditambahkan.
+- **Konfirmasi aksi (G12):** `hero-carousel-actions.tsx` memakai `useConfirmDialog` (materi & ujian sudah sebelumnya). Sisa `window.confirm` hanya tombol bersihkan di pemutar kuis publik.
+- **Paritas navigasi ↔ feature flag (G13):** halaman `guru/kelas/[kelasId]` men-gate "Susun Modul" (`learningModulesEnabled`) dan "Progres Aktivitas" (`activityCompletionEnabled` + `learningModulesEnabled`). Navigasi dashboard sudah memfilter via `requiredFeatures`.
+- **Cakupan uji baru:** `tests/e2e/guru-workspace.spec.ts` (create/edit/cancel sesi; antrean penilaian esai → koreksi → `CORRECTED`; rilis nilai per-siswa), perluasan `tests/e2e/accessibility.spec.ts` (axe + touch-target halaman Guru), dan regresi `tests/e2e/production-navigation.spec.ts` (nav terlihat tidak 404 saat semua flag produksi mati).
+- **Privacy gradebook (W10):** kode sudah `exposeProvisionalScores:false` untuk Siswa/Wali; assertion eksplisit ada di `tests/run-week7-integration.mjs:106-123`.
+- **Bug form (ditemukan uji baru):** `session-workspace.tsx` & `hasil-ujian-form.tsx` memanggil `event.currentTarget.reset()` setelah `await` (nilai `null` di React) sehingga `router.refresh()` tidak pernah jalan — sesi baru tidak muncul tanpa reload. Elemen form kini di-capture sebelum `await`. Pola sama di ~11 form lain dicatat di `docs/KNOWN_LIMITATIONS.md`.
+- **Aksesibilitas guru:** `<select>` di `/guru/bank-soal` diberi `aria-label`; tombol "Simpan sesi" dinaikkan ke target sentuh ≥44px. Audit axe `/guru/sesi`, `/guru/penilaian-esai`, `/guru/bank-soal` lulus.
+- **Runner e2e:** pembersihan database diberi retry agar `EBUSY` (file lock Windows) tidak lagi menggagalkan exit code setelah test lulus.
+- **Blocked (butuh akses):** migrasi/parity MariaDB staging (`npm run db:parity`) dan UAT kredensial nyata (Mayar/SMTP/WhatsApp) belum dijalankan dari environment ini.
 
 ## Revisi Alur Pendaftaran (Revisi v2)
 

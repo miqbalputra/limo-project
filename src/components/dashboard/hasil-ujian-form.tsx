@@ -105,7 +105,8 @@ export function HasilUjianForm({
     event.preventDefault();
     setError("");
     setIsSubmitting(true);
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
 
     try {
       const answers = questions.map((question) => {
@@ -149,7 +150,7 @@ export function HasilUjianForm({
 
       await requestJson(submitPath, { method: "POST", body: payload, fallbackMessage: "Hasil ujian gagal disimpan" });
 
-      event.currentTarget.reset();
+      form.reset();
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Hasil ujian gagal disimpan");

@@ -51,7 +51,8 @@ export function SessionWorkspace({ scope, classes, sessions, selectedClassId, se
     event.preventDefault();
     setError("");
     setIsSubmitting(true);
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
 
     try {
       await requestJson(apiBase, {
@@ -64,7 +65,7 @@ export function SessionWorkspace({ scope, classes, sessions, selectedClassId, se
         },
         fallbackMessage: "Sesi gagal disimpan",
       });
-      event.currentTarget.reset();
+      form.reset();
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Sesi gagal disimpan");
@@ -150,7 +151,7 @@ export function SessionWorkspace({ scope, classes, sessions, selectedClassId, se
           <label className="grid gap-1"><span className="text-theme-xs font-medium text-gray-600">Pertemuan ke</span><input name="meetingNumber" type="number" min={1} required defaultValue={1} className="tailadmin-input" /></label>
           <label className="grid gap-1"><span className="text-theme-xs font-medium text-gray-600">Topik</span><input name="topic" required placeholder="Contoh: Percakapan perkenalan" className="tailadmin-input" /></label>
           <label className="grid gap-1"><span className="text-theme-xs font-medium text-gray-600">Tanggal sesi</span><input name="sessionDate" type="date" required className="tailadmin-input" /></label>
-          <button type="submit" disabled={isSubmitting || classes.length === 0} className="tailadmin-button-primary">{isSubmitting ? "Menyimpan..." : "Simpan sesi"}</button>
+          <button type="submit" disabled={isSubmitting || classes.length === 0} className="tailadmin-button-primary min-h-11">{isSubmitting ? "Menyimpan..." : "Simpan sesi"}</button>
         </form>
 
         <section className="tailadmin-card overflow-hidden">

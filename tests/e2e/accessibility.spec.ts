@@ -88,3 +88,26 @@ test("Wali calendar controls meet the 44px touch-target minimum", async ({ page 
   await expectTouchTarget(page.getByRole("link", { name: "Bulan berikutnya" }));
   await expectTouchTarget(page.getByRole("button", { name: "Notifikasi" }));
 });
+
+test("Guru session, essay, and bank-soal workspaces have no WCAG 2 A/AA violations", async ({ page }) => {
+  test.setTimeout(120_000);
+  await login(page, "guru@limo.local");
+  await expect(page).toHaveURL(/\/guru$/, { timeout: 15_000 });
+
+  for (const path of ["/guru/sesi", "/guru/penilaian-esai", "/guru/bank-soal"]) {
+    await page.goto(path);
+    await expect(page.locator("#dashboard-content")).toBeVisible();
+    await expectNoAxeViolations(page, DASHBOARD_INTERACTION_SCOPE);
+  }
+});
+
+test("Guru session workspace actions meet the 44px touch-target minimum", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page, "guru@limo.local");
+  await expect(page).toHaveURL(/\/guru$/, { timeout: 15_000 });
+  await page.goto("/guru/sesi");
+
+  await expectTouchTarget(page.getByRole("button", { name: "Notifikasi" }));
+  await expectTouchTarget(page.getByRole("button", { name: "Simpan sesi" }));
+});

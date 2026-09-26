@@ -28,3 +28,29 @@ test("production-default navigation hides feature-gated routes", async ({ page }
     }
   }
 });
+
+test("production-default guru navigation only links to reachable routes", async ({ page }) => {
+  test.setTimeout(90_000);
+  await login(page, "guru@limo.local");
+  await expect(page).toHaveURL(/\/guru$/, { timeout: 15_000 });
+
+  const navigation = page.getByRole("navigation", { name: "Navigasi dashboard" });
+  const hrefs = await navigation
+    .getByRole("link")
+    .evaluateAll((links) => links.map((link) => link.getAttribute("href") || "").filter((href) => href.startsWith("/")));
+  expect(hrefs.length).toBeGreaterThan(0);
+
+  for (const href of hrefs) {
+    const response = await page.request.get(href);
+    expect(response.status(), `${href} tidak boleh 404 saat flag produksi mati`).not.toBe(404);
+  }
+
+  // Sub-fitur kelas yang di-guard flag tidak boleh dirender sebagai tautan mati.
+  await page.goto("/guru/kelas");
+  const classLink = page.locator('a[href^="/guru/kelas/"]').first();
+  await expect(classLink).toBeVisible();
+  await classLink.click();
+  await expect(page.getByRole("heading", { name: "Kelola Kelas" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Susun Modul" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Progres Aktivitas" })).toHaveCount(0);
+});

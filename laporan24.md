@@ -12,6 +12,16 @@
 
 **Status sprint:** Sprint 0 ✅ selesai · Sprint 1 ✅ selesai · Sprint 2 ✅ selesai · Sprint 3 🔄 hampir selesai (sertifikat + ujian mandiri siswa + pengumuman/diskusi + rekaman suara + voucher/kuitansi selesai; sisa cicilan billing & Q&A per materi) · Sprint 4 ⏳ belum mulai.
 
+**Pembaruan 26 Sep 2026 — penutupan catatan terbuka dashboard Guru (G4/G6/G12/G13/T8/W10):**
+- Label enum mentah dihilangkan: `guru/penilaian-esai` memakai `formatUiLabel("NEEDS_REVIEW")`; `admin/audit` memakai `humanizeEnumLabel` untuk aksi/entitas (unit test `run-unit.mjs` ditambahkan).
+- Sisa `window.confirm` pada `hero-carousel-actions.tsx` diganti `useConfirmDialog` (materi & ujian sudah sejak sebelumnya). Sisa hanya tombol bersihkan di pemutar kuis publik.
+- Paritas navigasi ↔ feature flag: halaman kelas Guru men-gate "Susun Modul" (`learningModulesEnabled`) dan "Progres Aktivitas" (`activityCompletionEnabled` + `learningModulesEnabled`), sehingga menu tidak mengarah ke route 404 saat flag produksi mati.
+- Cakupan uji baru: `tests/e2e/guru-workspace.spec.ts` (create/edit/cancel sesi, koreksi esai dari antrean → `CORRECTED`, rilis nilai per-siswa) dan perluasan `accessibility.spec.ts` (axe + touch-target halaman Guru) serta `production-navigation.spec.ts` (regresi navigasi).
+- W10 (gradebook Siswa/Wali): kode sudah `exposeProvisionalScores:false`; assertion privacy eksplisit ada di `tests/run-week7-integration.mjs:106-123`.
+- **Bug form ditemukan uji baru (R6):** `session-workspace.tsx` & `hasil-ujian-form.tsx` memanggil `event.currentTarget.reset()` setelah `await` (`null` di React) sehingga `router.refresh()` tidak jalan — sesi baru tidak tampil tanpa reload. Keduanya diperbaiki; pola sama di ~11 form lain dicatat di `docs/KNOWN_LIMITATIONS.md`.
+- **Aksesibilitas & runner:** `aria-label` pada `<select>` `/guru/bank-soal` dan tombol "Simpan sesi" ≥44px; pembersihan DB `run-e2e-isolated.mjs` diberi retry agar `EBUSY` Windows tidak menggagalkan exit code.
+- **Verifikasi:** `typecheck` lulus · `lint` 0 error · `npm test` **37 lulus** · e2e `accessibility` **5/5**, `production-navigation` **2/2**, `guru-workspace` **2/2** · integrasi `test:week7` lulus (termasuk assertion privacy).
+
 **Yang ditambahkan pada sesi ini (di luar temuan audit awal):**
 
 1. **Ujian online — paritas Google Forms (besar)**

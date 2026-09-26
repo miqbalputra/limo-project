@@ -162,12 +162,12 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
     <form data-testid="bank-soal-form" onSubmit={onSubmit} className="tailadmin-card grid gap-3 p-5">
       <h2 className="font-semibold text-gray-900">Tambah Bank Soal</h2>
       {error ? <p className="tailadmin-alert-error">{error}</p> : null}
-      <select name="kelasId" aria-invalid={Boolean(fieldErrors.kelasId)} aria-describedby="soal-class-error" className="tailadmin-input">
+      <select name="kelasId" aria-label="Kelas soal" aria-invalid={Boolean(fieldErrors.kelasId)} aria-describedby="soal-class-error" className="tailadmin-input">
         <option value="">Umum / tidak terikat kelas</option>
         {kelasOptions.map((kelas) => <option key={kelas.id} value={kelas.id}>{kelas.name}</option>)}
       </select>
       <FormFieldError id="soal-class-error" errors={fieldErrors.kelasId} />
-      <select name="type" value={type} onChange={(event) => setType(event.target.value)} aria-invalid={Boolean(fieldErrors.type)} aria-describedby="soal-type-error" className="tailadmin-input">
+      <select name="type" value={type} onChange={(event) => setType(event.target.value)} aria-label="Tipe soal" aria-invalid={Boolean(fieldErrors.type)} aria-describedby="soal-type-error" className="tailadmin-input">
         {questionTypes.map((item) => (
           <option key={item.value} value={item.value}>{item.label}</option>
         ))}

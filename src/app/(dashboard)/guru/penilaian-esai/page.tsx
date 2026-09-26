@@ -45,7 +45,7 @@ export default async function GuruPenilaianEsaiPage({
         <MetricCard
           label="Perlu ditinjau"
           value={queue.pendingCount}
-          description="Status NEEDS_REVIEW pada kelas Anda"
+          description={`Status "${formatUiLabel("NEEDS_REVIEW")}" pada kelas Anda`}
           icon="exam"
           tone={queue.pendingCount > 0 ? "warning" : "success"}
         />

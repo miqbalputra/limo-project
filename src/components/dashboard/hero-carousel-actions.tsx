@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
 import { requestJson } from "@/lib/api-json-client";
 import { ImageUploadField } from "@/components/dashboard/image-upload-field";
 
@@ -27,9 +28,10 @@ export function HeroCarouselActions({ slide }: { slide: HeroSlide }) {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [editing, setEditing] = useState(false);
+  const { confirm, dialog } = useConfirmDialog();
 
   async function archive() {
-    if (!window.confirm("Arsipkan hero slide ini?")) return;
+    if (!(await confirm({ title: "Arsipkan hero slide?", description: "Slide tidak lagi tampil di halaman publik.", confirmLabel: "Ya, arsipkan", variant: "destructive" }))) return;
     setPending(true);
     setError("");
     try {
@@ -117,6 +119,7 @@ export function HeroCarouselActions({ slide }: { slide: HeroSlide }) {
   }
 
   return (
+    <>
     <div className="mt-4 flex flex-wrap items-center gap-2">
       <button type="button" disabled={pending} onClick={() => setEditing(true)} className="tailadmin-button-outline px-3 py-2">Edit</button>
       <button type="button" disabled={pending} onClick={() => void toggle()} className="tailadmin-button-outline px-3 py-2">{slide.active ? "Nonaktifkan" : "Aktifkan"}</button>
@@ -127,5 +130,7 @@ export function HeroCarouselActions({ slide }: { slide: HeroSlide }) {
       )}
       {error ? <p role="alert" className="w-full text-theme-xs text-error-700">{error}</p> : null}
     </div>
+    {dialog}
+    </>
   );
 }

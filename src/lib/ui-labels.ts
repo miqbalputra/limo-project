@@ -139,6 +139,23 @@ const labels: Record<string, string> = {
   SEMUA: "Siswa dan wali",
   HIDDEN: "Disembunyikan",
   VISIBLE: "Tampil",
+  UJIAN_CREATED: "Ujian dibuat",
+  UJIAN_PUBLISHED: "Ujian diterbitkan",
+  UJIAN_ARCHIVED: "Ujian diarsipkan",
+  EXAM_RESULT_RELEASED: "Nilai ujian dirilis",
+  MATERI_CREATED: "Materi dibuat",
+  MATERI_PUBLISHED: "Materi diterbitkan",
+  MATERI_ARCHIVED: "Materi diarsipkan",
+  FINAL_GRADE_PUBLISHED: "Nilai akhir diterbitkan",
+  FINAL_GRADE_CORRECTED: "Nilai akhir dikoreksi",
+  PRESENSI_SUBMITTED: "Presensi dikirim",
+  PROGRES_SUBMITTED: "Progres dikirim",
+  AUTH_LOGIN_SUCCESS: "Berhasil masuk",
+  AUTH_LOGIN_FAILED: "Gagal masuk",
+  PENDAFTARAN_APPROVED: "Pendaftaran disetujui",
+  PENDAFTARAN_REJECTED: "Pendaftaran ditolak",
+  SERTIFIKAT_ISSUED: "Sertifikat diterbitkan",
+  SERTIFIKAT_REVOKED: "Sertifikat dicabut",
 };
 
 const tones: Record<string, UiTone> = {
@@ -187,6 +204,16 @@ const toneClasses: Record<UiTone, string> = {
 export function formatUiLabel(value: string | null | undefined, fallback = "Tidak diketahui") {
   if (!value) return fallback;
   return labels[value] || fallback;
+}
+
+export function humanizeEnumLabel(value: string | null | undefined) {
+  if (!value) return "";
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
 }
 
 export function getUiTone(value: string | null | undefined): UiTone {

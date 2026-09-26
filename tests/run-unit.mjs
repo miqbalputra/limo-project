@@ -25,7 +25,7 @@ import { canRecordAudio, formatFileSize, readQuizUploadConfig, uploadAcceptAttri
 import { computeVoucherDiscount } from "../src/lib/billing-discount.ts";
 import { formatRupiah } from "../src/lib/money.ts";
 import { ApiJsonError, requestJson } from "../src/lib/api-json-client.ts";
-import { formatUiLabel, getUiTone, getUiToneClass } from "../src/lib/ui-labels.ts";
+import { formatUiLabel, getUiTone, getUiToneClass, humanizeEnumLabel } from "../src/lib/ui-labels.ts";
 import { getWaliChildIdFromLocation, isWaliChildScopedPath, withWaliChildContext } from "../src/lib/wali-selector.ts";
 import { createMayarInvoice, verifyMayarWebhook } from "../src/server/providers/payment/mayar.ts";
 
@@ -106,6 +106,15 @@ const tests = [
       assert.equal(formatUiLabel(undefined, "Kelas"), "Kelas");
       assert.equal(getUiTone("CLASS"), "neutral");
       assert.equal(getUiToneClass("CLASS"), "bg-limo-neutral-100 text-limo-neutral-700");
+    },
+  },
+  {
+    name: "humanize enum label never leaks raw enum tokens",
+    run: () => {
+      assert.equal(formatUiLabel("UJIAN_CREATED", humanizeEnumLabel("UJIAN_CREATED")), "Ujian dibuat");
+      assert.equal(humanizeEnumLabel("SOME_FUTURE_ACTION"), "Some Future Action");
+      assert.equal(humanizeEnumLabel("FinalGrade"), "Final Grade");
+      assert.equal(humanizeEnumLabel(null), "");
     },
   },
   {

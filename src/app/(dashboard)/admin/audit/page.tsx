@@ -3,7 +3,7 @@ import { prisma } from "@/server/db/prisma";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { createPaginationMeta, resolvePagination } from "@/server/pagination";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
-import { formatUiLabel } from "@/lib/ui-labels";
+import { formatUiLabel, humanizeEnumLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Log Audit" };
 
@@ -90,7 +90,7 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
                  <p className="text-theme-xs text-gray-500">{item.ipAddress || "IP tidak tercatat"}</p>
                </div>
                <div>
-                  <span className="inline-flex rounded-full bg-limo-blue-50 px-3 py-1 text-theme-xs font-semibold text-limo-blue-700">{formatUiLabel(item.action, item.action)}</span>
+                   <span className="inline-flex rounded-full bg-limo-blue-50 px-3 py-1 text-theme-xs font-semibold text-limo-blue-700">{formatUiLabel(item.action, humanizeEnumLabel(item.action))}</span>
                  {item.reason ? <p className="mt-2 text-theme-sm text-gray-600">{item.reason}</p> : null}
                  {formatMetadata(item.metadata) ? <p className="mt-2 break-all rounded-lg bg-gray-50 p-2 text-theme-xs text-gray-500">{formatMetadata(item.metadata)}</p> : null}
                </div>
@@ -99,7 +99,7 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
                   <p className="text-theme-xs text-gray-500">{item.actor?.email ?? "sistem"}{item.actor ? ` / ${formatUiLabel(item.actor.role)}` : ""}</p>
                </div>
                <div>
-                  <p className="text-theme-sm font-semibold text-gray-900">{formatUiLabel(item.entityType, item.entityType)}</p>
+                   <p className="text-theme-sm font-semibold text-gray-900">{formatUiLabel(item.entityType, humanizeEnumLabel(item.entityType))}</p>
                  <p className="break-all text-theme-xs text-gray-500">{item.entityId ?? "-"}</p>
                </div>
              </article>
