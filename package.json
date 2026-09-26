@@ -26,6 +26,7 @@
     "test:reminders": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types tests/run-reminder-integration.mjs",
     "test:notifications": "node tests/run-notification-log-integration.mjs",
     "test:accounts": "node tests/run-account-management-integration.mjs",
+    "test:users": "node tests/run-user-management-integration.mjs",
     "test:sertifikat": "node tests/run-certificate-integration.mjs",
     "test:siswa-ujian": "node tests/run-student-exam-integration.mjs",
     "test:diskusi": "node tests/run-class-forum-integration.mjs",
