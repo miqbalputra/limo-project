@@ -26,6 +26,13 @@ export const changePasswordSchema = z.object({
   message: "Password baru harus berbeda dari password saat ini",
 });
 
+export const accountPasswordSchema = z.string().min(8).max(128);
+
+export const setUserPasswordSchema = z.object({
+  password: accountPasswordSchema,
+  reason: z.string().trim().max(500).optional().or(z.literal("")),
+});
+
 export const userStatusSchema = z.object({ status: z.enum(["ACTIVE", "INACTIVE"]) });
 
 const booleanFlag = z.preprocess(
@@ -52,7 +59,7 @@ export const adminUserListSchema = z.object({
 
 const managedUserRoleSchema = z.enum(["ADMIN", "GURU", "WALI"]);
 
-export const createAdminUserSchema = z.object({
+const managedUserBaseSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().email().max(255),
   role: managedUserRoleSchema,
@@ -60,4 +67,8 @@ export const createAdminUserSchema = z.object({
   address: z.string().trim().max(1000).optional().or(z.literal("")),
 });
 
-export const updateAdminUserSchema = createAdminUserSchema;
+export const createAdminUserSchema = managedUserBaseSchema.extend({
+  password: accountPasswordSchema.optional().or(z.literal("")),
+});
+
+export const updateAdminUserSchema = managedUserBaseSchema;

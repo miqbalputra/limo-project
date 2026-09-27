@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const accountPasswordSchema = z.string().min(8).max(128);
+
 export const createProgramSchema = z.object({
   name: z.string().trim().min(2).max(120),
   kind: z.enum(["ENGLISH", "ARABIC", "ARABIC_KIDS", "NAHWU", "MATH_ACADEMIC_SUPPORT"]),
@@ -29,22 +31,30 @@ export const updateProgramSchema = createProgramSchema.pick({ name: true, descri
 export const updateLevelSchema = createLevelSchema.pick({ name: true, order: true, description: true });
 export const updateKelasSchema = createKelasSchema.pick({ name: true, guruProfileId: true, scheduleNote: true });
 
-export const createGuruSchema = z.object({
+const guruBaseSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().email().max(255),
   phone: z.string().trim().max(32).optional().or(z.literal("")),
   address: z.string().trim().max(1000).optional().or(z.literal("")),
 });
 
-export const createWaliSchema = z.object({
+const waliBaseSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().email().max(255),
   phone: z.string().trim().max(32).optional().or(z.literal("")),
   address: z.string().trim().max(1000).optional().or(z.literal("")),
 });
 
-export const updateGuruSchema = createGuruSchema;
-export const updateWaliSchema = createWaliSchema;
+export const createGuruSchema = guruBaseSchema.extend({
+  password: accountPasswordSchema.optional().or(z.literal("")),
+});
+
+export const createWaliSchema = waliBaseSchema.extend({
+  password: accountPasswordSchema.optional().or(z.literal("")),
+});
+
+export const updateGuruSchema = guruBaseSchema;
+export const updateWaliSchema = waliBaseSchema;
 
 const booleanFlag = z.preprocess(
   (value) => (typeof value === "string" ? ["1", "true", "yes", "on"].includes(value.toLowerCase()) : value),

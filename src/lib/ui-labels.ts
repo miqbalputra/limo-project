@@ -156,6 +156,7 @@ const labels: Record<string, string> = {
   PENDAFTARAN_REJECTED: "Pendaftaran ditolak",
   SERTIFIKAT_ISSUED: "Sertifikat diterbitkan",
   SERTIFIKAT_REVOKED: "Sertifikat dicabut",
+  USER_PASSWORD_SET: "Password akun ditetapkan",
 };
 
 const tones: Record<string, UiTone> = {

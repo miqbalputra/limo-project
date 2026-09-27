@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { PasswordField } from "@/components/dashboard/password-field";
 import { requestJson } from "@/lib/api-json-client";
 
 type Option = { id: string; name: string };
@@ -48,13 +49,15 @@ export function GuruForm() {
   const { error, isSubmitting, submit } = useSubmit("/api/v1/admin/guru");
 
   return (
-    <form onSubmit={(event) => submit(event, (data) => ({ name: String(data.get("name") || ""), email: String(data.get("email") || ""), phone: String(data.get("phone") || ""), address: String(data.get("address") || "") }))} className="tailadmin-card grid gap-3 p-5">
+    <form onSubmit={(event) => submit(event, (data) => ({ name: String(data.get("name") || ""), email: String(data.get("email") || ""), phone: String(data.get("phone") || ""), address: String(data.get("address") || ""), password: String(data.get("password") || "") }))} className="tailadmin-card grid gap-3 p-5">
       <h2 className="font-semibold text-gray-900">Tambah Guru</h2>
+      <p className="text-theme-xs text-gray-500">Isi password untuk langsung mengaktifkan akun tanpa tautan aktivasi; kosongkan bila akun cukup menerima tautan aktivasi.</p>
       {error ? <p role="alert" className="tailadmin-alert-error">{error}</p> : null}
       <Field name="name" placeholder="Nama guru" required />
       <Field name="email" placeholder="Email" type="email" required />
       <Field name="phone" placeholder="Nomor HP" />
       <textarea name="address" aria-label="Alamat guru" placeholder="Alamat" className="tailadmin-input" />
+      <PasswordField name="password" label="Password awal guru" hint="Minimal 8 karakter. Password tidak ditampilkan lagi setelah akun disimpan." />
       <Submit disabled={isSubmitting}>Simpan Guru</Submit>
     </form>
   );
@@ -64,13 +67,15 @@ export function WaliForm() {
   const { error, isSubmitting, submit } = useSubmit("/api/v1/admin/wali");
 
   return (
-    <form onSubmit={(event) => submit(event, (data) => ({ name: String(data.get("name") || ""), email: String(data.get("email") || ""), phone: String(data.get("phone") || ""), address: String(data.get("address") || "") }))} className="tailadmin-card grid gap-3 p-5">
+    <form onSubmit={(event) => submit(event, (data) => ({ name: String(data.get("name") || ""), email: String(data.get("email") || ""), phone: String(data.get("phone") || ""), address: String(data.get("address") || ""), password: String(data.get("password") || "") }))} className="tailadmin-card grid gap-3 p-5">
       <h2 className="font-semibold text-gray-900">Tambah Wali</h2>
+      <p className="text-theme-xs text-gray-500">Isi password untuk langsung mengaktifkan akun tanpa tautan aktivasi; kosongkan bila akun cukup menerima tautan aktivasi.</p>
       {error ? <p role="alert" className="tailadmin-alert-error">{error}</p> : null}
       <Field name="name" placeholder="Nama wali" required />
       <Field name="email" placeholder="Email" type="email" required />
       <Field name="phone" placeholder="Nomor HP" />
       <textarea name="address" aria-label="Alamat wali" placeholder="Alamat" className="tailadmin-input" />
+      <PasswordField name="password" label="Password awal wali" hint="Minimal 8 karakter. Password tidak ditampilkan lagi setelah akun disimpan." />
       <Submit disabled={isSubmitting}>Simpan Wali</Submit>
     </form>
   );

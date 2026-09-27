@@ -27,6 +27,15 @@ Landing page terbaru tersedia di `http://127.0.0.1:3000` saat development server
 - **Perbaikan:** interval touch minimum (`src/server/auth/session-touch.ts`, ≤60s dan ≤10% idle window) + `updateMany` dengan guard `lastSeenAt` sebelumnya (request yang kalah balapan jadi 0 baris, bukan error) + error transient (P2034, 1020, deadlock, lock wait timeout) tidak lagi menggagalkan autentikasi. Unit test ditambahkan.
 - **Verifikasi:** `typecheck` lulus · `lint` 0 error · `npm test` 38 lulus · e2e `accessibility` 5/5 & `week11` 3/3 (login 4 role tetap jalan).
 
+## Set Password Langsung untuk Akun (26 Sep 2026)
+
+- **Masalah:** sebelumnya tidak ada cara menetapkan password dari dashboard — `createAdminUser`/`createGuru` hanya memberi password acak tak terpakai + tautan aktivasi, dan `reset-password` hanya mengirim link. Akun tidak bisa langsung dipakai bila email/WhatsApp belum dikonfigurasi.
+- **Perubahan:** form **Tambah Pengguna** (`/admin/users`), **Tambah Guru** (`/admin/guru`), dan **Tambah Wali** (`/admin/wali`) punya field **Password awal** opsional + tombol **Buat password acak** + lihat/sembunyikan. Bila password diisi, akun **langsung aktif tanpa tautan aktivasi**; bila dikosongkan, perilaku lama (tautan aktivasi) tetap berlaku.
+- **Ubah password:** aksi **"Ubah password"** ditambahkan di panel aksi akun (detail `/admin/users/[id]`, daftar `/admin/guru`, `/admin/wali`) via komponen bersama `SetPasswordPanel`.
+- **Endpoint baru:** `POST /api/v1/admin/users/[id]/password`, `/admin/guru/[guruProfileId]/password`, `/admin/wali/[waliProfileId]/password` — khusus ADMIN + `assertSameOrigin`.
+- **Keamanan:** hash argon2id; password **tidak** dikembalikan lewat API, tidak masuk metadata audit, tidak di-log; set password **mencabut semua sesi** akun target dan mencatat audit `USER_PASSWORD_SET` (alasan opsional). Jalur ini menolak akun sendiri (arahkan ke `/ubah-password`). Schema `update*` sengaja **tidak** menerima `password` agar perubahan password hanya lewat jalur yang mencabut sesi + audit.
+- **Verifikasi:** `typecheck` lulus · `lint` 0 error · `npm test` 40 lulus · e2e `admin-account-password` 3/3 (buat akun + login langsung, ubah password + password lama ditolak, otorisasi 401/403) · regresi e2e `accessibility` 5/5 & `week11` 3/3 · integrasi `test:accounts` 11/11.
+
 ## Revisi Alur Pendaftaran (Revisi v2)
 
 Alur pendaftaran publik diubah mengikuti dokumen revisi v2 (4 langkah + halaman sukses):

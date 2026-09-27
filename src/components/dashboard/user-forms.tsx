@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { PasswordField } from "@/components/dashboard/password-field";
 import { requestJson } from "@/lib/api-json-client";
 
 type ManagedRole = "ADMIN" | "GURU" | "WALI";
@@ -55,14 +56,18 @@ function pickUser(data: FormData) {
   };
 }
 
+function pickCreateUser(data: FormData) {
+  return { ...pickUser(data), password: String(data.get("password") || "") };
+}
+
 export function AdminUserForm() {
   const { error, isSubmitting, submit } = useSubmit("/api/v1/admin/users");
 
   return (
-    <form onSubmit={(event) => submit(event, pickUser)} className="tailadmin-card grid gap-3 p-5">
+    <form onSubmit={(event) => submit(event, pickCreateUser)} className="tailadmin-card grid gap-3 p-5">
       <div>
         <h2 className="font-semibold text-gray-900">Tambah Pengguna</h2>
-        <p className="mt-1 text-theme-xs text-gray-500">Akun baru menerima tautan aktivasi untuk mengatur password.</p>
+        <p className="mt-1 text-theme-xs text-gray-500">Isi password untuk langsung mengaktifkan akun tanpa tautan aktivasi; kosongkan bila akun cukup menerima tautan aktivasi.</p>
       </div>
       {error ? <p role="alert" className="tailadmin-alert-error">{error}</p> : null}
       <input name="name" required aria-label="Nama pengguna" placeholder="Nama pengguna" className="tailadmin-input" />
@@ -72,6 +77,7 @@ export function AdminUserForm() {
       </select>
       <input name="phone" aria-label="Nomor HP" placeholder="Nomor HP (opsional)" className="tailadmin-input" />
       <textarea name="address" aria-label="Alamat" placeholder="Alamat (opsional)" className="tailadmin-input" />
+      <PasswordField name="password" label="Password awal" hint="Minimal 8 karakter. Password tidak ditampilkan lagi setelah akun disimpan." />
       <Submit disabled={isSubmitting}>Simpan Pengguna</Submit>
     </form>
   );

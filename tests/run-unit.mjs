@@ -10,7 +10,9 @@ import { addModuleItemSchema, createLearningModuleSchema, reorderModuleItemsSche
 import { createAssignmentSchema, saveAssignmentDraftSchema, submitAssignmentSchema } from "../src/server/validation/assignment.ts";
 import { getReminderWindow } from "../src/server/services/reminder-service.ts";
 import { applyRemedialScorePolicy } from "../src/server/services/remedial-score-policy.ts";
-import { personListSchema, importPersonRowSchema, importPeopleSchema } from "../src/server/validation/master-data.ts";
+import { personListSchema, importPersonRowSchema, importPeopleSchema, updateGuruSchema } from "../src/server/validation/master-data.ts";
+import { createAdminUserSchema, setUserPasswordSchema } from "../src/server/validation/auth.ts";
+import { generateStrongPassword } from "../src/lib/password-generator.ts";
 import { parseCsv } from "../src/lib/csv.ts";
 import {
   findMissingRequiredAnswers,
@@ -132,6 +134,36 @@ const tests = [
       assert.equal(isTransientSessionWriteError({ message: "Unique constraint failed on the fields: (`tokenHash`)" }), false);
       assert.equal(isTransientSessionWriteError(null), false);
       assert.equal(isTransientSessionWriteError(undefined), false);
+    },
+  },
+  {
+    name: "password generator produces strong non-ambiguous passwords",
+    run: () => {
+      const password = generateStrongPassword();
+      assert.equal(password.length, 14);
+      assert.match(password, /[A-Z]/);
+      assert.match(password, /[a-z]/);
+      assert.match(password, /[0-9]/);
+      assert.equal(/[0Oo1lI]/.test(password), false, `karakter ambigu ditemukan: ${password}`);
+      assert.notEqual(generateStrongPassword(), generateStrongPassword());
+      assert.equal(generateStrongPassword(8).length, 8);
+      assert.equal(generateStrongPassword(500).length, 128);
+    },
+  },
+  {
+    name: "set password schema enforces length and keeps update schemas password-free",
+    run: () => {
+      assert.equal(setUserPasswordSchema.safeParse({ password: "pendek" }).success, false);
+      assert.equal(setUserPasswordSchema.safeParse({ password: "password-ok" }).success, true);
+      assert.equal(setUserPasswordSchema.safeParse({ password: "password-ok", reason: "" }).success, true);
+
+      const created = createAdminUserSchema.safeParse({ name: "Guru Uji", email: "guru.uji@limo.local", role: "GURU", password: "password-ok" });
+      assert.equal(created.success, true);
+      assert.equal(createAdminUserSchema.safeParse({ name: "Guru Uji", email: "guru.uji@limo.local", role: "GURU" }).success, true);
+
+      const updated = updateGuruSchema.safeParse({ name: "Guru Uji", email: "guru.uji@limo.local", password: "password-ok" });
+      assert.equal(updated.success, true);
+      assert.equal("password" in updated.data, false, "update profil tidak boleh menerima password");
     },
   },
   {

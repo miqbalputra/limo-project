@@ -356,13 +356,21 @@ export async function createAdminUser(actor: Actor, input: unknown) {
   if (existing && !existing.deletedAt) throw new ConflictError("Email sudah digunakan akun lain");
   if (existing && existing.role !== parsed.data.role) throw new ConflictError("Email sudah digunakan role lain");
 
-  const grant = createPasswordResetGrant();
+  const password = parsed.data.password || "";
+  const grant = password ? null : createPasswordResetGrant();
+  const passwordHash = password ? await hashPassword(password) : null;
 
   const item = await prisma.$transaction(async (tx) => {
     const user = existing
       ? await tx.user.update({
           where: { id: existing.id },
-          data: { name: parsed.data.name, role: parsed.data.role, status: "ACTIVE", deletedAt: null },
+          data: {
+            name: parsed.data.name,
+            role: parsed.data.role,
+            status: "ACTIVE",
+            deletedAt: null,
+            ...(passwordHash ? { passwordHash } : {}),
+          },
         })
       : await tx.user.create({
           data: {
@@ -370,7 +378,7 @@ export async function createAdminUser(actor: Actor, input: unknown) {
             name: parsed.data.name,
             role: parsed.data.role,
             status: "ACTIVE",
-            passwordHash: await hashPassword(generateOpaqueToken(18)),
+            passwordHash: passwordHash ?? (await hashPassword(generateOpaqueToken(18))),
           },
         });
 
@@ -388,22 +396,24 @@ export async function createAdminUser(actor: Actor, input: unknown) {
       });
     }
 
-    await tx.passwordResetToken.create({ data: { tokenHash: grant.tokenHash, userId: user.id, expiresAt: grant.expiresAt } });
-    await tx.notifikasi.create({
-      data: {
-        channel: "email",
-        template: "account-activation",
-        recipient: email,
-        subject: "Aktivasi Akun LIMO",
-        body: `Atur password akun LIMO melalui: ${grant.resetUrl}`,
-      },
-    });
-    await tx.auditLog.create({ data: { actorId: actor.id, action: "USER_CREATED", entityType: "User", entityId: user.id, metadata: { role: parsed.data.role } } });
+    if (grant) {
+      await tx.passwordResetToken.create({ data: { tokenHash: grant.tokenHash, userId: user.id, expiresAt: grant.expiresAt } });
+      await tx.notifikasi.create({
+        data: {
+          channel: "email",
+          template: "account-activation",
+          recipient: email,
+          subject: "Aktivasi Akun LIMO",
+          body: `Atur password akun LIMO melalui: ${grant.resetUrl}`,
+        },
+      });
+    }
+    await tx.auditLog.create({ data: { actorId: actor.id, action: "USER_CREATED", entityType: "User", entityId: user.id, metadata: { role: parsed.data.role, passwordSetDirectly: Boolean(passwordHash) } } });
 
     return tx.user.findUniqueOrThrow({ where: { id: user.id }, select: adminUserSelect });
   });
 
-  return { item, activationUrl: logOnlyInDevelopment(grant.resetUrl) };
+  return { item, activationUrl: grant ? logOnlyInDevelopment(grant.resetUrl) : undefined };
 }
 
 export async function updateAdminUser(actor: Actor, userId: string, input: unknown) {

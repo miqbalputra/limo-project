@@ -7,6 +7,7 @@ import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { generateOpaqueToken } from "@/server/security/crypto";
 import { createPaginationMeta } from "@/server/pagination";
+import { setAccountPassword } from "@/server/services/account-password-service";
 import {
   createGuruSchema,
   createSiswaSchema,
@@ -88,17 +89,23 @@ export async function createGuru(actor: Actor, input: unknown) {
     throw new ConflictError("Email sudah digunakan role lain");
   }
 
-  const activation = existing && !existing.deletedAt ? null : createPasswordResetGrant();
+  const password = parsed.data.password || "";
+  const activation = !password && !(existing && !existing.deletedAt) ? createPasswordResetGrant() : null;
+  const passwordHash = password ? await hashPassword(password) : null;
+
   const item = await prisma.$transaction(async (tx) => {
     const user = existing
-      ? await tx.user.update({ where: { id: existing.id }, data: { name: parsed.data.name, status: "ACTIVE", deletedAt: null } })
+      ? await tx.user.update({
+          where: { id: existing.id },
+          data: { name: parsed.data.name, status: "ACTIVE", deletedAt: null, ...(passwordHash ? { passwordHash } : {}) },
+        })
       : await tx.user.create({
           data: {
             email,
             name: parsed.data.name,
             role: "GURU",
             status: "ACTIVE",
-            passwordHash: await createInitialPasswordHash(),
+            passwordHash: passwordHash ?? (await createInitialPasswordHash()),
           },
         });
 
@@ -214,17 +221,23 @@ export async function createWali(actor: Actor, input: unknown) {
     throw new ConflictError("Email sudah digunakan role lain");
   }
 
-  const activation = existing && !existing.deletedAt ? null : createPasswordResetGrant();
+  const password = parsed.data.password || "";
+  const activation = !password && !(existing && !existing.deletedAt) ? createPasswordResetGrant() : null;
+  const passwordHash = password ? await hashPassword(password) : null;
+
   const item = await prisma.$transaction(async (tx) => {
     const user = existing
-      ? await tx.user.update({ where: { id: existing.id }, data: { name: parsed.data.name, status: "ACTIVE", deletedAt: null } })
+      ? await tx.user.update({
+          where: { id: existing.id },
+          data: { name: parsed.data.name, status: "ACTIVE", deletedAt: null, ...(passwordHash ? { passwordHash } : {}) },
+        })
       : await tx.user.create({
           data: {
             email,
             name: parsed.data.name,
             role: "WALI",
             status: "ACTIVE",
-            passwordHash: await createInitialPasswordHash(),
+            passwordHash: passwordHash ?? (await createInitialPasswordHash()),
           },
         });
 
@@ -310,6 +323,20 @@ export async function updateWali(actor: Actor, id: string, input: unknown) {
   });
 
   return { item };
+}
+
+export async function setGuruPassword(actor: Actor, profileId: string, input: unknown) {
+  requireAdmin(actor);
+  const profile = await prisma.guruProfile.findUnique({ where: { id: profileId }, select: { userId: true } });
+  if (!profile) throw new NotFoundError("Profil guru tidak ditemukan");
+  return setAccountPassword(actor, profile.userId, input);
+}
+
+export async function setWaliPassword(actor: Actor, profileId: string, input: unknown) {
+  requireAdmin(actor);
+  const profile = await prisma.waliProfile.findUnique({ where: { id: profileId }, select: { userId: true } });
+  if (!profile) throw new NotFoundError("Profil wali tidak ditemukan");
+  return setAccountPassword(actor, profile.userId, input);
 }
 
 export async function listSiswa(actor: Actor, input: unknown = {}) {

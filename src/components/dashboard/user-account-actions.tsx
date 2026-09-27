@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { SetPasswordPanel } from "@/components/dashboard/set-password-panel";
 import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
 import { requestJson } from "@/lib/api-json-client";
 
@@ -73,6 +74,7 @@ export function UserAccountActions({ userId, active, archived, lastLoginAt, isSe
           </>
         )}
       </div>
+      {!archived && !isSelf ? <SetPasswordPanel endpoint={`${basePath}/password`} /> : null}
       {link ? (
         <div className="mt-3 rounded-xl border border-warning-100 bg-warning-50 p-3 text-theme-xs text-warning-800">
           <p className="font-semibold">{link.label}</p>

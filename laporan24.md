@@ -22,6 +22,12 @@
 - **Aksesibilitas & runner:** `aria-label` pada `<select>` `/guru/bank-soal` dan tombol "Simpan sesi" ≥44px; pembersihan DB `run-e2e-isolated.mjs` diberi retry agar `EBUSY` Windows tidak menggagalkan exit code.
 - **Verifikasi:** `typecheck` lulus · `lint` 0 error · `npm test` **37 lulus** · e2e `accessibility` **5/5**, `production-navigation` **2/2**, `guru-workspace` **2/2** · integrasi `test:week7` lulus (termasuk assertion privacy).
 
+**Pembaruan 26 Sep 2026 — set password langsung untuk akun (Guru/Wali/Admin):**
+- Form tambah pengguna/guru/wali punya field **Password awal** opsional (+ tombol buat password acak, lihat/sembunyikan); bila diisi, akun langsung aktif **tanpa tautan aktivasi**; bila kosong, alur aktivasi lama tetap dipakai.
+- Aksi **Ubah password** di panel aksi akun (detail `/admin/users/[id]`, daftar `/admin/guru`, `/admin/wali`) + endpoint `POST .../password` khusus ADMIN.
+- Keamanan: argon2id, password tidak pernah dikembalikan lewat API/audit/log, set password mencabut semua sesi akun target + audit `USER_PASSWORD_SET`, schema update tidak menerima password.
+- Verifikasi: `npm test` **40 lulus** · e2e `admin-account-password` **3/3** · regresi `accessibility` **5/5**, `week11` **3/3** · integrasi `test:accounts` **11/11**.
+
 **Yang ditambahkan pada sesi ini (di luar temuan audit awal):**
 
 1. **Ujian online — paritas Google Forms (besar)**
