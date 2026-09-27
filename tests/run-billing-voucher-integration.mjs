@@ -125,6 +125,36 @@ try {
   const waliReceipt = await fetch(`${baseUrl}/api/v1/tagihan/${invoice.id}/kuitansi`, { headers: { Cookie: wali.cookie }, redirect: "manual" });
   assert.equal(waliReceipt.status, 200, "Wali pemilik dapat mengunduh kuitansi");
 
+  // Invoice tersedia untuk semua status (termasuk tagihan yang belum lunas).
+  const unpaidInvoice = await fetch(`${baseUrl}/api/v1/tagihan/${invoice2.id}/invoice`, { headers: { Cookie: wali.cookie }, redirect: "manual" });
+  assert.equal(unpaidInvoice.status, 200, "Invoice harus tersedia walau tagihan belum lunas");
+  assert.match(unpaidInvoice.headers.get("content-type") || "", /application\/pdf/);
+  const unpaidBytes = Buffer.from(await unpaidInvoice.arrayBuffer());
+  assert.equal(unpaidBytes.subarray(0, 4).toString("ascii"), "%PDF");
+
+  const invoiceImage = await fetch(`${baseUrl}/api/v1/tagihan/${invoice2.id}/invoice.png`, { headers: { Cookie: wali.cookie }, redirect: "manual" });
+  assert.equal(invoiceImage.status, 200, "Gambar invoice harus tersedia");
+  assert.match(invoiceImage.headers.get("content-type") || "", /image\/png/);
+  const imageBytes = Buffer.from(await invoiceImage.arrayBuffer());
+  assert.equal(imageBytes.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+  ok("Invoice PDF & PNG dapat diunduh walau tagihan belum lunas");
+
+  const adminInvoice = await fetch(`${baseUrl}/api/v1/tagihan/${invoice.id}/invoice`, { headers: { Cookie: admin.cookie }, redirect: "manual" });
+  assert.equal(adminInvoice.status, 200, "Admin dapat mengunduh invoice mana pun");
+  const guruInvoice = await fetch(`${baseUrl}/api/v1/tagihan/${invoice.id}/invoice`, { headers: { Cookie: guru.cookie }, redirect: "manual" });
+  assert.equal(guruInvoice.status, 403, "Guru tidak boleh mengunduh invoice");
+  const anonInvoice = await fetch(`${baseUrl}/api/v1/tagihan/${invoice.id}/invoice`, { redirect: "manual" });
+  assert.equal(anonInvoice.status, 401, "Tanpa sesi harus 401");
+
+  const outsiderEmail = `wali.outsider.${runId}@limo.local`.slice(0, 250);
+  const outsider = await request("/api/v1/admin/users", { method: "POST", cookie: admin.cookie, body: { name: "Wali Outsider", email: outsiderEmail, role: "WALI", password: "Outsider2026" } });
+  assert.equal(outsider.response.status, 201, JSON.stringify(outsider.payload));
+  const outsiderLogin = await login(outsiderEmail, "Outsider2026");
+  const outsiderInvoice = await fetch(`${baseUrl}/api/v1/tagihan/${invoice.id}/invoice`, { headers: { Cookie: outsiderLogin.cookie }, redirect: "manual" });
+  assert.equal(outsiderInvoice.status, 403, "Wali tanpa relasi anak tidak boleh mengunduh invoice");
+  await prisma.user.deleteMany({ where: { email: outsiderEmail } }).catch(() => undefined);
+  ok("Akses invoice dibatasi untuk admin dan wali pemilik");
+
   const inactiveVoucher = await request("/api/v1/admin/voucher", { method: "POST", cookie: admin.cookie, body: { code: inactiveCode, discountType: "FIXED", discountValue: 5000 } });
   assert.equal(inactiveVoucher.response.status, 201, JSON.stringify(inactiveVoucher.payload));
   const inactiveId = inactiveVoucher.payload.data.item.id;

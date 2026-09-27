@@ -94,3 +94,30 @@ test("Admin membuat voucher, Wali memakainya, dan kuitansi PDF dapat diunduh", a
   const bytes = await receipt.body();
   expect(bytes.subarray(0, 4).toString("ascii")).toBe("%PDF");
 });
+
+test("Invoice PDF & PNG tersedia untuk tagihan belum lunas (wali dan admin)", async ({ page }) => {
+  test.setTimeout(180_000);
+
+  await loginViaForm(page, "wali@limo.local");
+  await page.goto("/wali/tagihan");
+  const card = page.locator(`[data-invoice-id="${tagihanId}"]`);
+  await expect(card.getByRole("link", { name: "Unduh invoice PDF" })).toBeVisible({ timeout: 20_000 });
+  await expect(card.getByRole("link", { name: "Unduh invoice (PNG)" })).toBeVisible();
+
+  const pdf = await page.request.get(`/api/v1/tagihan/${tagihanId}/invoice`);
+  expect(pdf.status(), await pdf.text()).toBe(200);
+  expect(pdf.headers()["content-type"]).toContain("application/pdf");
+  expect((await pdf.body()).subarray(0, 4).toString("ascii")).toBe("%PDF");
+
+  const png = await page.request.get(`/api/v1/tagihan/${tagihanId}/invoice.png`);
+  expect(png.status()).toBe(200);
+  expect(png.headers()["content-type"]).toContain("image/png");
+  expect((await png.body()).subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+
+  await page.context().clearCookies();
+  await loginViaForm(page, "admin@limo.local");
+  await page.goto("/admin/tagihan");
+  await page.getByRole("button", { name: "Lihat detail" }).first().click();
+  await expect(page.getByRole("link", { name: "Invoice PDF" }).first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("link", { name: "Invoice PNG" }).first()).toBeVisible();
+});

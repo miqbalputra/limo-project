@@ -570,6 +570,12 @@ function InvoiceDetails({ item }: { item: AdminBillingInvoice }) {
             Unduh kuitansi PDF
           </a>
         ) : null}
+        <a href={`/api/v1/tagihan/${item.id}/invoice`} className="tailadmin-button-outline px-3 py-2 text-theme-xs">
+          Invoice PDF
+        </a>
+        <a href={`/api/v1/tagihan/${item.id}/invoice.png`} className="tailadmin-button-outline px-3 py-2 text-theme-xs">
+          Invoice PNG
+        </a>
         {item.paymentUrl ? (
           <a
             href={item.paymentUrl}

@@ -431,6 +431,10 @@ function WaliInvoiceCard({ item }: { item: WaliBillingInvoice }) {
           Tagihan berstatus {formatUiLabel(item.status).toLowerCase()}.
         </p>
       )}
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-theme-sm">
+        <a href={`/api/v1/tagihan/${item.id}/invoice`} className="font-semibold text-limo-blue-700 underline">Unduh invoice PDF</a>
+        <a href={`/api/v1/tagihan/${item.id}/invoice.png`} className="font-semibold text-limo-blue-700 underline">Unduh invoice (PNG)</a>
+      </div>
       {isPayable ? (
         <VoucherApplyForm
           tagihanId={item.id}

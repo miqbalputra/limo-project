@@ -34,6 +34,12 @@
 - **Pratinjau tab baru:** dari builder (draft di `localStorage` → `/guru/bank-soal/pratinjau`) dan dari tiap kartu (soal tersimpan → `/guru/bank-soal/[id]/pratinjau`), menampilkan versi siswa + kunci & pembahasan.
 - Verifikasi: `npm test` 40 lulus · e2e `bank-soal-builder` 3/3 · regresi `week2` 3/3, `accessibility` 5/5, `quiz-builder` 2/2, `mobile-layout` 16/16.
 
+**Pembaruan 27 Sep 2026 — invoice tagihan PDF & PNG (Tahap 1 dari 3):**
+- Sebelumnya hanya ada kuitansi dan hanya untuk tagihan lunas; kini ada **invoice PDF** (`GET /api/v1/tagihan/[id]/invoice`) untuk **semua status**, plus **gambar PNG** (`/invoice.png` via `next/og`, tanpa dependensi baru).
+- Akses dibatasi: admin semua tagihan, wali hanya tagihan anaknya (tanpa syarat status).
+- UI: tautan unduh di kartu tagihan Wali (semua status) dan tombol Invoice PDF/PNG di detail tagihan Admin.
+- Verifikasi: `npm test` 40 lulus · e2e `billing-voucher` 2/2 · integrasi `test:billing-voucher` **11/11**.
+
 **Yang ditambahkan pada sesi ini (di luar temuan audit awal):**
 
 1. **Ujian online — paritas Google Forms (besar)**

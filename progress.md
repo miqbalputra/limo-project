@@ -20,6 +20,15 @@ Landing page terbaru tersedia di `http://127.0.0.1:3000` saat development server
 - **Runner e2e:** pembersihan database diberi retry agar `EBUSY` (file lock Windows) tidak lagi menggagalkan exit code setelah test lulus.
 - **Blocked (butuh akses):** migrasi/parity MariaDB staging (`npm run db:parity`) dan UAT kredensial nyata (Mayar/SMTP/WhatsApp) belum dijalankan dari environment ini.
 
+## Billing — Invoice Tagihan PDF & PNG (Tahap 1 dari 3) (27 Sep 2026)
+
+- **Masalah sebelumnya:** hanya ada **kuitansi** (`/api/v1/tagihan/[id]/kuitansi`) dan itu pun **hanya untuk tagihan `PAID`** — tidak ada dokumen tagihan untuk yang belum dibayar, dan tidak ada output gambar.
+- **Invoice PDF:** service baru `src/server/services/invoice-pdf-service.ts` (pdfkit A4) + route `GET /api/v1/tagihan/[id]/invoice` — **tersedia untuk semua status** (DRAFT/UNPAID/PENDING/OVERDUE/PAID/CANCELLED/REFUNDED), memuat nomor tagihan, periode, jenis, siswa + program, jatuh tempo, rincian (subtotal/diskon+voucher/total), status yang ditandai jelas, serta instruksi pembayaran atau info pelunasan.
+- **Invoice PNG:** route `GET /api/v1/tagihan/[id]/invoice.png` memakai `ImageResponse` dari `next/og` (tanpa dependensi baru) dengan layout invoice yang sama. Dipilih PNG (bukan JPG) sesuai keputusan pemilik produk.
+- **Akses:** admin (semua tagihan) dan wali (hanya tagihan anaknya) lewat `canAccessInvoice` — sama seperti kuitansi, tapi tanpa syarat status.
+- **UI:** tautan **"Unduh invoice PDF"** & **"Unduh invoice (PNG)"** di kartu tagihan Wali (`/wali/tagihan`, semua status) dan tombol **Invoice PDF** / **Invoice PNG** di panel detail tagihan Admin (`/admin/tagihan`); kuitansi tetap hanya muncul saat lunas.
+- **Verifikasi:** `typecheck` lulus · `lint` 0 error · `npm test` 40 lulus · e2e `billing-voucher` **2/2** · integrasi `test:billing-voucher` **11/11** (termasuk: invoice bisa diunduh saat belum lunas, `%PDF` + signature PNG valid, guru 403, tanpa sesi 401, dan wali tanpa relasi anak 403).
+
 ## Bank Soal: Perbaikan Simpan + Builder & Pratinjau Tab Baru (27 Sep 2026)
 
 - **Bug "soal tidak bisa disimpan" (bukti `masalah/1.PNG`):** `bank-soal-form.tsx` memanggil `event.currentTarget.reset()` **setelah** `await` (React men-null-kan `currentTarget`), sehingga handler melempar `Cannot read properties of null (reading 'reset')` dan **`router.refresh()` tidak pernah jalan**. Soal sebenarnya tersimpan, tetapi UI menampilkan error dan daftar tidak menyegar. Elemen form kini di-capture sebelum `await`.
