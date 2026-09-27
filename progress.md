@@ -1,6 +1,32 @@
 # Progress Implementasi LIMO
 
-Terakhir diperbarui: 26 September 2026
+Terakhir diperbarui: 27 September 2026
+
+## Resume Point (27 Sep 2026)
+
+**Selesai & sudah ter-push** (`main` = `89d8baa`, tree bersih):
+
+- `89d8fc6` — hotfix produksi: kontensi baris `Session` (MariaDB 1020 "Record has changed since last read") saat request paralel.
+- `0e13ff7` — bank soal: perbaikan simpan (`event.currentTarget.reset()` setelah `await` dibersihkan di seluruh form dashboard) + builder khusus `/guru/bank-soal/baru` + pratinjau di tab baru (draft & tersimpan, dengan kunci jawaban).
+- `514fcde` — admin: set password langsung untuk akun Guru/Wali/Admin di `/admin/users` dan `/admin/guru`.
+- `7a0bdc7` — billing tahap 1: invoice tagihan **PDF & PNG** untuk semua status (admin & wali).
+- `d940017` — billing tahap 2: **ubah / arsip / pulihkan** tarif SPP.
+- `89d8baa` — billing tahap 3: **tarif per siswa** + **nominal khusus & biaya tambahan** di form generate.
+
+**Wajib dijalankan saat deploy berikutnya:**
+
+- `npx prisma migrate deploy` → menjalankan migrasi `20260927010000_tarif_per_siswa` (kolom `Tarif.siswaId`). Tanpa ini, tarif per siswa gagal.
+- Untuk dev lokal: `npm run sqlite:setup` agar `dev.db` ikut punya kolom baru.
+
+**Verifikasi terakhir (semua hijau):**
+
+- `npm run typecheck` lulus · `npm run lint` 0 error · `npm test` **43 lulus**
+- e2e: `billing-voucher` 4/4 · `bank-soal-builder` 3/3 · `guru-workspace` 2/2 · `accessibility` 5/5 · `week11` 3/3 · `mobile-layout` 16/16 · `quiz-builder` 2/2 · `production-navigation` 2/2 (baseline screenshot kartu bank soal diperbarui karena ada tautan pratinjau)
+- integrasi: `test:week7` lulus · `test:accounts` 11/11 · `test:billing-voucher` 13/13
+
+**Belum dikerjakan / blocked (butuh akses infra):** migrasi + `npm run db:parity` MariaDB staging, UAT kredensial nyata (Mayar/SMTP/WhatsApp, backup off-site), serta harden lanjutan yang sudah tercatat (CSP, 2FA, observability, rate limit Redis).
+
+**Catatan lokal:** folder `masalah/` (screenshot bukti dari pemilik produk) sengaja **tidak** di-commit. Bila `tsc` memberi error aneh di `.next/dev/types/*`, itu artefak dev basi (isu lama) — hapus `.next` lalu ulang.
 
 ## Status Saat Ini
 
