@@ -20,6 +20,17 @@ Landing page terbaru tersedia di `http://127.0.0.1:3000` saat development server
 - **Runner e2e:** pembersihan database diberi retry agar `EBUSY` (file lock Windows) tidak lagi menggagalkan exit code setelah test lulus.
 - **Blocked (butuh akses):** migrasi/parity MariaDB staging (`npm run db:parity`) dan UAT kredensial nyata (Mayar/SMTP/WhatsApp) belum dijalankan dari environment ini.
 
+## Billing — Tarif per Siswa + Penyesuaian Nominal (Tahap 3 dari 3) (27 Sep 2026)
+
+- **Tarif khusus per siswa:** kolom baru `Tarif.siswaId` (relasi ke `Siswa`, `onDelete: SetNull`, index `[siswaId, effectiveFrom]`) + migrasi `20260927010000_tarif_per_siswa`. Prioritas penagihan kini **siswa > kelas > program**, dengan tie-break `effectiveFrom` terbaru.
+- **Pemilihan tarif** dipindah ke fungsi murni `pickTarifForStudent` (`src/server/billing/pick-tarif.ts`) sehingga bisa diuji unit; `generateMonthlyInvoices` mengambil kandidat lalu memilih memakai fungsi itu.
+- **Penyesuaian manual di form generate:** dua input opsional — **Nominal khusus** (menggantikan tarif) dan **Biaya tambahan** (boleh minus untuk potongan). Disimpan konsisten: `subtotal` = dasar, `discountAmount` = potongan, `amount` = total akhir, dengan penanda "· nominal khusus" / "· biaya tambahan" di deskripsi tagihan. Nilai penyesuaian ikut tampil di panel pratinjau sebelum konfirmasi. Nominal akhir ≤ 0 ditolak sebagai kegagalan baris.
+- **UI:** `TarifForm` dan aksi Ubah tarif kini punya pilihan **Siswa** (opsional); daftar tarif menampilkan "Khusus <nama siswa>".
+- **Parity:** `scripts/verify-db-parity.mjs` menambahkan `Tarif.siswaId`.
+- **Catatan:** penyesuaian manual (`extraFee`) memakai kolom `discountAmount`; bila voucher kemudian dipakai pada tagihan yang sama, nilai diskon voucher akan menggantikan penanda potongan manual itu.
+- **Verifikasi:** `typecheck` lulus · `lint` 0 error · `npm test` **43 lulus** · e2e `billing-voucher` **4/4** · integrasi `test:billing-voucher` **13/13** (prioritas siswa>kelas>program + subtotal/diskon/amount dari penyesuaian manual).
+- **Wajib saat deploy:** jalankan `npx prisma migrate deploy` di server (kolom `Tarif.siswaId` belum ada sampai migrasi dijalankan).
+
 ## Billing — Edit & Arsip Tarif (Tahap 2 dari 3) (27 Sep 2026)
 
 - **Masalah sebelumnya:** modul tariff hanya punya **create + list** — tidak ada cara mengubah nominal, menonaktifkan tarif lama, atau memulihkannya (field `isActive` tak pernah di-set false), jadi menaikkan SPP berarti menumpuk tarif baru tanpa bisa "menutup" yang lama.

@@ -42,6 +42,7 @@ const REQUIRED_COLUMNS = [
   ["Voucher", "kelasId"],
   ["FileAsset", "diskusiBalasanId"],
   ["FileAsset", "diskusiThreadId"],
+  ["Tarif", "siswaId"],
 ];
 
 function firstLine(error) {

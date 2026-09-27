@@ -46,6 +46,12 @@
 - Validasi tanggal tarif diperketat memakai validator tanggal nyata (sebelumnya regex bisa meloloskan `2026-13-01`).
 - Verifikasi: `npm test` 41 lulus · e2e `billing-voucher` 3/3 · integrasi `test:billing-voucher` **12/12**.
 
+**Pembaruan 27 Sep 2026 — tarif per siswa + penyesuaian nominal (Tahap 3 dari 3):**
+- Tarif kini bisa ditargetkan ke **siswa** tertentu (`Tarif.siswaId` + migrasi `20260927010000_tarif_per_siswa`); prioritas penagihan **siswa > kelas > program**, tie-break tanggal berlaku terbaru (fungsi murni `pickTarifForStudent`, ada unit test).
+- Form generate tagihan punya **Nominal khusus** dan **Biaya tambahan** (boleh minus) yang ikut tampil di pratinjau; tersimpan konsisten sebagai `subtotal`/`discountAmount`/`amount`.
+- Verifikasi: `npm test` 43 lulus · e2e `billing-voucher` 4/4 · integrasi `test:billing-voucher` **13/13**.
+- **Wajib sebelum deploy:** `npx prisma migrate deploy` di server (kolom `Tarif.siswaId`).
+
 **Yang ditambahkan pada sesi ini (di luar temuan audit awal):**
 
 1. **Ujian online — paritas Google Forms (besar)**

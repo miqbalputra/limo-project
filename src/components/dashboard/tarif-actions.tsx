@@ -16,9 +16,10 @@ export type TarifRow = {
   isActive: boolean;
   programId: string | null;
   kelasId: string | null;
+  siswaId: string | null;
 };
 
-export function TarifActions({ tarif, programs, kelas }: { tarif: TarifRow; programs: Option[]; kelas: Option[] }) {
+export function TarifActions({ tarif, programs, kelas, siswa }: { tarif: TarifRow; programs: Option[]; kelas: Option[]; siswa: Option[] }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
@@ -39,6 +40,7 @@ export function TarifActions({ tarif, programs, kelas }: { tarif: TarifRow; prog
           name: String(data.get("name") || ""),
           programId: String(data.get("programId") || ""),
           kelasId: String(data.get("kelasId") || ""),
+          siswaId: String(data.get("siswaId") || ""),
           amount: Number(data.get("amount") || 0),
           effectiveFrom: String(data.get("effectiveFrom") || ""),
           effectiveTo: String(data.get("effectiveTo") || ""),
@@ -96,6 +98,10 @@ export function TarifActions({ tarif, programs, kelas }: { tarif: TarifRow; prog
             </select>
           </div>
           <input name="amount" required type="number" min={1} defaultValue={tarif.amount} aria-label="Nominal tarif" className="tailadmin-input min-h-11" />
+          <select name="siswaId" defaultValue={tarif.siswaId || ""} aria-label="Siswa tarif" className="tailadmin-input min-h-11">
+            <option value="">Tanpa siswa (berlaku per program/kelas)</option>
+            {siswa.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
           <div className="grid gap-2 sm:grid-cols-2">
             <input name="effectiveFrom" required type="date" defaultValue={tarif.effectiveFrom} aria-label="Berlaku dari" className="tailadmin-input min-h-11" />
             <input name="effectiveTo" type="date" defaultValue={tarif.effectiveTo ?? ""} aria-label="Berlaku sampai" className="tailadmin-input min-h-11" />

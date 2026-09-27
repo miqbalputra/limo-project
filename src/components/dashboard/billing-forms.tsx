@@ -4,16 +4,17 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { requestJson } from "@/lib/api-json-client";
+import { formatRupiah } from "@/lib/money";
 
 type Option = { id: string; name: string };
-type InvoiceGenerationInput = { period: string; dueDate: string; jenis: string; dryRun: boolean };
+type InvoiceGenerationInput = { period: string; dueDate: string; jenis: string; dryRun: boolean; amountOverride?: number; extraFee?: number };
 type InvoiceGenerationResult = { created: number; skipped: number; failed: number; failures: string[]; dryRun: boolean };
 
 async function postJson(path: string, body: Record<string, string | number | boolean>) {
   await requestJson(path, { method: "POST", body, fallbackMessage: "Data gagal diproses" });
 }
 
-export function TarifForm({ programs, kelas }: { programs: Option[]; kelas: Option[] }) {
+export function TarifForm({ programs, kelas, siswa }: { programs: Option[]; kelas: Option[]; siswa: Option[] }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,6 +31,7 @@ export function TarifForm({ programs, kelas }: { programs: Option[]; kelas: Opti
         name: String(data.get("name") || ""),
         programId: String(data.get("programId") || ""),
         kelasId: String(data.get("kelasId") || ""),
+        siswaId: String(data.get("siswaId") || ""),
         amount: Number(data.get("amount") || 0),
         effectiveFrom: String(data.get("effectiveFrom") || ""),
         effectiveTo: String(data.get("effectiveTo") || ""),
@@ -46,6 +48,7 @@ export function TarifForm({ programs, kelas }: { programs: Option[]; kelas: Opti
   return (
     <form onSubmit={onSubmit} className="tailadmin-card grid gap-3 p-5">
       <h2 className="font-semibold text-gray-900">Tambah Tarif</h2>
+      <p className="text-theme-xs text-gray-500">Tarif khusus <strong>siswa</strong> mengalahkan tarif kelas, dan tarif kelas mengalahkan tarif program.</p>
       {error ? <p className="tailadmin-alert-error">{error}</p> : null}
       <input name="name" required placeholder="Nama tarif" className="tailadmin-input" />
       <div className="grid gap-3 sm:grid-cols-2">
@@ -58,6 +61,10 @@ export function TarifForm({ programs, kelas }: { programs: Option[]; kelas: Opti
           {kelas.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
       </div>
+      <select name="siswaId" aria-label="Siswa tarif" className="tailadmin-input">
+        <option value="">Opsional siswa spesifik (khusus anak ini)</option>
+        {siswa.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+      </select>
       <input name="amount" required type="number" min={1} placeholder="Nominal" className="tailadmin-input" />
       <div className="grid gap-3 sm:grid-cols-2">
         <input name="effectiveFrom" required type="date" className="tailadmin-input" />
@@ -86,11 +93,15 @@ export function GenerateInvoiceForm() {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const input = {
+    const amountOverrideRaw = String(data.get("amountOverride") || "").trim();
+    const extraFeeRaw = String(data.get("extraFee") || "").trim();
+    const input: InvoiceGenerationInput = {
       period: String(data.get("period") || ""),
       dueDate: String(data.get("dueDate") || ""),
       jenis: String(data.get("jenis") || "SPP"),
       dryRun: true,
+      ...(amountOverrideRaw ? { amountOverride: Number(amountOverrideRaw) } : {}),
+      ...(extraFeeRaw ? { extraFee: Number(extraFeeRaw) } : {}),
     };
     setError("");
     setSuccess("");
@@ -134,10 +145,15 @@ export function GenerateInvoiceForm() {
         <input name="period" required type="month" aria-label="Periode tagihan" className="tailadmin-input" />
         <input name="dueDate" required type="date" aria-label="Tanggal jatuh tempo" className="tailadmin-input" />
         <input name="jenis" defaultValue="SPP" aria-label="Jenis tagihan" className="tailadmin-input" />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <input name="amountOverride" type="number" min={1} aria-label="Nominal khusus" placeholder="Nominal khusus (opsional)" className="tailadmin-input" />
+          <input name="extraFee" type="number" aria-label="Biaya tambahan" placeholder="Biaya tambahan (opsional, boleh minus)" className="tailadmin-input" />
+        </div>
+        <p className="text-theme-xs text-gray-500">Kosongkan keduanya untuk memakai tarif. Nominal khusus menggantikan tarif; biaya tambahan ditambahkan di atasnya (isi minus untuk potongan).</p>
         <button disabled={isSubmitting} className="tailadmin-button-primary">
           {isSubmitting ? "Meninjau..." : "Tinjau tagihan"}
         </button>
-        {preview ? <section aria-live="polite" className="rounded-xl border border-limo-blue-100 bg-limo-blue-50 p-4"><p className="font-semibold text-limo-blue-800">Tinjau sebelum membuat tagihan</p><p className="mt-1 text-theme-sm text-limo-blue-700">Periode {preview.input.period} / {preview.input.jenis}. Tidak ada data yang diubah pada tahap ini.</p><div className="mt-3 grid grid-cols-3 gap-2 text-center"><ReviewStat label="Siap dibuat" value={preview.result.created} /><ReviewStat label="Dilewati" value={preview.result.skipped} /><ReviewStat label="Perlu dicek" value={preview.result.failed} /></div>{preview.result.failures.length > 0 ? <ul className="mt-3 list-disc space-y-1 pl-5 text-theme-xs text-limo-blue-700">{preview.result.failures.slice(0, 5).map((failure) => <li key={failure}>{failure}</li>)}</ul> : null}{preview.result.created > 0 ? <button type="button" onClick={() => setIsConfirmOpen(true)} disabled={isSubmitting} className="mt-4 inline-flex rounded-lg bg-limo-blue-500 px-4 py-2.5 text-theme-sm font-semibold text-white hover:bg-limo-blue-600 disabled:cursor-not-allowed disabled:opacity-50">Buat {preview.result.created} tagihan</button> : <p className="mt-3 text-theme-xs text-limo-blue-700">Tidak ada tagihan baru yang dapat dibuat dari pratinjau ini.</p>}</section> : null}
+        {preview ? <section aria-live="polite" className="rounded-xl border border-limo-blue-100 bg-limo-blue-50 p-4"><p className="font-semibold text-limo-blue-800">Tinjau sebelum membuat tagihan</p><p className="mt-1 text-theme-sm text-limo-blue-700">Periode {preview.input.period} / {preview.input.jenis}. Tidak ada data yang diubah pada tahap ini.</p>{preview.input.amountOverride !== undefined || preview.input.extraFee ? <p className="mt-1 text-theme-sm font-semibold text-limo-blue-800">Penyesuaian: {preview.input.amountOverride !== undefined ? `nominal khusus ${formatRupiah(preview.input.amountOverride)}` : "memakai tarif"}{preview.input.extraFee ? ` ${preview.input.extraFee > 0 ? "ditambah" : "dikurangi"} ${formatRupiah(Math.abs(preview.input.extraFee))}` : ""}.</p> : null}<div className="mt-3 grid grid-cols-3 gap-2 text-center"><ReviewStat label="Siap dibuat" value={preview.result.created} /><ReviewStat label="Dilewati" value={preview.result.skipped} /><ReviewStat label="Perlu dicek" value={preview.result.failed} /></div>{preview.result.failures.length > 0 ? <ul className="mt-3 list-disc space-y-1 pl-5 text-theme-xs text-limo-blue-700">{preview.result.failures.slice(0, 5).map((failure) => <li key={failure}>{failure}</li>)}</ul> : null}{preview.result.created > 0 ? <button type="button" onClick={() => setIsConfirmOpen(true)} disabled={isSubmitting} className="mt-4 inline-flex rounded-lg bg-limo-blue-500 px-4 py-2.5 text-theme-sm font-semibold text-white hover:bg-limo-blue-600 disabled:cursor-not-allowed disabled:opacity-50">Buat {preview.result.created} tagihan</button> : <p className="mt-3 text-theme-xs text-limo-blue-700">Tidak ada tagihan baru yang dapat dibuat dari pratinjau ini.</p>}</section> : null}
       </form>
       <ConfirmDialog open={isConfirmOpen} title="Buat tagihan dari hasil tinjauan?" description={preview ? <>Sistem akan membuat hingga <strong>{preview.result.created} tagihan</strong> untuk periode {preview.input.period}. Proses ini mengirim notifikasi kepada Wali untuk tagihan baru.</> : ""} confirmLabel="Ya, buat tagihan" variant="destructive" isBusy={isSubmitting} error={error} onClose={() => { if (!isSubmitting) { setIsConfirmOpen(false); setError(""); } }} onConfirm={() => void confirmGeneration()} />
     </>

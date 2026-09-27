@@ -207,7 +207,43 @@ try {
 
   const missingTarif = await request("/api/v1/admin/tarif/tidak-ada", { method: "PATCH", cookie: admin.cookie, body: { amount: 10000 } });
   assert.equal(missingTarif.response.status, 404, JSON.stringify(missingTarif.payload));
+
+  // Tarif per siswa (prioritas siswa > kelas > program) + penyesuaian manual.
+  const siswaInfo = await prisma.siswa.findUniqueOrThrow({ where: { id: siswaId }, select: { programId: true, enrollments: { where: { status: "ACTIVE" }, take: 1, select: { kelasId: true } } } });
+  const kelasId = siswaInfo.enrollments[0]?.kelasId;
+  assert.ok(kelasId, "Siswa uji harus memiliki kelas aktif");
+
+  const programTarif = await prisma.tarif.create({ data: { name: `Program ${runId}`.slice(0, 120), programId: siswaInfo.programId, amount: 100000, effectiveFrom: new Date("2099-01-01T00:00:00.000Z") }, select: { id: true } });
+  const kelasTarif = await prisma.tarif.create({ data: { name: `Kelas ${runId}`.slice(0, 120), kelasId, amount: 200000, effectiveFrom: new Date("2099-01-01T00:00:00.000Z") }, select: { id: true } });
+  const tarifKhususSiswa = await request("/api/v1/admin/tarif", { method: "POST", cookie: admin.cookie, body: { name: `Siswa ${runId}`.slice(0, 120), siswaId, amount: 333000, effectiveFrom: "2099-01-01" } });
+  assert.equal(tarifKhususSiswa.response.status, 201, JSON.stringify(tarifKhususSiswa.payload));
+  created.tarifIds.push(programTarif.id, kelasTarif.id, tarifKhususSiswa.payload.data.item.id);
+
+  const withoutScope = await request("/api/v1/admin/tarif", { method: "POST", cookie: admin.cookie, body: { name: `Tanpa cakupan ${runId}`.slice(0, 120), amount: 50000, effectiveFrom: "2099-01-01" } });
+  assert.equal(withoutScope.response.status, 400, JSON.stringify(withoutScope.payload));
+
+  const priorityPeriod = "2099-03";
+  const priorityJenis = `SPP-PRIORITY-${runId}`.slice(0, 60);
+  const priorityGenerate = await request("/api/v1/admin/tagihan/generate", { method: "POST", cookie: admin.cookie, body: { period: priorityPeriod, dueDate: `${priorityPeriod}-10`, jenis: priorityJenis, dryRun: false } });
+  assert.equal(priorityGenerate.response.status, 200, JSON.stringify(priorityGenerate.payload));
+  const priorityInvoice = await prisma.tagihan.findFirstOrThrow({ where: { siswaId, jenis: priorityJenis }, select: { amount: true, tarifId: true } });
+  assert.equal(Number(priorityInvoice.amount), 333000, "Tarif khusus siswa harus menang atas tarif kelas/program");
+  assert.equal(priorityInvoice.tarifId, tarifKhususSiswa.payload.data.item.id);
+
+  const feePeriod = "2099-04";
+  const feeJenis = `SPP-FEE-${runId}`.slice(0, 60);
+  const feeGenerate = await request("/api/v1/admin/tagihan/generate", { method: "POST", cookie: admin.cookie, body: { period: feePeriod, dueDate: `${feePeriod}-10`, jenis: feeJenis, dryRun: false, amountOverride: 500000, extraFee: -25000 } });
+  assert.equal(feeGenerate.response.status, 200, JSON.stringify(feeGenerate.payload));
+  const feeInvoice = await prisma.tagihan.findFirstOrThrow({ where: { siswaId, jenis: feeJenis }, select: { amount: true, subtotal: true, discountAmount: true } });
+  assert.equal(Number(feeInvoice.subtotal), 500000);
+  assert.equal(Number(feeInvoice.discountAmount), 25000);
+  assert.equal(Number(feeInvoice.amount), 475000);
+
+  const invalidGenerate = await request("/api/v1/admin/tagihan/generate", { method: "POST", cookie: admin.cookie, body: { period: "2099-06", dueDate: "2099-06-10", jenis: `SPP-BAD-${runId}`.slice(0, 60), dryRun: true, amountOverride: -5 } });
+  assert.equal(invalidGenerate.response.status, 400, JSON.stringify(invalidGenerate.payload));
+  ok("Tarif per siswa diprioritaskan dan penyesuaian nominal dihormati");
 } finally {
+  await prisma.tagihan.deleteMany({ where: { jenis: { contains: runId } } }).catch(() => undefined);
   await prisma.tarif.deleteMany({ where: { id: { in: created.tarifIds } } }).catch(() => undefined);
   await prisma.pembayaran.deleteMany({ where: { tagihanId: { in: created.tagihanIds } } }).catch(() => undefined);
   await prisma.tagihan.deleteMany({ where: { id: { in: created.tagihanIds } } }).catch(() => undefined);

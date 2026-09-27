@@ -6,6 +6,7 @@ import { createTarifSchema, generateInvoiceSchema, updateTarifSchema, type Pemba
 import { notifyWaliForStudents } from "./notification-service.ts";
 import { getActivePaymentGateways } from "./payment-gateway-service.ts";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "../pagination.ts";
+import { pickTarifForStudent } from "../billing/pick-tarif.ts";
 
 function requireAdmin(actor: Actor) {
   if (actor.role !== "ADMIN") {
@@ -40,6 +41,7 @@ const tarifSelect = {
   isActive: true,
   program: { select: { id: true, name: true } },
   kelas: { select: { id: true, name: true } },
+  siswa: { select: { id: true, name: true } },
 } as const;
 
 export async function listTarif(actor: Actor) {
@@ -108,8 +110,8 @@ export async function createTarif(actor: Actor, input: unknown) {
     throw new ValidationError("Data tarif belum valid", parsed.error.flatten().fieldErrors);
   }
 
-  if (!parsed.data.programId && !parsed.data.kelasId) {
-    throw new ValidationError("Tarif wajib terkait program atau kelas");
+  if (!parsed.data.programId && !parsed.data.kelasId && !parsed.data.siswaId) {
+    throw new ValidationError("Tarif wajib terkait siswa, kelas, atau program");
   }
 
   const item = await prisma.tarif.create({
@@ -117,6 +119,7 @@ export async function createTarif(actor: Actor, input: unknown) {
       name: parsed.data.name,
       programId: parsed.data.programId || undefined,
       kelasId: parsed.data.kelasId || undefined,
+      siswaId: parsed.data.siswaId || undefined,
       amount: parsed.data.amount,
       effectiveFrom: parseDate(parsed.data.effectiveFrom),
       effectiveTo: parsed.data.effectiveTo ? parseDate(parsed.data.effectiveTo) : undefined,
@@ -141,7 +144,7 @@ export async function updateTarif(actor: Actor, id: string, input: unknown) {
 
   const existing = await prisma.tarif.findUnique({
     where: { id },
-    select: { id: true, programId: true, kelasId: true, effectiveFrom: true, effectiveTo: true },
+    select: { id: true, programId: true, kelasId: true, siswaId: true, effectiveFrom: true, effectiveTo: true },
   });
   if (!existing) {
     throw new NotFoundError("Tarif tidak ditemukan");
@@ -150,9 +153,10 @@ export async function updateTarif(actor: Actor, id: string, input: unknown) {
   const patch = parsed.data;
   const nextProgramId = patch.programId !== undefined ? patch.programId || null : existing.programId;
   const nextKelasId = patch.kelasId !== undefined ? patch.kelasId || null : existing.kelasId;
+  const nextSiswaId = patch.siswaId !== undefined ? patch.siswaId || null : existing.siswaId;
 
-  if (!nextProgramId && !nextKelasId) {
-    throw new ValidationError("Tarif wajib terkait program atau kelas");
+  if (!nextProgramId && !nextKelasId && !nextSiswaId) {
+    throw new ValidationError("Tarif wajib terkait siswa, kelas, atau program");
   }
 
   const nextEffectiveFrom = patch.effectiveFrom !== undefined ? parseDate(patch.effectiveFrom) : existing.effectiveFrom;
@@ -169,6 +173,7 @@ export async function updateTarif(actor: Actor, id: string, input: unknown) {
     amount?: number;
     programId?: string | null;
     kelasId?: string | null;
+    siswaId?: string | null;
     effectiveFrom?: Date;
     effectiveTo?: Date | null;
     isActive?: boolean;
@@ -178,6 +183,7 @@ export async function updateTarif(actor: Actor, id: string, input: unknown) {
   if (patch.amount !== undefined) data.amount = patch.amount;
   if (patch.programId !== undefined) data.programId = nextProgramId;
   if (patch.kelasId !== undefined) data.kelasId = nextKelasId;
+  if (patch.siswaId !== undefined) data.siswaId = nextSiswaId;
   if (patch.effectiveFrom !== undefined) data.effectiveFrom = nextEffectiveFrom;
   if (patch.effectiveTo !== undefined) data.effectiveTo = nextEffectiveTo;
   if (patch.isActive !== undefined) data.isActive = patch.isActive;
@@ -442,15 +448,17 @@ export async function generateMonthlyInvoices(actor: Actor | null, input: unknow
 
   for (const student of students) {
     const kelasId = student.enrollments[0]?.kelasId;
-    const tarif = await prisma.tarif.findFirst({
+    const candidates = await prisma.tarif.findMany({
       where: {
         isActive: true,
         effectiveFrom: { lte: period },
         OR: [{ effectiveTo: null }, { effectiveTo: { gte: period } }],
-        AND: [{ OR: [{ kelasId }, { programId: student.programId }] }],
+        AND: [{ OR: [{ siswaId: student.id }, { kelasId }, { programId: student.programId }] }],
       },
-      orderBy: [{ kelasId: "desc" }, { effectiveFrom: "desc" }],
+      select: { id: true, amount: true, effectiveFrom: true, programId: true, kelasId: true, siswaId: true },
+      orderBy: { effectiveFrom: "desc" },
     });
+    const tarif = pickTarifForStudent(candidates, { siswaId: student.id, kelasId, programId: student.programId });
 
     if (!tarif) {
       failures.push(`Tarif tidak ditemukan untuk ${student.name}`);
@@ -467,6 +475,21 @@ export async function generateMonthlyInvoices(actor: Actor | null, input: unknow
       continue;
     }
 
+    const baseAmount = parsed.data.amountOverride ?? Number(tarif.amount);
+    const extraFee = parsed.data.extraFee ?? 0;
+    const finalAmount = baseAmount + extraFee;
+
+    if (finalAmount <= 0) {
+      failures.push(`Nominal tagihan tidak valid untuk ${student.name}`);
+      continue;
+    }
+
+    const adjustmentNote = parsed.data.amountOverride !== undefined
+      ? " · nominal khusus"
+      : extraFee !== 0
+        ? " · biaya tambahan"
+        : "";
+
     if (parsed.data.dryRun) {
       created += 1;
       continue;
@@ -479,8 +502,10 @@ export async function generateMonthlyInvoices(actor: Actor | null, input: unknow
           tarifId: tarif.id,
           periode: period,
           jenis: parsed.data.jenis,
-          description: `${parsed.data.jenis} ${parsed.data.period}`,
-          amount: tarif.amount,
+          description: `${parsed.data.jenis} ${parsed.data.period}${adjustmentNote}`,
+          subtotal: baseAmount,
+          discountAmount: extraFee < 0 ? Math.abs(extraFee) : 0,
+          amount: finalAmount,
           status: "UNPAID",
           dueDate,
         },

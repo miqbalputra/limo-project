@@ -681,6 +681,7 @@ model Siswa {
   remedialParticipants   RemedialParticipant[]
   revisionRequests       AssignmentRevisionRequest[]
   tagihan               Tagihan[]
+  tarif                 Tarif[]
   ujianAttempts         UjianAttempt[]
   sertifikat            Sertifikat[]
 }
@@ -1584,6 +1585,8 @@ model Tarif {
   program       Program?  @relation(fields: [programId], references: [id], onDelete: Restrict)
   kelasId       String?
   kelas         Kelas?    @relation(fields: [kelasId], references: [id], onDelete: Restrict)
+  siswaId       String?
+  siswa         Siswa?    @relation(fields: [siswaId], references: [id], onDelete: SetNull)
   amount        Decimal   @db.Decimal(14, 2)
   effectiveFrom DateTime
   effectiveTo   DateTime?
@@ -1594,6 +1597,7 @@ model Tarif {
 
   @@index([programId, effectiveFrom])
   @@index([kelasId, effectiveFrom])
+  @@index([siswaId, effectiveFrom])
 }
 
 model Voucher {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { listKelas, listPrograms } from "@/server/services/master-data-service";
+import { listSiswa } from "@/server/services/people-service";
 import { getTagihanSummary, listTagihan, listTarif } from "@/server/services/billing-service";
 import { listVouchers } from "@/server/services/voucher-service";
 import { listPaymentGatewaySettings } from "@/server/services/payment-gateway-service";
@@ -25,7 +26,7 @@ export default async function AdminTagihanPage({ searchParams }: { searchParams:
   const requestedStatus = String(Array.isArray(params.status) ? params.status[0] || "" : params.status || "");
   const parsedStatus = tagihanStatusSchema.safeParse(requestedStatus);
   const status = parsedStatus.success ? parsedStatus.data : undefined;
-  const [{ items: tagihan, pagination: tagihanPagination }, { items: tarif }, { items: programs }, { items: kelas }, summary, gatewaySettings, { items: vouchers }] = await Promise.all([
+  const [{ items: tagihan, pagination: tagihanPagination }, { items: tarif }, { items: programs }, { items: kelas }, summary, gatewaySettings, { items: vouchers }, { items: siswaList }] = await Promise.all([
     listTagihan(actor, { page, pageSize: 20 }, { search, status }),
     listTarif(actor),
     listPrograms(actor),
@@ -33,9 +34,11 @@ export default async function AdminTagihanPage({ searchParams }: { searchParams:
     getTagihanSummary(actor),
     listPaymentGatewaySettings(actor),
     listVouchers(actor),
+    listSiswa(actor, { page: 1, pageSize: 100 }),
   ]);
   const activeGatewaySettings = gatewaySettings.filter((item) => item.enabled && item.apiKeyConfigured);
   const gatewayLabel = activeGatewaySettings.length > 0 ? activeGatewaySettings.map((item) => item.provider === "mayar" ? "Mayar" : "Pakasir").join(" + ") : "Belum dikonfigurasi";
+  const siswaOptions = siswaList.map((item) => ({ id: item.id, name: `${item.name} (${item.nomorInduk})` }));
 
   return (
     <main className="space-y-6">
@@ -62,7 +65,7 @@ export default async function AdminTagihanPage({ searchParams }: { searchParams:
       <section id="invoice-tools" className="space-y-4">
         <SectionHeader title="Pusat operasional" description="Siapkan tarif, voucher, dan buat tagihan bulanan tanpa meninggalkan halaman keuangan." />
         <div className="grid gap-4 lg:grid-cols-3">
-          <TarifForm programs={programs.map((program) => ({ id: program.id, name: program.name }))} kelas={kelas.map((item) => ({ id: item.id, name: `${item.program.name} - ${item.name}` }))} />
+          <TarifForm programs={programs.map((program) => ({ id: program.id, name: program.name }))} kelas={kelas.map((item) => ({ id: item.id, name: `${item.program.name} - ${item.name}` }))} siswa={siswaOptions} />
           <GenerateInvoiceForm />
           <VoucherForm programs={programs.map((program) => ({ id: program.id, name: program.name }))} kelas={kelas.map((item) => ({ id: item.id, name: `${item.program.name} - ${item.name}` }))} />
         </div>
@@ -79,7 +82,7 @@ export default async function AdminTagihanPage({ searchParams }: { searchParams:
       <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <article id="tariff-catalog" className="tailadmin-card overflow-hidden">
           <div className="border-b border-gray-100 px-5 py-4 sm:px-6"><div className="flex items-center justify-between gap-3"><div><p className="text-theme-xs font-semibold uppercase tracking-[0.16em] text-limo-blue-700">Daftar tarif</p><h2 className="mt-1 font-semibold text-gray-900">Tarif aktif</h2><p className="mt-1 text-theme-xs text-gray-500">Tarif digunakan saat tagihan bulanan dibuat.</p></div><span className="rounded-full bg-limo-blue-50 px-2.5 py-1 text-[10px] font-semibold text-limo-blue-700">{tarif.filter((item) => item.isActive).length} aktif</span></div></div>
-          {tarif.length > 0 ? <div className="divide-y divide-gray-100">{tarif.map((item) => <div key={item.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold text-gray-800">{item.name}</p><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${item.isActive ? "bg-success-50 text-success-700" : "bg-gray-100 text-gray-500"}`}>{item.isActive ? "Aktif" : "Arsip"}</span></div><p className="mt-1 text-theme-sm text-gray-500">{item.program?.name || item.kelas?.name || "Semua program"}</p><p className="mt-1 text-theme-xs text-gray-400">Berlaku {formatDate(item.effectiveFrom)}{item.effectiveTo ? ` sampai ${formatDate(item.effectiveTo)}` : ""}</p></div><div className="shrink-0"><p className="text-lg font-semibold text-gray-900"><Money value={Number(item.amount)} /><span className="ml-1 text-theme-xs font-normal text-gray-400">/ bulan</span></p><TarifActions tarif={{ id: item.id, name: item.name, amount: Number(item.amount), effectiveFrom: toDateInput(item.effectiveFrom), effectiveTo: item.effectiveTo ? toDateInput(item.effectiveTo) : null, isActive: item.isActive, programId: item.program?.id ?? null, kelasId: item.kelas?.id ?? null }} programs={programs.map((program) => ({ id: program.id, name: program.name }))} kelas={kelas.map((entry) => ({ id: entry.id, name: `${entry.program.name} - ${entry.name}` }))} /></div></div>)}</div> : <p className="px-6 py-10 text-center text-theme-sm text-gray-500">Belum ada tarif. Tambahkan tarif melalui formulir di atas.</p>}
+          {tarif.length > 0 ? <div className="divide-y divide-gray-100">{tarif.map((item) => <div key={item.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold text-gray-800">{item.name}</p><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${item.isActive ? "bg-success-50 text-success-700" : "bg-gray-100 text-gray-500"}`}>{item.isActive ? "Aktif" : "Arsip"}</span></div><p className="mt-1 text-theme-sm text-gray-500">{item.siswa ? `Khusus ${item.siswa.name}` : item.program?.name || item.kelas?.name || "Semua program"}</p><p className="mt-1 text-theme-xs text-gray-400">Berlaku {formatDate(item.effectiveFrom)}{item.effectiveTo ? ` sampai ${formatDate(item.effectiveTo)}` : ""}</p></div><div className="shrink-0"><p className="text-lg font-semibold text-gray-900"><Money value={Number(item.amount)} /><span className="ml-1 text-theme-xs font-normal text-gray-400">/ bulan</span></p><TarifActions tarif={{ id: item.id, name: item.name, amount: Number(item.amount), effectiveFrom: toDateInput(item.effectiveFrom), effectiveTo: item.effectiveTo ? toDateInput(item.effectiveTo) : null, isActive: item.isActive, programId: item.program?.id ?? null, kelasId: item.kelas?.id ?? null, siswaId: item.siswa?.id ?? null }} programs={programs.map((program) => ({ id: program.id, name: program.name }))} kelas={kelas.map((entry) => ({ id: entry.id, name: `${entry.program.name} - ${entry.name}` }))} siswa={siswaOptions} /></div></div>)}</div> : <p className="px-6 py-10 text-center text-theme-sm text-gray-500">Belum ada tarif. Tambahkan tarif melalui formulir di atas.</p>}
         </article>
         <article className="tailadmin-card p-5 sm:p-6"><p className="text-theme-xs font-semibold uppercase tracking-[0.16em] text-limo-blue-700">Alur pembayaran</p><h2 className="mt-1 font-semibold text-gray-900">Alur pembayaran yang aman</h2><div className="mt-5 space-y-4">{[["01", "Siapkan tarif", "Pastikan tarif aktif sudah terkait program atau kelas."], ["02", "Tinjau tagihan", "Gunakan pratinjau untuk mengecek jumlah siswa sebelum membuat tagihan."], ["03", "Konfirmasi pembayaran", "Status lunas hanya berubah setelah webhook atau rekonsiliasi admin." ]].map(([number, title, description]) => <div key={number} className="flex gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-lg bg-gray-900 text-[10px] font-bold text-white">{number}</span><div><p className="text-theme-sm font-semibold text-gray-800">{title}</p><p className="mt-1 text-theme-xs leading-5 text-gray-500">{description}</p></div></div>)}</div><Link href="#invoice-tools" className="mt-6 inline-flex text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Mulai dari pusat operasional -&gt;</Link></article>
       </section>

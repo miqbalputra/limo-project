@@ -140,3 +140,27 @@ test("Admin dapat mengubah nominal dan mengarsipkan tarif", async ({ page }) => 
   await page.getByRole("button", { name: "Ya, arsipkan" }).click();
   await expect(tarifCard.getByText("Arsip").first()).toBeVisible({ timeout: 20_000 });
 });
+
+test("Admin dapat menambah tarif khusus siswa dan meninjau penyesuaian nominal", async ({ page }) => {
+  test.setTimeout(180_000);
+  await loginViaForm(page, "admin@limo.local");
+  await page.goto("/admin/tagihan");
+
+  const createForm = page.locator("#invoice-tools form").first();
+  const tarifName = `Tarif siswa e2e ${Date.now()}`;
+  await createForm.getByPlaceholder("Nama tarif").fill(tarifName);
+  await createForm.getByLabel("Siswa tarif").selectOption({ index: 1 });
+  await createForm.getByPlaceholder("Nominal").fill("123000");
+  await createForm.locator('input[name="effectiveFrom"]').fill("2099-01-01");
+  await createForm.getByRole("button", { name: "Simpan Tarif" }).click();
+  await expect(page.getByText(tarifName)).toBeVisible({ timeout: 20_000 });
+
+  const generateForm = page.locator("#invoice-tools form").nth(1);
+  await generateForm.getByLabel("Periode tagihan").fill("2099-05");
+  await generateForm.getByLabel("Tanggal jatuh tempo").fill("2099-05-10");
+  await generateForm.getByLabel("Jenis tagihan").fill(`SPP-E2E-${Date.now()}`);
+  await generateForm.getByLabel("Nominal khusus").fill("300000");
+  await generateForm.getByLabel("Biaya tambahan").fill("-20000");
+  await generateForm.getByRole("button", { name: "Tinjau tagihan" }).click();
+  await expect(page.getByText(/Penyesuaian: nominal khusus Rp 300\.000 dikurangi Rp 20\.000/)).toBeVisible({ timeout: 30_000 });
+});

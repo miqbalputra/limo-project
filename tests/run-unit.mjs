@@ -13,6 +13,7 @@ import { applyRemedialScorePolicy } from "../src/server/services/remedial-score-
 import { personListSchema, importPersonRowSchema, importPeopleSchema, updateGuruSchema } from "../src/server/validation/master-data.ts";
 import { createAdminUserSchema, setUserPasswordSchema } from "../src/server/validation/auth.ts";
 import { generateStrongPassword } from "../src/lib/password-generator.ts";
+import { pickTarifForStudent } from "../src/server/billing/pick-tarif.ts";
 import { parseCsv } from "../src/lib/csv.ts";
 import {
   findMissingRequiredAnswers,
@@ -176,6 +177,45 @@ const tests = [
       assert.equal(updateTarifSchema.safeParse({ amount: 200000000 }).success, false);
       assert.equal(updateTarifSchema.safeParse({ effectiveFrom: "2026-13-01" }).success, false);
       assert.equal(updateTarifSchema.safeParse({ effectiveTo: "" }).success, true);
+    },
+  },
+  {
+    name: "tarif picker prefers student over class over program and newest effectiveFrom",
+    run: () => {
+      const day = (value) => new Date(`2099-01-${String(value).padStart(2, "0")}T00:00:00.000Z`);
+      const scope = { siswaId: "s1", kelasId: "k1", programId: "p1" };
+      const program = { id: "t-program", amount: 100000, effectiveFrom: day(1), programId: "p1", kelasId: null, siswaId: null };
+      const kelas = { id: "t-kelas", amount: 150000, effectiveFrom: day(2), programId: null, kelasId: "k1", siswaId: null };
+      const siswa = { id: "t-siswa", amount: 75000, effectiveFrom: day(3), programId: null, kelasId: null, siswaId: "s1" };
+
+      assert.equal(pickTarifForStudent([program, kelas, siswa], scope)?.id, "t-siswa");
+      assert.equal(pickTarifForStudent([program, kelas], scope)?.id, "t-kelas");
+      assert.equal(pickTarifForStudent([program], scope)?.id, "t-program");
+
+      const newerProgram = { ...program, id: "t-program-baru", effectiveFrom: day(9) };
+      assert.equal(pickTarifForStudent([program, newerProgram], scope)?.id, "t-program-baru");
+      assert.equal(pickTarifForStudent([{ ...program, programId: "p-lain" }], scope), null);
+      assert.equal(pickTarifForStudent([], scope), null);
+    },
+  },
+  {
+    name: "generate invoice schema accepts manual override and extra fee",
+    run: () => {
+      const base = { period: "2099-01", dueDate: "2099-01-10", jenis: "SPP", dryRun: true };
+      assert.equal(generateInvoiceSchema.safeParse(base).success, true);
+
+      const adjusted = generateInvoiceSchema.safeParse({ ...base, amountOverride: 200000, extraFee: -5000 });
+      assert.equal(adjusted.success, true);
+      assert.equal(adjusted.data.amountOverride, 200000);
+      assert.equal(adjusted.data.extraFee, -5000);
+
+      const emptyStrings = generateInvoiceSchema.safeParse({ ...base, amountOverride: "", extraFee: "" });
+      assert.equal(emptyStrings.success, true);
+      assert.equal(emptyStrings.data.amountOverride, undefined);
+      assert.equal(emptyStrings.data.extraFee, undefined);
+
+      assert.equal(generateInvoiceSchema.safeParse({ ...base, amountOverride: 0 }).success, false);
+      assert.equal(generateInvoiceSchema.safeParse({ ...base, amountOverride: -10 }).success, false);
     },
   },
   {

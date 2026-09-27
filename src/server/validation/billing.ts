@@ -21,11 +21,13 @@ export const pembayaranStatusSchema = z.enum(pembayaranStatusValues);
 export type PembayaranStatusValue = z.infer<typeof pembayaranStatusSchema>;
 
 const tarifDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isValidDate, "Tanggal tarif tidak valid");
+const optionalIdSchema = z.string().min(8).max(64).optional().or(z.literal(""));
 
 export const createTarifSchema = z.object({
   name: z.string().trim().min(2).max(120),
-  programId: z.string().min(8).max(64).optional().or(z.literal("")),
-  kelasId: z.string().min(8).max(64).optional().or(z.literal("")),
+  programId: optionalIdSchema,
+  kelasId: optionalIdSchema,
+  siswaId: optionalIdSchema,
   amount: z.coerce.number().positive().max(100000000),
   effectiveFrom: tarifDateSchema,
   effectiveTo: tarifDateSchema.optional().or(z.literal("")),
@@ -33,19 +35,31 @@ export const createTarifSchema = z.object({
 
 export const updateTarifSchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
-  programId: z.string().min(8).max(64).optional().or(z.literal("")),
-  kelasId: z.string().min(8).max(64).optional().or(z.literal("")),
+  programId: optionalIdSchema,
+  kelasId: optionalIdSchema,
+  siswaId: optionalIdSchema,
   amount: z.coerce.number().positive().max(100000000).optional(),
   effectiveFrom: tarifDateSchema.optional(),
   effectiveTo: tarifDateSchema.optional().or(z.literal("")),
   isActive: z.boolean().optional(),
 });
 
+const optionalPositiveAmount = z.preprocess(
+  (value) => (value === "" || value === null ? undefined : value),
+  z.coerce.number().positive().max(100000000).optional(),
+);
+const optionalSignedAmount = z.preprocess(
+  (value) => (value === "" || value === null ? undefined : value),
+  z.coerce.number().min(-100000000).max(100000000).optional(),
+);
+
 export const generateInvoiceSchema = z.object({
   period: z.string().regex(/^\d{4}-\d{2}$/).refine(isValidPeriod, "Periode tagihan tidak valid"),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isValidDate, "Tanggal jatuh tempo tidak valid"),
   jenis: z.string().trim().min(2).max(64).default("SPP"),
   dryRun: z.boolean().default(true),
+  amountOverride: optionalPositiveAmount,
+  extraFee: optionalSignedAmount,
 });
 
 export const voucherDiscountTypeSchema = z.enum(["PERCENT", "FIXED"]);
