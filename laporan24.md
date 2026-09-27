@@ -40,6 +40,12 @@
 - UI: tautan unduh di kartu tagihan Wali (semua status) dan tombol Invoice PDF/PNG di detail tagihan Admin.
 - Verifikasi: `npm test` 40 lulus · e2e `billing-voucher` 2/2 · integrasi `test:billing-voucher` **11/11**.
 
+**Pembaruan 27 Sep 2026 — edit & arsip tarif (Tahap 2 dari 3):**
+- Sebelumnya tarif hanya bisa dibuat & dilihat; kini ada `PATCH`/`DELETE /api/v1/admin/tarif/[id]` dan `POST .../restore` (admin), plus tombol **Ubah** dan **Arsipkan/Pulihkan** di daftar tarif `/admin/tagihan`.
+- Arsip = `isActive: false` sehingga tidak lagi dipakai saat generate tagihan; riwayat tetap tersimpan dan bisa dipulihkan. Audit `TARIF_UPDATED`/`TARIF_ARCHIVED`/`TARIF_RESTORED`.
+- Validasi tanggal tarif diperketat memakai validator tanggal nyata (sebelumnya regex bisa meloloskan `2026-13-01`).
+- Verifikasi: `npm test` 41 lulus · e2e `billing-voucher` 3/3 · integrasi `test:billing-voucher` **12/12**.
+
 **Yang ditambahkan pada sesi ini (di luar temuan audit awal):**
 
 1. **Ujian online — paritas Google Forms (besar)**
@@ -208,10 +214,10 @@ Health/readiness probe, backup/restore (dump SQL + ZIP dengan checksum, validasi
 ## 3. Yang harus diubah atau ditingkatkan (P1)
 
 ### Modul & CRUD
-- Banyak modul belum memiliki ubah/hapus/arsip lengkap (diakui `docs/KNOWN_LIMITATIONS.md`): program, level, kelas, tarif, dan beberapa modul lain. Standarkan pola create/update/archive/restore seperti modul akun.
+- Banyak modul belum memiliki ubah/hapus/arsip lengkap (diakui `docs/KNOWN_LIMITATIONS.md`): program, level, kelas, dan beberapa modul lain. Standarkan pola create/update/archive/restore seperti modul akun.
 - ~~**Siswa belum dapat mengerjakan ujian melalui akun sendiri**~~ — ✅ selesai 25 Sep (mode `ONLINE_VIA_SISWA`, portal `/siswa/ujian`).
 - ~~Belum ada **halaman tinjau jawaban sebelum kirim** dan **tombol bersihkan formulir** pada pemutar~~ — ✅ selesai pada Sprint 2.
-- Sisa P1 modul: `Tarif` belum punya update/arsip/UI; `admin/audit` belum punya endpoint list (hanya export).
+- Sisa P1 modul: ~~`Tarif` belum punya update/arsip/UI~~ ✅ selesai 27 Sep (Tahap 2 — ubah nominal, arsip, pulihkan); `admin/audit` belum punya endpoint list (hanya export).
 
 ### Arsitektur & kode
 - **Sisa duplikasi logika penilaian** di tiga jalur (publik/wali/guru). Sebagian sudah dipusatkan di `src/server/services/quiz-grading.ts`; lanjutkan agar `exam-service` memakai satu fungsi yang sama.

@@ -157,6 +157,10 @@ const labels: Record<string, string> = {
   SERTIFIKAT_ISSUED: "Sertifikat diterbitkan",
   SERTIFIKAT_REVOKED: "Sertifikat dicabut",
   USER_PASSWORD_SET: "Password akun ditetapkan",
+  TARIF_CREATED: "Tarif dibuat",
+  TARIF_UPDATED: "Tarif diperbarui",
+  TARIF_ARCHIVED: "Tarif diarsipkan",
+  TARIF_RESTORED: "Tarif dipulihkan",
 };
 
 const tones: Record<string, UiTone> = {

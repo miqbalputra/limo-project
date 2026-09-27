@@ -20,13 +20,25 @@ export const pembayaranStatusValues = ["PENDING", "PAID", "FAILED", "EXPIRED", "
 export const pembayaranStatusSchema = z.enum(pembayaranStatusValues);
 export type PembayaranStatusValue = z.infer<typeof pembayaranStatusSchema>;
 
+const tarifDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isValidDate, "Tanggal tarif tidak valid");
+
 export const createTarifSchema = z.object({
   name: z.string().trim().min(2).max(120),
   programId: z.string().min(8).max(64).optional().or(z.literal("")),
   kelasId: z.string().min(8).max(64).optional().or(z.literal("")),
   amount: z.coerce.number().positive().max(100000000),
-  effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  effectiveTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+  effectiveFrom: tarifDateSchema,
+  effectiveTo: tarifDateSchema.optional().or(z.literal("")),
+});
+
+export const updateTarifSchema = z.object({
+  name: z.string().trim().min(2).max(120).optional(),
+  programId: z.string().min(8).max(64).optional().or(z.literal("")),
+  kelasId: z.string().min(8).max(64).optional().or(z.literal("")),
+  amount: z.coerce.number().positive().max(100000000).optional(),
+  effectiveFrom: tarifDateSchema.optional(),
+  effectiveTo: tarifDateSchema.optional().or(z.literal("")),
+  isActive: z.boolean().optional(),
 });
 
 export const generateInvoiceSchema = z.object({

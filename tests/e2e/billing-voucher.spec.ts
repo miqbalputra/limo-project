@@ -121,3 +121,22 @@ test("Invoice PDF & PNG tersedia untuk tagihan belum lunas (wali dan admin)", as
   await expect(page.getByRole("link", { name: "Invoice PDF" }).first()).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("link", { name: "Invoice PNG" }).first()).toBeVisible();
 });
+
+test("Admin dapat mengubah nominal dan mengarsipkan tarif", async ({ page }) => {
+  test.setTimeout(180_000);
+
+  await loginViaForm(page, "admin@limo.local");
+  await page.goto("/admin/tagihan");
+
+  const tarifCard = page.locator("#tariff-catalog");
+  await expect(tarifCard.getByRole("button", { name: "Ubah" }).first()).toBeVisible({ timeout: 20_000 });
+
+  await tarifCard.getByRole("button", { name: "Ubah" }).first().click();
+  await tarifCard.getByLabel("Nominal tarif").first().fill("175000");
+  await tarifCard.getByRole("button", { name: "Simpan perubahan" }).first().click();
+  await expect(tarifCard.getByText("Rp 175.000").first()).toBeVisible({ timeout: 20_000 });
+
+  await tarifCard.getByRole("button", { name: "Arsipkan" }).first().click();
+  await page.getByRole("button", { name: "Ya, arsipkan" }).click();
+  await expect(tarifCard.getByText("Arsip").first()).toBeVisible({ timeout: 20_000 });
+});

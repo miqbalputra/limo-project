@@ -20,6 +20,15 @@ Landing page terbaru tersedia di `http://127.0.0.1:3000` saat development server
 - **Runner e2e:** pembersihan database diberi retry agar `EBUSY` (file lock Windows) tidak lagi menggagalkan exit code setelah test lulus.
 - **Blocked (butuh akses):** migrasi/parity MariaDB staging (`npm run db:parity`) dan UAT kredensial nyata (Mayar/SMTP/WhatsApp) belum dijalankan dari environment ini.
 
+## Billing — Edit & Arsip Tarif (Tahap 2 dari 3) (27 Sep 2026)
+
+- **Masalah sebelumnya:** modul tariff hanya punya **create + list** — tidak ada cara mengubah nominal, menonaktifkan tarif lama, atau memulihkannya (field `isActive` tak pernah di-set false), jadi menaikkan SPP berarti menumpuk tarif baru tanpa bisa "menutup" yang lama.
+- **Validasi:** `updateTarifSchema` (patch parsial: nama, program, kelas, nominal, berlaku dari/sampai, `isActive`). Tanggal tarif kini memakai validator tanggal nyata (`isValidDate`), bukan sekadar regex — `2026-13-01` ditolak.
+- **Service:** `updateTarif` (guard: hasil merge tetap punya program atau kelas; `effectiveTo` tidak boleh sebelum `effectiveFrom`), `archiveTarif` (nonaktif → tidak lagi dipakai generate tagihan), `restoreTarif`. Audit: `TARIF_UPDATED`, `TARIF_ARCHIVED`, `TARIF_RESTORED`.
+- **API:** `PATCH`/`DELETE /api/v1/admin/tarif/[id]` dan `POST /api/v1/admin/tarif/[id]/restore` (admin + `assertSameOrigin`).
+- **UI:** komponen `tarif-actions.tsx` di daftar tarif `/admin/tagihan` — tombol **Ubah** (form inline: nama, program, kelas, nominal, berlaku dari/sampai) dan **Arsipkan/Pulihkan** dengan `ConfirmDialog`.
+- **Verifikasi:** `typecheck` lulus · `lint` 0 error · `npm test` **41 lulus** · e2e `billing-voucher` **3/3** (termasuk ubah nominal + arsip lewat UI) · integrasi `test:billing-voucher` **12/12** (termasuk 403 untuk non-admin, 400 nominal tidak valid, 404 id tidak ada).
+
 ## Billing — Invoice Tagihan PDF & PNG (Tahap 1 dari 3) (27 Sep 2026)
 
 - **Masalah sebelumnya:** hanya ada **kuitansi** (`/api/v1/tagihan/[id]/kuitansi`) dan itu pun **hanya untuk tagihan `PAID`** — tidak ada dokumen tagihan untuk yang belum dibayar, dan tidak ada output gambar.

@@ -4,7 +4,7 @@ import { sanitizeOriginalFilename } from "../src/server/security/filename.ts";
 import { submitPendaftaranSchema } from "../src/server/validation/pendaftaran.ts";
 import { createBankSoalSchema, createUjianSchema, submitHasilUjianSchema } from "../src/server/validation/exam.ts";
 import { createMateriSchema } from "../src/server/validation/lms.ts";
-import { generateInvoiceSchema, tagihanStatusSchema } from "../src/server/validation/billing.ts";
+import { generateInvoiceSchema, tagihanStatusSchema, updateTarifSchema } from "../src/server/validation/billing.ts";
 import { createRppSchema } from "../src/server/validation/rpp.ts";
 import { addModuleItemSchema, createLearningModuleSchema, reorderModuleItemsSchema } from "../src/server/validation/learning-module.ts";
 import { createAssignmentSchema, saveAssignmentDraftSchema, submitAssignmentSchema } from "../src/server/validation/assignment.ts";
@@ -156,7 +156,6 @@ const tests = [
       assert.equal(setUserPasswordSchema.safeParse({ password: "pendek" }).success, false);
       assert.equal(setUserPasswordSchema.safeParse({ password: "password-ok" }).success, true);
       assert.equal(setUserPasswordSchema.safeParse({ password: "password-ok", reason: "" }).success, true);
-
       const created = createAdminUserSchema.safeParse({ name: "Guru Uji", email: "guru.uji@limo.local", role: "GURU", password: "password-ok" });
       assert.equal(created.success, true);
       assert.equal(createAdminUserSchema.safeParse({ name: "Guru Uji", email: "guru.uji@limo.local", role: "GURU" }).success, true);
@@ -164,6 +163,19 @@ const tests = [
       const updated = updateGuruSchema.safeParse({ name: "Guru Uji", email: "guru.uji@limo.local", password: "password-ok" });
       assert.equal(updated.success, true);
       assert.equal("password" in updated.data, false, "update profil tidak boleh menerima password");
+    },
+  },
+  {
+    name: "update tarif schema accepts partial patches and rejects invalid amounts",
+    run: () => {
+      assert.equal(updateTarifSchema.safeParse({}).success, true);
+      assert.equal(updateTarifSchema.safeParse({ amount: 250000 }).success, true);
+      assert.equal(updateTarifSchema.safeParse({ isActive: false }).success, true);
+      assert.equal(updateTarifSchema.safeParse({ amount: 0 }).success, false);
+      assert.equal(updateTarifSchema.safeParse({ amount: -5000 }).success, false);
+      assert.equal(updateTarifSchema.safeParse({ amount: 200000000 }).success, false);
+      assert.equal(updateTarifSchema.safeParse({ effectiveFrom: "2026-13-01" }).success, false);
+      assert.equal(updateTarifSchema.safeParse({ effectiveTo: "" }).success, true);
     },
   },
   {

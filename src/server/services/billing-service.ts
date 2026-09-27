@@ -2,7 +2,7 @@ import type { Actor } from "../auth/session.ts";
 import { prisma } from "../db/prisma.ts";
 import { ForbiddenError, NotFoundError, ValidationError } from "../errors/application-error.ts";
 import { canAccessInvoice } from "../policies/access-policy.ts";
-import { createTarifSchema, generateInvoiceSchema, type PembayaranStatusValue, type TagihanStatusValue } from "../validation/billing.ts";
+import { createTarifSchema, generateInvoiceSchema, updateTarifSchema, type PembayaranStatusValue, type TagihanStatusValue } from "../validation/billing.ts";
 import { notifyWaliForStudents } from "./notification-service.ts";
 import { getActivePaymentGateways } from "./payment-gateway-service.ts";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "../pagination.ts";
@@ -31,21 +31,23 @@ export type PaymentLedgerFilters = {
   search?: string;
 };
 
+const tarifSelect = {
+  id: true,
+  name: true,
+  amount: true,
+  effectiveFrom: true,
+  effectiveTo: true,
+  isActive: true,
+  program: { select: { id: true, name: true } },
+  kelas: { select: { id: true, name: true } },
+} as const;
+
 export async function listTarif(actor: Actor) {
   requireAdmin(actor);
 
   const items = await prisma.tarif.findMany({
     orderBy: [{ isActive: "desc" }, { effectiveFrom: "desc" }],
-    select: {
-      id: true,
-      name: true,
-      amount: true,
-      effectiveFrom: true,
-      effectiveTo: true,
-      isActive: true,
-      program: { select: { id: true, name: true } },
-      kelas: { select: { id: true, name: true } },
-    },
+    select: tarifSelect,
   });
 
   return { items };
@@ -124,6 +126,100 @@ export async function createTarif(actor: Actor, input: unknown) {
 
   await prisma.auditLog.create({
     data: { actorId: actor.id, action: "TARIF_CREATED", entityType: "Tarif", entityId: item.id },
+  });
+
+  return { item };
+}
+
+export async function updateTarif(actor: Actor, id: string, input: unknown) {
+  requireAdmin(actor);
+  const parsed = updateTarifSchema.safeParse(input);
+
+  if (!parsed.success) {
+    throw new ValidationError("Data tarif belum valid", parsed.error.flatten().fieldErrors);
+  }
+
+  const existing = await prisma.tarif.findUnique({
+    where: { id },
+    select: { id: true, programId: true, kelasId: true, effectiveFrom: true, effectiveTo: true },
+  });
+  if (!existing) {
+    throw new NotFoundError("Tarif tidak ditemukan");
+  }
+
+  const patch = parsed.data;
+  const nextProgramId = patch.programId !== undefined ? patch.programId || null : existing.programId;
+  const nextKelasId = patch.kelasId !== undefined ? patch.kelasId || null : existing.kelasId;
+
+  if (!nextProgramId && !nextKelasId) {
+    throw new ValidationError("Tarif wajib terkait program atau kelas");
+  }
+
+  const nextEffectiveFrom = patch.effectiveFrom !== undefined ? parseDate(patch.effectiveFrom) : existing.effectiveFrom;
+  const nextEffectiveTo = patch.effectiveTo !== undefined
+    ? patch.effectiveTo ? parseDate(patch.effectiveTo) : null
+    : existing.effectiveTo;
+
+  if (nextEffectiveTo && nextEffectiveTo < nextEffectiveFrom) {
+    throw new ValidationError("Tanggal berakhir tidak boleh sebelum tanggal mulai");
+  }
+
+  const data: {
+    name?: string;
+    amount?: number;
+    programId?: string | null;
+    kelasId?: string | null;
+    effectiveFrom?: Date;
+    effectiveTo?: Date | null;
+    isActive?: boolean;
+  } = {};
+
+  if (patch.name !== undefined) data.name = patch.name;
+  if (patch.amount !== undefined) data.amount = patch.amount;
+  if (patch.programId !== undefined) data.programId = nextProgramId;
+  if (patch.kelasId !== undefined) data.kelasId = nextKelasId;
+  if (patch.effectiveFrom !== undefined) data.effectiveFrom = nextEffectiveFrom;
+  if (patch.effectiveTo !== undefined) data.effectiveTo = nextEffectiveTo;
+  if (patch.isActive !== undefined) data.isActive = patch.isActive;
+
+  const item = await prisma.tarif.update({ where: { id }, data, select: tarifSelect });
+
+  await prisma.auditLog.create({
+    data: { actorId: actor.id, action: "TARIF_UPDATED", entityType: "Tarif", entityId: id, metadata: { fields: Object.keys(data) } },
+  });
+
+  return { item };
+}
+
+export async function archiveTarif(actor: Actor, id: string) {
+  requireAdmin(actor);
+
+  const existing = await prisma.tarif.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) {
+    throw new NotFoundError("Tarif tidak ditemukan");
+  }
+
+  const item = await prisma.tarif.update({ where: { id }, data: { isActive: false }, select: tarifSelect });
+
+  await prisma.auditLog.create({
+    data: { actorId: actor.id, action: "TARIF_ARCHIVED", entityType: "Tarif", entityId: id },
+  });
+
+  return { item };
+}
+
+export async function restoreTarif(actor: Actor, id: string) {
+  requireAdmin(actor);
+
+  const existing = await prisma.tarif.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) {
+    throw new NotFoundError("Tarif tidak ditemukan");
+  }
+
+  const item = await prisma.tarif.update({ where: { id }, data: { isActive: true }, select: tarifSelect });
+
+  await prisma.auditLog.create({
+    data: { actorId: actor.id, action: "TARIF_RESTORED", entityType: "Tarif", entityId: id },
   });
 
   return { item };

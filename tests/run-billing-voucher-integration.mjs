@@ -35,7 +35,7 @@ function ok(label) {
   console.log(`ok - ${label}`);
 }
 
-const created = { tagihanIds: [], voucherIds: [] };
+const created = { tagihanIds: [], voucherIds: [], tarifIds: [] };
 
 try {
   const admin = await login("admin@limo.local");
@@ -176,7 +176,39 @@ try {
   const scopedApply = await request(`/api/v1/tagihan/${invoice2.id}/voucher`, { method: "POST", cookie: wali.cookie, body: { code: `${code}PROG` } });
   assert.equal(scopedApply.response.status, 400, JSON.stringify(scopedApply.payload));
   ok("Cakupan voucher per program ditegakkan");
+
+  // Tarif: ubah nominal, arsip, dan pulihkan.
+  const siswaTarif = await prisma.siswa.findUniqueOrThrow({ where: { id: siswaId }, select: { programId: true } });
+  const createdTarif = await request("/api/v1/admin/tarif", { method: "POST", cookie: admin.cookie, body: { name: `Tarif uji ${runId}`.slice(0, 120), programId: siswaTarif.programId, amount: 123000, effectiveFrom: "2099-01-01" } });
+  assert.equal(createdTarif.response.status, 201, JSON.stringify(createdTarif.payload));
+  const tarifId = createdTarif.payload.data.item.id;
+  created.tarifIds.push(tarifId);
+
+  const forbiddenTarifUpdate = await request(`/api/v1/admin/tarif/${tarifId}`, { method: "PATCH", cookie: guru.cookie, body: { amount: 50000 } });
+  assert.equal(forbiddenTarifUpdate.response.status, 403, JSON.stringify(forbiddenTarifUpdate.payload));
+
+  const invalidTarifUpdate = await request(`/api/v1/admin/tarif/${tarifId}`, { method: "PATCH", cookie: admin.cookie, body: { amount: 0 } });
+  assert.equal(invalidTarifUpdate.response.status, 400, JSON.stringify(invalidTarifUpdate.payload));
+
+  const updatedTarif = await request(`/api/v1/admin/tarif/${tarifId}`, { method: "PATCH", cookie: admin.cookie, body: { amount: 150000 } });
+  assert.equal(updatedTarif.response.status, 200, JSON.stringify(updatedTarif.payload));
+  assert.equal(Number(updatedTarif.payload.data.item.amount), 150000);
+
+  const archivedTarif = await request(`/api/v1/admin/tarif/${tarifId}`, { method: "DELETE", cookie: admin.cookie });
+  assert.equal(archivedTarif.response.status, 200, JSON.stringify(archivedTarif.payload));
+  assert.equal(archivedTarif.payload.data.item.isActive, false);
+  const tarifRowAfterArchive = await prisma.tarif.findUniqueOrThrow({ where: { id: tarifId }, select: { isActive: true } });
+  assert.equal(tarifRowAfterArchive.isActive, false);
+
+  const restoredTarif = await request(`/api/v1/admin/tarif/${tarifId}/restore`, { method: "POST", cookie: admin.cookie });
+  assert.equal(restoredTarif.response.status, 200, JSON.stringify(restoredTarif.payload));
+  assert.equal(restoredTarif.payload.data.item.isActive, true);
+  ok("Tarif dapat diubah, diarsipkan, dan dipulihkan");
+
+  const missingTarif = await request("/api/v1/admin/tarif/tidak-ada", { method: "PATCH", cookie: admin.cookie, body: { amount: 10000 } });
+  assert.equal(missingTarif.response.status, 404, JSON.stringify(missingTarif.payload));
 } finally {
+  await prisma.tarif.deleteMany({ where: { id: { in: created.tarifIds } } }).catch(() => undefined);
   await prisma.pembayaran.deleteMany({ where: { tagihanId: { in: created.tagihanIds } } }).catch(() => undefined);
   await prisma.tagihan.deleteMany({ where: { id: { in: created.tagihanIds } } }).catch(() => undefined);
   await prisma.voucher.deleteMany({ where: { id: { in: created.voucherIds } } }).catch(() => undefined);
