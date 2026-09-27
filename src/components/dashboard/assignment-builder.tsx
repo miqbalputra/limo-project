@@ -40,7 +40,8 @@ export function AssignmentBuilder({ kelasId, initialAssignments, rubrics = [] }:
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     await run(
       "create",
       () =>
@@ -63,7 +64,7 @@ export function AssignmentBuilder({ kelasId, initialAssignments, rubrics = [] }:
       {
         fallbackMessage: "Tugas gagal dibuat",
         onSuccess: () => {
-          event.currentTarget.reset();
+          form.reset();
           router.refresh();
         },
       },

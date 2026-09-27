@@ -54,7 +54,8 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
     setError("");
     setFieldErrors({});
     setIsSubmitting(true);
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const selectedQuestionIds = data.getAll("bankSoalId").map(String);
     const questions = selectedQuestionIds.map((id) => ({
       bankSoalId: id,
@@ -90,7 +91,7 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
         fallbackMessage: "Ujian gagal disimpan",
       });
 
-      event.currentTarget.reset();
+      form.reset();
       router.refresh();
     } catch (caught) {
       if (caught instanceof ApiJsonError) setFieldErrors(caught.fields || {});

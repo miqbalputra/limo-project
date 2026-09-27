@@ -28,6 +28,12 @@
 - Keamanan: argon2id, password tidak pernah dikembalikan lewat API/audit/log, set password mencabut semua sesi akun target + audit `USER_PASSWORD_SET`, schema update tidak menerima password.
 - Verifikasi: `npm test` **40 lulus** · e2e `admin-account-password` **3/3** · regresi `accessibility` **5/5**, `week11` **3/3** · integrasi `test:accounts` **11/11**.
 
+**Pembaruan 27 Sep 2026 — bank soal: perbaikan simpan + builder & pratinjau tab baru:**
+- **Bug:** form bank soal melempar `Cannot read properties of null (reading 'reset')` sehingga soal tampak gagal disimpan (padahal tersimpan, daftar tidak menyegar). Penyebab: `event.currentTarget.reset()` dipanggil setelah `await`. Pola ini dibersihkan menyeluruh di seluruh form dashboard.
+- **Builder khusus:** `/guru/bank-soal` jadi daftar + tombol "Buat soal (tab baru)"; form pindah ke `/guru/bank-soal/baru` dengan panel sukses setelah simpan.
+- **Pratinjau tab baru:** dari builder (draft di `localStorage` → `/guru/bank-soal/pratinjau`) dan dari tiap kartu (soal tersimpan → `/guru/bank-soal/[id]/pratinjau`), menampilkan versi siswa + kunci & pembahasan.
+- Verifikasi: `npm test` 40 lulus · e2e `bank-soal-builder` 3/3 · regresi `week2` 3/3, `accessibility` 5/5, `quiz-builder` 2/2, `mobile-layout` 16/16.
+
 **Yang ditambahkan pada sesi ini (di luar temuan audit awal):**
 
 1. **Ujian online — paritas Google Forms (besar)**

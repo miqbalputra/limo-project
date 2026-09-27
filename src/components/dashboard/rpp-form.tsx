@@ -15,11 +15,12 @@ export function RppForm({ classes }: { classes: ClassOption[] }) {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
     setError("");
     setIsSubmitting(true);
     try {
-      await requestJson("/api/v1/guru/rpp", { method: "POST", body: new FormData(event.currentTarget), fallbackMessage: "RPP gagal disimpan" });
-      event.currentTarget.reset();
+      await requestJson("/api/v1/guru/rpp", { method: "POST", body: new FormData(form), fallbackMessage: "RPP gagal disimpan" });
+      form.reset();
       setMode("FORM");
       router.refresh();
     } catch (caught) {

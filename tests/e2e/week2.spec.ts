@@ -36,6 +36,11 @@ test("Week 2 guru LMS and exam pages are usable on mobile", async ({ page }) => 
 
   await page.goto("/guru/bank-soal");
   await expect(page.getByRole("heading", { name: "Bank Soal", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Buat soal (tab baru)" })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await page.goto("/guru/bank-soal/baru");
+  await expect(page.getByRole("heading", { name: "Buat soal", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Tambah Bank Soal" })).toBeVisible();
   await expect(page.getByPlaceholder("Tulis pertanyaan atau prompt untuk siswa")).toBeVisible();
   await expect(page.locator('select[name="type"]')).toContainText("Bermain peran");

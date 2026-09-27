@@ -33,13 +33,14 @@ export function StudentAccountForm({ studentId, studentName, defaultIdentifier, 
     event.preventDefault();
     setError("");
     setIsSubmitting(true);
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     try {
       await request(`/api/v1/admin/siswa/${studentId}/akun`, {
         method: "POST",
         body: { email: String(formData.get("email") || ""), loginIdentifier: String(formData.get("loginIdentifier") || "") },
       });
-      event.currentTarget.reset();
+      form.reset();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Akun siswa gagal dibuat");
     } finally {

@@ -22,7 +22,8 @@ export function TarifForm({ programs, kelas }: { programs: Option[]; kelas: Opti
     event.preventDefault();
     setError("");
     setIsSubmitting(true);
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
 
     try {
       await postJson("/api/v1/admin/tarif", {
@@ -33,7 +34,7 @@ export function TarifForm({ programs, kelas }: { programs: Option[]; kelas: Opti
         effectiveFrom: String(data.get("effectiveFrom") || ""),
         effectiveTo: String(data.get("effectiveTo") || ""),
       });
-      event.currentTarget.reset();
+      form.reset();
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Tarif gagal disimpan");

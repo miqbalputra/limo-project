@@ -1,7 +1,6 @@
+import Link from "next/link";
 import { requireActor, requireRole } from "@/server/auth/session";
 import { listBankSoal } from "@/server/services/exam-service";
-import { listMyKelas } from "@/server/services/lms-service";
-import { BankSoalForm } from "@/components/dashboard/bank-soal-form";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { LocalizedContent } from "@/components/localized-content";
@@ -13,15 +12,17 @@ export default async function GuruBankSoalPage({ searchParams }: { searchParams:
   const actor = await requireActor();
   requireRole(actor, ["GURU"]);
   const { page } = await searchParams;
-  const [{ items: soal, pagination }, { items: kelas }] = await Promise.all([listBankSoal(actor, { page: Number(page) || 1, pageSize: 20 }), listMyKelas(actor)]);
+  const { items: soal, pagination } = await listBankSoal(actor, { page: Number(page) || 1, pageSize: 20 });
 
   return (
     <main className="space-y-6">
-      <div>
-        <h1 className="tailadmin-page-title">Bank Soal</h1>
-        <p className="mt-2 tailadmin-muted">Kelola soal Bahasa Inggris dan Arab untuk gambar, pilihan ganda, benar/salah, mencocokkan, cloze, listening, speaking, writing, reading, dan roleplay.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="tailadmin-page-title">Bank Soal</h1>
+          <p className="mt-2 tailadmin-muted">Kelola soal Bahasa Inggris dan Arab untuk gambar, pilihan ganda, benar/salah, mencocokkan, cloze, listening, speaking, writing, reading, dan roleplay.</p>
+        </div>
+        <Link href="/guru/bank-soal/baru" target="_blank" rel="noopener noreferrer" className="tailadmin-button-primary px-4 py-2">Buat soal (tab baru)</Link>
       </div>
-      <BankSoalForm kelasOptions={kelas.map((item) => ({ id: item.id, name: `${item.program.name} - ${item.name}` }))} />
       <section className="space-y-4">
         {soal.length > 0 ? soal.map((item) => (
           <article key={item.id} data-testid="bank-soal-card" className="tailadmin-card p-5">
@@ -45,8 +46,9 @@ export default async function GuruBankSoalPage({ searchParams }: { searchParams:
                 ))}
               </ul>
             ) : null}
+            <Link href={`/guru/bank-soal/${item.id}/pratinjau`} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex text-theme-sm font-semibold text-limo-blue-700 underline hover:text-limo-blue-800">Pratinjau (tab baru)</Link>
           </article>
-        )) : <EmptyState icon="exam" title="Bank soal masih kosong" description="Buat soal pertama untuk mulai menyusun ujian pada kelas yang Anda ampu." />}
+        )) : <EmptyState icon="exam" title="Bank soal masih kosong" description="Klik “Buat soal (tab baru)” untuk menyusun soal pertama pada kelas yang Anda ampu." />}
       </section>
       <PaginationControls basePath="/guru/bank-soal" page={pagination.page} totalPages={pagination.totalPages} />
     </main>

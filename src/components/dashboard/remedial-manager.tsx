@@ -54,7 +54,8 @@ export function RemedialManager({
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const reason = String(form.get("reason") || "");
     const studentIds = form.getAll("studentId").map(String);
     await run(
@@ -85,7 +86,7 @@ export function RemedialManager({
         fallbackMessage: "Remedial gagal dibuat",
         onSuccess: () => {
           createIdempotencyKey.current = null;
-          event.currentTarget.reset();
+          formElement.reset();
           router.refresh();
         },
       },

@@ -42,7 +42,8 @@ export function ProgramForm() {
     event.preventDefault();
     setError("");
     setIsSubmitting(true);
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
 
     try {
       await postJson("/api/v1/admin/program", {
@@ -50,7 +51,7 @@ export function ProgramForm() {
         kind: String(formData.get("kind") || ""),
         description: String(formData.get("description") || ""),
       });
-      event.currentTarget.reset();
+      form.reset();
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Program gagal disimpan");
@@ -85,7 +86,8 @@ export function LevelForm({ programs }: { programs: Option[] }) {
     event.preventDefault();
     setError("");
     setIsSubmitting(true);
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
 
     try {
       await postJson("/api/v1/admin/level", {
@@ -94,7 +96,7 @@ export function LevelForm({ programs }: { programs: Option[] }) {
         order: Number(formData.get("order") || 0),
         description: String(formData.get("description") || ""),
       });
-      event.currentTarget.reset();
+      form.reset();
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Level gagal disimpan");
@@ -130,7 +132,8 @@ export function KelasForm({ programs, levels, gurus }: { programs: Option[]; lev
     event.preventDefault();
     setError("");
     setIsSubmitting(true);
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
 
     try {
       await postJson("/api/v1/admin/kelas", {
@@ -140,7 +143,7 @@ export function KelasForm({ programs, levels, gurus }: { programs: Option[]; lev
         name: String(formData.get("name") || ""),
         scheduleNote: String(formData.get("scheduleNote") || ""),
       });
-      event.currentTarget.reset();
+      form.reset();
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Kelas gagal disimpan");

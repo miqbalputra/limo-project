@@ -11,7 +11,8 @@ export function HeroCarouselForm() {
   const [pending, setPending] = useState(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setPending(true);
-    try { const form = new FormData(event.currentTarget); await requestJson("/api/v1/admin/hero-carousel", { method: "POST", body: form, fallbackMessage: "Hero gagal disimpan" }); event.currentTarget.reset(); router.refresh(); }
+    const formElement = event.currentTarget;
+    try { const form = new FormData(formElement); await requestJson("/api/v1/admin/hero-carousel", { method: "POST", body: form, fallbackMessage: "Hero gagal disimpan" }); formElement.reset(); router.refresh(); }
     catch (caught) { setError(caught instanceof Error ? caught.message : "Hero gagal disimpan"); }
     finally { setPending(false); }
   }

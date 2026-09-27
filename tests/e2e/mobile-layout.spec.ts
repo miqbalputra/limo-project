@@ -116,7 +116,7 @@ test("Guru Arabic question form and seeded RTL card use localized content", asyn
 
   await login(page, "guru.arab@limo.local");
   await expect(page).toHaveURL(/\/guru$/, { timeout: 15_000 });
-  await page.goto("/guru/bank-soal");
+  await page.goto("/guru/bank-soal/baru");
   await hideNextDevTools(page);
 
   const form = page.getByTestId("bank-soal-form");
@@ -132,6 +132,9 @@ test("Guru Arabic question form and seeded RTL card use localized content", asyn
 
   const fontVariable = await page.locator("html").evaluate((element) => getComputedStyle(element).getPropertyValue("--font-arabic").trim());
   expect(fontVariable).not.toBe("");
+
+  await page.goto("/guru/bank-soal");
+  await hideNextDevTools(page);
 
   const seededQuestion = page.getByTestId("bank-soal-question").filter({ hasText: "ما معنى واحد؟" });
   await expect(seededQuestion).toHaveAttribute("lang", "ar");

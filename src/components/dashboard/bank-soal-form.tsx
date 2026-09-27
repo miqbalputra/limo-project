@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, MouseEvent, useRef, useState } from "react";
 import { FormFieldError } from "@/components/dashboard/form-field-error";
 import { ArabicTextField } from "@/components/localized-content";
 import { formatUiLabel } from "@/lib/ui-labels";
 import { ApiJsonError, requestJson } from "@/lib/api-json-client";
+import { writePreviewDraft, type BankSoalDraft } from "@/lib/bank-soal-draft";
 
 type KelasOption = { id: string; name: string };
 type FieldErrors = Record<string, string[]>;
@@ -52,6 +53,8 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
   const [pairs, setPairs] = useState<PairRow[]>([{ left: "", right: "" }, { left: "", right: "" }]);
   const [sequenceItems, setSequenceItems] = useState<string[]>(["", "", ""]);
   const [rubricCriteria, setRubricCriteria] = useState<RubricRow[]>([{ name: "", max: "" }]);
+  const [savedMessage, setSavedMessage] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
 
   const usesOptions = type === "PILIHAN_GANDA" || type === "MULTI_SELECT";
   const usesExpectedAnswer = ["BENAR_SALAH", "ISIAN_SINGKAT", "CLOZE"].includes(type);
@@ -106,12 +109,10 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
     return criteria.length > 0 ? { criteria } : undefined;
   }
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setFieldErrors({});
-    setIsSubmitting(true);
-    const data = new FormData(event.currentTarget);
+  function buildDraftPayload(form: HTMLFormElement): BankSoalDraft {
+    const data = new FormData(form);
+    const kelasSelect = form.querySelector<HTMLSelectElement>('select[name="kelasId"]');
+    const kelasLabel = kelasSelect?.selectedOptions?.[0]?.textContent?.trim() || "";
     const usesOptionsNow = type === "PILIHAN_GANDA" || type === "MULTI_SELECT";
     const submittedOptions = usesOptionsNow
       ? options
@@ -119,36 +120,63 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
           .filter((option) => option.content.length > 0)
       : [];
 
-    try {
-      await requestJson("/api/v1/bank-soal", {
-        method: "POST",
-        body: {
-          kelasId: String(data.get("kelasId") || ""),
-          type,
-          question: String(data.get("question") || ""),
-          stimulusText: String(data.get("stimulusText") || ""),
-          mediaUrl: String(data.get("mediaUrl") || ""),
-          expectedAnswer: String(data.get("expectedAnswer") || ""),
-          structuredPayload: buildStructuredPayload(),
-          rubric: buildRubric(),
-          language: String(data.get("language") || ""),
-          direction: String(data.get("direction") || ""),
-          cognitiveLevel: String(data.get("cognitiveLevel") || "LOTS"),
-          skill: String(data.get("skill") || "VOCABULARY"),
-          difficulty: String(data.get("difficulty") || "EASY"),
-          standard: String(data.get("standard") || ""),
-          assessmentType: String(data.get("assessmentType") || "FORMATIVE"),
-          explanation: String(data.get("explanation") || ""),
-          options: submittedOptions,
-        },
-        fallbackMessage: "Soal gagal disimpan",
-      });
+    return {
+      kelasId: String(data.get("kelasId") || ""),
+      kelasLabel,
+      type,
+      question: String(data.get("question") || ""),
+      stimulusText: String(data.get("stimulusText") || ""),
+      mediaUrl: String(data.get("mediaUrl") || ""),
+      expectedAnswer: String(data.get("expectedAnswer") || ""),
+      structuredPayload: buildStructuredPayload(),
+      rubric: buildRubric(),
+      language: String(data.get("language") || ""),
+      direction: String(data.get("direction") || ""),
+      cognitiveLevel: String(data.get("cognitiveLevel") || "LOTS"),
+      skill: String(data.get("skill") || "VOCABULARY"),
+      difficulty: String(data.get("difficulty") || "EASY"),
+      standard: String(data.get("standard") || ""),
+      assessmentType: String(data.get("assessmentType") || "FORMATIVE"),
+      explanation: String(data.get("explanation") || ""),
+      options: submittedOptions,
+    };
+  }
 
-      event.currentTarget.reset();
+  function preparePreview(event: MouseEvent<HTMLAnchorElement>) {
+    const form = formRef.current;
+    if (!form) {
+      event.preventDefault();
+      return;
+    }
+
+    const payload = buildDraftPayload(form);
+    if (!payload.question.trim()) {
+      event.preventDefault();
+      setError("Isi pertanyaan terlebih dahulu sebelum membuka pratinjau.");
+      return;
+    }
+
+    setError("");
+    writePreviewDraft(payload);
+  }
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    setError("");
+    setFieldErrors({});
+    setSavedMessage("");
+    setIsSubmitting(true);
+
+    try {
+      await requestJson("/api/v1/bank-soal", { method: "POST", body: buildDraftPayload(form), fallbackMessage: "Soal gagal disimpan" });
+
+      form.reset();
       setType("PILIHAN_GANDA");
       setLanguage("");
       setDirection("");
       resetDynamic();
+      setSavedMessage("Soal berhasil disimpan ke bank soal.");
       router.refresh();
     } catch (caught) {
       if (caught instanceof ApiJsonError) setFieldErrors(caught.fields || {});
@@ -159,8 +187,14 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
   }
 
   return (
-    <form data-testid="bank-soal-form" onSubmit={onSubmit} className="tailadmin-card grid gap-3 p-5">
+    <form ref={formRef} data-testid="bank-soal-form" onSubmit={onSubmit} className="tailadmin-card grid gap-3 p-5">
       <h2 className="font-semibold text-gray-900">Tambah Bank Soal</h2>
+      {savedMessage ? (
+        <div role="status" className="rounded-xl border border-success-100 bg-success-50 p-3 text-theme-sm text-success-700">
+          <p className="font-semibold">{savedMessage}</p>
+          <p className="mt-1 text-theme-xs">Lanjut membuat soal berikutnya di tab ini, atau buka daftar bank soal.</p>
+        </div>
+      ) : null}
       {error ? <p className="tailadmin-alert-error">{error}</p> : null}
       <select name="kelasId" aria-label="Kelas soal" aria-invalid={Boolean(fieldErrors.kelasId)} aria-describedby="soal-class-error" className="tailadmin-input">
         <option value="">Umum / tidak terikat kelas</option>
@@ -357,9 +391,11 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
       ) : null}
 
       <ArabicTextField as="textarea" name="explanation" language={language} direction="auto" placeholder="Pembahasan/catatan internal" className="tailadmin-input" />
-      <button disabled={isSubmitting} className="tailadmin-button-primary">
-        {isSubmitting ? "Menyimpan..." : "Simpan Soal"}
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button type="submit" disabled={isSubmitting} className="tailadmin-button-primary min-h-11 px-4 py-2">{isSubmitting ? "Menyimpan..." : "Simpan Soal"}</button>
+        <a href="/guru/bank-soal/pratinjau" target="_blank" rel="noopener noreferrer" onClick={preparePreview} className="tailadmin-button-outline inline-flex min-h-11 items-center px-4 py-2">Pratinjau di tab baru</a>
+      </div>
+      <p className="text-theme-xs text-gray-500">Pratinjau membuka tab baru berisi tampilan soal seperti yang dilihat siswa, plus kunci jawaban dan pembahasan.</p>
     </form>
   );
 }

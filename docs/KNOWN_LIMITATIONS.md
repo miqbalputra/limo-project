@@ -27,7 +27,7 @@ Dokumen ini mencatat gap MVP saat ini agar tidak dianggap selesai diam-diam.
 - Tabel besar belum semua memakai pagination UI penuh, meskipun query utama dibatasi.
 - Aksi destruktif pada materi, ujian, sesi, dan hero carousel memakai `ConfirmDialog` in-app (bukan `window.confirm`); label enum (mis. aksi audit) tidak lagi mencetak token mentah. Sisa `window.confirm` hanya tombol bersihkan jawaban di pemutar kuis publik.
 - Halaman `/guru/bank-soal` kini memberi `aria-label` pada `<select>` kelas/tipe soal, dan tombol "Simpan sesi" memenuhi target sentuh ≥44px; audit axe halaman Guru (`/guru/sesi`, `/guru/penilaian-esai`, `/guru/bank-soal`) lulus.
-- Beberapa form dashboard masih memanggil `event.currentTarget.reset()` **setelah** `await`, yang di React bernilai `null` sehingga `router.refresh()` tidak pernah jalan (item tersimpan tetapi daftar tidak menyegar tanpa reload). Sudah diperbaiki di `session-workspace.tsx` (buat sesi) & `hasil-ujian-form.tsx`; pola sama masih ada di `ujian-form.tsx`, `student-account-form.tsx`, `rpp-form.tsx`, `remedial-manager.tsx`, `master-data-forms.tsx`, `lms-forms.tsx`, `learning-module-builder.tsx`, `hero-carousel-form.tsx`, `billing-forms.tsx`, `bank-soal-form.tsx`, dan `assignment-builder.tsx`.
+- Pola `event.currentTarget.reset()` **setelah** `await` (penyebab error “Cannot read properties of null (reading 'reset')” dan daftar yang tidak menyegar) sudah dibersihkan di **seluruh** form dashboard: bank soal, sesi, hasil ujian, ujian, RPP, remedial, master data, materi/LMS, modul pembelajaran, hero carousel, tarif billing, dan builder tugas. Elemen form kini di-capture sebelum `await`.
 
 ## Akademik
 

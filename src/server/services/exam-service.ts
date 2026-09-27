@@ -137,6 +137,50 @@ export async function listBankSoal(actor: Actor, input?: unknown) {
   return { items, pagination: paginationMeta };
 }
 
+export async function getBankSoal(actor: Actor, id: string) {
+  if (actor.role === "WALI") {
+    throw new ForbiddenError();
+  }
+
+  const item = await prisma.bankSoal.findFirst({
+    where: {
+      id,
+      ...(actor.role === "ADMIN"
+        ? {}
+        : {
+            OR: [
+              { kelasId: null },
+              { kelas: { guruProfile: { userId: actor.id } } },
+            ],
+          }),
+    },
+    select: {
+      id: true,
+      type: true,
+      question: true,
+      stimulusText: true,
+      mediaUrl: true,
+      expectedAnswer: true,
+      structuredPayload: true,
+      rubric: true,
+      explanation: true,
+      language: true,
+      direction: true,
+      cognitiveLevel: true,
+      skill: true,
+      difficulty: true,
+      standard: true,
+      assessmentType: true,
+      createdAt: true,
+      kelas: { select: { id: true, name: true, program: { select: { name: true } } } },
+      options: { orderBy: { order: "asc" }, select: { id: true, label: true, content: true, isCorrect: true } },
+    },
+  });
+
+  if (!item) throw new NotFoundError("Soal tidak ditemukan");
+  return { item };
+}
+
 export async function createBankSoal(actor: Actor, input: unknown) {
   const parsed = createBankSoalSchema.safeParse(input);
 

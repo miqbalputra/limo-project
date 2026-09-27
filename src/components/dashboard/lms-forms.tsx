@@ -22,13 +22,14 @@ function useSubmit(path: string) {
 
   async function submit(event: FormEvent<HTMLFormElement>, body: Record<string, string | number>) {
     event.preventDefault();
+    const form = event.currentTarget;
     setError("");
     setFieldErrors({});
     setIsSubmitting(true);
 
     try {
       await postJson(path, body);
-      event.currentTarget.reset();
+      form.reset();
       router.refresh();
       return true;
     } catch (caught) {
@@ -214,10 +215,11 @@ export function MateriFileUpload({ materiId }: { materiId: string }) {
     setIsSubmitting(true);
 
     try {
-      const formData = new FormData(event.currentTarget);
+      const formElement = event.currentTarget;
+      const formData = new FormData(formElement);
       await requestJson(`/api/v1/guru/materi/${materiId}/files`, { method: "POST", body: formData, fallbackMessage: "Unggah berkas gagal" });
 
-      event.currentTarget.reset();
+      formElement.reset();
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unggah berkas gagal");

@@ -66,7 +66,8 @@ export function LearningModuleBuilder({ kelasId, initialModules, options }: { ke
 
   async function createModule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const data = new FormData(formElement);
     await run(
       "create",
       () =>
@@ -84,7 +85,7 @@ export function LearningModuleBuilder({ kelasId, initialModules, options }: { ke
       {
         fallbackMessage: "Modul gagal dibuat",
         onSuccess: () => {
-          event.currentTarget.reset();
+          formElement.reset();
           router.refresh();
         },
       },
@@ -268,7 +269,8 @@ function ModuleItemForm({ moduleId, items, options, onDone }: { moduleId: string
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const data = new FormData(formElement);
     await run(
       "submit",
       () =>
@@ -289,7 +291,7 @@ function ModuleItemForm({ moduleId, items, options, onDone }: { moduleId: string
       {
         fallbackMessage: "Aktivitas gagal ditambahkan",
         onSuccess: () => {
-          event.currentTarget.reset();
+          formElement.reset();
           onDone();
         },
       },

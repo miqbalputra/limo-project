@@ -20,6 +20,15 @@ Landing page terbaru tersedia di `http://127.0.0.1:3000` saat development server
 - **Runner e2e:** pembersihan database diberi retry agar `EBUSY` (file lock Windows) tidak lagi menggagalkan exit code setelah test lulus.
 - **Blocked (butuh akses):** migrasi/parity MariaDB staging (`npm run db:parity`) dan UAT kredensial nyata (Mayar/SMTP/WhatsApp) belum dijalankan dari environment ini.
 
+## Bank Soal: Perbaikan Simpan + Builder & Pratinjau Tab Baru (27 Sep 2026)
+
+- **Bug "soal tidak bisa disimpan" (bukti `masalah/1.PNG`):** `bank-soal-form.tsx` memanggil `event.currentTarget.reset()` **setelah** `await` (React men-null-kan `currentTarget`), sehingga handler melempar `Cannot read properties of null (reading 'reset')` dan **`router.refresh()` tidak pernah jalan**. Soal sebenarnya tersimpan, tetapi UI menampilkan error dan daftar tidak menyegar. Elemen form kini di-capture sebelum `await`.
+- **Kelas bug yang sama dibersihkan menyeluruh:** ujian, RPP, remedial, master data (program/level/kelas), materi + unggah berkas LMS, modul pembelajaran, hero carousel, tarif billing, builder tugas, dan bank soal. Tidak ada lagi `event.currentTarget.reset()` setelah `await` di `src/`.
+- **Builder jadi halaman khusus:** `/guru/bank-soal` kini hanya daftar soal + tombol **"Buat soal (tab baru)"**; form penyusunan pindah ke `/guru/bank-soal/baru`. Setelah simpan muncul panel sukses ("Soal berhasil disimpan…") karena tab builder tidak bisa menyegarkan daftar di tab lain.
+- **Pratinjau soal di tab baru (kapan pun — draft atau tersimpan):** tombol **"Pratinjau di tab baru"** di builder menulis draft ke `localStorage` lalu membuka `/guru/bank-soal/pratinjau`; setiap kartu soal punya tautan **"Pratinjau (tab baru)"** ke `/guru/bank-soal/[id]/pratinjau`. Halaman pratinjau menampilkan versi siswa (stimulus, media, opsi/pasangan/urutan, rubrik) **plus panel kunci jawaban & pembahasan**.
+- **Service baru:** `getBankSoal(actor, id)` di `exam-service` dengan scope sama seperti daftar (guru hanya soal kelasnya atau soal umum; wali ditolak).
+- **Verifikasi:** `typecheck` lulus · `lint` 0 error · `npm test` 40 lulus · e2e `bank-soal-builder` **3/3** (simpan tanpa error + pratinjau draft & tersimpan) · regresi `week2` 3/3, `accessibility` 5/5, `quiz-builder` 2/2, `mobile-layout` **16/16** (baseline `guru-arabic-bank-soal-card` diperbarui karena kartu kini punya tautan pratinjau).
+
 ## Hotfix Produksi: Kontensi Baris `Session` (26 Sep 2026)
 
 - **Gejala:** redeploy gagal; log produksi penuh `prisma.session.update()` dengan MariaDB `1020 Record has changed since last read in table 'Session'` → request 500 berulang.
