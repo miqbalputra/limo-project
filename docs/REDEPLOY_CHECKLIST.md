@@ -45,8 +45,17 @@ Catatan:
 
 1. Pastikan env di dashboard Dokploy sudah memuat nilai bagian (2) di atas.
 2. **Redeploy** service `web` (build ulang image) — jangan sekadar restart.
-3. Tunggu log startup: cari `prisma migrate deploy` sukses dan `Ready`.
+3. Tunggu log startup. Cari penanda migrasi berikut di log container:
+   - `Menjalankan migrasi database (prisma migrate deploy)...`
+   - `Migrasi database selesai (prisma migrate deploy).`
+   - lalu `Ready`.
 4. Cek health: `curl -s https://<domain>/api/health/ready` → status `ok`.
+
+Jika penanda di langkah 3 **tidak muncul**, migrasi tidak dijalankan. Penyebab umum:
+- Anda menekan **Restart**, bukan **Redeploy** (image lama dipakai ulang, folder `prisma/migrations` lama).
+- Start command Application diganti menjadi `next start` sehingga `docker-entrypoint.sh` (Dockerfile `ENTRYPOINT`) ter-bypass. Biarkan start command default.
+- `DOKPLOY_DB_PUSH_ON_START=true` — memakai `prisma db push` dan melewati `migrate deploy`. Jadikan `false` di production.
+- Jika log menampilkan `Migrasi database GAGAL`, container sengaja berhenti; perbaiki penyebabnya (lihat bagian 6) lalu redeploy.
 
 ## 4. Verifikasi pasca-deploy (semua peran)
 

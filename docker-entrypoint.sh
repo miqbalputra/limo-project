@@ -92,9 +92,16 @@ run_migrations() {
 }
 
 if [ "${DOKPLOY_DB_PUSH_ON_START:-false}" = "true" ]; then
+  echo "WARNING: DOKPLOY_DB_PUSH_ON_START=true — memakai 'prisma db push --accept-data-loss' dan MELEWATI 'prisma migrate deploy'. Hanya untuk demo disposable." >&2
   npx prisma db push --accept-data-loss
 else
-  run_migrations
+  echo "Menjalankan migrasi database (prisma migrate deploy)..."
+  if run_migrations; then
+    echo "Migrasi database selesai (prisma migrate deploy)."
+  else
+    echo "Migrasi database GAGAL. Perbaiki penyebabnya lalu redeploy. Jangan memakai DOKPLOY_DB_PUSH_ON_START di production." >&2
+    exit 1
+  fi
 fi
 
 if [ "${DOKPLOY_SEED_ON_START:-false}" = "true" ]; then
