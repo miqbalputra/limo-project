@@ -1,17 +1,22 @@
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listPrograms } from "@/server/services/master-data-service";
 import { ProgramForm } from "@/components/dashboard/master-data-forms";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { MasterDataActions } from "@/components/dashboard/master-data-actions";
 import { ProgramAvailabilityActions } from "@/components/dashboard/program-availability-actions";
+import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Program" };
 
-export default async function AdminProgramPage() {
+export default async function AdminProgramPage({ searchParams }: { searchParams: Promise<{ search?: string; page?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
-  const { items } = await listPrograms(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
+  const params = await searchParams;
+  const search = typeof params.search === "string" ? params.search.trim() : "";
+  const page = Number(params.page) || 1;
+  const { items, pagination } = await listPrograms(actor, { search, page });
 
   return (
     <main className="space-y-6">
@@ -20,6 +25,10 @@ export default async function AdminProgramPage() {
         <p className="mt-2 tailadmin-muted">Kelola program dan status pendaftaran setiap program.</p>
       </div>
       <ProgramForm />
+      <form method="get" className="tailadmin-card grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <input name="search" defaultValue={search} placeholder="Cari nama program" aria-label="Cari program" className="tailadmin-input" />
+        <button type="submit" className="tailadmin-button-primary">Terapkan</button>
+      </form>
       {items.length > 0 ? <section className="grid gap-4 md:grid-cols-2">
         {items.map((program) => (
           <article key={program.id} className="tailadmin-card p-5">
@@ -32,6 +41,7 @@ export default async function AdminProgramPage() {
           </article>
         ))}
       </section> : <EmptyState icon="program" title="Belum ada program" description="Buat program menggunakan formulir di atas." />}
+      {pagination ? <PaginationControls basePath="/admin/program" page={pagination.page} totalPages={pagination.totalPages} params={{ search: search || undefined }} /> : null}
     </main>
   );
 }

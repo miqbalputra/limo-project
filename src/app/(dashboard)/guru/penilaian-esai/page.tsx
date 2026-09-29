@@ -6,7 +6,8 @@ import {
 } from "@/components/dashboard/dashboard-widgets";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { LocalizedContent } from "@/components/localized-content";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listEssayReviewQueue } from "@/server/services/exam-service";
 import { formatUiLabel, getUiToneClass } from "@/lib/ui-labels";
 
@@ -18,7 +19,7 @@ export default async function GuruPenilaianEsaiPage({
   searchParams: Promise<{ page?: string }>;
 }) {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.assessment.manage");
   const { page } = await searchParams;
   const queue = await listEssayReviewQueue(actor, {
     page: Number(page) || 1,

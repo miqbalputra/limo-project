@@ -3,7 +3,7 @@ import { getEnv } from "@/server/env";
 import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
 import { assertSameOrigin } from "@/server/security/origin";
-import { updateMateriStatus } from "@/server/services/lms-service";
+import { deleteMateri, updateMateri, updateMateriStatus } from "@/server/services/lms-service";
 
 export const runtime = "nodejs";
 
@@ -15,6 +15,32 @@ export async function PATCH(request: Request, context: { params: Promise<{ mater
     requireRole(actor, ["GURU"]);
     const { materiId } = await context.params;
     return apiOk(await updateMateriStatus(actor, materiId, await request.json()), { requestId });
+  } catch (error) {
+    return apiError(error, { requestId });
+  }
+}
+
+export async function PUT(request: Request, context: { params: Promise<{ materiId: string }> }) {
+  const requestId = getRequestId(request.headers);
+  try {
+    assertSameOrigin(request.headers, getEnv().APP_URL);
+    const actor = await requireActor();
+    requireRole(actor, ["GURU"]);
+    const { materiId } = await context.params;
+    return apiOk(await updateMateri(actor, materiId, await request.json()), { requestId });
+  } catch (error) {
+    return apiError(error, { requestId });
+  }
+}
+
+export async function DELETE(request: Request, context: { params: Promise<{ materiId: string }> }) {
+  const requestId = getRequestId(request.headers);
+  try {
+    assertSameOrigin(request.headers, getEnv().APP_URL);
+    const actor = await requireActor();
+    requireRole(actor, ["GURU"]);
+    const { materiId } = await context.params;
+    return apiOk(await deleteMateri(actor, materiId), { requestId });
   } catch (error) {
     return apiError(error, { requestId });
   }

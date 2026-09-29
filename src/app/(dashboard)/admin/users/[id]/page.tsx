@@ -2,17 +2,21 @@ import Link from "next/link";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
 import { AdminUserProfileForm } from "@/components/dashboard/user-forms";
 import { UserAccountActions } from "@/components/dashboard/user-account-actions";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { UserPermissionEditor } from "@/components/dashboard/user-permission-editor";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getAdminUser } from "@/server/services/auth-service";
+import { listUserPermissionOverrides } from "@/server/services/permission-service";
 import { formatUiLabel, getUiToneClass } from "@/lib/ui-labels";
 
 export const metadata = { title: "Detail Pengguna" };
 
 export default async function AdminUserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.people.manage");
   const { id } = await params;
   const { item } = await getAdminUser(actor, id);
+  const permissionData = await listUserPermissionOverrides(actor, id);
 
   const manageable = item.role !== "SISWA";
   const isSelf = item.id === actor.id;
@@ -67,6 +71,13 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
           />
         </aside>
       </section>
+      <UserPermissionEditor
+        userId={item.id}
+        role={item.role}
+        permissions={permissionData.permissions}
+        overrides={permissionData.overrides}
+        effective={permissionData.effective}
+      />
     </main>
   );
 }

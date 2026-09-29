@@ -1,4 +1,5 @@
 import type { Actor } from "../auth/session.ts";
+import { requirePermission } from "../auth/permissions.ts";
 import { prisma } from "../db/prisma.ts";
 import { ForbiddenError, NotFoundError, ValidationError } from "../errors/application-error.ts";
 import { canAccessInvoice } from "../policies/access-policy.ts";
@@ -8,11 +9,6 @@ import { getActivePaymentGateways } from "./payment-gateway-service.ts";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "../pagination.ts";
 import { pickTarifForStudent } from "../billing/pick-tarif.ts";
 
-function requireAdmin(actor: Actor) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
-}
 
 function parseDate(value: string) {
   return new Date(`${value}T00:00:00.000Z`);
@@ -45,7 +41,7 @@ const tarifSelect = {
 } as const;
 
 export async function listTarif(actor: Actor) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.billing.manage");
 
   const items = await prisma.tarif.findMany({
     orderBy: [{ isActive: "desc" }, { effectiveFrom: "desc" }],
@@ -56,7 +52,7 @@ export async function listTarif(actor: Actor) {
 }
 
 export async function getTagihanSummary(actor: Actor) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.billing.manage");
 
   const grouped = await prisma.tagihan.groupBy({
     by: ["status"],
@@ -103,7 +99,7 @@ export async function getTagihanSummary(actor: Actor) {
 }
 
 export async function createTarif(actor: Actor, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.billing.manage");
   const parsed = createTarifSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -135,7 +131,7 @@ export async function createTarif(actor: Actor, input: unknown) {
 }
 
 export async function updateTarif(actor: Actor, id: string, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.billing.manage");
   const parsed = updateTarifSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -198,7 +194,7 @@ export async function updateTarif(actor: Actor, id: string, input: unknown) {
 }
 
 export async function archiveTarif(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.billing.manage");
 
   const existing = await prisma.tarif.findUnique({ where: { id }, select: { id: true } });
   if (!existing) {
@@ -215,7 +211,7 @@ export async function archiveTarif(actor: Actor, id: string) {
 }
 
 export async function restoreTarif(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.billing.manage");
 
   const existing = await prisma.tarif.findUnique({ where: { id }, select: { id: true } });
   if (!existing) {
@@ -420,7 +416,7 @@ export async function listPaymentLedger(actor: Actor, paginationInput: Paginatio
 
 export async function generateMonthlyInvoices(actor: Actor | null, input: unknown) {
   if (actor) {
-    requireAdmin(actor);
+    await requirePermission(actor, "admin.billing.manage");
   }
 
   const parsed = generateInvoiceSchema.safeParse(input);

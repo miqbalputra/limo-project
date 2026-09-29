@@ -4,6 +4,7 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@
 import { canManageClass } from "@/server/policies/access-policy";
 import { generateOpaqueToken } from "@/server/security/crypto";
 import type { Actor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 import { issueSertifikatSchema, revokeSertifikatSchema } from "@/server/validation/sertifikat";
 
@@ -112,7 +113,7 @@ export async function issueSertifikat(actor: Actor, input: unknown) {
 }
 
 export async function revokeSertifikat(actor: Actor, id: string, input: unknown) {
-  if (actor.role !== "ADMIN") throw new ForbiddenError();
+  await requirePermission(actor, "admin.sertifikat.manage");
   const parsed = revokeSertifikatSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Alasan pencabutan belum valid", parsed.error.flatten().fieldErrors);
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getUjianInputContext, listHasilUjian } from "@/server/services/exam-service";
 import { HasilUjianForm } from "@/components/dashboard/hasil-ujian-form";
 import { ExamResultReleaseButton } from "@/components/dashboard/exam-result-release-button";
@@ -11,7 +12,7 @@ export const metadata = { title: "Input Hasil Ujian" };
 
 export default async function GuruInputHasilUjianPage({ params, searchParams }: { params: Promise<{ ujianId: string }>; searchParams: Promise<{ page?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.assessment.manage");
   const { ujianId } = await params;
   const { page } = await searchParams;
   const [{ ujian, students }, { items: hasil, pagination }] = await Promise.all([

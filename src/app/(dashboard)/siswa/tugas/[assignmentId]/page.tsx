@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AssignmentSubmissionForm, type StudentAssignmentView } from "@/components/dashboard/assignment-submission-form";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { getStudentAssignment } from "@/server/services/assignment-service";
 import { formatUiLabel } from "@/lib/ui-labels";
@@ -12,7 +13,7 @@ export const metadata = { title: "Kerjakan Tugas" };
 export default async function StudentAssignmentPage({ params, searchParams }: { params: Promise<{ assignmentId: string }>; searchParams: Promise<{ remedialId?: string; revisionRequestId?: string }> }) {
   if (!isFeatureEnabled("studentPortalEnabled") || !isFeatureEnabled("assignmentsEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["SISWA"]);
+  await requirePermission(actor, "siswa.tugas.view");
   const { assignmentId } = await params;
   const query = await searchParams;
   const { assignment, submission, remedial, revisionRequest } = await getStudentAssignment(actor, assignmentId, { remedialId: query.remedialId, revisionRequestId: query.revisionRequestId });

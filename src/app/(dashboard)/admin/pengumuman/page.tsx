@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { listSchoolPengumuman } from "@/server/services/pengumuman-service";
 import { formatJakartaDateTimeLocal } from "@/server/time/jakarta";
@@ -15,7 +16,7 @@ export default async function AdminPengumumanPage({ searchParams }: { searchPara
   if (!isFeatureEnabled("classDiscussionEnabled")) notFound();
 
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.content.manage");
   const { page } = await searchParams;
   const data = await listSchoolPengumuman(actor, { page: Number(page) || 1, pageSize: 20 });
 

@@ -2,14 +2,15 @@ import { CalendarEventForm } from "@/components/dashboard/calendar-event-form";
 import { CalendarRangeNav } from "@/components/dashboard/calendar-range-nav";
 import { CalendarView } from "@/components/dashboard/calendar-view";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listCalendarEventClasses, listCalendarEvents, resolveCalendarPageRange } from "@/server/services/calendar-service";
 
 export const metadata = { title: "Kalender Operasional" };
 
 export default async function AdminCalendarPage({ searchParams }: { searchParams: Promise<{ month?: string; from?: string; to?: string; classId?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.schedule.manage");
   const params = await searchParams;
   const range = resolveCalendarPageRange(params);
   const [{ events }, { items: classes }] = await Promise.all([listCalendarEvents(actor, { from: range.start.toISOString(), to: range.end.toISOString(), classId: params.classId }), listCalendarEventClasses(actor)]);

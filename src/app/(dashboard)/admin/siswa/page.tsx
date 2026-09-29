@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listKelas, listPrograms } from "@/server/services/master-data-service";
 import { listSiswa, listWaliOptions } from "@/server/services/people-service";
 import { SiswaForm } from "@/components/dashboard/people-forms";
@@ -10,7 +11,7 @@ export const metadata = { title: "Siswa" };
 
 export default async function AdminSiswaPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.people.manage");
   const params = await searchParams;
   const filters = Object.fromEntries(Object.entries(params).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]).filter((entry): entry is [string, string] => Boolean(entry[1])));
   const [{ items: siswa, pagination }, { items: programs }, { items: kelas }, { items: walis }] = await Promise.all([listSiswa(actor, filters), listPrograms(actor), listKelas(actor), listWaliOptions(actor)]);

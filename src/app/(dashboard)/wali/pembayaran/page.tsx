@@ -1,7 +1,8 @@
 import { DashboardHero, MetricCard } from "@/components/dashboard/dashboard-widgets";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { PaymentLedger } from "@/components/dashboard/payment-ledger";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { resolveWaliChildId } from "@/server/dal/wali-selector-dal";
 import { listPaymentLedger } from "@/server/services/billing-service";
 import { pembayaranStatusSchema } from "@/server/validation/billing";
@@ -10,7 +11,7 @@ export const metadata = { title: "Pembayaran" };
 
 export default async function WaliPembayaranPage({ searchParams }: { searchParams: Promise<{ anak?: string; status?: string; search?: string; page?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.pembayaran.view");
   const params = await searchParams;
   const selectedStudentId = await resolveWaliChildId(actor, params.anak);
   const search = params.search?.trim() || "";

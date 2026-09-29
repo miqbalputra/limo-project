@@ -1,10 +1,11 @@
 import "server-only";
 import { prisma } from "@/server/db/prisma";
-import { ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from "@/server/errors/application-error";
+import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from "@/server/errors/application-error";
 import { createSession, revokeSessionToken } from "@/server/auth/session";
 import { hashPassword, normalizeEmail, verifyPassword } from "@/server/auth/password";
 import { createPasswordResetGrant } from "@/server/auth/password-reset";
 import type { Actor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import {
   adminUserListSchema,
   changePasswordSchema,
@@ -254,7 +255,7 @@ export async function changePassword(actor: Actor, input: unknown) {
 }
 
 export async function listUsers(actor: Actor, input: unknown = {}) {
-  if (actor.role !== "ADMIN") throw new ForbiddenError();
+  await requirePermission(actor, "admin.people.manage");
   const parsed = adminUserListSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Filter pengguna belum valid", parsed.error.flatten().fieldErrors);
   const pagination = resolvePagination(parsed.data, 20);
@@ -278,7 +279,7 @@ export async function listUsers(actor: Actor, input: unknown = {}) {
 }
 
 export async function setUserStatus(actor: Actor, userId: string, input: unknown) {
-  if (actor.role !== "ADMIN") throw new ForbiddenError();
+  await requirePermission(actor, "admin.people.manage");
   if (actor.id === userId) throw new ValidationError("Admin tidak dapat menonaktifkan akunnya sendiri");
   const parsed = userStatusSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Status user belum valid", parsed.error.flatten().fieldErrors);
@@ -298,7 +299,7 @@ export async function setUserStatus(actor: Actor, userId: string, input: unknown
 }
 
 export async function revokeUserSessions(actor: Actor, userId: string) {
-  if (actor.role !== "ADMIN") throw new ForbiddenError();
+  await requirePermission(actor, "admin.people.manage");
   const existing = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
   if (!existing) throw new NotFoundError("User tidak ditemukan");
   const result = await prisma.session.updateMany({
@@ -309,9 +310,6 @@ export async function revokeUserSessions(actor: Actor, userId: string) {
   return { revoked: result.count };
 }
 
-function requireAdmin(actor: Actor) {
-  if (actor.role !== "ADMIN") throw new ForbiddenError();
-}
 
 function logOnlyInDevelopment(url: string) {
   return process.env.NODE_ENV === "production" ? undefined : url;
@@ -329,7 +327,7 @@ const adminUserSelect = {
 } as const;
 
 export async function getAdminUser(actor: Actor, userId: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const item = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -344,7 +342,7 @@ export async function getAdminUser(actor: Actor, userId: string) {
 }
 
 export async function createAdminUser(actor: Actor, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const parsed = createAdminUserSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Data pengguna belum valid", parsed.error.flatten().fieldErrors);
 
@@ -417,7 +415,7 @@ export async function createAdminUser(actor: Actor, input: unknown) {
 }
 
 export async function updateAdminUser(actor: Actor, userId: string, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const parsed = updateAdminUserSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Data pengguna belum valid", parsed.error.flatten().fieldErrors);
 
@@ -462,7 +460,7 @@ export async function updateAdminUser(actor: Actor, userId: string, input: unkno
 }
 
 export async function archiveAdminUser(actor: Actor, userId: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   if (actor.id === userId) throw new ValidationError("Admin tidak dapat mengarsipkan akunnya sendiri");
 
   const existing = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true, deletedAt: true } });
@@ -485,7 +483,7 @@ export async function archiveAdminUser(actor: Actor, userId: string) {
 }
 
 export async function restoreAdminUser(actor: Actor, userId: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const existing = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
   if (!existing) throw new NotFoundError("Pengguna tidak ditemukan");
 
@@ -531,7 +529,7 @@ async function issueUserPasswordLink(input: {
 }
 
 export async function sendAdminUserPasswordReset(actor: Actor, userId: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, deletedAt: true } });
   if (!user) throw new NotFoundError("Pengguna tidak ditemukan");
   if (user.deletedAt) throw new ConflictError("Akun sedang diarsipkan");
@@ -549,7 +547,7 @@ export async function sendAdminUserPasswordReset(actor: Actor, userId: string) {
 }
 
 export async function resendAdminUserActivation(actor: Actor, userId: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, deletedAt: true, lastLoginAt: true } });
   if (!user) throw new NotFoundError("Pengguna tidak ditemukan");
   if (user.deletedAt) throw new ConflictError("Akun sedang diarsipkan");

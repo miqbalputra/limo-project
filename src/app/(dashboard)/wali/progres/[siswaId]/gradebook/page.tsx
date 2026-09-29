@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GradebookViewer } from "@/components/dashboard/gradebook-viewer";
 import { DashboardHero, EmptyState } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { getWaliGradebook } from "@/server/services/gradebook-service";
 import { getStudentSummary } from "@/server/services/report-service";
@@ -13,7 +14,7 @@ export const metadata = { title: "Buku Nilai Anak" };
 export default async function WaliGradebookPage({ params }: { params: Promise<{ siswaId: string }> }) {
   if (!isFeatureEnabled("gradebookEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.progres.view");
   const { siswaId } = await params;
   const [{ siswa }, enrollment] = await Promise.all([getStudentSummary(actor, siswaId), prisma.kelasSiswa.findFirst({ where: { siswaId, status: "ACTIVE", kelas: { status: "ACTIVE" } }, orderBy: { startDate: "desc" }, select: { kelasId: true, kelas: { select: { id: true, name: true, program: { select: { name: true } }, level: { select: { name: true } } } } } })]);
   if (!enrollment) notFound();

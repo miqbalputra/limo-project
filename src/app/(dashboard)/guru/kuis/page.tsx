@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listUjian } from "@/server/services/exam-service";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { ShareExamButton } from "@/components/dashboard/share-exam-button";
@@ -8,11 +9,12 @@ import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Formulir Kuis" };
 
-export default async function GuruKuisPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+export default async function GuruKuisPage({ searchParams }: { searchParams: Promise<{ page?: string; search?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
-  const { page } = await searchParams;
-  const { items, pagination } = await listUjian(actor, { page: Number(page) || 1, pageSize: 20 });
+  await requirePermission(actor, "guru.assessment.manage");
+  const params = await searchParams;
+  const search = typeof params.search === "string" ? params.search.trim() : "";
+  const { items, pagination } = await listUjian(actor, { page: Number(params.page) || 1, pageSize: 20, search });
 
   return (
     <main className="space-y-6">
@@ -24,6 +26,11 @@ export default async function GuruKuisPage({ searchParams }: { searchParams: Pro
         </div>
         <Link href="/guru/kuis/baru" className="tailadmin-button-primary px-5 py-3">+ Buat Formulir</Link>
       </div>
+
+      <form method="get" className="tailadmin-card grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <input name="search" defaultValue={search} placeholder="Cari judul formulir" aria-label="Cari formulir kuis" className="tailadmin-input" />
+        <button type="submit" className="tailadmin-button-primary">Terapkan</button>
+      </form>
 
       <section className="space-y-4">
         {items.length > 0 ? items.map((item) => (
@@ -51,7 +58,7 @@ export default async function GuruKuisPage({ searchParams }: { searchParams: Pro
         )) : <EmptyState icon="exam" title="Belum ada formulir kuis" description="Klik Buat Formulir untuk menyusun soal pertama seperti di Google Forms." />}
       </section>
 
-      <PaginationControls basePath="/guru/kuis" page={pagination.page} totalPages={pagination.totalPages} />
+      <PaginationControls basePath="/guru/kuis" page={pagination.page} totalPages={pagination.totalPages} params={{ search: search || undefined }} />
     </main>
   );
 }

@@ -1,4 +1,4 @@
-import { requireActor } from "@/server/auth/session";
+import { requireActor, requireRole } from "@/server/auth/session";
 import { apiError } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
 import { createPendaftaranDetailPdf } from "@/server/services/pendaftaran-export-service";
@@ -11,6 +11,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
   try {
     const actor = await requireActor();
+    requireRole(actor, ["ADMIN"]);
     const { id } = await context.params;
     const { pendaftaran } = await getPendaftaranDetail(actor, id);
     const pdf = await createPendaftaranDetailPdf(pendaftaran);

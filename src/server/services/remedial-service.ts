@@ -8,7 +8,7 @@ import { isFeatureEnabled, requireFeature } from "@/server/features/feature-flag
 import { canAccessStudent, canManageClass } from "@/server/policies/access-policy";
 import { notifySiswaForStudents, notifyWaliForStudents } from "@/server/services/notification-service";
 import { applyRemedialScorePolicy, type RemedialScorePolicy } from "@/server/services/remedial-score-policy";
-import { createRemedialSchema, updateRemedialStatusSchema } from "@/server/validation/remedial";
+import { createRemedialSchema, updateRemedialSchema, updateRemedialStatusSchema } from "@/server/validation/remedial";
 
 function requireRemedialFeatures() {
   requireFeature("remedialEnabled", "Remedial belum diaktifkan");
@@ -195,6 +195,58 @@ export async function updateRemedialStatus(actor: Actor, remedialId: string, inp
     return tx.remedialAssignment.findUniqueOrThrow({ where: { id: remedialId }, select: remedialSelect });
   });
   if (parsed.data.status === "PUBLISHED" && existing.status !== "PUBLISHED") await notifyRemedialAssigned(item.id, item.title, item.instructions, item.dueAt, item.participants.map((participant) => participant.studentId));
+  return { item };
+}
+
+export async function updateRemedial(actor: Actor, remedialId: string, input: unknown) {
+  const parsed = updateRemedialSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Data remedial belum valid", parsed.error.flatten().fieldErrors);
+
+  const existing = await prisma.remedialAssignment.findUnique({ where: { id: remedialId }, select: { id: true, kelasId: true, status: true } });
+  if (!existing) throw new NotFoundError("Remedial tidak ditemukan");
+  await assertGuruClass(actor, existing.kelasId);
+  if (existing.status === "ARCHIVED") throw new ConflictError("Remedial yang sudah ditutup tidak dapat diubah");
+
+  const availableFrom = parseDateTime(parsed.data.availableFrom, "availableFrom");
+  const dueAt = parseDateTime(parsed.data.dueAt, "dueAt");
+  if (!dueAt) throw new ValidationError("Tenggat remedial wajib diisi");
+  if (availableFrom && dueAt < availableFrom) throw new ValidationError("Tenggat remedial tidak boleh sebelum waktu tersedia");
+  if (parsed.data.scorePolicy === "CAPPED" && parsed.data.scoreCap === undefined) throw new ValidationError("Score cap wajib diisi untuk policy CAPPED");
+
+  const item = await prisma.remedialAssignment.update({
+    where: { id: remedialId },
+    data: {
+      title: parsed.data.title,
+      instructions: parsed.data.instructions,
+      availableFrom: availableFrom || null,
+      dueAt,
+      scorePolicy: parsed.data.scorePolicy,
+      scoreCap: parsed.data.scoreCap ?? null,
+    },
+    select: { id: true, title: true, status: true },
+  });
+
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "REMEDIAL_UPDATED", entityType: "RemedialAssignment", entityId: remedialId } });
+  return { item };
+}
+
+export async function closeRemedial(actor: Actor, remedialId: string) {
+  const existing = await prisma.remedialAssignment.findUnique({ where: { id: remedialId }, select: { id: true, kelasId: true, status: true } });
+  if (!existing) throw new NotFoundError("Remedial tidak ditemukan");
+  await assertGuruClass(actor, existing.kelasId);
+  if (existing.status === "ARCHIVED") return { item: { id: remedialId, status: "ARCHIVED" } };
+
+  const item = await prisma.remedialAssignment.update({ where: { id: remedialId }, data: { status: "ARCHIVED" }, select: { id: true, status: true } });
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "REMEDIAL_ARCHIVED", entityType: "RemedialAssignment", entityId: remedialId, metadata: { previousStatus: existing.status } } });
+  return { item };
+}
+
+export async function syncRemedialParticipant(actor: Actor, participantId: string) {
+  const participant = await prisma.remedialParticipant.findUnique({ where: { id: participantId }, select: { id: true, remedial: { select: { kelasId: true } } } });
+  if (!participant) throw new NotFoundError("Peserta remedial tidak ditemukan");
+  await assertGuruClass(actor, participant.remedial.kelasId);
+
+  const item = await syncRemedialParticipantResult(participantId, actor.id);
   return { item };
 }
 

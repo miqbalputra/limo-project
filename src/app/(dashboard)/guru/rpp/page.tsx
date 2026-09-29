@@ -1,8 +1,10 @@
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listMyKelas } from "@/server/services/lms-service";
 import { listGuruRpp } from "@/server/services/rpp-service";
 import { DashboardHero, EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { RppForm } from "@/components/dashboard/rpp-form";
+import { RppActions } from "@/components/dashboard/rpp-actions";
 import { RppStatusActions } from "@/components/dashboard/rpp-status-actions";
 import { formatUiLabel, getUiToneClass } from "@/lib/ui-labels";
 
@@ -10,7 +12,7 @@ export const metadata = { title: "RPP" };
 
 export default async function GuruRppPage() {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.rpp.manage");
   const [{ items: classes }, { items }] = await Promise.all([listMyKelas(actor), listGuruRpp(actor)]);
 
   return (
@@ -28,7 +30,7 @@ export default async function GuruRppPage() {
 type RppItem = Awaited<ReturnType<typeof listGuruRpp>>["items"][number];
 
 function RppCard({ item }: { item: RppItem }) {
-  return <article className="tailadmin-card p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-700">{item.kelas.program.name} / {item.kelas.level.name} / {item.kelas.name}</p><h3 className="mt-1 text-lg font-semibold text-gray-900">{item.title}</h3><p className="mt-1 text-theme-sm text-gray-500">{formatDate(item.planDate)}{item.meetingNumber ? ` / Pertemuan ${item.meetingNumber}` : ""} / {item.topic}</p></div><span className={`rounded-full px-3 py-1 text-theme-xs font-semibold ${getUiToneClass(item.status)}`}>{formatUiLabel(item.status)}</span></div>{item.mode === "FORM" ? <div className="mt-4 grid gap-3 sm:grid-cols-2"><RppSection title="Tujuan Pembelajaran" value={item.learningObjectives} /><RppSection title="Materi & Media" value={item.materials} /><RppSection title="Kegiatan" value={item.activities} /><RppSection title="Asesmen" value={item.assessment} /></div> : <p className="mt-4 rounded-xl bg-limo-blue-50 p-3 text-theme-sm text-limo-blue-800">Isi RPP tersedia dalam dokumen yang diunggah.</p>}<p className="mt-4 text-theme-xs text-gray-500">Mode {formatUiLabel(item.mode)} / Kesulitan {formatUiLabel(item.difficulty)}{item.durationMinutes ? ` / ${item.durationMinutes} menit` : ""}</p>{item.files.length > 0 ? <div className="mt-3 space-y-2">{item.files.map((file) => <a key={file.id} href={`/api/v1/files/${file.id}`} className="block text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">{file.originalName}</a>)}</div> : null}<RppStatusActions rppId={item.id} status={item.status} /></article>;
+  return <article className="tailadmin-card p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-700">{item.kelas.program.name} / {item.kelas.level.name} / {item.kelas.name}</p><h3 className="mt-1 text-lg font-semibold text-gray-900">{item.title}</h3><p className="mt-1 text-theme-sm text-gray-500">{formatDate(item.planDate)}{item.meetingNumber ? ` / Pertemuan ${item.meetingNumber}` : ""} / {item.topic}</p></div><span className={`rounded-full px-3 py-1 text-theme-xs font-semibold ${getUiToneClass(item.status)}`}>{formatUiLabel(item.status)}</span></div>{item.mode === "FORM" ? <div className="mt-4 grid gap-3 sm:grid-cols-2"><RppSection title="Tujuan Pembelajaran" value={item.learningObjectives} /><RppSection title="Materi & Media" value={item.materials} /><RppSection title="Kegiatan" value={item.activities} /><RppSection title="Asesmen" value={item.assessment} /></div> : <p className="mt-4 rounded-xl bg-limo-blue-50 p-3 text-theme-sm text-limo-blue-800">Isi RPP tersedia dalam dokumen yang diunggah.</p>}<p className="mt-4 text-theme-xs text-gray-500">Mode {formatUiLabel(item.mode)} / Kesulitan {formatUiLabel(item.difficulty)}{item.durationMinutes ? ` / ${item.durationMinutes} menit` : ""}</p>{item.files.length > 0 ? <div className="mt-3 space-y-2">{item.files.map((file) => <a key={file.id} href={`/api/v1/files/${file.id}`} className="block text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">{file.originalName}</a>)}</div> : null}<RppActions item={{ id: item.id, mode: item.mode, title: item.title, planDate: toDateInput(item.planDate), meetingNumber: item.meetingNumber ?? null, topic: item.topic, difficulty: item.difficulty, durationMinutes: item.durationMinutes ?? null, notes: item.notes ?? "", learningObjectives: item.learningObjectives, materials: item.materials, activities: item.activities, assessment: item.assessment }} /><RppStatusActions rppId={item.id} status={item.status} /></article>;
 }
 
 function RppSection({ title, value }: { title: string; value: string }) {
@@ -37,4 +39,8 @@ function RppSection({ title, value }: { title: string; value: string }) {
 
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeZone: "Asia/Jakarta" }).format(value);
+}
+
+function toDateInput(value: Date) {
+  return value.toISOString().slice(0, 10);
 }

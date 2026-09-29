@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { notoNaskhArabic } from "@/app/fonts";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
+import { ToastProvider } from "@/components/ui/toast-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -44,7 +45,7 @@ export default function RootLayout({
   return (
     <html lang="id" className={notoNaskhArabic.variable}>
       <body>
-        {children}
+        <ToastProvider>{children}</ToastProvider>
         <ServiceWorkerRegister />
       </body>
     </html>

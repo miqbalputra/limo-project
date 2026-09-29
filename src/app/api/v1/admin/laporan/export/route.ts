@@ -1,4 +1,4 @@
-import { requireActor } from "@/server/auth/session";
+import { requireActor, requireRole } from "@/server/auth/session";
 import { getAdminReport } from "@/server/services/report-service";
 import { apiError } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
@@ -16,6 +16,7 @@ export async function GET(request: Request) {
 
   try {
     const actor = await requireActor();
+    requireRole(actor, ["ADMIN"]);
     const url = new URL(request.url);
     const report = await getAdminReport(actor, { fromValue: url.searchParams.get("from") ?? undefined, toValue: url.searchParams.get("to") ?? undefined });
     const lines = [

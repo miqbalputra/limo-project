@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listBankSoal } from "@/server/services/exam-service";
+import { BankSoalActions } from "@/components/dashboard/bank-soal-actions";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { LocalizedContent } from "@/components/localized-content";
@@ -8,11 +10,12 @@ import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Bank Soal" };
 
-export default async function GuruBankSoalPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+export default async function GuruBankSoalPage({ searchParams }: { searchParams: Promise<{ page?: string; arsip?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
-  const { page } = await searchParams;
-  const { items: soal, pagination } = await listBankSoal(actor, { page: Number(page) || 1, pageSize: 20 });
+  await requirePermission(actor, "guru.assessment.manage");
+  const params = await searchParams;
+  const includeArchived = params.arsip === "1";
+  const { items: soal, pagination } = await listBankSoal(actor, { page: Number(params.page) || 1, pageSize: 20, includeArchived });
 
   return (
     <main className="space-y-6">
@@ -21,7 +24,10 @@ export default async function GuruBankSoalPage({ searchParams }: { searchParams:
           <h1 className="tailadmin-page-title">Bank Soal</h1>
           <p className="mt-2 tailadmin-muted">Kelola soal Bahasa Inggris dan Arab untuk gambar, pilihan ganda, benar/salah, mencocokkan, cloze, listening, speaking, writing, reading, dan roleplay.</p>
         </div>
-        <Link href="/guru/bank-soal/baru" target="_blank" rel="noopener noreferrer" className="tailadmin-button-primary px-4 py-2">Buat soal (tab baru)</Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href={includeArchived ? "/guru/bank-soal" : "/guru/bank-soal?arsip=1"} className="tailadmin-button-outline px-4 py-2">{includeArchived ? "Sembunyikan arsip" : "Tampilkan arsip"}</Link>
+          <Link href="/guru/bank-soal/baru" target="_blank" rel="noopener noreferrer" className="tailadmin-button-primary px-4 py-2">Buat soal (tab baru)</Link>
+        </div>
       </div>
       <section className="space-y-4">
         {soal.length > 0 ? soal.map((item) => (
@@ -47,10 +53,11 @@ export default async function GuruBankSoalPage({ searchParams }: { searchParams:
               </ul>
             ) : null}
             <Link href={`/guru/bank-soal/${item.id}/pratinjau`} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex text-theme-sm font-semibold text-limo-blue-700 underline hover:text-limo-blue-800">Pratinjau (tab baru)</Link>
+            <BankSoalActions id={item.id} archived={Boolean(item.archivedAt)} />
           </article>
         )) : <EmptyState icon="exam" title="Bank soal masih kosong" description="Klik “Buat soal (tab baru)” untuk menyusun soal pertama pada kelas yang Anda ampu." />}
       </section>
-      <PaginationControls basePath="/guru/bank-soal" page={pagination.page} totalPages={pagination.totalPages} />
+      <PaginationControls basePath="/guru/bank-soal" page={pagination.page} totalPages={pagination.totalPages} params={{ arsip: includeArchived ? "1" : undefined }} />
     </main>
   );
 }

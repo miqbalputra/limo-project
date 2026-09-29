@@ -2,6 +2,7 @@ import "server-only";
 
 import { Prisma } from "@prisma/client";
 import type { Actor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { assertManageKelasForum, assertViewKelasForum, canManageClass } from "@/server/policies/access-policy";
@@ -693,7 +694,7 @@ export async function listDiskusiLaporan(
   paginationInput: PaginationInput = {},
   filters: { status?: "OPEN" | "RESOLVED" | "DISMISSED" } = {},
 ) {
-  if (actor.role !== "ADMIN") throw new ForbiddenError("Hanya untuk Admin");
+  await requirePermission(actor, "admin.content.manage");
 
   const pagination = resolvePagination(paginationInput, 25);
   const where = filters.status ? { status: filters.status } : {};
@@ -733,7 +734,7 @@ export async function resolveDiskusiLaporan(actor: Actor, laporanId: string, inp
   const parsed = resolveDiskusiLaporanSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Status laporan belum valid", parsed.error.flatten().fieldErrors);
 
-  if (actor.role !== "ADMIN") throw new ForbiddenError("Hanya untuk Admin");
+  await requirePermission(actor, "admin.content.manage");
 
   const existing = await prisma.diskusiLaporan.findUnique({ where: { id: laporanId }, select: { id: true, status: true, threadId: true, thread: { select: { kelasId: true } } } });
   if (!existing) throw new NotFoundError("Laporan tidak ditemukan");

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getQuizResponses } from "@/server/services/quiz-builder-service";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { QuizReleaseButton } from "@/components/dashboard/quiz-release-button";
@@ -9,7 +10,7 @@ export const metadata = { title: "Respons Kuis" };
 
 export default async function GuruKuisResponsesPage({ params }: { params: Promise<{ ujianId: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.assessment.manage");
   const { ujianId } = await params;
   const data = await getQuizResponses(actor, ujianId);
 

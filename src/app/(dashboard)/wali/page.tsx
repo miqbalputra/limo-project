@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import { DashboardHero, EmptyState, MetricCard, ProgressBar, QuickActionCard, SectionHeader } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getActorDashboardContext } from "@/server/dal/actor-dal";
 import { resolveWaliChildId } from "@/server/dal/wali-selector-dal";
 import { withWaliChildContext } from "@/lib/wali-selector";
@@ -13,7 +14,7 @@ export const metadata = {
 
 export default async function WaliDashboardPage({ searchParams }: { searchParams: Promise<{ anak?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.dashboard.view");
   const { anak } = await searchParams;
   const selectedChildId = await resolveWaliChildId(actor, anak);
   const context = await getActorDashboardContext(actor, selectedChildId);

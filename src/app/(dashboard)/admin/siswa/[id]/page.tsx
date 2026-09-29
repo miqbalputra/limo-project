@@ -7,7 +7,8 @@ import {
   UpdateStudentForm,
 } from "@/components/dashboard/student-management-forms";
 import { StudentAccountForm } from "@/components/dashboard/student-account-form";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { listKelas, listPrograms } from "@/server/services/master-data-service";
 import { getSiswa, listWaliOptions } from "@/server/services/people-service";
@@ -17,7 +18,7 @@ export const metadata = { title: "Detail Siswa" };
 
 export default async function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.people.manage");
   const { id } = await params;
   const [{ item }, { items: programs }, { items: kelas }, { items: walis }] = await Promise.all([
     getSiswa(actor, id),

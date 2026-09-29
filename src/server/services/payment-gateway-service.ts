@@ -2,9 +2,10 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Actor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { prisma } from "@/server/db/prisma";
 import { getEnv } from "@/server/env";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
+import { NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { encryptPaymentCredentials, decryptPaymentCredentials } from "@/server/security/payment-config";
 import type { PaymentGatewayRuntimeConfig, PaymentProviderName } from "@/server/providers/payment/types";
 import { testMayarConnection } from "@/server/providers/payment/mayar";
@@ -91,7 +92,7 @@ export async function getPaymentGatewayRuntimeConfig(provider: PaymentProviderNa
 }
 
 export async function listPaymentGatewaySettings(actor: Actor) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.billing.manage");
   const rows = await getRows();
   const byProvider = new Map(rows.map((row) => [lowerProvider(row.provider), row]));
   const legacy = rows.length === 0 ? legacyMayarConfig() : null;
@@ -125,7 +126,7 @@ export async function listPaymentGatewaySettings(actor: Actor) {
 }
 
 export async function getPaymentGatewayWebhookUrl(actor: Actor, provider: PaymentProviderName) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.billing.manage");
   const config = await getPaymentGatewayRuntimeConfig(provider);
   if (!config?.webhookSecret) throw new ValidationError(`Webhook secret ${provider === "mayar" ? "Mayar" : "Pakasir"} belum tersedia`);
   const appUrl = getEnv().APP_URL.replace(/\/$/, "");
@@ -148,7 +149,7 @@ export async function getPrimaryPaymentGateway() {
 }
 
 export async function savePaymentGatewaySettings(actor: Actor, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.billing.manage");
   const parsed = settingsSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Pengaturan payment gateway belum valid", parsed.error.flatten().fieldErrors);
   const data = parsed.data;
@@ -207,7 +208,7 @@ export async function savePaymentGatewaySettings(actor: Actor, input: unknown) {
 }
 
 export async function testPaymentGateway(actor: Actor, provider: PaymentProviderName) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.billing.manage");
   const config = await getPaymentGatewayRuntimeConfig(provider);
   if (!config) throw new NotFoundError(`Konfigurasi ${provider} belum tersedia`);
   const result = provider === "mayar" ? await testMayarConnection(config) : await testPakasirConnection(config);
@@ -216,9 +217,6 @@ export async function testPaymentGateway(actor: Actor, provider: PaymentProvider
   return result;
 }
 
-function requireAdmin(actor: Actor) {
-  if (actor.role !== "ADMIN") throw new ForbiddenError();
-}
 
 export function newPakasirOrderId(tagihanId: string) {
   return `LIMO-${tagihanId}-${randomUUID().slice(0, 8)}`;

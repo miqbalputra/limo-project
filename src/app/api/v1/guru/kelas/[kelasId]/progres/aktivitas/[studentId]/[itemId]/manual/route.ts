@@ -1,4 +1,4 @@
-import { requireActor } from "@/server/auth/session";
+import { requireActorWithRole } from "@/server/auth/session";
 import { getEnv } from "@/server/env";
 import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
@@ -12,7 +12,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ kela
   try {
     assertSameOrigin(request.headers, getEnv().APP_URL);
     const { kelasId, studentId, itemId } = await params;
-    return apiOk(await markManualCompletion(await requireActor(), kelasId, studentId, itemId, await request.json()), { requestId });
+    return apiOk(await markManualCompletion(await requireActorWithRole(["ADMIN", "GURU"]), kelasId, studentId, itemId, await request.json()), { requestId });
   } catch (error) {
     return apiError(error, { requestId });
   }

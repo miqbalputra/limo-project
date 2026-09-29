@@ -1,10 +1,11 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { Actor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { hashPassword, normalizeEmail } from "@/server/auth/password";
 import { createPasswordResetGrant } from "@/server/auth/password-reset";
 import { prisma } from "@/server/db/prisma";
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
+import { ConflictError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { generateOpaqueToken } from "@/server/security/crypto";
 import { createPaginationMeta } from "@/server/pagination";
 import { setAccountPassword } from "@/server/services/account-password-service";
@@ -24,11 +25,6 @@ import {
 } from "@/server/validation/master-data";
 import { parseCsv } from "@/lib/csv";
 
-function requireAdmin(actor: Actor) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
-}
 
 function parseDate(value: string | undefined) {
   return value ? new Date(`${value}T00:00:00.000Z`) : undefined;
@@ -48,7 +44,7 @@ function buildPersonWhere(input: { search: string; includeArchived: boolean }) {
 }
 
 export async function listGuru(actor: Actor, input: unknown = {}) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const parsed = personListSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Filter guru belum valid", parsed.error.flatten().fieldErrors);
 
@@ -75,7 +71,7 @@ export async function listGuru(actor: Actor, input: unknown = {}) {
 }
 
 export async function createGuru(actor: Actor, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const parsed = createGuruSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -134,7 +130,7 @@ export async function createGuru(actor: Actor, input: unknown) {
 }
 
 export async function getGuru(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const item = await prisma.guruProfile.findUnique({
     where: { id },
     select: {
@@ -155,7 +151,7 @@ export async function getGuru(actor: Actor, id: string) {
 }
 
 export async function updateGuru(actor: Actor, id: string, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const parsed = updateGuruSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Data guru belum valid", parsed.error.flatten().fieldErrors);
 
@@ -180,7 +176,7 @@ export async function updateGuru(actor: Actor, id: string, input: unknown) {
 }
 
 export async function listWali(actor: Actor, input: unknown = {}) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const parsed = personListSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Filter wali belum valid", parsed.error.flatten().fieldErrors);
 
@@ -207,7 +203,7 @@ export async function listWali(actor: Actor, input: unknown = {}) {
 }
 
 export async function createWali(actor: Actor, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const parsed = createWaliSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -266,7 +262,7 @@ export async function createWali(actor: Actor, input: unknown) {
 }
 
 export async function getWali(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const item = await prisma.waliProfile.findUnique({
     where: { id },
     select: {
@@ -301,7 +297,7 @@ export async function getWali(actor: Actor, id: string) {
 }
 
 export async function updateWali(actor: Actor, id: string, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const parsed = updateWaliSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Data wali belum valid", parsed.error.flatten().fieldErrors);
 
@@ -326,21 +322,21 @@ export async function updateWali(actor: Actor, id: string, input: unknown) {
 }
 
 export async function setGuruPassword(actor: Actor, profileId: string, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const profile = await prisma.guruProfile.findUnique({ where: { id: profileId }, select: { userId: true } });
   if (!profile) throw new NotFoundError("Profil guru tidak ditemukan");
   return setAccountPassword(actor, profile.userId, input);
 }
 
 export async function setWaliPassword(actor: Actor, profileId: string, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const profile = await prisma.waliProfile.findUnique({ where: { id: profileId }, select: { userId: true } });
   if (!profile) throw new NotFoundError("Profil wali tidak ditemukan");
   return setAccountPassword(actor, profile.userId, input);
 }
 
 export async function listSiswa(actor: Actor, input: unknown = {}) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const parsed = siswaListSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -385,7 +381,7 @@ export async function listSiswa(actor: Actor, input: unknown = {}) {
 }
 
 export async function createSiswa(actor: Actor, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const parsed = createSiswaSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -460,7 +456,7 @@ export async function createSiswa(actor: Actor, input: unknown) {
 }
 
 export async function getSiswa(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const item = await prisma.siswa.findUnique({
     where: { id },
     include: {
@@ -485,7 +481,7 @@ export async function getSiswa(actor: Actor, id: string) {
 }
 
 export async function updateSiswa(actor: Actor, id: string, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const parsed = updateSiswaSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -525,7 +521,7 @@ export async function updateSiswa(actor: Actor, id: string, input: unknown) {
 }
 
 export async function archiveSiswa(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const now = new Date();
 
   const item = await prisma.$transaction(async (tx) => {
@@ -541,7 +537,7 @@ export async function archiveSiswa(actor: Actor, id: string) {
 }
 
 export async function restoreSiswa(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const item = await prisma.siswa.update({ where: { id }, data: { status: "ACTIVE", deletedAt: null } }).catch(() => {
     throw new NotFoundError("Siswa tidak ditemukan");
   });
@@ -550,7 +546,7 @@ export async function restoreSiswa(actor: Actor, id: string) {
 }
 
 export async function addSiswaWali(actor: Actor, siswaId: string, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const parsed = siswaWaliSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Relasi wali belum valid", parsed.error.flatten().fieldErrors);
 
@@ -575,7 +571,7 @@ export async function addSiswaWali(actor: Actor, siswaId: string, input: unknown
 }
 
 export async function removeSiswaWali(actor: Actor, siswaId: string, waliProfileId: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const result = await prisma.waliSiswa.updateMany({
     where: { siswaId, waliProfileId, endedAt: null },
     data: { endedAt: new Date(), isPrimary: false },
@@ -586,7 +582,7 @@ export async function removeSiswaWali(actor: Actor, siswaId: string, waliProfile
 }
 
 export async function transferSiswa(actor: Actor, siswaId: string, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const parsed = transferSiswaSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Data mutasi belum valid", parsed.error.flatten().fieldErrors);
   const startDate = parseDate(parsed.data.startDate)!;
@@ -607,7 +603,7 @@ export async function transferSiswa(actor: Actor, siswaId: string, input: unknow
 }
 
 export async function exportSiswaCsv(actor: Actor) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const items = await prisma.siswa.findMany({
     where: { deletedAt: null },
     orderBy: { name: "asc" },
@@ -658,7 +654,7 @@ async function issuePersonPasswordLink(input: {
 }
 
 export async function archiveGuru(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const profile = await prisma.guruProfile.findUnique({ where: { id }, select: { id: true, userId: true } });
   if (!profile) throw new NotFoundError("Profil guru tidak ditemukan");
   if (profile.userId === actor.id) throw new ValidationError("Admin tidak dapat mengarsipkan akunnya sendiri");
@@ -674,7 +670,7 @@ export async function archiveGuru(actor: Actor, id: string) {
 }
 
 export async function restoreGuru(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const profile = await prisma.guruProfile.findUnique({ where: { id }, select: { id: true, userId: true } });
   if (!profile) throw new NotFoundError("Profil guru tidak ditemukan");
 
@@ -688,7 +684,7 @@ export async function restoreGuru(actor: Actor, id: string) {
 }
 
 export async function sendGuruPasswordReset(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const profile = await prisma.guruProfile.findUnique({ where: { id }, select: { id: true, user: { select: { id: true, email: true, deletedAt: true } } } });
   if (!profile) throw new NotFoundError("Profil guru tidak ditemukan");
   if (profile.user.deletedAt) throw new ConflictError("Akun guru sedang diarsipkan");
@@ -709,7 +705,7 @@ export async function sendGuruPasswordReset(actor: Actor, id: string) {
 }
 
 export async function resendGuruActivation(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const profile = await prisma.guruProfile.findUnique({ where: { id }, select: { id: true, user: { select: { id: true, email: true, deletedAt: true, lastLoginAt: true } } } });
   if (!profile) throw new NotFoundError("Profil guru tidak ditemukan");
   if (profile.user.deletedAt) throw new ConflictError("Akun guru sedang diarsipkan");
@@ -731,7 +727,7 @@ export async function resendGuruActivation(actor: Actor, id: string) {
 }
 
 export async function archiveWali(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const profile = await prisma.waliProfile.findUnique({ where: { id }, select: { id: true, userId: true } });
   if (!profile) throw new NotFoundError("Profil wali tidak ditemukan");
   if (profile.userId === actor.id) throw new ValidationError("Admin tidak dapat mengarsipkan akunnya sendiri");
@@ -747,7 +743,7 @@ export async function archiveWali(actor: Actor, id: string) {
 }
 
 export async function restoreWali(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const profile = await prisma.waliProfile.findUnique({ where: { id }, select: { id: true, userId: true } });
   if (!profile) throw new NotFoundError("Profil wali tidak ditemukan");
 
@@ -761,7 +757,7 @@ export async function restoreWali(actor: Actor, id: string) {
 }
 
 export async function sendWaliPasswordReset(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const profile = await prisma.waliProfile.findUnique({ where: { id }, select: { id: true, user: { select: { id: true, email: true, deletedAt: true } } } });
   if (!profile) throw new NotFoundError("Profil wali tidak ditemukan");
   if (profile.user.deletedAt) throw new ConflictError("Akun wali sedang diarsipkan");
@@ -782,7 +778,7 @@ export async function sendWaliPasswordReset(actor: Actor, id: string) {
 }
 
 export async function resendWaliActivation(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const profile = await prisma.waliProfile.findUnique({ where: { id }, select: { id: true, user: { select: { id: true, email: true, deletedAt: true, lastLoginAt: true } } } });
   if (!profile) throw new NotFoundError("Profil wali tidak ditemukan");
   if (profile.user.deletedAt) throw new ConflictError("Akun wali sedang diarsipkan");
@@ -810,7 +806,7 @@ type PersonImportStatus = "CREATE" | "RESTORE" | "SKIP" | "ERROR";
 type PersonImportRowResult = { row: number; name: string; email: string; status: PersonImportStatus; message: string };
 
 async function importPeople(actor: Actor, kind: PersonImportKind, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   const parsed = importPeopleSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Permintaan impor belum valid", parsed.error.flatten().fieldErrors);
 

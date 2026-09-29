@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
 import { LearningModuleList } from "@/components/dashboard/learning-module-list";
 import type { LearningModuleView } from "@/components/dashboard/learning-module-builder";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { listWaliStudentModules } from "@/server/services/learning-module-service";
 import { getStudentSummary } from "@/server/services/report-service";
@@ -14,7 +15,7 @@ export const metadata = { title: "Modul Anak" };
 export default async function WaliStudentLearningModulesPage({ params }: { params: Promise<{ siswaId: string }> }) {
   if (!isFeatureEnabled("learningModulesEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.progres.view");
   const { siswaId } = await params;
   const [{ siswa }, { classes }] = await Promise.all([getStudentSummary(actor, siswaId), listWaliStudentModules(actor, siswaId)]);
   const progressByClass = new Map(await Promise.all(classes.map(async (kelas) => [kelas.id, await getWaliModuleProgress(actor, siswaId, kelas.id)] as const)));

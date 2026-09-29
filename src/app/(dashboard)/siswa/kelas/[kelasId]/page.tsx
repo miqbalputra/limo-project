@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LocalizedContent } from "@/components/localized-content";
 import { DashboardHero, EmptyState, SectionHeader } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { getStudentClass } from "@/server/services/student-service";
 import { formatUiLabel } from "@/lib/ui-labels";
@@ -14,7 +15,7 @@ const STUDENT_ONLINE_MODES = ["ONLINE_VIA_SISWA", "BOTH"];
 export default async function StudentClassDetailPage({ params }: { params: Promise<{ kelasId: string }> }) {
   if (!isFeatureEnabled("studentPortalEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["SISWA"]);
+  await requirePermission(actor, "siswa.kelas.view");
   const { kelasId } = await params;
   const { kelas, materials, sessions, exams } = await getStudentClass(actor, kelasId);
 

@@ -1,4 +1,4 @@
-import { requireActor } from "@/server/auth/session";
+import { requireActor, requireRole } from "@/server/auth/session";
 import { getEnv } from "@/server/env";
 import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
@@ -11,6 +11,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ assi
   const requestId = getRequestId(request.headers);
   try {
     const actor = await requireActor();
+    requireRole(actor, ["ADMIN", "GURU"]);
     return apiOk(await getGuruAssignment(actor, (await params).assignmentId), { requestId });
   } catch (error) {
     return apiError(error, { requestId });
@@ -22,6 +23,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ as
   try {
     assertSameOrigin(request.headers, getEnv().APP_URL);
     const actor = await requireActor();
+    requireRole(actor, ["ADMIN", "GURU"]);
     return apiOk(await updateAssignment(actor, (await params).assignmentId, await request.json()), { requestId });
   } catch (error) {
     return apiError(error, { requestId });

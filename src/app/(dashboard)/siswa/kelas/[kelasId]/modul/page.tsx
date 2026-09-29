@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
 import { LearningModuleList } from "@/components/dashboard/learning-module-list";
 import type { LearningModuleView } from "@/components/dashboard/learning-module-builder";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { getStudentClass } from "@/server/services/student-service";
 import { listStudentModules } from "@/server/services/learning-module-service";
@@ -14,7 +15,7 @@ export const metadata = { title: "Alur Modul" };
 export default async function StudentLearningModulesPage({ params }: { params: Promise<{ kelasId: string }> }) {
   if (!isFeatureEnabled("studentPortalEnabled") || !isFeatureEnabled("learningModulesEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["SISWA"]);
+  await requirePermission(actor, "siswa.kelas.view");
   const { kelasId } = await params;
   const [{ kelas }, { items }, { modules: progressModules }] = await Promise.all([getStudentClass(actor, kelasId), listStudentModules(actor, kelasId), getStudentModuleProgress(actor, kelasId)]);
   const progressByModule = new Map(progressModules.map((module) => [module.moduleId, module]));

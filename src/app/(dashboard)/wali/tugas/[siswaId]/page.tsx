@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listWaliStudentTasks } from "@/server/services/online-exam-service";
 import { DashboardHero, EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { withWaliChildContext } from "@/lib/wali-selector";
@@ -9,7 +10,7 @@ export const metadata = { title: "Daftar Tugas Anak" };
 
 export default async function WaliStudentTasksPage({ params }: { params: Promise<{ siswaId: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.tugas.view");
   const { siswaId } = await params;
   const { siswa, tasks } = await listWaliStudentTasks(actor, siswaId);
 

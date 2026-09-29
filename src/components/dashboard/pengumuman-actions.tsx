@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { requestJson } from "@/lib/api-json-client";
 import { PengumumanForm, type PengumumanValues } from "@/components/dashboard/pengumuman-form";
+import { useToast } from "@/components/ui/toast-provider";
 
 export function PengumumanActions({
   id,
@@ -17,6 +18,7 @@ export function PengumumanActions({
   initial: PengumumanValues;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -26,6 +28,7 @@ export function PengumumanActions({
     setBusy(next);
     try {
       await requestJson(`/api/v1/pengumuman/${id}/status`, { method: "POST", body: { status: next }, fallbackMessage: "Status pengumuman gagal diubah" });
+      toast.success("Status pengumuman diperbarui.");
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Status pengumuman gagal diubah");

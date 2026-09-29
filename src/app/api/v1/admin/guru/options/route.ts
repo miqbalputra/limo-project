@@ -1,4 +1,4 @@
-import { requireActor } from "@/server/auth/session";
+import { requireActor, requireRole } from "@/server/auth/session";
 import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
 import { listGuruOptions } from "@/server/services/master-data-service";
@@ -10,6 +10,7 @@ export async function GET(request: Request) {
 
   try {
     const actor = await requireActor();
+    requireRole(actor, ["ADMIN"]);
     const result = await listGuruOptions(actor);
     return apiOk(result, { requestId });
   } catch (error) {

@@ -1,7 +1,8 @@
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { SessionWorkspace } from "@/components/dashboard/session-workspace";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listKelas } from "@/server/services/master-data-service";
 import { listSessionWorkspace } from "@/server/services/lms-service";
 
@@ -11,7 +12,7 @@ const sessionStatuses = ["DRAFT", "FINAL", "CANCELLED"] as const;
 
 export default async function AdminJadwalPage({ searchParams }: { searchParams: Promise<{ kelasId?: string; status?: string; page?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.schedule.manage");
   const params = await searchParams;
   const status = sessionStatuses.includes(params.status as (typeof sessionStatuses)[number]) ? params.status as (typeof sessionStatuses)[number] : undefined;
   const [{ items: classes }, { items: sessions, pagination }] = await Promise.all([

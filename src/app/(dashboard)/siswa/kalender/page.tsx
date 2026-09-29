@@ -1,14 +1,15 @@
 import { CalendarRangeNav } from "@/components/dashboard/calendar-range-nav";
 import { CalendarView } from "@/components/dashboard/calendar-view";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listCalendarEvents, listCalendarFilterClasses, resolveCalendarPageRange } from "@/server/services/calendar-service";
 
 export const metadata = { title: "Kalender Siswa" };
 
 export default async function StudentCalendarPage({ searchParams }: { searchParams: Promise<{ month?: string; from?: string; to?: string; classId?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["SISWA"]);
+  await requirePermission(actor, "siswa.kalender.view");
   const params = await searchParams;
   const range = resolveCalendarPageRange(params);
   const [{ events }, { items: classes }] = await Promise.all([listCalendarEvents(actor, { from: range.start.toISOString(), to: range.end.toISOString(), classId: params.classId }), listCalendarFilterClasses(actor)]);

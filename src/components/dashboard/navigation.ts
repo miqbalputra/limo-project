@@ -1,6 +1,8 @@
 import type { UserRole } from "@prisma/client";
 import type { DashboardIconName } from "@/components/dashboard/dashboard-icon";
+import type { Actor } from "@/server/auth/session";
 import { getFeatureFlags, type FeatureFlagKey } from "@/server/features/feature-flags";
+import { permissionForPath, resolvePermissions } from "@/server/auth/permissions";
 
 export type NavigationItem = {
   label: string;
@@ -33,6 +35,8 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
       { label: "Laporan Diskusi", href: "/admin/diskusi-laporan", icon: "audit", section: "Administrasi", requiredFeatures: ["classDiscussionEnabled"] },
       { label: "Pengumuman", href: "/admin/pengumuman", icon: "bell", section: "Administrasi", requiredFeatures: ["classDiscussionEnabled"] },
       { label: "Pengguna", href: "/admin/users", icon: "users", section: "Administrasi" },
+      { label: "Hak Akses", href: "/admin/akses", icon: "lock", section: "Administrasi" },
+      { label: "Pengaturan Sekolah", href: "/admin/pengaturan", icon: "lock", section: "Administrasi" },
     { label: "Audit", href: "/admin/audit", icon: "audit", section: "Administrasi" },
     { label: "Ubah Password", href: "/ubah-password", icon: "lock", section: "Akun" },
   ],
@@ -42,7 +46,7 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
     { label: "Sesi", href: "/guru/sesi", icon: "presensi", section: "Pembelajaran" },
     { label: "Jadwal", href: "/guru/jadwal", icon: "presensi", section: "Pembelajaran" },
      { label: "Kalender", href: "/guru/kalender", icon: "calendar", section: "Pembelajaran", requiredFeatures: ["calendarEnabled"] },
-     { label: "Perlu Ditindaklanjuti", href: "/guru/todo", icon: "todo", section: "Pembelajaran", requiredFeatures: ["calendarEnabled"] },
+     { label: "Perlu Ditindaklanjuti", href: "/guru/todo", icon: "todo", section: "Pembelajaran" },
     { label: "Materi", href: "/guru/materi", icon: "materials", section: "Pembelajaran" },
     { label: "RPP", href: "/guru/rpp", icon: "materials", section: "Pembelajaran" },
     { label: "Bank Soal", href: "/guru/bank-soal", icon: "exam", section: "Evaluasi" },
@@ -86,4 +90,16 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
 export function getNavigationForRole(role: UserRole) {
   const flags = getFeatureFlags();
   return navigationByRole[role].filter((item) => item.requiredFeatures?.every((feature) => flags[feature]) ?? true);
+}
+
+export async function getNavigationForActor(actor: Actor) {
+  const flags = getFeatureFlags();
+  const permissions = await resolvePermissions(actor);
+  return navigationByRole[actor.role].filter((item) => {
+    if (item.requiredFeatures && !item.requiredFeatures.every((feature) => flags[feature])) {
+      return false;
+    }
+    const permission = permissionForPath(item.href);
+    return permission === null || permissions.has(permission);
+  });
 }

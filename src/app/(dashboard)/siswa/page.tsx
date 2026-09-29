@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { LocalizedContent } from "@/components/localized-content";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import { DashboardHero, EmptyState, MetricCard, QuickActionCard, SectionHeader } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { getStudentDashboard } from "@/server/services/student-service";
 import { formatUiLabel } from "@/lib/ui-labels";
@@ -15,7 +16,7 @@ const STUDENT_ONLINE_MODES = ["ONLINE_VIA_SISWA", "BOTH"];
 export default async function StudentDashboardPage() {
   if (!isFeatureEnabled("studentPortalEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["SISWA"]);
+  await requirePermission(actor, "siswa.dashboard.view");
   const dashboard = await getStudentDashboard(actor);
   const attendanceRate = dashboard.attendance.total ? Math.round((dashboard.attendance.attended / dashboard.attendance.total) * 100) : 0;
 

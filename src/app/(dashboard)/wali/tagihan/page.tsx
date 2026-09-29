@@ -1,4 +1,5 @@
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listTagihan } from "@/server/services/billing-service";
 import { resolveWaliChildId } from "@/server/dal/wali-selector-dal";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
@@ -11,7 +12,7 @@ export const metadata = { title: "Tagihan" };
 
 export default async function WaliTagihanPage({ searchParams }: { searchParams: Promise<{ anak?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.tagihan.view");
   const { anak } = await searchParams;
   const { items } = await listTagihan(actor, {}, {}, await resolveWaliChildId(actor, anak));
   const serializedItems = items.map(serializeInvoice);

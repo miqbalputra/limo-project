@@ -2,7 +2,8 @@ import Link from "next/link";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
 import { PersonProfileForm } from "@/components/dashboard/people-forms";
 import { PersonAccountActions } from "@/components/dashboard/person-account-actions";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getWali } from "@/server/services/people-service";
 import { formatUiLabel } from "@/lib/ui-labels";
 
@@ -10,7 +11,7 @@ export const metadata = { title: "Profil Wali" };
 
 export default async function AdminWaliDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.people.manage");
   const { id } = await params;
   const { item } = await getWali(actor, id);
 

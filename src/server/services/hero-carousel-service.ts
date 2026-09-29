@@ -1,13 +1,11 @@
 import "server-only";
 import type { Actor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { prisma } from "@/server/db/prisma";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
+import { NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { removeHeroImage, storeHeroImage } from "@/server/providers/storage/hero-storage";
 import { heroSlidePayloadSchema, heroSlideUpdateSchema } from "@/server/validation/hero-carousel";
 
-function requireAdmin(actor: Actor) {
-  if (actor.role !== "ADMIN") throw new ForbiddenError();
-}
 
 const slideSelect = {
   id: true, sortOrder: true, isActive: true, desktopImagePath: true, mobileImagePath: true,
@@ -16,7 +14,7 @@ const slideSelect = {
 } as const;
 
 export async function listHeroSlides(actor: Actor) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.schedule.manage");
   return { items: await prisma.heroSlide.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: slideSelect }) };
 }
 
@@ -25,7 +23,7 @@ export async function listPublishedHeroSlides() {
 }
 
 export async function createHeroSlide(actor: Actor, input: unknown, desktop: File | null, mobile: File | null) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.schedule.manage");
   if (!desktop || !mobile) throw new ValidationError("Gambar desktop dan mobile wajib diisi");
   const parsed = heroSlidePayloadSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Data hero belum valid", parsed.error.flatten().fieldErrors);
@@ -40,7 +38,7 @@ export async function createHeroSlide(actor: Actor, input: unknown, desktop: Fil
 }
 
 export async function updateHeroSlide(actor: Actor, id: string, input: unknown, desktop: File | null, mobile: File | null) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.schedule.manage");
   const existing = await prisma.heroSlide.findUnique({ where: { id }, select: slideSelect });
   if (!existing) throw new NotFoundError("Hero slide tidak ditemukan");
   const parsed = heroSlideUpdateSchema.safeParse(input);
@@ -56,7 +54,7 @@ export async function updateHeroSlide(actor: Actor, id: string, input: unknown, 
 }
 
 export async function archiveHeroSlide(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.schedule.manage");
   const existing = await prisma.heroSlide.findUnique({ where: { id }, select: { id: true } });
   if (!existing) throw new NotFoundError("Hero slide tidak ditemukan");
   const item = await prisma.heroSlide.update({ where: { id }, data: { isActive: false }, select: slideSelect });

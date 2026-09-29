@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getWaliExamInstruction } from "@/server/services/online-exam-service";
 import { StartExamAttemptButton } from "@/components/dashboard/start-exam-attempt-button";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
@@ -9,7 +10,7 @@ export const metadata = { title: "Instruksi Ujian" };
 
 export default async function WaliExamInstructionPage({ params }: { params: Promise<{ siswaId: string; ujianId: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.tugas.view");
   const { siswaId, ujianId } = await params;
   const { siswa, ujian } = await getWaliExamInstruction(actor, siswaId, ujianId);
 

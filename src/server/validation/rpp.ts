@@ -33,3 +33,17 @@ export const createRppSchema = z.discriminatedUnion("mode", [
 export const updateRppStatusSchema = z.object({
   status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]),
 });
+
+export const updateRppSchema = z.object({
+  title: z.string().trim().min(3).max(200),
+  planDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  meetingNumber: z.coerce.number().int().min(1).max(1000).optional().or(z.literal("")),
+  topic: z.string().trim().min(2).max(200),
+  difficulty: z.string().trim().min(2).max(32),
+  durationMinutes: z.coerce.number().int().min(1).max(600).optional().or(z.literal("")),
+  notes: z.string().trim().max(10000).optional().or(z.literal("")),
+  learningObjectives: z.string().trim().max(10000).optional().default(""),
+  materials: z.string().trim().max(10000).optional().default(""),
+  activities: z.string().trim().max(15000).optional().default(""),
+  assessment: z.string().trim().max(10000).optional().default(""),
+});

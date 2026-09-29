@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
 import { Money } from "@/components/dashboard/money";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getTagihan } from "@/server/services/billing-service";
 import { withWaliChildContext } from "@/lib/wali-selector";
 import { formatUiLabel } from "@/lib/ui-labels";
@@ -11,7 +12,7 @@ export const metadata = { title: "Pembayaran Berhasil" };
 
 export default async function WaliPaymentSuccessPage({ searchParams }: { searchParams: Promise<{ tagihanId?: string; anak?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.tagihan.view");
   const { tagihanId, anak } = await searchParams;
 
   if (!tagihanId) {

@@ -35,7 +35,7 @@ function InvoiceImage({ data }: { data: InvoiceData }) {
   return (
     <div style={{ backgroundColor: "#FFFFFF", color: INK, display: "flex", flexDirection: "column", height: "100%", padding: 64, width: "100%" }}>
       <div style={{ display: "flex", flexDirection: "column" }}>
-        <div style={{ color: MUTED, display: "flex", fontSize: 20, fontWeight: 700, letterSpacing: 3 }}>LITTLE MOSLEMS ACADEMY</div>
+        <div style={{ color: MUTED, display: "flex", fontSize: 20, fontWeight: 700, letterSpacing: 3 }}>{data.schoolName.toUpperCase()}</div>
         <div style={{ display: "flex", fontSize: 52, fontWeight: 800, marginTop: 8 }}>INVOICE / TAGIHAN</div>
       </div>
       <div style={{ backgroundColor: ACCENT, display: "flex", height: 2, marginBottom: 24, marginTop: 20, width: "100%" }} />
@@ -84,7 +84,7 @@ function InvoiceImage({ data }: { data: InvoiceData }) {
 
       {data.description ? <div style={{ color: MUTED, display: "flex", fontSize: 16, marginTop: 20 }}>Catatan: {data.description}</div> : null}
 
-      <div style={{ color: MUTED, display: "flex", fontSize: 14, marginTop: "auto" }}>Dokumen ini dibuat otomatis oleh sistem LIMO. Status tagihan mengikuti data terakhir pada sistem.</div>
+      <div style={{ color: MUTED, display: "flex", fontSize: 14, marginTop: "auto" }}>Dokumen ini dibuat otomatis oleh sistem {data.schoolName}. Status tagihan mengikuti data terakhir pada sistem.</div>
     </div>
   );
 }

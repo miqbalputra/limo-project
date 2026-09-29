@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getQuizForm } from "@/server/services/quiz-builder-service";
 import { listMyKelas } from "@/server/services/lms-service";
 import { listUjian } from "@/server/services/exam-service";
@@ -12,7 +13,7 @@ const BUILDER_TYPES = new Set(["PILIHAN_GANDA", "MULTI_SELECT", "BENAR_SALAH", "
 
 export default async function GuruKuisEditPage({ params }: { params: Promise<{ ujianId: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.assessment.manage");
   const { ujianId } = await params;
   const [{ item }, { items: kelas }, { items: ujianList }] = await Promise.all([getQuizForm(actor, ujianId), listMyKelas(actor), listUjian(actor, { page: 1, pageSize: 100 })]);
 

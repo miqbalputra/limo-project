@@ -1,4 +1,4 @@
-import { requireActor } from "@/server/auth/session";
+import { requireActorWithRole } from "@/server/auth/session";
 import { getEnv } from "@/server/env";
 import { ValidationError } from "@/server/errors/application-error";
 import { apiError, apiOk } from "@/server/http/api-response";
@@ -14,7 +14,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ sub
     assertSameOrigin(request.headers, getEnv().APP_URL);
     const body = (await request.json()) as { gradeId?: string };
     if (!body.gradeId) throw new ValidationError("gradeId wajib diisi");
-    return apiOk(await publishSubmissionGrade(await requireActor(), (await params).submissionId, body.gradeId), { requestId });
+    return apiOk(await publishSubmissionGrade(await requireActorWithRole(["ADMIN", "GURU"]), (await params).submissionId, body.gradeId), { requestId });
   } catch (error) {
     return apiError(error, { requestId });
   }

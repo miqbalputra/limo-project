@@ -142,6 +142,7 @@ export function GradebookManager({
         }),
       {
         fallbackMessage: "Kategori gagal dibuat",
+        successMessage: "Kategori berhasil dibuat.",
         onSuccess: () => {
           setCategoryName("");
           router.refresh();
@@ -173,6 +174,7 @@ export function GradebookManager({
         }),
       {
         fallbackMessage: "Item buku nilai gagal dibuat",
+        successMessage: "Item buku nilai berhasil dibuat.",
         onSuccess: () => {
           setItemTitle("");
           setItemSourceId("");
@@ -192,7 +194,7 @@ export function GradebookManager({
         body: { status, confirmPublishedChange: true },
         fallbackMessage: gradebookRequestFallback,
         }),
-      { fallbackMessage: "Status buku nilai gagal diubah", onSuccess: () => router.refresh() },
+      { fallbackMessage: "Status buku nilai gagal diubah", successMessage: "Status buku nilai diperbarui.", onSuccess: () => router.refresh() },
     );
   }
 
@@ -204,7 +206,7 @@ export function GradebookManager({
         method: "POST",
         fallbackMessage: gradebookRequestFallback,
         }),
-      { fallbackMessage: "Sinkronisasi gagal", onSuccess: () => router.refresh() },
+      { fallbackMessage: "Sinkronisasi gagal", successMessage: "Sinkronisasi nilai selesai.", onSuccess: () => router.refresh() },
     );
   }
 
@@ -220,6 +222,7 @@ export function GradebookManager({
         }),
       {
         fallbackMessage: "Nilai akhir gagal dipublikasikan",
+        successMessage: "Nilai akhir berhasil dipublikasikan.",
         onSuccess: () => {
           setCorrectionReason("");
           router.refresh();
@@ -649,6 +652,7 @@ function ManualEntryCell({
                   ),
                 {
                   fallbackMessage: "Entri gagal disimpan",
+                  successMessage: "Entri nilai tersimpan.",
                   onSuccess: () => {
                     setEditing(false);
                     onSaved();

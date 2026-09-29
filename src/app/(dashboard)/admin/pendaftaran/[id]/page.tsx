@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getPendaftaranDetail } from "@/server/services/pendaftaran-service";
 import { PendaftaranActions } from "@/components/dashboard/pendaftaran-actions";
 import { PendaftaranContactForm } from "@/components/dashboard/pendaftaran-contact-form";
@@ -11,7 +12,7 @@ export const metadata = { title: "Detail Pendaftaran" };
 
 export default async function AdminPendaftaranDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.pendaftaran.manage");
   const { id } = await params;
   const { pendaftaran } = await getPendaftaranDetail(actor, id);
   const actionDisabled = !["SUBMITTED", "UNDER_REVIEW"].includes(pendaftaran.status);

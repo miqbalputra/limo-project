@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardHero, EmptyState } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { listWaliRemedials } from "@/server/services/remedial-service";
 import { getStudentSummary } from "@/server/services/report-service";
@@ -13,7 +14,7 @@ export const metadata = { title: "Remedial Anak" };
 export default async function WaliRemedialPage({ params }: { params: Promise<{ siswaId: string }> }) {
   if (!isFeatureEnabled("remedialEnabled") || !isFeatureEnabled("assignmentsEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.progres.view");
   const { siswaId } = await params;
   const { siswa } = await getStudentSummary(actor, siswaId);
   const classes = await prisma.kelas.findMany({ where: { status: "ACTIVE", enrollments: { some: { siswaId, status: "ACTIVE" } } }, select: { id: true, name: true } });

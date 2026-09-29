@@ -2,6 +2,17 @@ import nodemailer from "nodemailer";
 import type { Notifikasi, Prisma } from "@prisma/client";
 import { getEnv } from "../../env.ts";
 
+const DEFAULT_SCHOOL_NAME = "LIMO";
+
+async function resolveSchoolName() {
+  try {
+    const { getSchoolSetting } = await import("../../services/settings-service.ts");
+    return (await getSchoolSetting()).name;
+  } catch {
+    return DEFAULT_SCHOOL_NAME;
+  }
+}
+
 type NotificationPayload = Pick<Notifikasi, "id" | "channel" | "recipient" | "subject" | "body" | "metadata">;
 
 export type DeliveryResult = {
@@ -54,6 +65,7 @@ async function sendN8nNotification(notification: NotificationPayload): Promise<D
   }
 
   try {
+    const settingName = await resolveSchoolName();
     const response = await fetch(webhookUrl, {
       method: "POST",
       headers: {
@@ -62,6 +74,7 @@ async function sendN8nNotification(notification: NotificationPayload): Promise<D
       },
       body: JSON.stringify({
         event: "limo.notification",
+        schoolName: settingName,
         notificationId: notification.id,
         channel: notification.channel,
         recipient: notification.recipient,
@@ -95,6 +108,7 @@ async function sendEmailNotification(notification: NotificationPayload): Promise
   }
 
   try {
+    const schoolName = await resolveSchoolName();
     const transporter = nodemailer.createTransport({
       host: env.SMTP_HOST,
       port: env.SMTP_PORT,
@@ -102,11 +116,14 @@ async function sendEmailNotification(notification: NotificationPayload): Promise
       auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASSWORD } : undefined,
     });
 
+    const fromAddress = env.SMTP_FROM || env.SMTP_USER;
+    const from = fromAddress && !fromAddress.includes("<") ? `"${schoolName}" <${fromAddress}>` : fromAddress;
+
     const result = await transporter.sendMail({
-      from: env.SMTP_FROM || env.SMTP_USER,
+      from,
       to: notification.recipient,
-      subject: notification.subject || "Notifikasi LIMO",
-      text: notification.body,
+      subject: notification.subject || `Notifikasi ${schoolName}`,
+      text: `${notification.body}\n\n--\n${schoolName}`,
     });
 
     return {

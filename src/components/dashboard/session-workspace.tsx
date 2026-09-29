@@ -6,6 +6,7 @@ import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { SessionDuplicateButton } from "@/components/dashboard/session-duplicate-button";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
+import { useToast } from "@/components/ui/toast-provider";
 import { requestJson } from "@/lib/api-json-client";
 
 type SessionClass = {
@@ -36,6 +37,7 @@ type SessionWorkspaceProps = {
 
 export function SessionWorkspace({ scope, classes, sessions, selectedClassId, selectedStatus }: SessionWorkspaceProps) {
   const router = useRouter();
+  const toast = useToast();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
@@ -65,6 +67,7 @@ export function SessionWorkspace({ scope, classes, sessions, selectedClassId, se
         },
         fallbackMessage: "Sesi gagal disimpan",
       });
+      toast.success("Sesi berhasil dibuat.");
       form.reset();
       router.refresh();
     } catch (caught) {
@@ -98,6 +101,7 @@ export function SessionWorkspace({ scope, classes, sessions, selectedClassId, se
         },
         fallbackMessage: "Sesi gagal disimpan",
       });
+      toast.success("Sesi berhasil diperbarui.");
       setEditingSessionId(null);
       router.refresh();
     } catch (caught) {
@@ -123,6 +127,7 @@ export function SessionWorkspace({ scope, classes, sessions, selectedClassId, se
         body: { reason: cancelReason },
         fallbackMessage: "Sesi gagal disimpan",
       });
+      toast.success("Sesi dibatalkan.");
       setCancellingSession(null);
       setCancelReason("");
       router.refresh();

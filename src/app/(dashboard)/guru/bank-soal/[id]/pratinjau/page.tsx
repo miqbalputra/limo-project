@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getBankSoal } from "@/server/services/exam-service";
 import { BankSoalPreview } from "@/components/dashboard/bank-soal-preview";
 
@@ -7,7 +8,7 @@ export const metadata = { title: "Pratinjau Soal" };
 
 export default async function GuruBankSoalPratinjauDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.assessment.manage");
   const { id } = await params;
   const { item } = await getBankSoal(actor, id);
 

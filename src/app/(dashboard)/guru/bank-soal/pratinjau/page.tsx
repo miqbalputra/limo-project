@@ -1,12 +1,13 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { BankSoalDraftPreview } from "@/components/dashboard/bank-soal-draft-preview";
 
 export const metadata = { title: "Pratinjau Soal" };
 
 export default async function GuruBankSoalPratinjauPage() {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.assessment.manage");
 
   return (
     <main className="space-y-6">

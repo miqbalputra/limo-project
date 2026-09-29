@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getClassSummary } from "@/server/services/report-service";
 import { GuruRoster } from "@/components/dashboard/guru-roster";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
@@ -8,7 +9,7 @@ export const metadata = { title: "Kelola Kelas" };
 
 export default async function GuruKelasDetailPage({ params }: { params: Promise<{ kelasId: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.class.manage");
   const { kelasId } = await params;
   const summary = await getClassSummary(actor, kelasId);
 

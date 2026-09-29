@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listWaliTaskChildren } from "@/server/services/online-exam-service";
 import { resolveWaliChildId } from "@/server/dal/wali-selector-dal";
 import { DashboardHero, EmptyState, ProgressBar } from "@/components/dashboard/dashboard-widgets";
@@ -8,7 +9,7 @@ export const metadata = { title: "Tugas Anak" };
 
 export default async function WaliTugasPage({ searchParams }: { searchParams: Promise<{ anak?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.tugas.view");
   const { anak } = await searchParams;
   const { children } = await listWaliTaskChildren(actor, await resolveWaliChildId(actor, anak));
   const totalTasks = children.reduce((sum, child) => sum + child.taskCount, 0);

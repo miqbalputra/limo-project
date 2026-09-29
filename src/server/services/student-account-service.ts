@@ -1,19 +1,15 @@
 import "server-only";
 
 import type { Actor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { hashPassword, normalizeEmail } from "@/server/auth/password";
 import { createPasswordResetGrant } from "@/server/auth/password-reset";
 import { prisma } from "@/server/db/prisma";
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
+import { ConflictError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { requireFeature } from "@/server/features/feature-flags";
 import { generateOpaqueToken } from "@/server/security/crypto";
 import { createSiswaAccountSchema, updateSiswaAccountStatusSchema } from "@/server/validation/student-account";
 
-function requireAdmin(actor: Actor) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
-}
 
 function normalizeIdentifier(value: string) {
   return value.trim().toLowerCase();
@@ -37,7 +33,7 @@ function selectAccount() {
 }
 
 export async function getSiswaAccount(actor: Actor, siswaId: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   requireFeature("studentPortalEnabled", "Portal Siswa belum diaktifkan");
 
   const item = await prisma.siswaAccount.findUnique({ where: { siswaId }, select: selectAccount() });
@@ -45,7 +41,7 @@ export async function getSiswaAccount(actor: Actor, siswaId: string) {
 }
 
 export async function createSiswaAccount(actor: Actor, siswaId: string, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   requireFeature("studentPortalEnabled", "Portal Siswa belum diaktifkan");
 
   const parsed = createSiswaAccountSchema.safeParse(input);
@@ -111,7 +107,7 @@ export async function createSiswaAccount(actor: Actor, siswaId: string, input: u
 }
 
 export async function resendSiswaActivation(actor: Actor, siswaId: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   requireFeature("studentPortalEnabled", "Portal Siswa belum diaktifkan");
 
   const account = await prisma.siswaAccount.findUnique({
@@ -141,7 +137,7 @@ export async function resendSiswaActivation(actor: Actor, siswaId: string) {
 }
 
 export async function updateSiswaAccountStatus(actor: Actor, siswaId: string, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.people.manage");
   requireFeature("studentPortalEnabled", "Portal Siswa belum diaktifkan");
 
   const parsed = updateSiswaAccountStatusSchema.safeParse(input);

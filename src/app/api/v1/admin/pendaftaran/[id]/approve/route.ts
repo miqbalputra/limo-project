@@ -1,4 +1,4 @@
-import { requireActor } from "@/server/auth/session";
+import { requireActor, requireRole } from "@/server/auth/session";
 import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
 import { getEnv } from "@/server/env";
@@ -13,6 +13,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try {
     assertSameOrigin(request.headers, getEnv().APP_URL);
     const actor = await requireActor();
+    requireRole(actor, ["ADMIN"]);
     const { id } = await context.params;
     const result = await approvePendaftaran(actor, id);
     return apiOk(result, { requestId });

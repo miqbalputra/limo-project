@@ -84,6 +84,7 @@ export function LearningModuleBuilder({ kelasId, initialModules, options }: { ke
         }),
       {
         fallbackMessage: "Modul gagal dibuat",
+        successMessage: "Modul berhasil dibuat.",
         onSuccess: () => {
           formElement.reset();
           router.refresh();
@@ -144,7 +145,7 @@ function ModuleCard({ module, options, onRefresh }: { module: LearningModuleView
         body,
         fallbackMessage: moduleRequestFallback,
         }),
-      { fallbackMessage: "Perubahan modul gagal disimpan", onSuccess: onRefresh },
+      { fallbackMessage: "Perubahan modul gagal disimpan", successMessage: "Modul diperbarui.", onSuccess: onRefresh },
     );
   }
 
@@ -231,7 +232,7 @@ function ModuleEditForm({ module, onDone }: { module: LearningModuleView; onDone
         },
         fallbackMessage: moduleRequestFallback,
         }),
-      { fallbackMessage: "Modul gagal diperbarui", onSuccess: onDone },
+      { fallbackMessage: "Modul gagal diperbarui", successMessage: "Detail modul tersimpan.", onSuccess: onDone },
     );
   }
 
@@ -290,6 +291,7 @@ function ModuleItemForm({ moduleId, items, options, onDone }: { moduleId: string
         }),
       {
         fallbackMessage: "Aktivitas gagal ditambahkan",
+        successMessage: "Aktivitas ditambahkan ke modul.",
         onSuccess: () => {
           formElement.reset();
           onDone();

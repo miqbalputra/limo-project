@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { getStudentAttemptContext } from "@/server/services/online-exam-service";
 import { OnlineExamPlayer } from "@/components/dashboard/online-exam-player";
@@ -23,7 +24,7 @@ type StructuredPayload = {
 export default async function StudentAttemptPage({ params }: { params: Promise<{ attemptId: string }> }) {
   if (!isFeatureEnabled("studentSelfExamEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["SISWA"]);
+  await requirePermission(actor, "siswa.ujian.view");
   const { attemptId } = await params;
   const { attempt } = await getStudentAttemptContext(actor, attemptId);
 

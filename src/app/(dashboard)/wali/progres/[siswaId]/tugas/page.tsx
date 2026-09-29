@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardHero, EmptyState } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { listWaliStudentAssignments } from "@/server/services/assignment-service";
 import { getStudentSummary } from "@/server/services/report-service";
@@ -12,7 +13,7 @@ export const metadata = { title: "Tugas Anak" };
 export default async function WaliStudentAssignmentsPage({ params }: { params: Promise<{ siswaId: string }> }) {
   if (!isFeatureEnabled("assignmentsEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.progres.view");
   const { siswaId } = await params;
   const [{ siswa }, { classes }] = await Promise.all([getStudentSummary(actor, siswaId), listWaliStudentAssignments(actor, siswaId)]);
 

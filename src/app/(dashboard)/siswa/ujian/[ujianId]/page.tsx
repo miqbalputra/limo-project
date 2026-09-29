@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { getStudentExamInstruction } from "@/server/services/online-exam-service";
 import { StartExamAttemptButton } from "@/components/dashboard/start-exam-attempt-button";
@@ -12,7 +13,7 @@ export const metadata = { title: "Instruksi Ujian" };
 export default async function StudentExamInstructionPage({ params }: { params: Promise<{ ujianId: string }> }) {
   if (!isFeatureEnabled("studentSelfExamEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["SISWA"]);
+  await requirePermission(actor, "siswa.ujian.view");
   const { ujianId } = await params;
   const { ujian } = await getStudentExamInstruction(actor, ujianId);
 

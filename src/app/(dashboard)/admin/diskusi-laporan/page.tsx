@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { listDiskusiLaporan } from "@/server/services/diskusi-service";
 import { DiskusiLaporanActions } from "@/components/dashboard/diskusi-laporan-actions";
@@ -14,7 +15,7 @@ export default async function AdminDiskusiLaporanPage({ searchParams }: { search
   if (!isFeatureEnabled("classDiscussionEnabled")) notFound();
 
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.content.manage");
   const { page, status } = await searchParams;
   const filters: { status?: "OPEN" | "RESOLVED" | "DISMISSED" } = status === "OPEN" || status === "RESOLVED" || status === "DISMISSED" ? { status } : {};
   const data = await listDiskusiLaporan(actor, { page: Number(page) || 1, pageSize: 25 }, filters);

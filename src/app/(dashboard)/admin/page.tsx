@@ -2,7 +2,8 @@ import Link from "next/link";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import { ResponsiveDataView } from "@/components/dashboard/responsive-data-view";
 import { DashboardHero, MetricCard, QuickActionCard, SectionHeader } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getActorDashboardContext } from "@/server/dal/actor-dal";
 import { listAdminMaterialFiles } from "@/server/services/admin-material-service";
 import { listPendaftaran } from "@/server/services/pendaftaran-service";
@@ -25,7 +26,7 @@ const quickActions = [
 
 export default async function AdminDashboardPage() {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.dashboard.view");
   const [context, registrations, students, materialFiles] = await Promise.all([
     getActorDashboardContext(actor),
     listPendaftaran(actor),

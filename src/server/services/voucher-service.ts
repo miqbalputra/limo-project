@@ -1,6 +1,7 @@
 import "server-only";
 import type { Voucher } from "@prisma/client";
 import type { Actor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canAccessInvoice } from "@/server/policies/access-policy";
@@ -9,11 +10,6 @@ import { applyVoucherSchema, createVoucherSchema, updateVoucherSchema } from "@/
 
 const PAYABLE_STATUSES = ["UNPAID", "OVERDUE"];
 
-function requireAdmin(actor: Actor) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
-}
 
 function parseDayStart(value: string) {
   return new Date(`${value}T00:00:00.000Z`);
@@ -58,7 +54,7 @@ async function assertCanTouchInvoice(actor: Actor, tagihanId: string) {
 }
 
 export async function listVouchers(actor: Actor) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.billing.manage");
 
   const items = await prisma.voucher.findMany({
     orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
@@ -81,7 +77,7 @@ export async function listVouchers(actor: Actor) {
 }
 
 export async function createVoucher(actor: Actor, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.billing.manage");
   const parsed = createVoucherSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -117,7 +113,7 @@ export async function createVoucher(actor: Actor, input: unknown) {
 }
 
 export async function setVoucherActive(actor: Actor, id: string, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.billing.manage");
   const parsed = updateVoucherSchema.safeParse(input);
 
   if (!parsed.success) {

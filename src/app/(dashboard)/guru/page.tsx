@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import { DashboardHero, EmptyState, MetricCard, ProgressBar, QuickActionCard, SectionHeader } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getActorDashboardContext, getGuruTodayAgenda } from "@/server/dal/actor-dal";
 import { formatUiLabel, getUiToneClass } from "@/lib/ui-labels";
 
@@ -11,7 +12,7 @@ export const metadata = {
 
 export default async function GuruDashboardPage() {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.dashboard.view");
   const [context, todayAgenda] = await Promise.all([getActorDashboardContext(actor), getGuruTodayAgenda(actor)]);
 
   if (context.role !== "GURU") return null;

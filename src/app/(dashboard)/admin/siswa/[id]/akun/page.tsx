@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StudentAccountForm } from "@/components/dashboard/student-account-form";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { getSiswa } from "@/server/services/people-service";
 
@@ -10,7 +11,7 @@ export const metadata = { title: "Akun Siswa" };
 export default async function StudentAccountPage({ params }: { params: Promise<{ id: string }> }) {
   if (!isFeatureEnabled("studentPortalEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.people.manage");
   const { id } = await params;
   const { item } = await getSiswa(actor, id);
 

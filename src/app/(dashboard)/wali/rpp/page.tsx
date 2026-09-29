@@ -1,4 +1,5 @@
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listWaliRpp } from "@/server/services/rpp-service";
 import { resolveWaliChildId } from "@/server/dal/wali-selector-dal";
 import { DashboardHero, EmptyState } from "@/components/dashboard/dashboard-widgets";
@@ -8,7 +9,7 @@ export const metadata = { title: "RPP Kelas Anak" };
 
 export default async function WaliRppPage({ searchParams }: { searchParams: Promise<{ anak?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.rpp.view");
   const { anak } = await searchParams;
   const { items } = await listWaliRpp(actor, await resolveWaliChildId(actor, anak));
 

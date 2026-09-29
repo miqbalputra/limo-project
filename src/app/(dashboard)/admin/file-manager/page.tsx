@@ -3,7 +3,8 @@ import { AdminFileManager } from "@/components/dashboard/admin-file-manager";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listAdminMaterialFiles } from "@/server/services/admin-material-service";
 
 export const metadata = { title: "Berkas Materi" };
@@ -12,7 +13,7 @@ const fileKinds = ["PDF", "IMAGE"] as const;
 
 export default async function AdminFileManagerPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.content.manage");
   const params = await searchParams;
   const search = getParam(params.search);
   const rawKind = getParam(params.kind);

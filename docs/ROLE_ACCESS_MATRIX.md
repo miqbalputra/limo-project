@@ -45,3 +45,25 @@ Matrix ini mendokumentasikan akses MVP berdasarkan implementasi saat ini. Menu b
 - Siswa dapat mengerjakan tugas dan ujian daring melalui akun sendiri; ujian mode `ONLINE_VIA_SISWA`/`BOTH` memakai portal `/siswa/ujian`, sedangkan mode wali tetap jalur pendampingan orang tua. Rekaman speaking langsung, interaksi drag match/order, dan mode aman (deteksi pindah tab) masih backlog.
 - Siswa belum memiliki akses billing, RPP khusus, atau menu notifikasi terpisah karena masih memakai shell dashboard bersama.
 - Edit/update/delete/arsip masih terbatas pada beberapa modul existing.
+
+## Matriks Izin Granular (Permission Matrix)
+
+Selain role, tersedia katalog izin granular (`src/server/auth/permissions.ts`) dengan default per role yang mereplikasi perilaku sebelumnya:
+
+- **ADMIN** → seluruh izin `admin.*`.
+- **GURU** → seluruh izin `guru.*`.
+- **WALI** → `wali.access`. **SISWA** → `siswa.access`.
+
+Enforcement:
+- Halaman dashboard Admin & Guru memanggil `await requirePermission(actor, "<izin>")` (dikonversi dari `requireRole`).
+- Navigasi dashboard disaring via `getNavigationForActor(actor)` menggunakan `permissionForPath`.
+- Route API Admin & Guru memakai `requireRole`/`requireActorWithRole` eksplisit, dan diaudit otomatis oleh `npm run test:guards` (setiap route terproteksi wajib memanggil guard auth; route admin/guru wajib memakai cek role/permission).
+
+Override:
+- `RolePermissionOverride` (per role × izin, GRANT/DENY) dan `UserPermissionOverride` (per user × izin).
+- Halaman **/admin/akses** mengelola matriks role; editor izin per-user ada di **/admin/users/[id]**.
+- Izin `admin.permissions.manage` tidak dapat dicabut dari Admin (mencegah lockout). Setiap perubahan dicatat ke audit (`PERMISSION_ROLE_UPDATED`, `PERMISSION_USER_UPDATED`).
+
+Catatan: override lintas-role (mis. memberi Guru izin `admin.*`) kini berfungsi karena service admin memakai `requirePermission` (bukan lagi cek role langsung). Halaman Admin, Guru, Wali, dan Siswa semuanya memakai `requirePermission`.
+
+Peran WALI dan SISWA memakai izin granular `wali.*` dan `siswa.*` (mis. `wali.tagihan.view`, `siswa.ujian.view`); default per role memberi seluruh izin tersebut sehingga perilaku lama tetap sama. Beberapa service bersama (kalender, LMS, ujian) tetap memakai cek peran Guru/Admin di dalam service karena bersifat lintas-peran.

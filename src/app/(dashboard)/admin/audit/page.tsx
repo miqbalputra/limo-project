@@ -1,4 +1,5 @@
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { prisma } from "@/server/db/prisma";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { createPaginationMeta, resolvePagination } from "@/server/pagination";
@@ -9,7 +10,7 @@ export const metadata = { title: "Log Audit" };
 
 export default async function AdminAuditPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.reports.view");
   const params = await searchParams;
   const filters = Object.fromEntries(Object.entries(params).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]).filter((entry): entry is [string, string] => Boolean(entry[1])));
   const page = Number(filters.page) || 1;
@@ -51,7 +52,7 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
       <div>
         <p className="text-theme-sm font-medium text-gray-500">Administrasi Sistem</p>
         <h1 className="mt-1 tailadmin-page-title">Log Audit</h1>
-        <p className="mt-2 tailadmin-muted">Riwayat 100 aktivitas terbaru untuk persetujuan, autentikasi, data siswa, LMS, ujian, presensi, dan pembayaran.</p>
+        <p className="mt-2 tailadmin-muted">Riwayat aktivitas terbaru untuk persetujuan, autentikasi, data siswa, LMS, ujian, presensi, dan pembayaran.</p>
       </div>
 
       <section className="grid gap-4 md:grid-cols-4">

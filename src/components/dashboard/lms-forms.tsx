@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/dashboard/status-badge";
 import { ArabicTextField, LocalizedContent } from "@/components/localized-content";
 import { formatUiLabel } from "@/lib/ui-labels";
 import { ApiJsonError, requestJson } from "@/lib/api-json-client";
+import { useToast } from "@/components/ui/toast-provider";
 
 type FieldErrors = Record<string, string[]>;
 
@@ -16,6 +17,7 @@ async function postJson(path: string, body: Record<string, string | number>) {
 
 function useSubmit(path: string) {
   const router = useRouter();
+  const toast = useToast();
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,6 +31,7 @@ function useSubmit(path: string) {
 
     try {
       await postJson(path, body);
+      toast.success("Data berhasil disimpan.");
       form.reset();
       router.refresh();
       return true;
@@ -206,6 +209,7 @@ function MaterialPreviewCard({ preview }: { preview: MaterialPreview }) {
 
 export function MateriFileUpload({ materiId }: { materiId: string }) {
   const router = useRouter();
+  const toast = useToast();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -219,6 +223,7 @@ export function MateriFileUpload({ materiId }: { materiId: string }) {
       const formData = new FormData(formElement);
       await requestJson(`/api/v1/guru/materi/${materiId}/files`, { method: "POST", body: formData, fallbackMessage: "Unggah berkas gagal" });
 
+      toast.success("Berkas berhasil diunggah.");
       formElement.reset();
       router.refresh();
     } catch (caught) {

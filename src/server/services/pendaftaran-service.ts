@@ -1,11 +1,12 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { Actor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 import { hashPassword, normalizeEmail } from "@/server/auth/password";
 import { createPasswordResetGrant } from "@/server/auth/password-reset";
 import { prisma } from "@/server/db/prisma";
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
+import { ConflictError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { generateOpaqueToken } from "@/server/security/crypto";
 import { assertRateLimit } from "@/server/security/rate-limit";
 import { normalizePhone } from "@/lib/phone";
@@ -234,9 +235,7 @@ export async function lookupPendaftaranStatus(input: unknown, context: { ipAddre
 }
 
 export async function listPendaftaran(actor: Actor, paginationInput: PaginationInput = {}, filters: PendaftaranListFilters = {}) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
+  await requirePermission(actor, "admin.pendaftaran.manage");
 
   const pagination = resolvePagination(paginationInput, 20);
   const where = buildPendaftaranWhere(filters);
@@ -273,9 +272,7 @@ export async function listPendaftaran(actor: Actor, paginationInput: PaginationI
 }
 
 export async function getPendaftaranExportData(actor: Actor, filters: PendaftaranListFilters = {}) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
+  await requirePermission(actor, "admin.pendaftaran.manage");
 
   const items = await prisma.pendaftaran.findMany({
     where: buildPendaftaranWhere(filters),
@@ -317,9 +314,7 @@ export async function getPendaftaranExportData(actor: Actor, filters: Pendaftara
 }
 
 export async function recordPendaftaranExport(actor: Actor, input: { format: "PDF" | "XLSX"; filters: PendaftaranListFilters; rowCount: number; truncated: boolean }) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
+  await requirePermission(actor, "admin.pendaftaran.manage");
 
   await prisma.auditLog.create({
     data: {
@@ -338,9 +333,7 @@ export async function recordPendaftaranExport(actor: Actor, input: { format: "PD
 }
 
 export async function recordPendaftaranDetailExport(actor: Actor, input: { format: "PDF" | "XLSX"; id: string; kode: string }) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
+  await requirePermission(actor, "admin.pendaftaran.manage");
 
   await prisma.auditLog.create({
     data: {
@@ -367,9 +360,7 @@ function buildPendaftaranWhere(filters: PendaftaranListFilters) {
 }
 
 export async function getPendaftaranSummary(actor: Actor) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
+  await requirePermission(actor, "admin.pendaftaran.manage");
 
   const [total, submitted, underReview, approved, rejected, cancelled] = await Promise.all([
     prisma.pendaftaran.count(),
@@ -384,9 +375,7 @@ export async function getPendaftaranSummary(actor: Actor) {
 }
 
 export async function getPendaftaranDetail(actor: Actor, id: string) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
+  await requirePermission(actor, "admin.pendaftaran.manage");
 
   const pendaftaran = await prisma.pendaftaran.findUnique({
     where: { id },
@@ -405,9 +394,7 @@ export async function getPendaftaranDetail(actor: Actor, id: string) {
 }
 
 export async function updatePendaftaranContact(actor: Actor, id: string, input: unknown) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
+  await requirePermission(actor, "admin.pendaftaran.manage");
 
   const parsed = updatePendaftaranContactSchema.safeParse(input);
 
@@ -446,9 +433,7 @@ export async function updatePendaftaranContact(actor: Actor, id: string, input: 
 }
 
 export async function approvePendaftaran(actor: Actor, id: string) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
+  await requirePermission(actor, "admin.pendaftaran.manage");
 
   const result = await prisma.$transaction(async (tx) => {
     const pendaftaran = await tx.pendaftaran.findUnique({
@@ -594,9 +579,7 @@ export async function approvePendaftaran(actor: Actor, id: string) {
 }
 
 export async function rejectPendaftaran(actor: Actor, id: string, input: unknown) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
+  await requirePermission(actor, "admin.pendaftaran.manage");
 
   const parsed = rejectPendaftaranSchema.safeParse(input);
 

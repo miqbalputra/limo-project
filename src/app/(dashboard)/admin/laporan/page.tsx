@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getAdminReport } from "@/server/services/report-service";
+import { getActiveAcademicYear } from "@/server/services/settings-service";
 import { DashboardHero, EmptyState, MetricCard, ProgressBar, SectionHeader } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import { AdminReportFilters } from "@/components/dashboard/admin-report-filters";
@@ -14,9 +16,10 @@ export const metadata = { title: "Laporan Operasional" };
 
 export default async function AdminLaporanPage({ searchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.reports.view");
   const params = await searchParams;
   const report = await getAdminReport(actor, { fromValue: params.from, toValue: params.to });
+  const activeYear = await getActiveAcademicYear();
   const csvHref = `/api/v1/admin/laporan/export?from=${report.period.fromValue}&to=${report.period.toValue}`;
   const excelHref = `/api/v1/admin/laporan/export/excel?from=${report.period.fromValue}&to=${report.period.toValue}`;
   const pdfHref = `/api/v1/admin/laporan/export/pdf?from=${report.period.fromValue}&to=${report.period.toValue}`;
@@ -32,6 +35,7 @@ export default async function AdminLaporanPage({ searchParams }: { searchParams:
         aside={<div className="rounded-2xl bg-gray-900 px-5 py-4 text-left text-white shadow-theme-lg"><p className="text-theme-xs text-white/60">Periode laporan</p><p className="mt-1 text-lg font-semibold">{report.period.fromValue}</p><p className="text-theme-xs text-white/70">sampai {report.period.toValue}</p></div>}
       />
       <AdminReportFilters from={report.period.fromValue} to={report.period.toValue} />
+      {activeYear ? <p className="text-theme-sm text-gray-500">Tahun ajaran aktif: <strong className="text-gray-700">{activeYear.label}</strong> — Semester {formatUiLabel(activeYear.semester)}.</p> : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Siswa Aktif" value={report.summary.students} description="Total data siswa aktif" icon="student" />

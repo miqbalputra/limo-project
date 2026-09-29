@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
+import { useToast } from "@/components/ui/toast-provider";
 import { requestJson } from "@/lib/api-json-client";
 
 type Option = { id: string; name: string };
@@ -21,6 +22,7 @@ export type TarifRow = {
 
 export function TarifActions({ tarif, programs, kelas, siswa }: { tarif: TarifRow; programs: Option[]; kelas: Option[]; siswa: Option[] }) {
   const router = useRouter();
+  const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,6 +49,7 @@ export function TarifActions({ tarif, programs, kelas, siswa }: { tarif: TarifRo
         },
         fallbackMessage: "Tarif gagal diperbarui",
       });
+      toast.success("Tarif berhasil diperbarui.");
       setEditing(false);
       router.refresh();
     } catch (caught) {
@@ -74,6 +77,7 @@ export function TarifActions({ tarif, programs, kelas, siswa }: { tarif: TarifRo
         method: nextActive ? "POST" : "DELETE",
         fallbackMessage: "Status tarif gagal diubah",
       });
+      toast.success(nextActive ? "Tarif dipulihkan." : "Tarif diarsipkan.");
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Status tarif gagal diubah");

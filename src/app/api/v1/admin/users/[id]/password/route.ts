@@ -1,4 +1,4 @@
-import { requireActor } from "@/server/auth/session";
+import { requireActorWithRole } from "@/server/auth/session";
 import { getEnv } from "@/server/env";
 import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
@@ -12,7 +12,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   try {
     assertSameOrigin(request.headers, getEnv().APP_URL);
-    return apiOk(await setAccountPassword(await requireActor(), (await params).id, await request.json()), { requestId });
+    return apiOk(await setAccountPassword(await requireActorWithRole(["ADMIN"]), (await params).id, await request.json()), { requestId });
   } catch (error) {
     return apiError(error, { requestId });
   }

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentActor } from "@/server/auth/session";
-import { getNavigationForRole } from "@/components/dashboard/navigation";
+import { getNavigationForActor } from "@/components/dashboard/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { listDashboardNotifications, syncGuruPendingNotifications } from "@/server/services/notification-service";
 import { listWaliSelectorChildren } from "@/server/dal/wali-selector-dal";
@@ -21,7 +21,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     redirect("/login");
   }
 
-  const navigation = getNavigationForRole(actor.role);
+  const navigation = await getNavigationForActor(actor);
   if (actor.role === "GURU") {
     await syncGuruPendingNotifications(actor);
   }

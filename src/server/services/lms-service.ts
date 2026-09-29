@@ -3,7 +3,7 @@ import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canManageClass } from "@/server/policies/access-policy";
-import { cancelSesiKelasSchema, createMateriSchema, createSesiKelasSchema, updateMateriStatusSchema, updateSesiKelasSchema } from "@/server/validation/lms";
+import { cancelSesiKelasSchema, createMateriSchema, createSesiKelasSchema, updateMateriSchema, updateMateriStatusSchema, updateSesiKelasSchema } from "@/server/validation/lms";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 
 function parseDate(value: string) {
@@ -422,7 +422,7 @@ export async function listMateri(actor: Actor, kelasId: string, paginationInput?
           where: { deletedAt: null },
           select: { id: true, originalName: true, mimeType: true },
         },
-        sesiKelas: { select: { meetingNumber: true, topic: true } },
+        sesiKelas: { select: { id: true, meetingNumber: true, topic: true } },
         _count: { select: { files: true } },
       },
   });
@@ -501,4 +501,69 @@ export async function updateMateriStatus(actor: Actor, materiId: string, input: 
   const item = await prisma.materi.update({ where: { id: materiId }, data: { status: parsed.data.status }, select: { id: true, title: true, status: true } });
   await prisma.auditLog.create({ data: { actorId: actor.id, action: `MATERI_${parsed.data.status}`, entityType: "Materi", entityId: materiId } });
   return { item };
+}
+
+export async function updateMateri(actor: Actor, materiId: string, input: unknown) {
+  const parsed = updateMateriSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Data materi belum valid", parsed.error.flatten().fieldErrors);
+
+  const existing = await prisma.materi.findUnique({ where: { id: materiId }, select: { id: true, kelasId: true, status: true } });
+  if (!existing) throw new NotFoundError("Materi tidak ditemukan");
+  await assertCanManageClass(actor, existing.kelasId);
+
+  if (parsed.data.sesiKelasId) {
+    const sesi = await prisma.sesiKelas.findFirst({
+      where: { id: parsed.data.sesiKelasId, kelasId: existing.kelasId },
+      select: { id: true },
+    });
+
+    if (!sesi) throw new NotFoundError("Sesi tidak ditemukan untuk kelas ini");
+  }
+
+  if (parsed.data.type === "VIDEO_LINK" && !parsed.data.videoUrl) {
+    throw new ValidationError("URL video wajib diisi untuk materi video", { videoUrl: ["URL video wajib diisi untuk materi video"] });
+  }
+
+  if (parsed.data.type === "TEXT" && !parsed.data.content) {
+    throw new ValidationError("Konten teks wajib diisi untuk materi teks", { content: ["Konten teks wajib diisi untuk materi teks"] });
+  }
+
+  const item = await prisma.materi.update({
+    where: { id: materiId },
+    data: {
+      sesiKelasId: parsed.data.sesiKelasId || null,
+      type: parsed.data.type,
+      title: parsed.data.title,
+      content: parsed.data.content || null,
+      videoUrl: parsed.data.videoUrl || null,
+      language: parsed.data.language || null,
+      direction: parsed.data.direction || null,
+      order: parsed.data.order,
+      ...(parsed.data.status ? { status: parsed.data.status } : {}),
+    },
+    select: { id: true, title: true, status: true },
+  });
+
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "MATERI_UPDATED", entityType: "Materi", entityId: materiId } });
+  return { item };
+}
+
+export async function deleteMateri(actor: Actor, materiId: string) {
+  const existing = await prisma.materi.findUnique({
+    where: { id: materiId },
+    select: { id: true, kelasId: true, _count: { select: { files: true } } },
+  });
+  if (!existing) throw new NotFoundError("Materi tidak ditemukan");
+  await assertCanManageClass(actor, existing.kelasId);
+
+  if (existing._count.files > 0) {
+    throw new ConflictError("Materi memiliki berkas terlampir. Hapus berkas atau arsipkan materi.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.materi.delete({ where: { id: materiId } });
+    await tx.auditLog.create({ data: { actorId: actor.id, action: "MATERI_DELETED", entityType: "Materi", entityId: materiId } });
+  });
+
+  return { item: { id: materiId } };
 }

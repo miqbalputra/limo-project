@@ -7,6 +7,7 @@ import PDFDocument from "pdfkit/js/pdfkit.standalone.js";
 import type { Actor } from "@/server/auth/session";
 import { getEnv } from "@/server/env";
 import { getSertifikatForActor } from "@/server/services/certificate-service";
+import { getSchoolSetting } from "@/server/services/settings-service";
 
 const INK = "#101828";
 const MUTED = "#667085";
@@ -39,6 +40,7 @@ function writeName(doc: PDFKit.PDFDocument, name: string, width: number, y: numb
 }
 
 export async function buildCertificatePdf(input: {
+  schoolName: string;
   studentName: string;
   programName: string;
   className: string;
@@ -64,7 +66,7 @@ export async function buildCertificatePdf(input: {
   doc.rect(24, 24, width - 48, height - 48).lineWidth(2).strokeColor(ACCENT).stroke();
   doc.rect(34, 34, width - 68, height - 68).lineWidth(0.7).strokeColor(MUTED).stroke();
 
-  doc.font("Helvetica-Bold").fontSize(15).fillColor(MUTED).text("LITTLE MOSLEMS ACADEMY", 0, 78, { align: "center", width });
+  doc.font("Helvetica-Bold").fontSize(15).fillColor(MUTED).text(input.schoolName.toUpperCase(), 0, 78, { align: "center", width });
   doc.font("Helvetica-Bold").fontSize(38).fillColor(INK).text("SERTIFIKAT", 0, 104, { align: "center", width });
   doc.font("Helvetica").fontSize(12).fillColor(MUTED).text("Certificate of Completion", 0, 152, { align: "center", width });
 
@@ -87,7 +89,7 @@ export async function buildCertificatePdf(input: {
     doc.font("Helvetica").fontSize(10).fillColor(MUTED).text(`Catatan: ${input.note}`, 60, height - 70, { width: 520 });
   }
 
-  doc.font("Helvetica-Bold").fontSize(11).fillColor(INK).text("LIMO", width - 200, height - 110, { width: 140, align: "right" });
+  doc.font("Helvetica-Bold").fontSize(11).fillColor(INK).text(input.schoolName, width - 200, height - 110, { width: 220, align: "right" });
   doc.font("Helvetica").fontSize(9).fillColor(MUTED).text("Kepala Lembaga", width - 200, height - 92, { width: 140, align: "right" });
 
   doc.end();
@@ -96,7 +98,9 @@ export async function buildCertificatePdf(input: {
 
 export async function getCertificatePdf(actor: Actor, id: string) {
   const { item } = await getSertifikatForActor(actor, id);
+  const setting = await getSchoolSetting();
   const buffer = await buildCertificatePdf({
+    schoolName: setting.name,
     studentName: item.siswa.name,
     programName: item.siswa.program.name,
     className: item.kelas.name,

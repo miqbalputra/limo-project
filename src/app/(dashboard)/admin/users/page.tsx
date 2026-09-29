@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { UserActions } from "@/components/dashboard/user-actions";
 import { AdminUserForm } from "@/components/dashboard/user-forms";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listUsers } from "@/server/services/auth-service";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
@@ -11,7 +12,7 @@ export const metadata = { title: "Pengguna" };
 
 export default async function UsersPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.people.manage");
   const params = await searchParams;
   const filters = Object.fromEntries(Object.entries(params).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]).filter((entry): entry is [string, string] => Boolean(entry[1])));
   const { items, pagination } = await listUsers(actor, filters);

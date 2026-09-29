@@ -1,4 +1,5 @@
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listMyKelas, listSesiKelas } from "@/server/services/lms-service";
 import { GuruSessionOverview } from "@/components/dashboard/guru-session-overview";
 
@@ -6,7 +7,7 @@ export const metadata = { title: "Progres" };
 
 export default async function GuruProgresPage() {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.session.manage");
   const { items: kelas } = await listMyKelas(actor);
   const sesiGroups = await Promise.all(kelas.map(async (item) => ({ kelas: item, sesi: (await listSesiKelas(actor, item.id)).items })));
 

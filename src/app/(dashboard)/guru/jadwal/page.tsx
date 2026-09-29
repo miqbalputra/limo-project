@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DashboardHero, EmptyState, MetricCard, SectionHeader } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listGuruSchedule } from "@/server/services/lms-service";
 import { formatJakartaDate, getJakartaDayRange } from "@/server/time/jakarta";
 import { formatUiLabel, getUiToneClass } from "@/lib/ui-labels";
@@ -9,7 +10,7 @@ export const metadata = { title: "Jadwal Guru" };
 
 export default async function GuruSchedulePage() {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.class.manage");
   const range = getJakartaDayRange(-7, 28);
   const { items } = await listGuruSchedule(actor, range.start, range.end);
   const grouped = groupByDate(items);

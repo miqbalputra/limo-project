@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listMyKelas } from "@/server/services/lms-service";
 import { DashboardHero, EmptyState, ProgressBar } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
@@ -8,7 +9,7 @@ export const metadata = { title: "Kelas Saya" };
 
 export default async function GuruKelasPage() {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.class.manage");
   const { items } = await listMyKelas(actor);
   const totalStudents = items.reduce((sum, item) => sum + item._count.enrollments, 0);
   const totalSessions = items.reduce((sum, item) => sum + item._count.sessions, 0);

@@ -1,4 +1,4 @@
-import { requireActor } from "@/server/auth/session";
+import { requireActor, requireRole } from "@/server/auth/session";
 import { getEnv } from "@/server/env";
 import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
@@ -12,6 +12,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   try {
     assertSameOrigin(request.headers, getEnv().APP_URL);
     const actor = await requireActor();
+    requireRole(actor, ["ADMIN"]);
     const { id } = await context.params;
     return apiOk(await updateKelas(actor, id, await request.json()), { requestId });
   } catch (error) {
@@ -24,6 +25,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   try {
     assertSameOrigin(request.headers, getEnv().APP_URL);
     const actor = await requireActor();
+    requireRole(actor, ["ADMIN"]);
     const { id } = await context.params;
     return apiOk(await archiveKelas(actor, id), { requestId });
   } catch (error) {

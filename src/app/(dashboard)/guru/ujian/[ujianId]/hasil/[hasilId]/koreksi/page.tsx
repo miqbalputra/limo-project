@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { notFound } from "next/navigation";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getHasilUjianCorrectionContext } from "@/server/services/exam-service";
 import { HasilUjianForm, type InitialExamAnswer } from "@/components/dashboard/hasil-ujian-form";
 import { formatUiLabel } from "@/lib/ui-labels";
@@ -8,12 +10,12 @@ export const metadata = { title: "Koreksi Hasil Ujian" };
 
 export default async function GuruKoreksiHasilUjianPage({ params }: { params: Promise<{ ujianId: string; hasilId: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.assessment.manage");
   const { ujianId, hasilId } = await params;
   const hasil = await getHasilUjianCorrectionContext(actor, hasilId);
 
   if (hasil.ujian.id !== ujianId) {
-    return null;
+    notFound();
   }
 
   const initialAnswers = Object.fromEntries(hasil.answers.map((answer) => [

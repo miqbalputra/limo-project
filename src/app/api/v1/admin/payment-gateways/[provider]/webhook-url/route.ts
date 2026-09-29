@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requireActor } from "@/server/auth/session";
+import { requireActor, requireRole } from "@/server/auth/session";
 import { getEnv } from "@/server/env";
 import { ValidationError } from "@/server/errors/application-error";
 import { apiError, apiOk } from "@/server/http/api-response";
@@ -16,6 +16,7 @@ export async function POST(request: Request, context: { params: Promise<{ provid
   try {
     assertSameOrigin(request.headers, getEnv().APP_URL);
     const actor = await requireActor();
+    requireRole(actor, ["ADMIN"]);
     const { provider } = await context.params;
     const parsed = providerSchema.safeParse(provider);
     if (!parsed.success) return apiError(new ValidationError("Provider payment tidak valid"), { requestId });

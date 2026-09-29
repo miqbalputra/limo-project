@@ -1,14 +1,13 @@
 import "server-only";
 import { hashPassword } from "@/server/auth/password";
 import type { Actor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { prisma } from "@/server/db/prisma";
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
+import { ConflictError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { setUserPasswordSchema } from "@/server/validation/auth";
 
 export async function setAccountPassword(actor: Actor, userId: string, input: unknown) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
+  await requirePermission(actor, "admin.people.manage");
 
   if (actor.id === userId) {
     throw new ConflictError("Gunakan halaman Ubah Password untuk akun Anda sendiri");

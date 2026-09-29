@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getSessionRoster } from "@/server/services/attendance-progress-service";
 import { PresensiProgresForm } from "@/components/dashboard/attendance-progress-forms";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
@@ -11,7 +12,7 @@ export const metadata = { title: "Input Presensi" };
 
 export default async function GuruInputPresensiPage({ params }: { params: Promise<{ sesiKelasId: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.session.manage");
   const { sesiKelasId } = await params;
   const { sesi, students } = await getSessionRoster(actor, sesiKelasId);
   const presensiFilled = students.filter((student) => student.presensi && student.presensi.length > 0).length;

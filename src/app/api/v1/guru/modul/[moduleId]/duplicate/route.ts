@@ -1,4 +1,4 @@
-import { requireActor } from "@/server/auth/session";
+import { requireActor, requireRole } from "@/server/auth/session";
 import { getEnv } from "@/server/env";
 import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
@@ -12,6 +12,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ mod
   try {
     assertSameOrigin(request.headers, getEnv().APP_URL);
     const actor = await requireActor();
+    requireRole(actor, ["ADMIN", "GURU"]);
     return apiOk(await duplicateLearningModule(actor, (await params).moduleId), { requestId }, { status: 201 });
   } catch (error) {
     return apiError(error, { requestId });

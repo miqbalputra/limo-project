@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getStudentSummary } from "@/server/services/report-service";
 import { DashboardHero, EmptyState, ProgressBar } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
@@ -10,7 +11,7 @@ export const metadata = { title: "Ringkasan Progres" };
 
 export default async function WaliProgresDetailPage({ params }: { params: Promise<{ siswaId: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.progres.view");
   const { siswaId } = await params;
   const summary = await getStudentSummary(actor, siswaId);
   const hadir = summary.attendance.HADIR || 0;

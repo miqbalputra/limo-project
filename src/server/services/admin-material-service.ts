@@ -1,8 +1,8 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { Actor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { prisma } from "@/server/db/prisma";
-import { ForbiddenError } from "@/server/errors/application-error";
 import { createPaginationMeta, resolvePagination } from "@/server/pagination";
 
 export type AdminMaterialFileFilters = {
@@ -17,14 +17,9 @@ const mimeTypes = {
   IMAGE: "image/",
 } as const;
 
-function requireAdmin(actor: Actor) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
-}
 
 export async function listAdminMaterialFiles(actor: Actor, input: AdminMaterialFileFilters = {}) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.content.manage");
 
   const pagination = resolvePagination({ page: input.page, pageSize: input.pageSize }, 12);
   const search = input.search?.trim().slice(0, 120) || "";

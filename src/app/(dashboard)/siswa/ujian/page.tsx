@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { listStudentExams } from "@/server/services/online-exam-service";
 import { DashboardHero, EmptyState } from "@/components/dashboard/dashboard-widgets";
@@ -11,7 +12,7 @@ export const metadata = { title: "Ujian Saya" };
 export default async function StudentExamsPage() {
   if (!isFeatureEnabled("studentSelfExamEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["SISWA"]);
+  await requirePermission(actor, "siswa.ujian.view");
   const { siswa, exams } = await listStudentExams(actor);
 
   return (

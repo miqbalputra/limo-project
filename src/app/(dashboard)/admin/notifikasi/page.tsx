@@ -1,4 +1,5 @@
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { NotificationRetryButton } from "@/components/dashboard/notification-retry-button";
@@ -30,7 +31,7 @@ const channelLabels: Record<string, string> = {
 
 export default async function AdminNotifikasiPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.notifications.manage");
   const params = await searchParams;
   const first = (key: string) => {
     const value = params[key];

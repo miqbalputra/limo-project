@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { DiskusiThreadView } from "@/components/dashboard/diskusi-thread-view";
 
@@ -9,7 +10,7 @@ export default async function AdminDiskusiThreadPage({ params, searchParams }: {
   if (!isFeatureEnabled("classDiscussionEnabled")) notFound();
 
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.content.manage");
   const { threadId } = await params;
   const { page } = await searchParams;
 

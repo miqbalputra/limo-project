@@ -2,7 +2,8 @@ import Link from "next/link";
 import { DashboardHero, MetricCard } from "@/components/dashboard/dashboard-widgets";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { PaymentLedger } from "@/components/dashboard/payment-ledger";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listPaymentLedger } from "@/server/services/billing-service";
 import { pembayaranStatusSchema } from "@/server/validation/billing";
 
@@ -10,7 +11,7 @@ export const metadata = { title: "Pembayaran" };
 
 export default async function AdminPembayaranPage({ searchParams }: { searchParams: Promise<{ search?: string; status?: string; page?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.billing.manage");
   const params = await searchParams;
   const search = params.search?.trim() || "";
   const parsedStatus = pembayaranStatusSchema.safeParse(params.status || "");

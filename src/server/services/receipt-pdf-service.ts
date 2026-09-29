@@ -4,6 +4,7 @@ import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError } from "@/server/errors/application-error";
 import { canAccessInvoice } from "@/server/policies/access-policy";
+import { getSchoolSetting } from "@/server/services/settings-service";
 import { formatRupiah } from "@/lib/money";
 
 const INK = "#101828";
@@ -11,6 +12,7 @@ const MUTED = "#667085";
 const ACCENT = "#2372B8";
 
 type ReceiptInput = {
+  schoolName: string;
   studentName: string;
   studentNumber: string;
   programName: string;
@@ -41,7 +43,7 @@ export async function buildReceiptPdf(input: ReceiptInput) {
 
   const width = doc.page.width - 100;
 
-  doc.font("Helvetica-Bold").fontSize(12).fillColor(MUTED).text("LITTLE MOSLEMS ACADEMY", { width, align: "left" });
+  doc.font("Helvetica-Bold").fontSize(12).fillColor(MUTED).text(input.schoolName.toUpperCase(), { width, align: "left" });
   doc.font("Helvetica-Bold").fontSize(24).fillColor(INK).text("KUITANSI PEMBAYARAN", { width });
   doc.moveTo(50, 118).lineTo(50 + width, 118).lineWidth(1).strokeColor(ACCENT).stroke();
 
@@ -79,8 +81,8 @@ export async function buildReceiptPdf(input: ReceiptInput) {
   doc.font("Helvetica-Bold").fontSize(11).fillColor(INK).text("Referensi", 50, y, { width: 170 });
   doc.font("Helvetica").fontSize(11).fillColor(INK).text(input.reference, 220, y, { width: width - 170 });
 
-  doc.font("Helvetica").fontSize(9).fillColor(MUTED).text("Kuitansi ini dibuat otomatis oleh sistem LIMO dan sah tanpa tanda tangan basah.", 50, doc.page.height - 110, { width });
-  doc.font("Helvetica-Bold").fontSize(10).fillColor(INK).text("LIMO / Admin Keuangan", 50, doc.page.height - 82, { width, align: "right" });
+  doc.font("Helvetica").fontSize(9).fillColor(MUTED).text(`Kuitansi ini dibuat otomatis oleh sistem ${input.schoolName} dan sah tanpa tanda tangan basah.`, 50, doc.page.height - 110, { width });
+  doc.font("Helvetica-Bold").fontSize(10).fillColor(INK).text(`${input.schoolName} / Admin Keuangan`, 50, doc.page.height - 82, { width, align: "right" });
 
   doc.end();
   return done;
@@ -125,8 +127,10 @@ export async function getReceiptPdf(actor: Actor, tagihanId: string) {
   const subtotal = tagihan.subtotal === null ? Number(tagihan.amount) : Number(tagihan.subtotal);
   const discount = Number(tagihan.discountAmount);
   const periodeLabel = new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "Asia/Jakarta" }).format(tagihan.periode);
+  const setting = await getSchoolSetting();
 
   const buffer = await buildReceiptPdf({
+    schoolName: setting.name,
     studentName: tagihan.siswa.name,
     studentNumber: tagihan.siswa.nomorInduk,
     programName: tagihan.siswa.program.name,

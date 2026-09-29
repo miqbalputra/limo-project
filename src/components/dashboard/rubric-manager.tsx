@@ -51,6 +51,7 @@ export function RubricManager({ initialRubrics }: { initialRubrics: RubricOption
         }),
       {
         fallbackMessage: "Rubrik gagal dibuat",
+        successMessage: "Rubrik berhasil dibuat.",
         onSuccess: () => {
           setTitle("");
           setDescription("");
@@ -71,7 +72,7 @@ export function RubricManager({ initialRubrics }: { initialRubrics: RubricOption
         body: { status },
         fallbackMessage: rubricRequestFallback,
         }),
-      { fallbackMessage: "Status rubrik gagal diubah", onSuccess: () => router.refresh() },
+      { fallbackMessage: "Status rubrik gagal diubah", successMessage: "Status rubrik diperbarui.", onSuccess: () => router.refresh() },
     );
   }
 

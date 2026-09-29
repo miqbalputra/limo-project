@@ -4,7 +4,8 @@ import { DashboardHero, EmptyState } from "@/components/dashboard/dashboard-widg
 import { SubmissionGradePanel } from "@/components/dashboard/submission-grade-panel";
 import { RequestRevisionButton } from "@/components/dashboard/request-revision-button";
 import { ResponsiveDataView } from "@/components/dashboard/responsive-data-view";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { getGuruAssignment, listAssignmentSubmissions } from "@/server/services/assignment-service";
 import { formatUiLabel, getUiToneClass } from "@/lib/ui-labels";
@@ -14,7 +15,7 @@ export const metadata = { title: "Pengumpulan Tugas" };
 export default async function GuruAssignmentSubmissionsPage({ params }: { params: Promise<{ assignmentId: string }> }) {
   if (!isFeatureEnabled("assignmentsEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.assessment.manage");
   const { assignmentId } = await params;
   const [{ item: assignment }, { items }] = await Promise.all([getGuruAssignment(actor, assignmentId), listAssignmentSubmissions(actor, assignmentId)]);
   return (

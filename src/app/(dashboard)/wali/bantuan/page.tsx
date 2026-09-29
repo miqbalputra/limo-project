@@ -1,4 +1,5 @@
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { DashboardHero, SectionHeader } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 
@@ -34,7 +35,7 @@ const faqGroups = [
 
 export default async function WaliBantuanPage() {
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.bantuan.view");
   const contactEmail = process.env.NEXT_PUBLIC_LIMO_CONTACT_EMAIL;
 
   return (

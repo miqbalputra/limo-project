@@ -432,6 +432,7 @@ model User {
   diskusiBalasanCreated      DiskusiBalasan[]       @relation("DiskusiBalasanCreator")
   diskusiLaporanMade         DiskusiLaporan[]       @relation("DiskusiLaporanReporter")
   diskusiLaporanResolved     DiskusiLaporan[]       @relation("DiskusiLaporanResolver")
+  permissionOverrides        UserPermissionOverride[] @relation("UserPermissionOverrideUser")
 }
 
 model Session {
@@ -1369,6 +1370,7 @@ model BankSoal {
   createdById       String?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
+  archivedAt        DateTime?
   options           OpsiSoal[]
   ujianSoal         UjianSoal[]
   answers           JawabanUjian[]
@@ -1841,4 +1843,66 @@ model JobRun {
   errorMessage String?   @db.Text
 
   @@index([name, startedAt])
+}
+
+enum AcademicSemester {
+  GANJIL
+  GENAP
+}
+
+model SchoolSetting {
+  id          String   @id @default("default")
+  name        String   @default("LIMO - Little Moslems Academy")
+  tagline     String?
+  address     String?  @db.Text
+  phone       String?
+  email       String?
+  website     String?
+  logoFileId  String?
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
+model AcademicYear {
+  id        String           @id @default(cuid())
+  label     String           @unique
+  semester  AcademicSemester @default(GANJIL)
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([isActive])
+}
+
+enum PermissionEffect {
+  GRANT
+  DENY
+}
+
+model RolePermissionOverride {
+  id          String           @id @default(cuid())
+  role        UserRole
+  permission  String
+  effect      PermissionEffect
+  createdById String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([role, permission])
+}
+
+model UserPermissionOverride {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation("UserPermissionOverrideUser", fields: [userId], references: [id], onDelete: Cascade)
+  permission  String
+  effect      PermissionEffect
+  createdById String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([userId, permission])
+  @@index([userId])
 }

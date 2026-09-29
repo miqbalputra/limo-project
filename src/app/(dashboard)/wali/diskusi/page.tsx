@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { resolveWaliChildId } from "@/server/dal/wali-selector-dal";
 import { listWaliDiskusi } from "@/server/services/diskusi-service";
@@ -13,7 +14,7 @@ export default async function WaliDiskusiPage({ searchParams }: { searchParams: 
   if (!isFeatureEnabled("classDiscussionEnabled")) notFound();
 
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.diskusi.view");
   const { anak, page } = await searchParams;
   const childId = await resolveWaliChildId(actor, anak);
   const data = await listWaliDiskusi(actor, childId, { page: Number(page) || 1, pageSize: 20 });

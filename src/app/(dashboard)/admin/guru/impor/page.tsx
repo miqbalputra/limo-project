@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { PersonImportForm } from "@/components/dashboard/person-import-form";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 
 export const metadata = { title: "Impor Guru" };
 
 export default async function AdminGuruImportPage() {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.people.manage");
 
   return (
     <main className="space-y-6">

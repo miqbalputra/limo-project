@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
 import { LearningModuleBuilder, type LearningModuleOptions, type LearningModuleView } from "@/components/dashboard/learning-module-builder";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { listModuleItemOptions, listGuruModules } from "@/server/services/learning-module-service";
 
@@ -11,7 +12,7 @@ export const metadata = { title: "Modul Pembelajaran" };
 export default async function GuruLearningModulesPage({ params }: { params: Promise<{ kelasId: string }> }) {
   if (!isFeatureEnabled("learningModulesEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.class.manage");
   const { kelasId } = await params;
   const [{ items }, options] = await Promise.all([listGuruModules(actor, kelasId), listModuleItemOptions(actor, kelasId)]);
   const kelas = items[0]?.kelas;

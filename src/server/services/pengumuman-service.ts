@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { Actor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { prisma } from "@/server/db/prisma";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { assertManageKelasForum, assertViewKelasForum, canManageClass } from "@/server/policies/access-policy";
@@ -78,9 +79,7 @@ async function assertCanManagePengumuman(actor: Actor, kelasId: string | null) {
     return;
   }
 
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError("Hanya Admin yang dapat mengelola pengumuman sekolah");
-  }
+  await requirePermission(actor, "admin.content.manage");
 }
 
 export async function createPengumuman(actor: Actor, input: unknown) {
@@ -348,7 +347,7 @@ export async function countUnreadPengumuman(actor: Actor) {
 }
 
 export async function listSchoolPengumuman(actor: Actor, paginationInput: PaginationInput = {}) {
-  if (actor.role !== "ADMIN") throw new ForbiddenError("Hanya Admin yang dapat mengelola pengumuman sekolah");
+  await requirePermission(actor, "admin.content.manage");
 
   const pagination = resolvePagination(paginationInput, 20);
   const where = { kelasId: null };

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getWaliAttemptContext } from "@/server/services/online-exam-service";
 import { OnlineExamPlayer } from "@/components/dashboard/online-exam-player";
 import { withWaliChildContext } from "@/lib/wali-selector";
@@ -22,7 +23,7 @@ type StructuredPayload = {
 
 export default async function WaliAttemptPage({ params, searchParams }: { params: Promise<{ attemptId: string }>; searchParams: Promise<{ anak?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.tugas.view");
   const { attemptId } = await params;
   const { anak } = await searchParams;
   const { attempt } = await getWaliAttemptContext(actor, attemptId);

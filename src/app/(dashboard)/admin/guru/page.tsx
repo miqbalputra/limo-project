@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listGuru } from "@/server/services/people-service";
 import { GuruForm } from "@/components/dashboard/people-forms";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
@@ -10,7 +11,7 @@ export const metadata = { title: "Guru" };
 
 export default async function AdminGuruPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.people.manage");
   const params = await searchParams;
   const search = Array.isArray(params.search) ? params.search[0] : params.search;
   const page = Number(Array.isArray(params.page) ? params.page[0] : params.page) || 1;

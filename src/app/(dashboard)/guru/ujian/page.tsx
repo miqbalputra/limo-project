@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listBankSoal, listUjian } from "@/server/services/exam-service";
 import { listMyKelas } from "@/server/services/lms-service";
 import { UjianForm } from "@/components/dashboard/ujian-form";
@@ -13,12 +14,13 @@ import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Ujian" };
 
-export default async function GuruUjianPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+export default async function GuruUjianPage({ searchParams }: { searchParams: Promise<{ page?: string; search?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
-  const { page } = await searchParams;
+  await requirePermission(actor, "guru.assessment.manage");
+  const params = await searchParams;
+  const search = typeof params.search === "string" ? params.search.trim() : "";
   const [{ items: ujian, pagination }, { items: kelas }, { items: soal }] = await Promise.all([
-    listUjian(actor, { page: Number(page) || 1, pageSize: 20 }),
+    listUjian(actor, { page: Number(params.page) || 1, pageSize: 20, search }),
     listMyKelas(actor),
     listBankSoal(actor),
   ]);
@@ -34,6 +36,10 @@ export default async function GuruUjianPage({ searchParams }: { searchParams: Pr
         soalOptions={soal.map((item) => ({ id: item.id, label: `${formatUiLabel(item.type)} / ${formatUiLabel(item.skill)} / ${formatUiLabel(item.difficulty)}`, question: item.question, language: item.language, direction: item.direction }))}
       />
       <section className="space-y-4">
+        <form method="get" className="tailadmin-card grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <input name="search" defaultValue={search} placeholder="Cari judul ujian" aria-label="Cari ujian" className="tailadmin-input" />
+          <button type="submit" className="tailadmin-button-primary">Terapkan</button>
+        </form>
         {ujian.length > 0 ? ujian.map((item) => (
           <article key={item.id} className="tailadmin-card p-5">
             <p className="text-theme-sm font-semibold text-limo-blue-700">{item.kelas.program.name} / {item.kelas.name}</p>
@@ -61,7 +67,7 @@ export default async function GuruUjianPage({ searchParams }: { searchParams: Pr
           </article>
         )) : <EmptyState icon="exam" title="Belum ada ujian" description="Pilih kelas dan soal dari bank soal untuk membuat evaluasi pertama." />}
       </section>
-      <PaginationControls basePath="/guru/ujian" page={pagination.page} totalPages={pagination.totalPages} />
+      <PaginationControls basePath="/guru/ujian" page={pagination.page} totalPages={pagination.totalPages} params={{ search: search || undefined }} />
     </main>
   );
 }

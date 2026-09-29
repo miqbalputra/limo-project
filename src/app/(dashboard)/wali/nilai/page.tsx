@@ -1,4 +1,5 @@
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getWaliExamHistory } from "@/server/services/report-service";
 import { resolveWaliChildId } from "@/server/dal/wali-selector-dal";
 import { DashboardHero, EmptyState, ProgressBar } from "@/components/dashboard/dashboard-widgets";
@@ -9,7 +10,7 @@ export const metadata = { title: "Riwayat Nilai" };
 
 export default async function WaliNilaiPage({ searchParams }: { searchParams: Promise<{ anak?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.nilai.view");
   const { anak } = await searchParams;
   const { children } = await getWaliExamHistory(actor, await resolveWaliChildId(actor, anak));
   const childrenWithScores = children.filter((child) => child.hasilUjian.length > 0);

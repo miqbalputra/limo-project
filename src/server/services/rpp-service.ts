@@ -6,7 +6,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/
 import { canManageClass } from "@/server/policies/access-policy";
 import { readPrivateFile, removePrivateFile, storeRppFile } from "@/server/providers/storage/local-storage";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
-import { createRppSchema, updateRppStatusSchema } from "@/server/validation/rpp";
+import { createRppSchema, updateRppSchema, updateRppStatusSchema } from "@/server/validation/rpp";
 
 function parseDate(value: string) {
   return new Date(`${value}T00:00:00.000Z`);
@@ -137,6 +137,39 @@ export async function updateRppStatus(actor: Actor, rppId: string, input: unknow
     });
   }
 
+  return { item };
+}
+
+export async function updateRpp(actor: Actor, rppId: string, input: unknown) {
+  const parsed = updateRppSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError("Data RPP belum valid", parsed.error.flatten().fieldErrors);
+
+  const existing = await prisma.rpp.findUnique({
+    where: { id: rppId },
+    select: { id: true, kelasId: true, status: true, mode: true },
+  });
+  if (!existing) throw new NotFoundError("RPP tidak ditemukan");
+  await assertGuruClass(actor, existing.kelasId);
+
+  const item = await prisma.rpp.update({
+    where: { id: rppId },
+    data: {
+      title: parsed.data.title,
+      planDate: parseDate(parsed.data.planDate),
+      meetingNumber: parsed.data.meetingNumber === "" ? null : parsed.data.meetingNumber,
+      topic: parsed.data.topic,
+      learningObjectives: parsed.data.learningObjectives,
+      materials: parsed.data.materials,
+      difficulty: parsed.data.difficulty,
+      activities: parsed.data.activities,
+      assessment: parsed.data.assessment,
+      durationMinutes: parsed.data.durationMinutes === "" ? null : parsed.data.durationMinutes,
+      notes: parsed.data.notes || null,
+    },
+    select: { id: true, title: true, status: true },
+  });
+
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "RPP_UPDATED", entityType: "Rpp", entityId: rppId } });
   return { item };
 }
 

@@ -4,11 +4,13 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatUiLabel } from "@/lib/ui-labels";
 import { requestJson } from "@/lib/api-json-client";
+import { useToast } from "@/components/ui/toast-provider";
 
 type ClassOption = { id: string; name: string };
 
 export function RppForm({ classes }: { classes: ClassOption[] }) {
   const router = useRouter();
+  const toast = useToast();
   const [mode, setMode] = useState<"FORM" | "FILE">("FORM");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -20,6 +22,7 @@ export function RppForm({ classes }: { classes: ClassOption[] }) {
     setIsSubmitting(true);
     try {
       await requestJson("/api/v1/guru/rpp", { method: "POST", body: new FormData(form), fallbackMessage: "RPP gagal disimpan" });
+      toast.success("RPP draf berhasil disimpan.");
       form.reset();
       setMode("FORM");
       router.refresh();

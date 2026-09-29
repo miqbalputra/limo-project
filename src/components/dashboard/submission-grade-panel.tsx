@@ -85,6 +85,7 @@ export function SubmissionGradePanel({ submissionId }: { submissionId: string })
         }),
       {
         fallbackMessage: "Draf penilaian gagal disimpan",
+        successMessage: "Draf penilaian tersimpan.",
         onSuccess: ({ data: response }) => setGrade(response.item),
       },
     );
@@ -103,6 +104,7 @@ export function SubmissionGradePanel({ submissionId }: { submissionId: string })
         }),
       {
         fallbackMessage: "Nilai gagal dipublikasikan",
+        successMessage: "Nilai berhasil dipublikasikan.",
         onSuccess: ({ data: response }) => {
           setGrade(response.item);
           setHasPublishedGrade(true);

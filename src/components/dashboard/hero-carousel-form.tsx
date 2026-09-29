@@ -4,15 +4,17 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { requestJson } from "@/lib/api-json-client";
 import { ImageUploadField } from "@/components/dashboard/image-upload-field";
+import { useToast } from "@/components/ui/toast-provider";
 
 export function HeroCarouselForm() {
   const router = useRouter();
+  const toast = useToast();
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setPending(true);
     const formElement = event.currentTarget;
-    try { const form = new FormData(formElement); await requestJson("/api/v1/admin/hero-carousel", { method: "POST", body: form, fallbackMessage: "Hero gagal disimpan" }); formElement.reset(); router.refresh(); }
+    try { const form = new FormData(formElement); await requestJson("/api/v1/admin/hero-carousel", { method: "POST", body: form, fallbackMessage: "Hero gagal disimpan" }); toast.success("Hero slide berhasil disimpan."); formElement.reset(); router.refresh(); }
     catch (caught) { setError(caught instanceof Error ? caught.message : "Hero gagal disimpan"); }
     finally { setPending(false); }
   }

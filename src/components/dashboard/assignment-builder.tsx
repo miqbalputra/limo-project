@@ -63,6 +63,7 @@ export function AssignmentBuilder({ kelasId, initialAssignments, rubrics = [] }:
         }),
       {
         fallbackMessage: "Tugas gagal dibuat",
+        successMessage: "Tugas draf berhasil dibuat.",
         onSuccess: () => {
           form.reset();
           router.refresh();
@@ -126,7 +127,7 @@ function AssignmentCard({ assignment, rubrics, onRefresh }: { assignment: Assign
         body: { status },
         fallbackMessage: assignmentRequestFallback,
         }),
-      { fallbackMessage: "Status tugas gagal diubah", onSuccess: onRefresh },
+      { fallbackMessage: "Status tugas gagal diubah", successMessage: "Status tugas diperbarui.", onSuccess: onRefresh },
     );
   }
 
@@ -170,7 +171,7 @@ function RubricAssignmentControl({ assignment, rubrics, onRefresh }: { assignmen
         body: { rubricId },
         fallbackMessage: assignmentRequestFallback,
         }),
-      { fallbackMessage: "Rubrik gagal dipasang", onSuccess: onRefresh },
+      { fallbackMessage: "Rubrik gagal dipasang", successMessage: "Rubrik berhasil dipasang.", onSuccess: onRefresh },
     );
   }
 

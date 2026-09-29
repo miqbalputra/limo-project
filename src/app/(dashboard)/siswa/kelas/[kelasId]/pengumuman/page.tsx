@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { listPengumuman } from "@/server/services/pengumuman-service";
 import { PengumumanCard } from "@/components/dashboard/pengumuman-card";
@@ -14,7 +15,7 @@ export default async function StudentPengumumanPage({ params, searchParams }: { 
   if (!isFeatureEnabled("studentPortalEnabled") || !isFeatureEnabled("classDiscussionEnabled")) notFound();
 
   const actor = await requireActor();
-  requireRole(actor, ["SISWA"]);
+  await requirePermission(actor, "siswa.kelas.view");
   const { kelasId } = await params;
   const { page } = await searchParams;
   const data = await listPengumuman(actor, kelasId, { page: Number(page) || 1, pageSize: 20 });

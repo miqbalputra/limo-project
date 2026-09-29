@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GradebookViewer } from "@/components/dashboard/gradebook-viewer";
 import { DashboardHero, EmptyState } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { getStudentGradebook } from "@/server/services/gradebook-service";
 import { prisma } from "@/server/db/prisma";
@@ -12,7 +13,7 @@ export const metadata = { title: "Nilai Kelas" };
 export default async function StudentGradebookPage({ params }: { params: Promise<{ kelasId: string }> }) {
   if (!isFeatureEnabled("studentPortalEnabled") || !isFeatureEnabled("gradebookEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["SISWA"]);
+  await requirePermission(actor, "siswa.kelas.view");
   const { kelasId } = await params;
   const [kelas, data] = await Promise.all([prisma.kelas.findUnique({ where: { id: kelasId }, select: { id: true, name: true, program: { select: { name: true } }, level: { select: { name: true } } } }), getStudentGradebook(actor, kelasId)]);
   if (!kelas) notFound();

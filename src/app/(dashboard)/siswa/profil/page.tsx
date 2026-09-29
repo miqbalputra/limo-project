@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { getStudentProfile } from "@/server/services/student-service";
 import { formatUiLabel } from "@/lib/ui-labels";
@@ -10,7 +11,7 @@ export const metadata = { title: "Profil Siswa" };
 export default async function StudentProfilePage() {
   if (!isFeatureEnabled("studentPortalEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["SISWA"]);
+  await requirePermission(actor, "siswa.profil.view");
   const { item } = await getStudentProfile(actor);
 
   return <main className="space-y-6"><DashboardHero eyebrow="Akun" title="Profil Siswa" description="Informasi profil yang digunakan untuk menghubungkan Anda dengan kelas dan aktivitas belajar." /><section className="tailadmin-card max-w-2xl p-5"><dl className="divide-y divide-gray-100"><ProfileRow label="Nama" value={item.name} /><ProfileRow label="Nomor Induk" value={item.nomorInduk} /><ProfileRow label="Program" value={item.program.name} /><ProfileRow label="Identifier Login" value={item.loginIdentifier} /><ProfileRow label="Email Kontak" value={item.contactEmail || "Tidak diatur"} /><ProfileRow label="Status" value={formatUiLabel(item.status)} /></dl></section></main>;

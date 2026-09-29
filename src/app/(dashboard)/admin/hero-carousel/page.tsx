@@ -1,13 +1,15 @@
 import { HeroCarouselActions } from "@/components/dashboard/hero-carousel-actions";
 import { HeroCarouselForm } from "@/components/dashboard/hero-carousel-form";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { EmptyState } from "@/components/dashboard/dashboard-widgets";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listHeroSlides } from "@/server/services/hero-carousel-service";
 
 export const metadata = { title: "Hero Carousel" };
 
 export default async function AdminHeroCarouselPage() {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.schedule.manage");
   const { items } = await listHeroSlides(actor);
   return (
     <main className="space-y-6">
@@ -16,7 +18,7 @@ export default async function AdminHeroCarouselPage() {
         <p className="mt-2 tailadmin-muted">Kelola slide hero terpisah untuk desktop dan mobile.</p>
       </div>
       <HeroCarouselForm />
-      <section className="grid gap-4 md:grid-cols-2">
+      {items.length > 0 ? <section className="grid gap-4 md:grid-cols-2">
         {items.map((item) => (
           <article key={item.id} className="tailadmin-card overflow-hidden p-5">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -30,7 +32,7 @@ export default async function AdminHeroCarouselPage() {
             <HeroCarouselActions slide={{ id: item.id, active: item.isActive, sortOrder: item.sortOrder, eyebrow: item.eyebrow ?? "", title: item.title, subtitle: item.subtitle ?? "", description: item.description ?? "", textPosition: item.textPosition, textTheme: item.textTheme, ctaLabel: item.ctaLabel ?? "", ctaHref: item.ctaHref ?? "", cta2Label: item.cta2Label ?? "", cta2Href: item.cta2Href ?? "", altText: item.altText }} />
           </article>
         ))}
-      </section>
+      </section> : <EmptyState icon="materials" title="Belum ada hero slide" description="Tambahkan slide pertama melalui formulir di atas agar tampil di halaman publik." />}
     </main>
   );
 }

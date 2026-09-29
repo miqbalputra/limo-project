@@ -1,6 +1,35 @@
 # Progress Implementasi LIMO
 
-Terakhir diperbarui: 27 September 2026
+Terakhir diperbarui: 29 September 2026
+
+## Resume Point (29 Sep 2026) — Kematangan Dashboard Admin & Guru
+
+**Selesai (belum di-commit):**
+
+- **Toast/umpan balik global** (`src/components/ui/toast-provider.tsx` di root layout) + integrasi `useAsyncAction` (`successMessage`) dan ±14 komponen aksi manual.
+- **Proteksi berlapis**: `src/proxy.ts` diperluas ke API (401 tanpa cookie; rute publik/auth/webhooks/health dikecualikan). `src/middleware.ts` yang sempat dibuat dihapus karena Next 16 memakai `proxy.ts`.
+- **Audit guard otomatis**: `npm run test:guards` (semua route terproteksi punya guard; admin/guru wajib cek role/permission). 65 route admin/guru memakai `requireRole`/`requireActorWithRole` hasil codemod.
+- **Matriks izin granular**: `src/server/auth/permissions.ts`, `permission-service.ts`, model `RolePermissionOverride` + `UserPermissionOverride`, halaman `/admin/akses`, editor izin di `/admin/users/[id]`; 69 halaman admin/guru dikonversi ke `requirePermission`; navigasi via `getNavigationForActor`.
+- **Pengaturan sekolah & tahun ajaran**: model `SchoolSetting` + `AcademicYear`, halaman `/admin/pengaturan`, identitas dipakai pada kop invoice.
+- **CRUD Guru dilengkapi**: Bank Soal (ubah/arsip/pulihkan/duplikat/hapus + `archivedAt`), Materi (ubah/hapus), RPP (ubah), Remedial (ubah/tutup/sinkron nilai).
+- **Konsistensi daftar**: Level cari+pagination; Program/Kelas/Kuis/Ujian cari; empty state Hero Carousel; `listLevels` terpaginasi (`{ pageSize: 100 }` di Kelas).
+- **Perbaikan bug**: nav `/guru/todo`, `notFound()` pada progres aktivitas & koreksi hasil, copy audit.
+
+**Migrasi baru (wajib `prisma migrate deploy`):** `20260929010000_bank_soal_archive`, `20260929020000_school_settings_academic_year`, `20260929030000_permission_matrix`.
+
+**Verifikasi (hijau):** `npm run typecheck` ✓ · `npm run lint` 0 error ✓ · `npm test` **43** ✓ · `npm run test:guards` ✓ · `npm run build` ✓ (153 halaman, `ƒ Proxy (Middleware)` terdeteksi) · `npm run sqlite:setup` schema valid & sinkron (seed demo sengaja diblokir).
+
+**Lanjutan (29 Sep 2026, sesi yang sama):**
+
+- **Guard WALI/SISWA** kini `requirePermission`; katalog izin ditambah `wali.*`/`siswa.*` (41 halaman wali/siswa dikonversi, `/siswa/tugas` diberi `siswa.tugas.view`).
+- **Override lintas-role berfungsi**: 18 service admin mengganti `requireAdmin` dengan `requirePermission` (master-data, people, auth, student-account, account-password, billing, voucher, payment-gateway, payment, hero-carousel, admin-material, certificate, notification-log, report, settings, pendaftaran, pengumuman, diskusi).
+- **Identitas sekolah** dipakai di kuitansi, sertifikat, invoice PNG, dan email (nama pengirim/subject/footer) + payload n8n (dynamic import agar aman untuk skrip/unit test).
+- **Tahun ajaran aktif** jadi default periode pada form generate tagihan (diklamp ke rentang tahun ajaran) dan ditampilkan di halaman laporan.
+- **Bank Soal**: toggle "Tampilkan arsip" + pulihkan dari UI (`?arsip=1`, `listBankSoal` menyertakan `archivedAt`).
+- **Validasi form client-side** memakai schema zod yang sama (Program/Level/Kelas/Guru/Wali/Siswa) dengan pesan error per-field.
+- **Pagination Program & Kelas** (aktif hanya saat `page` dikirim, sehingga dropdown pemanggil tetap utuh).
+
+**Backlog:** test integrasi permission/settings & e2e bank soal edit; identitas sekolah pada export laporan/pendaftaran; validasi client-side modul lain (tarif, voucher, users).
 
 ## Resume Point (27 Sep 2026)
 

@@ -1,5 +1,6 @@
 import "server-only";
 import type { Actor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { prisma } from "@/server/db/prisma";
 import { ForbiddenError, NotFoundError } from "@/server/errors/application-error";
 import { canAccessStudent, canManageClass } from "@/server/policies/access-policy";
@@ -267,9 +268,7 @@ function formatDateOnly(value: Date) {
 }
 
 export async function getAdminReport(actor: Actor, periodInput?: Partial<AdminReportPeriod>) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
+  await requirePermission(actor, "admin.reports.view");
 
   const period = parseAdminReportPeriod(periodInput?.fromValue, periodInput?.toValue);
   const [students, classes, presensiRows, progressRows, resultRows, invoices] = await Promise.all([

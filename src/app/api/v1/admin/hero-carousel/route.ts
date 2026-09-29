@@ -1,4 +1,4 @@
-import { requireActor } from "@/server/auth/session";
+import { requireActorWithRole } from "@/server/auth/session";
 import { getEnv } from "@/server/env";
 import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   const requestId = getRequestId(request.headers);
-  try { return apiOk(await listHeroSlides(await requireActor()), { requestId }); } catch (error) { return apiError(error, { requestId }); }
+  try { return apiOk(await listHeroSlides(await requireActorWithRole(["ADMIN"])), { requestId }); } catch (error) { return apiError(error, { requestId }); }
 }
 
 export async function POST(request: Request) {
@@ -20,6 +20,6 @@ export async function POST(request: Request) {
     const desktop = form.get("desktopImage");
     const mobile = form.get("mobileImage");
     const input = Object.fromEntries(["sortOrder", "isActive", "eyebrow", "title", "subtitle", "description", "textPosition", "textTheme", "ctaLabel", "ctaHref", "cta2Label", "cta2Href", "altText"].map((key) => [key, form.get(key) ?? ""]));
-    return apiOk(await createHeroSlide(await requireActor(), input, desktop instanceof File ? desktop : null, mobile instanceof File ? mobile : null), { requestId }, { status: 201 });
+    return apiOk(await createHeroSlide(await requireActorWithRole(["ADMIN"]), input, desktop instanceof File ? desktop : null, mobile instanceof File ? mobile : null), { requestId }, { status: 201 });
   } catch (error) { return apiError(error, { requestId }); }
 }

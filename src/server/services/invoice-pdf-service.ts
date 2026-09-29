@@ -4,6 +4,7 @@ import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ForbiddenError, NotFoundError } from "@/server/errors/application-error";
 import { canAccessInvoice } from "@/server/policies/access-policy";
+import { getSchoolSetting } from "@/server/services/settings-service";
 import { formatRupiah } from "@/lib/money";
 import { formatUiLabel } from "@/lib/ui-labels";
 
@@ -15,6 +16,7 @@ const DANGER = "#B42318";
 
 export type InvoiceData = {
   id: string;
+  schoolName: string;
   jenis: string;
   description: string | null;
   status: string;
@@ -50,6 +52,8 @@ export async function getInvoiceData(actor: Actor, tagihanId: string): Promise<I
     throw new ForbiddenError("Anda tidak memiliki akses ke tagihan ini");
   }
 
+  const setting = await getSchoolSetting();
+
   const tagihan = await prisma.tagihan.findUnique({
     where: { id: tagihanId },
     select: {
@@ -84,6 +88,7 @@ export async function getInvoiceData(actor: Actor, tagihanId: string): Promise<I
 
   return {
     id: tagihan.id,
+    schoolName: setting.name,
     jenis: tagihan.jenis,
     description: tagihan.description,
     status: tagihan.status,
@@ -117,7 +122,7 @@ export async function buildInvoicePdf(input: InvoiceData) {
 
   const width = doc.page.width - 100;
 
-  doc.font("Helvetica-Bold").fontSize(12).fillColor(MUTED).text("LITTLE MOSLEMS ACADEMY", { width, align: "left" });
+  doc.font("Helvetica-Bold").fontSize(12).fillColor(MUTED).text(input.schoolName.toUpperCase(), { width, align: "left" });
   doc.font("Helvetica-Bold").fontSize(24).fillColor(INK).text("INVOICE / TAGIHAN", { width });
   doc.moveTo(50, 118).lineTo(50 + width, 118).lineWidth(1).strokeColor(ACCENT).stroke();
 
@@ -179,8 +184,8 @@ export async function buildInvoicePdf(input: InvoiceData) {
     doc.font("Helvetica").fontSize(10).fillColor(MUTED).text(input.description, 210, y, { width: width - 160 });
   }
 
-  doc.font("Helvetica").fontSize(9).fillColor(MUTED).text("Dokumen ini dibuat otomatis oleh sistem LIMO. Status tagihan mengikuti data terakhir pada sistem.", 50, doc.page.height - 110, { width });
-  doc.font("Helvetica-Bold").fontSize(10).fillColor(INK).text("LIMO / Admin Keuangan", 50, doc.page.height - 82, { width, align: "right" });
+  doc.font("Helvetica").fontSize(9).fillColor(MUTED).text(`Dokumen ini dibuat otomatis oleh sistem ${input.schoolName}. Status tagihan mengikuti data terakhir pada sistem.`, 50, doc.page.height - 110, { width });
+  doc.font("Helvetica-Bold").fontSize(10).fillColor(INK).text(`${input.schoolName} / Admin Keuangan`, 50, doc.page.height - 82, { width, align: "right" });
 
   doc.end();
   return done;

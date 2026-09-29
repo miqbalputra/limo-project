@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listKelas, listPrograms } from "@/server/services/master-data-service";
 import { listSiswa } from "@/server/services/people-service";
 import { getTagihanSummary, listTagihan, listTarif } from "@/server/services/billing-service";
 import { listVouchers } from "@/server/services/voucher-service";
 import { listPaymentGatewaySettings } from "@/server/services/payment-gateway-service";
+import { getActiveAcademicYear } from "@/server/services/settings-service";
 import { GenerateInvoiceForm, TarifForm } from "@/components/dashboard/billing-forms";
 import { VoucherForm, VoucherToggleButton } from "@/components/dashboard/voucher-forms";
 import { TarifActions } from "@/components/dashboard/tarif-actions";
@@ -12,6 +14,7 @@ import { AdminBillingWorkspace, type AdminBillingInvoice } from "@/components/da
 import { DashboardHero, SectionHeader } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import { Money } from "@/components/dashboard/money";
+import { formatUiLabel } from "@/lib/ui-labels";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { tagihanStatusSchema } from "@/server/validation/billing";
 
@@ -19,7 +22,7 @@ export const metadata = { title: "Tagihan" };
 
 export default async function AdminTagihanPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.billing.manage");
   const params = await searchParams;
   const page = Number(Array.isArray(params.page) ? params.page[0] : params.page) || 1;
   const search = String(Array.isArray(params.search) ? params.search[0] || "" : params.search || "").trim();
@@ -39,6 +42,11 @@ export default async function AdminTagihanPage({ searchParams }: { searchParams:
   const activeGatewaySettings = gatewaySettings.filter((item) => item.enabled && item.apiKeyConfigured);
   const gatewayLabel = activeGatewaySettings.length > 0 ? activeGatewaySettings.map((item) => item.provider === "mayar" ? "Mayar" : "Pakasir").join(" + ") : "Belum dikonfigurasi";
   const siswaOptions = siswaList.map((item) => ({ id: item.id, name: `${item.name} (${item.nomorInduk})` }));
+  const activeYear = await getActiveAcademicYear();
+  const now = new Date();
+  const clampedPeriod = activeYear ? (now < activeYear.startDate ? activeYear.startDate : now > activeYear.endDate ? activeYear.endDate : now) : now;
+  const defaultPeriod = clampedPeriod.toISOString().slice(0, 7);
+  const academicLabel = activeYear ? `${activeYear.label} (Semester ${formatUiLabel(activeYear.semester)})` : null;
 
   return (
     <main className="space-y-6">
@@ -66,7 +74,7 @@ export default async function AdminTagihanPage({ searchParams }: { searchParams:
         <SectionHeader title="Pusat operasional" description="Siapkan tarif, voucher, dan buat tagihan bulanan tanpa meninggalkan halaman keuangan." />
         <div className="grid gap-4 lg:grid-cols-3">
           <TarifForm programs={programs.map((program) => ({ id: program.id, name: program.name }))} kelas={kelas.map((item) => ({ id: item.id, name: `${item.program.name} - ${item.name}` }))} siswa={siswaOptions} />
-          <GenerateInvoiceForm />
+          <GenerateInvoiceForm defaultPeriod={defaultPeriod} academicLabel={academicLabel} />
           <VoucherForm programs={programs.map((program) => ({ id: program.id, name: program.name }))} kelas={kelas.map((item) => ({ id: item.id, name: `${item.program.name} - ${item.name}` }))} />
         </div>
       </section>

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
+import { useToast } from "@/components/ui/toast-provider";
 import { requestJson } from "@/lib/api-json-client";
 
 type Resource = "program" | "level" | "kelas";
@@ -30,6 +31,7 @@ export function MasterDataActions({
   archived?: boolean;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(name);
   const [draftDescription, setDraftDescription] = useState(description);
@@ -45,6 +47,7 @@ export function MasterDataActions({
     setIsSubmitting(true);
     try {
       await requestJson(path, { method, body, fallbackMessage: "Aksi gagal diproses" });
+      toast.success("Perubahan berhasil disimpan.");
       setEditing(false);
       router.refresh();
     } catch (caught) {

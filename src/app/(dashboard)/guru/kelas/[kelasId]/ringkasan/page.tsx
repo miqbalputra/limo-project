@@ -1,4 +1,5 @@
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getClassStudentHistory, getClassSummary } from "@/server/services/report-service";
 import { GuruStudentHistory } from "@/components/dashboard/guru-student-history";
 
@@ -6,7 +7,7 @@ export const metadata = { title: "Ringkasan Kelas" };
 
 export default async function GuruKelasRingkasanPage({ params, searchParams }: { params: Promise<{ kelasId: string }>; searchParams: Promise<{ siswaId?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.class.manage");
   const { kelasId } = await params;
   const { siswaId } = await searchParams;
   const summary = await getClassSummary(actor, kelasId);

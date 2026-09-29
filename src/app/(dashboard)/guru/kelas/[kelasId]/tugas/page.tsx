@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { AssignmentBuilder, type AssignmentView } from "@/components/dashboard/assignment-builder";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
 import { RubricManager, type RubricOption } from "@/components/dashboard/rubric-manager";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { listGuruAssignments } from "@/server/services/assignment-service";
 import { listRubrics } from "@/server/services/rubric-service";
@@ -14,7 +15,7 @@ export const metadata = { title: "Tugas Online" };
 export default async function GuruAssignmentsPage({ params }: { params: Promise<{ kelasId: string }> }) {
   if (!isFeatureEnabled("assignmentsEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.class.manage");
   const { kelasId } = await params;
   const [kelas, { items }, rubrics] = await Promise.all([
     prisma.kelas.findUnique({ where: { id: kelasId }, select: { id: true, name: true, program: { select: { name: true } }, level: { select: { name: true } } } }),

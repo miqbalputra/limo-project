@@ -77,7 +77,7 @@ export function TarifForm({ programs, kelas, siswa }: { programs: Option[]; kela
   );
 }
 
-export function GenerateInvoiceForm() {
+export function GenerateInvoiceForm({ defaultPeriod, academicLabel }: { defaultPeriod?: string; academicLabel?: string | null } = {}) {
   const router = useRouter();
   const [preview, setPreview] = useState<{ input: InvoiceGenerationInput; result: InvoiceGenerationResult } | null>(null);
   const [error, setError] = useState("");
@@ -139,10 +139,10 @@ export function GenerateInvoiceForm() {
   return (
     <>
       <form onSubmit={onSubmit} onInput={() => { if (preview) setPreview(null); }} className="tailadmin-card grid gap-3 p-5">
-        <div><h2 className="font-semibold text-gray-900">Buat Tagihan Bulanan</h2><p className="mt-1 text-theme-xs leading-5 text-gray-500">Langkah pertama selalu pratinjau. Tagihan baru dibuat setelah Anda meninjau hasil dan mengonfirmasi.</p></div>
+        <div><h2 className="font-semibold text-gray-900">Buat Tagihan Bulanan</h2><p className="mt-1 text-theme-xs leading-5 text-gray-500">Langkah pertama selalu pratinjau. Tagihan baru dibuat setelah Anda meninjau hasil dan mengonfirmasi.</p>{academicLabel ? <p className="mt-1 text-theme-xs font-semibold text-limo-blue-700">Tahun ajaran aktif: {academicLabel}</p> : null}</div>
         {error && !isConfirmOpen ? <p role="alert" className="tailadmin-alert-error">{error}</p> : null}
         {success ? <p role="status" className="rounded-xl border border-success-100 bg-success-50 px-4 py-3 text-theme-sm text-success-800">{success}</p> : null}
-        <input name="period" required type="month" aria-label="Periode tagihan" className="tailadmin-input" />
+        <input name="period" required type="month" defaultValue={defaultPeriod} aria-label="Periode tagihan" className="tailadmin-input" />
         <input name="dueDate" required type="date" aria-label="Tanggal jatuh tempo" className="tailadmin-input" />
         <input name="jenis" defaultValue="SPP" aria-label="Jenis tagihan" className="tailadmin-input" />
         <div className="grid gap-3 sm:grid-cols-2">

@@ -143,3 +143,13 @@ export function requireRole(actor: Actor, roles: UserRole[]) {
     throw new ForbiddenError("Session tidak memiliki role yang dibutuhkan");
   }
 }
+
+export function requireAnyRole(actor: Actor, roles: UserRole[]) {
+  requireRole(actor, roles);
+}
+
+export async function requireActorWithRole(roles: UserRole[]) {
+  const actor = await requireActor();
+  requireRole(actor, roles);
+  return actor;
+}

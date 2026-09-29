@@ -1,4 +1,5 @@
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listMyKelas } from "@/server/services/lms-service";
 import { QuizBuilder } from "@/components/dashboard/quiz-builder";
 import { emptyQuizForm } from "@/lib/quiz-builder";
@@ -7,7 +8,7 @@ export const metadata = { title: "Buat Formulir Kuis" };
 
 export default async function GuruKuisBaruPage() {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.assessment.manage");
   const { items: kelas } = await listMyKelas(actor);
 
   return (

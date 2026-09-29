@@ -1,14 +1,11 @@
 import "server-only";
 import type { Actor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { prisma } from "@/server/db/prisma";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
+import { NotFoundError, ValidationError } from "@/server/errors/application-error";
+import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 import { createKelasSchema, createLevelSchema, createProgramSchema, updateKelasSchema, updateLevelSchema, updateProgramSchema } from "@/server/validation/master-data";
 
-function requireAdmin(actor: Actor) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
-}
 
 function parseListFilters(input: unknown) {
   const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
@@ -24,35 +21,52 @@ function parseListFilters(input: unknown) {
 }
 
 export async function listPrograms(actor: Actor, input: unknown = {}) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
   const { search } = parseListFilters(input);
+  const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
 
-  const items = await prisma.program.findMany({
-    where: search ? { name: { contains: search } } : undefined,
-    orderBy: [{ kind: "asc" }, { name: "asc" }],
-    select: {
-      id: true,
-      name: true,
-      kind: true,
-      description: true,
-      registrationAvailability: true,
-      registrationNote: true,
-      isActive: true,
-      _count: {
-        select: {
-          levels: true,
-          kelas: true,
-          siswa: true,
-        },
+  const where = search ? { name: { contains: search } } : undefined;
+  const orderBy = [{ kind: "asc" as const }, { name: "asc" as const }];
+  const select = {
+    id: true,
+    name: true,
+    kind: true,
+    description: true,
+    registrationAvailability: true,
+    registrationNote: true,
+    isActive: true,
+    _count: {
+      select: {
+        levels: true,
+        kelas: true,
+        siswa: true,
       },
     },
+  };
+
+  const pageNumber = Number(raw.page);
+  if (!(Number.isInteger(pageNumber) && pageNumber > 0)) {
+    const items = await prisma.program.findMany({ where, orderBy, select });
+    return { items, pagination: null };
+  }
+
+  const pageSize = Number(raw.pageSize);
+  const pagination = resolvePagination({ page: pageNumber, ...(Number.isInteger(pageSize) && pageSize > 0 ? { pageSize } : {}) }, 20);
+  const totalItems = await prisma.program.count({ where });
+  const paginationMeta = createPaginationMeta(pagination.page, pagination.pageSize, totalItems);
+  const items = await prisma.program.findMany({
+    where,
+    orderBy,
+    select,
+    skip: (paginationMeta.page - 1) * paginationMeta.pageSize,
+    take: paginationMeta.pageSize,
   });
 
-  return { items };
+  return { items, pagination: paginationMeta };
 }
 
 export async function createProgram(actor: Actor, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
   const parsed = createProgramSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -82,7 +96,7 @@ export async function createProgram(actor: Actor, input: unknown) {
 }
 
 export async function updateProgram(actor: Actor, id: string, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
   const parsed = updateProgramSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Data program belum valid", parsed.error.flatten().fieldErrors);
   const existing = await prisma.program.findUnique({ where: { id }, select: { id: true } });
@@ -93,7 +107,7 @@ export async function updateProgram(actor: Actor, id: string, input: unknown) {
 }
 
 export async function archiveProgram(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
   const existing = await prisma.program.findUnique({ where: { id }, select: { id: true } });
   if (!existing) throw new NotFoundError("Program tidak ditemukan");
   const item = await prisma.program.update({ where: { id }, data: { isActive: false }, select: { id: true, name: true, isActive: true } });
@@ -102,7 +116,7 @@ export async function archiveProgram(actor: Actor, id: string) {
 }
 
 export async function restoreProgram(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
   const existing = await prisma.program.findUnique({ where: { id }, select: { id: true } });
   if (!existing) throw new NotFoundError("Program tidak ditemukan");
   const item = await prisma.program.update({ where: { id }, data: { isActive: true }, select: { id: true, name: true, isActive: true } });
@@ -111,15 +125,25 @@ export async function restoreProgram(actor: Actor, id: string) {
 }
 
 export async function listLevels(actor: Actor, input: unknown = {}) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
   const { search, programId } = parseListFilters(input);
+  const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+  const paginationInput: PaginationInput = {};
+  if (Number.isInteger(Number(raw.page)) && Number(raw.page) > 0) paginationInput.page = Number(raw.page);
+  if (Number.isInteger(Number(raw.pageSize)) && Number(raw.pageSize) > 0) paginationInput.pageSize = Number(raw.pageSize);
 
+  const where = {
+    ...(search ? { name: { contains: search } } : {}),
+    ...(programId ? { programId } : {}),
+  };
+  const pagination = resolvePagination(paginationInput, 20);
+  const totalItems = await prisma.level.count({ where });
+  const paginationMeta = createPaginationMeta(pagination.page, pagination.pageSize, totalItems);
   const items = await prisma.level.findMany({
-    where: {
-      ...(search ? { name: { contains: search } } : {}),
-      ...(programId ? { programId } : {}),
-    },
+    where,
     orderBy: [{ program: { name: "asc" } }, { order: "asc" }, { name: "asc" }],
+    skip: (paginationMeta.page - 1) * paginationMeta.pageSize,
+    take: paginationMeta.pageSize,
     select: {
       id: true,
       name: true,
@@ -131,11 +155,11 @@ export async function listLevels(actor: Actor, input: unknown = {}) {
     },
   });
 
-  return { items };
+  return { items, pagination: paginationMeta };
 }
 
 export async function createLevel(actor: Actor, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
   const parsed = createLevelSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -171,7 +195,7 @@ export async function createLevel(actor: Actor, input: unknown) {
 }
 
 export async function updateLevel(actor: Actor, id: string, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
   const parsed = updateLevelSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Data level belum valid", parsed.error.flatten().fieldErrors);
   const existing = await prisma.level.findUnique({ where: { id }, select: { id: true } });
@@ -182,7 +206,7 @@ export async function updateLevel(actor: Actor, id: string, input: unknown) {
 }
 
 export async function archiveLevel(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
   const existing = await prisma.level.findUnique({ where: { id }, select: { id: true } });
   if (!existing) throw new NotFoundError("Level tidak ditemukan");
   const item = await prisma.level.update({ where: { id }, data: { isActive: false }, select: { id: true, name: true, isActive: true } });
@@ -191,7 +215,7 @@ export async function archiveLevel(actor: Actor, id: string) {
 }
 
 export async function restoreLevel(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
   const existing = await prisma.level.findUnique({ where: { id }, select: { id: true } });
   if (!existing) throw new NotFoundError("Level tidak ditemukan");
   const item = await prisma.level.update({ where: { id }, data: { isActive: true }, select: { id: true, name: true, isActive: true } });
@@ -200,38 +224,55 @@ export async function restoreLevel(actor: Actor, id: string) {
 }
 
 export async function listKelas(actor: Actor, input: unknown = {}) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
   const { search, programId, status } = parseListFilters(input);
+  const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
 
-  const items = await prisma.kelas.findMany({
-    where: {
-      ...(search ? { name: { contains: search } } : {}),
-      ...(programId ? { programId } : {}),
-      ...(status ? { status } : {}),
-    },
-    orderBy: [{ program: { name: "asc" } }, { level: { order: "asc" } }, { name: "asc" }],
-    select: {
-      id: true,
-      name: true,
-      status: true,
-      scheduleNote: true,
-      program: { select: { id: true, name: true, kind: true } },
-      level: { select: { id: true, name: true } },
-      guruProfile: {
-        select: {
-          id: true,
-          user: { select: { name: true, email: true } },
-        },
+  const where = {
+    ...(search ? { name: { contains: search } } : {}),
+    ...(programId ? { programId } : {}),
+    ...(status ? { status } : {}),
+  };
+  const orderBy = [{ program: { name: "asc" as const } }, { level: { order: "asc" as const } }, { name: "asc" as const }];
+  const select = {
+    id: true,
+    name: true,
+    status: true,
+    scheduleNote: true,
+    program: { select: { id: true, name: true, kind: true } },
+    level: { select: { id: true, name: true } },
+    guruProfile: {
+      select: {
+        id: true,
+        user: { select: { name: true, email: true } },
       },
-      _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
     },
+    _count: { select: { enrollments: { where: { status: "ACTIVE" as const } } } },
+  };
+
+  const pageNumber = Number(raw.page);
+  if (!(Number.isInteger(pageNumber) && pageNumber > 0)) {
+    const items = await prisma.kelas.findMany({ where, orderBy, select });
+    return { items, pagination: null };
+  }
+
+  const pageSize = Number(raw.pageSize);
+  const pagination = resolvePagination({ page: pageNumber, ...(Number.isInteger(pageSize) && pageSize > 0 ? { pageSize } : {}) }, 20);
+  const totalItems = await prisma.kelas.count({ where });
+  const paginationMeta = createPaginationMeta(pagination.page, pagination.pageSize, totalItems);
+  const items = await prisma.kelas.findMany({
+    where,
+    orderBy,
+    select,
+    skip: (paginationMeta.page - 1) * paginationMeta.pageSize,
+    take: paginationMeta.pageSize,
   });
 
-  return { items };
+  return { items, pagination: paginationMeta };
 }
 
 export async function createKelas(actor: Actor, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
   const parsed = createKelasSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -285,7 +326,7 @@ export async function createKelas(actor: Actor, input: unknown) {
 }
 
 export async function updateKelas(actor: Actor, id: string, input: unknown) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
   const parsed = updateKelasSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Data kelas belum valid", parsed.error.flatten().fieldErrors);
   const existing = await prisma.kelas.findUnique({ where: { id }, select: { id: true } });
@@ -300,7 +341,7 @@ export async function updateKelas(actor: Actor, id: string, input: unknown) {
 }
 
 export async function archiveKelas(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
   const existing = await prisma.kelas.findUnique({ where: { id }, select: { id: true } });
   if (!existing) throw new NotFoundError("Kelas tidak ditemukan");
   const item = await prisma.kelas.update({ where: { id }, data: { status: "ARCHIVED" }, select: { id: true, name: true, status: true } });
@@ -309,7 +350,7 @@ export async function archiveKelas(actor: Actor, id: string) {
 }
 
 export async function restoreKelas(actor: Actor, id: string) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
   const existing = await prisma.kelas.findUnique({ where: { id }, select: { id: true } });
   if (!existing) throw new NotFoundError("Kelas tidak ditemukan");
   const item = await prisma.kelas.update({ where: { id }, data: { status: "ACTIVE" }, select: { id: true, name: true, status: true } });
@@ -318,7 +359,7 @@ export async function restoreKelas(actor: Actor, id: string) {
 }
 
 export async function listGuruOptions(actor: Actor) {
-  requireAdmin(actor);
+  await requirePermission(actor, "admin.masterdata.manage");
 
   const items = await prisma.guruProfile.findMany({
     orderBy: { user: { name: "asc" } },

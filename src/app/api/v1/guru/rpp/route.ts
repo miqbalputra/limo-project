@@ -1,4 +1,4 @@
-import { requireActor } from "@/server/auth/session";
+import { requireActor, requireRole } from "@/server/auth/session";
 import { getEnv } from "@/server/env";
 import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
@@ -15,6 +15,7 @@ export async function POST(request: Request) {
     const env = getEnv();
     assertSameOrigin(request.headers, env.APP_URL);
     const actor = await requireActor();
+    requireRole(actor, ["ADMIN", "GURU"]);
     assertRateLimit({ key: `rpp-create:${actor.id}:${getClientAddress(request.headers)}`, limit: 30, windowMs: 15 * 60 * 1000, message: "Terlalu banyak RPP dibuat. Coba lagi nanti" });
     const contentLength = Number(request.headers.get("content-length") || 0);
     const maxRequestBytes = env.MAX_RPP_FILE_MB * 1024 * 1024 + 128 * 1024;

@@ -1,4 +1,4 @@
-import { requireActor } from "@/server/auth/session";
+import { requireActorWithRole } from "@/server/auth/session";
 import { getEnv } from "@/server/env";
 import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
@@ -12,7 +12,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ru
   try {
     assertSameOrigin(request.headers, getEnv().APP_URL);
     const body = await request.json() as { title?: string; status?: string; criteria?: unknown[] };
-    const result = body.criteria || body.title ? await updateRubric(await requireActor(), (await params).rubricId, body) : await updateRubricStatus(await requireActor(), (await params).rubricId, body);
+    const result = body.criteria || body.title ? await updateRubric(await requireActorWithRole(["ADMIN", "GURU"]), (await params).rubricId, body) : await updateRubricStatus(await requireActorWithRole(["ADMIN", "GURU"]), (await params).rubricId, body);
     return apiOk(result, { requestId });
   } catch (error) {
     return apiError(error, { requestId });

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { prisma } from "@/server/db/prisma";
 import { DashboardHero, EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
@@ -9,7 +10,7 @@ export const metadata = { title: "Profil Wali" };
 
 export default async function WaliProfilPage() {
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.profil.view");
 
   const profile = await prisma.waliProfile.findUnique({
     where: { userId: actor.id },

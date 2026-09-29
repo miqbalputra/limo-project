@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GradebookManager, type GradebookData, type Source } from "@/components/dashboard/gradebook-manager";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { prisma } from "@/server/db/prisma";
 import { getGuruGradebook } from "@/server/services/gradebook-service";
@@ -11,7 +12,7 @@ export const metadata = { title: "Buku Nilai Kelas" };
 export default async function GuruGradebookPage({ params }: { params: Promise<{ kelasId: string }> }) {
   if (!isFeatureEnabled("gradebookEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.class.manage");
   const { kelasId } = await params;
   const [kelas, data, assignments, exams] = await Promise.all([
     prisma.kelas.findUnique({ where: { id: kelasId }, select: { id: true, name: true, program: { select: { name: true } }, level: { select: { name: true } } } }),

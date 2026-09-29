@@ -1,6 +1,6 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
-import { PublishStatus, SoalType } from "@prisma/client";
+import { Prisma as PrismaRuntime, PublishStatus, SoalType } from "@prisma/client";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
@@ -61,6 +61,46 @@ async function assertQuestionScope(actor: Actor, kelasId?: string | null) {
   }
 }
 
+type BankSoalRuleInput = {
+  type: SoalType;
+  expectedAnswer?: string;
+  options: Array<{ isCorrect: boolean }>;
+};
+
+function assertBankSoalTypeRules(data: BankSoalRuleInput) {
+  if (data.type === "PILIHAN_GANDA") {
+    if (data.options.length < 2) {
+      throw new ValidationError("Soal pilihan ganda minimal memiliki dua opsi");
+    }
+
+    if (data.options.filter((option) => option.isCorrect).length !== 1) {
+      throw new ValidationError("Soal pilihan ganda harus memiliki tepat satu opsi benar");
+    }
+  }
+
+  if (data.type === "MULTI_SELECT") {
+    if (data.options.length < 2) {
+      throw new ValidationError("Soal multi-select minimal memiliki dua opsi");
+    }
+
+    if (data.options.filter((option) => option.isCorrect).length < 1) {
+      throw new ValidationError("Soal multi-select minimal memiliki satu opsi benar");
+    }
+  }
+
+  if (data.type === "BENAR_SALAH") {
+    const expectedAnswer = normalizeText(data.expectedAnswer);
+
+    if (!["true", "false", "benar", "salah"].includes(expectedAnswer)) {
+      throw new ValidationError("Soal benar/salah harus memiliki kunci: benar atau salah");
+    }
+  }
+
+  if (manualReviewTypes.has(data.type) && data.options.length > 0) {
+    throw new ValidationError("Soal performa/esai tidak boleh memiliki opsi jawaban");
+  }
+}
+
 function parseExamListFilters(input: unknown) {
   const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
   const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : undefined);
@@ -78,6 +118,7 @@ function parseExamListFilters(input: unknown) {
     kelasId: text(raw.kelasId),
     type: Object.values(SoalType).find((value) => value === type),
     status: Object.values(PublishStatus).find((value) => value === status),
+    includeArchived: raw.includeArchived === true || raw.includeArchived === "true",
   };
 }
 
@@ -98,6 +139,7 @@ export async function listBankSoal(actor: Actor, input?: unknown) {
   const where = {
     AND: [
       scope,
+      ...(filters.includeArchived ? [] : [{ archivedAt: null }]),
       ...(filters.search ? [{ question: { contains: filters.search } }] : []),
       ...(filters.type ? [{ type: filters.type }] : []),
       ...(filters.kelasId ? [{ kelasId: filters.kelasId }] : []),
@@ -129,6 +171,7 @@ export async function listBankSoal(actor: Actor, input?: unknown) {
       standard: true,
       assessmentType: true,
       createdAt: true,
+      archivedAt: true,
       kelas: { select: { id: true, name: true, program: { select: { name: true } } } },
       options: { orderBy: { order: "asc" }, select: { id: true, label: true, content: true, isCorrect: true } },
     },
@@ -190,38 +233,7 @@ export async function createBankSoal(actor: Actor, input: unknown) {
 
   const kelasId = parsed.data.kelasId || undefined;
   await assertQuestionScope(actor, kelasId);
-
-  if (parsed.data.type === "PILIHAN_GANDA") {
-    if (parsed.data.options.length < 2) {
-      throw new ValidationError("Soal pilihan ganda minimal memiliki dua opsi");
-    }
-
-    if (parsed.data.options.filter((option) => option.isCorrect).length !== 1) {
-      throw new ValidationError("Soal pilihan ganda harus memiliki tepat satu opsi benar");
-    }
-  }
-
-  if (parsed.data.type === "MULTI_SELECT") {
-    if (parsed.data.options.length < 2) {
-      throw new ValidationError("Soal multi-select minimal memiliki dua opsi");
-    }
-
-    if (parsed.data.options.filter((option) => option.isCorrect).length < 1) {
-      throw new ValidationError("Soal multi-select minimal memiliki satu opsi benar");
-    }
-  }
-
-  if (parsed.data.type === "BENAR_SALAH") {
-    const expectedAnswer = normalizeText(parsed.data.expectedAnswer);
-
-    if (!["true", "false", "benar", "salah"].includes(expectedAnswer)) {
-      throw new ValidationError("Soal benar/salah harus memiliki kunci: benar atau salah");
-    }
-  }
-
-  if (manualReviewTypes.has(parsed.data.type) && parsed.data.options.length > 0) {
-    throw new ValidationError("Soal performa/esai tidak boleh memiliki opsi jawaban");
-  }
+  assertBankSoalTypeRules(parsed.data);
 
   const item = await prisma.$transaction(async (tx) => {
     const soal = await tx.bankSoal.create({
@@ -264,6 +276,214 @@ export async function createBankSoal(actor: Actor, input: unknown) {
     });
 
     return soal;
+  });
+
+  return { item };
+}
+
+export async function updateBankSoal(actor: Actor, id: string, input: unknown) {
+  const parsed = createBankSoalSchema.safeParse(input);
+
+  if (!parsed.success) {
+    throw new ValidationError("Data soal belum valid", parsed.error.flatten().fieldErrors);
+  }
+
+  const existing = await prisma.bankSoal.findUnique({
+    where: { id },
+    select: { id: true, kelasId: true, _count: { select: { ujianSoal: true, answers: true } } },
+  });
+
+  if (!existing) throw new NotFoundError("Soal tidak ditemukan");
+
+  await assertQuestionScope(actor, existing.kelasId);
+  const kelasId = parsed.data.kelasId || undefined;
+  await assertQuestionScope(actor, kelasId);
+
+  if (existing._count.ujianSoal > 0 || existing._count.answers > 0) {
+    throw new ConflictError("Soal sudah dipakai pada ujian. Duplikat soal untuk mengubahnya.");
+  }
+
+  assertBankSoalTypeRules(parsed.data);
+
+  const item = await prisma.$transaction(async (tx) => {
+    const soal = await tx.bankSoal.update({
+      where: { id },
+      data: {
+        kelasId: kelasId ?? null,
+        type: parsed.data.type,
+        question: parsed.data.question,
+        stimulusText: parsed.data.stimulusText || null,
+        mediaUrl: parsed.data.mediaUrl || null,
+        expectedAnswer: parsed.data.expectedAnswer || null,
+        structuredPayload: parsed.data.structuredPayload === undefined ? PrismaRuntime.DbNull : toInputJson(parsed.data.structuredPayload),
+        rubric: parsed.data.rubric === undefined ? PrismaRuntime.DbNull : toInputJson(parsed.data.rubric),
+        language: parsed.data.language || null,
+        direction: parsed.data.direction || null,
+        cognitiveLevel: parsed.data.cognitiveLevel,
+        skill: parsed.data.skill,
+        difficulty: parsed.data.difficulty,
+        standard: parsed.data.standard || null,
+        assessmentType: parsed.data.assessmentType,
+        explanation: parsed.data.explanation || null,
+      },
+      select: { id: true, type: true },
+    });
+
+    await tx.opsiSoal.deleteMany({ where: { bankSoalId: id } });
+
+    if (optionBasedTypes.has(parsed.data.type)) {
+      await tx.opsiSoal.createMany({
+        data: parsed.data.options.map((option, index) => ({
+          bankSoalId: id,
+          label: option.label.toUpperCase(),
+          content: option.content,
+          isCorrect: option.isCorrect,
+          order: index,
+        })),
+      });
+    }
+
+    await tx.auditLog.create({
+      data: { actorId: actor.id, action: "BANK_SOAL_UPDATED", entityType: "BankSoal", entityId: id },
+    });
+
+    return soal;
+  });
+
+  return { item };
+}
+
+export async function archiveBankSoal(actor: Actor, id: string) {
+  const existing = await prisma.bankSoal.findUnique({ where: { id }, select: { id: true, kelasId: true } });
+  if (!existing) throw new NotFoundError("Soal tidak ditemukan");
+
+  await assertQuestionScope(actor, existing.kelasId);
+
+  const item = await prisma.bankSoal.update({ where: { id }, data: { archivedAt: new Date() }, select: { id: true } });
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "BANK_SOAL_ARCHIVED", entityType: "BankSoal", entityId: id } });
+
+  return { item };
+}
+
+export async function restoreBankSoal(actor: Actor, id: string) {
+  const existing = await prisma.bankSoal.findUnique({ where: { id }, select: { id: true, kelasId: true } });
+  if (!existing) throw new NotFoundError("Soal tidak ditemukan");
+
+  await assertQuestionScope(actor, existing.kelasId);
+
+  const item = await prisma.bankSoal.update({ where: { id }, data: { archivedAt: null }, select: { id: true } });
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "BANK_SOAL_RESTORED", entityType: "BankSoal", entityId: id } });
+
+  return { item };
+}
+
+export async function deleteBankSoal(actor: Actor, id: string) {
+  const existing = await prisma.bankSoal.findUnique({
+    where: { id },
+    select: { id: true, kelasId: true, _count: { select: { ujianSoal: true, answers: true } } },
+  });
+  if (!existing) throw new NotFoundError("Soal tidak ditemukan");
+
+  await assertQuestionScope(actor, existing.kelasId);
+
+  if (existing._count.ujianSoal > 0 || existing._count.answers > 0) {
+    throw new ConflictError("Soal sudah dipakai pada ujian. Arsipkan atau duplikat sebagai soal baru.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.opsiSoal.deleteMany({ where: { bankSoalId: id } });
+    await tx.bankSoal.delete({ where: { id } });
+    await tx.auditLog.create({ data: { actorId: actor.id, action: "BANK_SOAL_DELETED", entityType: "BankSoal", entityId: id } });
+  });
+
+  return { item: { id } };
+}
+
+export async function duplicateBankSoal(actor: Actor, id: string) {
+  const source = await prisma.bankSoal.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      kelasId: true,
+      type: true,
+      question: true,
+      helpText: true,
+      stimulusText: true,
+      mediaUrl: true,
+      expectedAnswer: true,
+      structuredPayload: true,
+      rubric: true,
+      language: true,
+      direction: true,
+      cognitiveLevel: true,
+      skill: true,
+      difficulty: true,
+      standard: true,
+      assessmentType: true,
+      allowOther: true,
+      shuffleOptions: true,
+      explanation: true,
+      acceptedAnswers: true,
+      feedbackCorrect: true,
+      feedbackIncorrect: true,
+      fileUploadConfig: true,
+      options: { orderBy: { order: "asc" }, select: { label: true, content: true, mediaUrl: true, isCorrect: true, order: true } },
+    },
+  });
+
+  if (!source) throw new NotFoundError("Soal tidak ditemukan");
+
+  await assertQuestionScope(actor, source.kelasId);
+
+  const item = await prisma.$transaction(async (tx) => {
+    const copy = await tx.bankSoal.create({
+      data: {
+        kelasId: source.kelasId,
+        type: source.type,
+        question: source.question,
+        helpText: source.helpText,
+        stimulusText: source.stimulusText,
+        mediaUrl: source.mediaUrl,
+        expectedAnswer: source.expectedAnswer,
+        structuredPayload: toInputJson(source.structuredPayload ?? undefined),
+        rubric: toInputJson(source.rubric ?? undefined),
+        language: source.language,
+        direction: source.direction,
+        cognitiveLevel: source.cognitiveLevel,
+        skill: source.skill,
+        difficulty: source.difficulty,
+        standard: source.standard,
+        assessmentType: source.assessmentType,
+        allowOther: source.allowOther,
+        shuffleOptions: source.shuffleOptions,
+        explanation: source.explanation,
+        acceptedAnswers: toInputJson(source.acceptedAnswers ?? undefined),
+        feedbackCorrect: source.feedbackCorrect,
+        feedbackIncorrect: source.feedbackIncorrect,
+        fileUploadConfig: toInputJson(source.fileUploadConfig ?? undefined),
+        createdById: actor.id,
+      },
+      select: { id: true },
+    });
+
+    if (source.options.length > 0) {
+      await tx.opsiSoal.createMany({
+        data: source.options.map((option) => ({
+          bankSoalId: copy.id,
+          label: option.label,
+          content: option.content,
+          mediaUrl: option.mediaUrl ?? undefined,
+          isCorrect: option.isCorrect,
+          order: option.order,
+        })),
+      });
+    }
+
+    await tx.auditLog.create({
+      data: { actorId: actor.id, action: "BANK_SOAL_DUPLICATED", entityType: "BankSoal", entityId: copy.id, metadata: { sourceId: id } },
+    });
+
+    return copy;
   });
 
   return { item };

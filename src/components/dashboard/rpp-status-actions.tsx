@@ -3,10 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
+import { useToast } from "@/components/ui/toast-provider";
 import { requestJson } from "@/lib/api-json-client";
 
 export function RppStatusActions({ rppId, status }: { rppId: string; status: "DRAFT" | "PUBLISHED" | "ARCHIVED" }) {
   const router = useRouter();
+  const toast = useToast();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { confirm, dialog } = useConfirmDialog();
@@ -19,6 +21,7 @@ export function RppStatusActions({ rppId, status }: { rppId: string; status: "DR
     setIsSubmitting(true);
     try {
       await requestJson(`/api/v1/guru/rpp/${rppId}`, { method: "PATCH", body: { status: nextStatus }, fallbackMessage: "Status RPP gagal diubah" });
+      toast.success("Status RPP diperbarui.");
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Status RPP gagal diubah");

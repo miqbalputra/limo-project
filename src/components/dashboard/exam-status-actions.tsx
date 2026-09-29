@@ -3,10 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
+import { useToast } from "@/components/ui/toast-provider";
 import { requestJson } from "@/lib/api-json-client";
 
 export function ExamStatusActions({ ujianId, status }: { ujianId: string; status: "DRAFT" | "PUBLISHED" | "ARCHIVED" }) {
   const router = useRouter();
+  const toast = useToast();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { confirm, dialog } = useConfirmDialog();
@@ -19,6 +21,7 @@ export function ExamStatusActions({ ujianId, status }: { ujianId: string; status
     setIsSubmitting(true);
     try {
       await requestJson(`/api/v1/ujian/${ujianId}/status`, { method: "PATCH", body: { status: nextStatus }, fallbackMessage: "Status ujian gagal diubah" });
+      toast.success("Status ujian diperbarui.");
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Status ujian gagal diubah");

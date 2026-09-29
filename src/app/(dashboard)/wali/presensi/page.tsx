@@ -1,4 +1,5 @@
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { getActorDashboardContext } from "@/server/dal/actor-dal";
 import { resolveWaliChildId } from "@/server/dal/wali-selector-dal";
 import { getStudentSummary } from "@/server/services/report-service";
@@ -11,7 +12,7 @@ export const metadata = { title: "Presensi Anak" };
 
 export default async function WaliPresensiPage({ searchParams }: { searchParams: Promise<{ anak?: string; month?: string }> }) {
   const actor = await requireActor();
-  requireRole(actor, ["WALI"]);
+  await requirePermission(actor, "wali.presensi.view");
   const { anak, month } = await searchParams;
   const period = resolveMonthRange(month);
   const context = await getActorDashboardContext(actor, await resolveWaliChildId(actor, anak));

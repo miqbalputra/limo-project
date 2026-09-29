@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listMyKelas } from "@/server/services/lms-service";
 import { BankSoalForm } from "@/components/dashboard/bank-soal-form";
 
@@ -7,7 +8,7 @@ export const metadata = { title: "Buat Soal" };
 
 export default async function GuruBankSoalBaruPage() {
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.assessment.manage");
   const { items: kelas } = await listMyKelas(actor);
 
   return (

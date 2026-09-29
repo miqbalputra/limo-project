@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardHero, EmptyState } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { getStudentClass } from "@/server/services/student-service";
 import { listStudentAssignments } from "@/server/services/assignment-service";
@@ -12,7 +13,7 @@ export const metadata = { title: "Tugas Saya" };
 export default async function StudentAssignmentsPage({ params }: { params: Promise<{ kelasId: string }> }) {
   if (!isFeatureEnabled("studentPortalEnabled") || !isFeatureEnabled("assignmentsEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["SISWA"]);
+  await requirePermission(actor, "siswa.kelas.view");
   const { kelasId } = await params;
   const [{ kelas }, { items }] = await Promise.all([getStudentClass(actor, kelasId), listStudentAssignments(actor, kelasId)]);
   return (

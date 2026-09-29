@@ -34,3 +34,7 @@ export const createMateriSchema = z.object({
 export const updateMateriStatusSchema = z.object({
   status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]),
 });
+
+export const updateMateriSchema = createMateriSchema.omit({ kelasId: true }).extend({
+  status: z.enum(["DRAFT", "PUBLISHED"]).optional(),
+});

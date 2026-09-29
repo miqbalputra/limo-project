@@ -67,6 +67,7 @@ Demo seed diblokir secara default. `npm run sqlite:setup` mengaktifkannya hanya 
 npm run lint
 npm run typecheck
 npm test
+npm run test:guards
 ```
 
 Unit test saat ini mencakup helper keamanan, sanitasi filename, dan schema validasi penting yang tidak membutuhkan database. Integration test dan E2E membutuhkan MariaDB test yang sudah dimigrasikan; jalankan setelah Docker/MariaDB tersedia.
@@ -114,6 +115,8 @@ Jadwal final harus mengikuti timezone operasional `Asia/Jakarta` dan kebijakan b
 - Jangan menyimpan file privat di `public/`.
 - Jangan melakukan fetch HTTP ke API sendiri dari Server Component untuk read server-side.
 - Jangan menjalankan cron di lifecycle proses web.
+- Setiap route API terproteksi wajib memanggil guard auth (`requireActor`/`requireRole`/`requirePermission`); route admin/guru wajib memakai cek role/permission eksplisit. Diverifikasi `npm run test:guards`.
+- Halaman dashboard Admin & Guru wajib memanggil `requirePermission`; daftar izin dan default per role ada di `src/server/auth/permissions.ts`.
 
 ## Dokumen Operasional
 

@@ -2,6 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { Actor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { prisma } from "@/server/db/prisma";
 import { getEnv } from "@/server/env";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
@@ -319,9 +320,7 @@ export async function createInvoicePayment(actor: Actor, tagihanId: string, inpu
 }
 
 export async function reconcilePayment(actor: Actor, input: unknown) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
+  await requirePermission(actor, "admin.billing.manage");
 
   const parsed = zManualReconcile.safeParse(input);
 

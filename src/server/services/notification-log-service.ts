@@ -1,6 +1,7 @@
 import "server-only";
 import type { Actor } from "@/server/auth/session";
-import { ForbiddenError, NotFoundError } from "@/server/errors/application-error";
+import { requirePermission } from "@/server/auth/permissions";
+import { NotFoundError } from "@/server/errors/application-error";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 import { prisma } from "@/server/db/prisma";
 import { dispatchNotificationIds } from "@/server/services/notification-job-service";
@@ -26,9 +27,7 @@ export type NotificationLogFilters = {
 };
 
 export async function listNotificationLog(actor: Actor, paginationInput: PaginationInput = {}, filters: NotificationLogFilters = {}) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
+  await requirePermission(actor, "admin.notifications.manage");
 
   const pagination = resolvePagination(paginationInput, 25);
   const search = filters.search?.trim().slice(0, 120);
@@ -78,9 +77,7 @@ export async function listNotificationLog(actor: Actor, paginationInput: Paginat
 }
 
 export async function getNotificationLogSummary(actor: Actor) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
+  await requirePermission(actor, "admin.notifications.manage");
 
   const grouped = await prisma.notifikasi.groupBy({ by: ["status"], _count: { _all: true } });
   const counts = Object.fromEntries(grouped.map((item) => [item.status, item._count._all]));
@@ -95,9 +92,7 @@ export async function getNotificationLogSummary(actor: Actor) {
 }
 
 export async function retryNotification(actor: Actor, id: string) {
-  if (actor.role !== "ADMIN") {
-    throw new ForbiddenError();
-  }
+  await requirePermission(actor, "admin.notifications.manage");
 
   const existing = await prisma.notifikasi.findUnique({ where: { id }, select: { id: true } });
   if (!existing) {

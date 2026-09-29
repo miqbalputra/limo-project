@@ -41,18 +41,21 @@ const newOptions = (): OptionRow[] => [
   { content: "", isCorrect: false },
 ];
 
-export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) {
+export function BankSoalForm({ kelasOptions, initial, bankSoalId }: { kelasOptions: KelasOption[]; initial?: BankSoalDraft; bankSoalId?: string }) {
   const router = useRouter();
+  const isEdit = Boolean(bankSoalId);
+  const initialStructured = (initial?.structuredPayload ?? {}) as { pairs?: PairRow[]; items?: string[] };
+  const initialRubric = (initial?.rubric ?? {}) as { criteria?: Array<{ name?: string; max?: number }> };
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [type, setType] = useState("PILIHAN_GANDA");
-  const [language, setLanguage] = useState("");
-  const [direction, setDirection] = useState<"" | "ltr" | "rtl">("");
-  const [options, setOptions] = useState<OptionRow[]>(newOptions);
-  const [pairs, setPairs] = useState<PairRow[]>([{ left: "", right: "" }, { left: "", right: "" }]);
-  const [sequenceItems, setSequenceItems] = useState<string[]>(["", "", ""]);
-  const [rubricCriteria, setRubricCriteria] = useState<RubricRow[]>([{ name: "", max: "" }]);
+  const [type, setType] = useState(initial?.type ?? "PILIHAN_GANDA");
+  const [language, setLanguage] = useState(initial?.language ?? "");
+  const [direction, setDirection] = useState<"" | "ltr" | "rtl">((initial?.direction as "" | "ltr" | "rtl" | undefined) ?? "");
+  const [options, setOptions] = useState<OptionRow[]>(() => initial?.options && initial.options.length > 0 ? initial.options.map((option) => ({ content: option.content, isCorrect: option.isCorrect })) : newOptions());
+  const [pairs, setPairs] = useState<PairRow[]>(() => initialStructured.pairs && initialStructured.pairs.length > 0 ? initialStructured.pairs.map((pair) => ({ left: pair.left ?? "", right: pair.right ?? "" })) : [{ left: "", right: "" }, { left: "", right: "" }]);
+  const [sequenceItems, setSequenceItems] = useState<string[]>(() => initialStructured.items && initialStructured.items.length > 0 ? initialStructured.items : ["", "", ""]);
+  const [rubricCriteria, setRubricCriteria] = useState<RubricRow[]>(() => initialRubric.criteria && initialRubric.criteria.length > 0 ? initialRubric.criteria.map((row) => ({ name: row.name ?? "", max: row.max ? String(row.max) : "" })) : [{ name: "", max: "" }]);
   const [savedMessage, setSavedMessage] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -169,14 +172,18 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
     setIsSubmitting(true);
 
     try {
-      await requestJson("/api/v1/bank-soal", { method: "POST", body: buildDraftPayload(form), fallbackMessage: "Soal gagal disimpan" });
+      await requestJson(bankSoalId ? `/api/v1/bank-soal/${bankSoalId}` : "/api/v1/bank-soal", { method: bankSoalId ? "PATCH" : "POST", body: buildDraftPayload(form), fallbackMessage: "Soal gagal disimpan" });
 
-      form.reset();
-      setType("PILIHAN_GANDA");
-      setLanguage("");
-      setDirection("");
-      resetDynamic();
-      setSavedMessage("Soal berhasil disimpan ke bank soal.");
+      if (bankSoalId) {
+        setSavedMessage("Perubahan soal berhasil disimpan.");
+      } else {
+        form.reset();
+        setType("PILIHAN_GANDA");
+        setLanguage("");
+        setDirection("");
+        resetDynamic();
+        setSavedMessage("Soal berhasil disimpan ke bank soal.");
+      }
       router.refresh();
     } catch (caught) {
       if (caught instanceof ApiJsonError) setFieldErrors(caught.fields || {});
@@ -188,7 +195,7 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
 
   return (
     <form ref={formRef} data-testid="bank-soal-form" onSubmit={onSubmit} className="tailadmin-card grid gap-3 p-5">
-      <h2 className="font-semibold text-gray-900">Tambah Bank Soal</h2>
+      <h2 className="font-semibold text-gray-900">{isEdit ? "Ubah Bank Soal" : "Tambah Bank Soal"}</h2>
       {savedMessage ? (
         <div role="status" className="rounded-xl border border-success-100 bg-success-50 p-3 text-theme-sm text-success-700">
           <p className="font-semibold">{savedMessage}</p>
@@ -196,7 +203,7 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
         </div>
       ) : null}
       {error ? <p className="tailadmin-alert-error">{error}</p> : null}
-      <select name="kelasId" aria-label="Kelas soal" aria-invalid={Boolean(fieldErrors.kelasId)} aria-describedby="soal-class-error" className="tailadmin-input">
+      <select name="kelasId" defaultValue={initial?.kelasId ?? ""} aria-label="Kelas soal" aria-invalid={Boolean(fieldErrors.kelasId)} aria-describedby="soal-class-error" className="tailadmin-input">
         <option value="">Umum / tidak terikat kelas</option>
         {kelasOptions.map((kelas) => <option key={kelas.id} value={kelas.id}>{kelas.name}</option>)}
       </select>
@@ -211,7 +218,7 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
           Level Kognitif
-          <select name="cognitiveLevel" defaultValue="LOTS" className="mt-2 tailadmin-input">
+          <select name="cognitiveLevel" defaultValue={initial?.cognitiveLevel ?? "LOTS"} className="mt-2 tailadmin-input">
             <option value="LOTS">{formatUiLabel("LOTS")} - Pemahaman dasar</option>
             <option value="MOTS">{formatUiLabel("MOTS")} - Penerapan</option>
             <option value="HOTS">{formatUiLabel("HOTS")} - Analisis/evaluasi</option>
@@ -219,7 +226,7 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
         </label>
         <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
           Keterampilan
-          <select name="skill" defaultValue="VOCABULARY" className="mt-2 tailadmin-input">
+          <select name="skill" defaultValue={initial?.skill ?? "VOCABULARY"} className="mt-2 tailadmin-input">
             <option value="VOCABULARY">{formatUiLabel("VOCABULARY")}</option>
             <option value="GRAMMAR">{formatUiLabel("GRAMMAR")}</option>
             <option value="READING">{formatUiLabel("READING")}</option>
@@ -233,7 +240,7 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
         </label>
         <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
           Kesulitan
-          <select name="difficulty" defaultValue="EASY" className="mt-2 tailadmin-input">
+          <select name="difficulty" defaultValue={initial?.difficulty ?? "EASY"} className="mt-2 tailadmin-input">
             <option value="EASY">{formatUiLabel("EASY")}</option>
             <option value="MEDIUM">{formatUiLabel("MEDIUM")}</option>
             <option value="HARD">{formatUiLabel("HARD")}</option>
@@ -243,11 +250,11 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
           Standar / Kurikulum
-          <input name="standard" dir="auto" placeholder="CEFR Pre-A1, A1, AKM Literasi, Bahasa Arab internal" className="mt-2 tailadmin-input" />
+          <input name="standard" defaultValue={initial?.standard ?? ""} dir="auto" placeholder="CEFR Pre-A1, A1, AKM Literasi, Bahasa Arab internal" className="mt-2 tailadmin-input" />
         </label>
         <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
           Tipe Asesmen
-          <select name="assessmentType" defaultValue="FORMATIVE" className="mt-2 tailadmin-input">
+          <select name="assessmentType" defaultValue={initial?.assessmentType ?? "FORMATIVE"} className="mt-2 tailadmin-input">
             <option value="FORMATIVE">{formatUiLabel("FORMATIVE")}</option>
             <option value="SUMMATIVE">{formatUiLabel("SUMMATIVE")}</option>
             <option value="PLACEMENT">{formatUiLabel("PLACEMENT")}</option>
@@ -268,9 +275,9 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
         </label>
       </div>
       <div data-testid="bank-soal-primary-content" className="grid gap-3">
-        <ArabicTextField as="textarea" name="stimulusText" language={language} direction={direction || undefined} placeholder="Stimulus: teks bacaan, dialog, instruksi audio, atau konteks roleplay" className="tailadmin-input min-h-20" />
-        {usesMedia ? <input name="mediaUrl" dir="ltr" placeholder="URL media privat/publik: gambar, audio, atau bahan bacaan" className="tailadmin-input" /> : null}
-        <ArabicTextField as="textarea" name="question" required language={language} direction={direction || undefined} aria-label="Pertanyaan soal" placeholder="Tulis pertanyaan atau prompt untuk siswa" aria-invalid={Boolean(fieldErrors.question)} aria-describedby="soal-question-error" data-testid="bank-soal-question-field" className="tailadmin-input min-h-28" />
+        <ArabicTextField as="textarea" name="stimulusText" defaultValue={initial?.stimulusText ?? ""} language={language} direction={direction || undefined} placeholder="Stimulus: teks bacaan, dialog, instruksi audio, atau konteks roleplay" className="tailadmin-input min-h-20" />
+        {usesMedia ? <input name="mediaUrl" defaultValue={initial?.mediaUrl ?? ""} dir="ltr" placeholder="URL media privat/publik: gambar, audio, atau bahan bacaan" className="tailadmin-input" /> : null}
+        <ArabicTextField as="textarea" name="question" required defaultValue={initial?.question ?? ""} language={language} direction={direction || undefined} aria-label="Pertanyaan soal" placeholder="Tulis pertanyaan atau prompt untuk siswa" aria-invalid={Boolean(fieldErrors.question)} aria-describedby="soal-question-error" data-testid="bank-soal-question-field" className="tailadmin-input min-h-28" />
       </div>
       <FormFieldError id="soal-question-error" errors={fieldErrors.question} />
 
@@ -324,7 +331,7 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
         </div>
       ) : null}
 
-      {usesExpectedAnswer ? <ArabicTextField name="expectedAnswer" language={language} direction="auto" placeholder="Kunci jawaban: benar/salah atau jawaban singkat" className="tailadmin-input" /> : null}
+      {usesExpectedAnswer ? <ArabicTextField name="expectedAnswer" defaultValue={initial?.expectedAnswer ?? ""} language={language} direction="auto" placeholder="Kunci jawaban: benar/salah atau jawaban singkat" className="tailadmin-input" /> : null}
 
       {usesStructuredPayload ? (
         <div className="rounded-xl border border-gray-200 p-4">
@@ -390,9 +397,9 @@ export function BankSoalForm({ kelasOptions }: { kelasOptions: KelasOption[] }) 
         </div>
       ) : null}
 
-      <ArabicTextField as="textarea" name="explanation" language={language} direction="auto" placeholder="Pembahasan/catatan internal" className="tailadmin-input" />
+      <ArabicTextField as="textarea" name="explanation" defaultValue={initial?.explanation ?? ""} language={language} direction="auto" placeholder="Pembahasan/catatan internal" className="tailadmin-input" />
       <div className="flex flex-wrap gap-2">
-        <button type="submit" disabled={isSubmitting} className="tailadmin-button-primary min-h-11 px-4 py-2">{isSubmitting ? "Menyimpan..." : "Simpan Soal"}</button>
+        <button type="submit" disabled={isSubmitting} className="tailadmin-button-primary min-h-11 px-4 py-2">{isSubmitting ? "Menyimpan..." : isEdit ? "Perbarui Soal" : "Simpan Soal"}</button>
         <a href="/guru/bank-soal/pratinjau" target="_blank" rel="noopener noreferrer" onClick={preparePreview} className="tailadmin-button-outline inline-flex min-h-11 items-center px-4 py-2">Pratinjau di tab baru</a>
       </div>
       <p className="text-theme-xs text-gray-500">Pratinjau membuka tab baru berisi tampilan soal seperti yang dilihat siswa, plus kunci jawaban dan pembahasan.</p>

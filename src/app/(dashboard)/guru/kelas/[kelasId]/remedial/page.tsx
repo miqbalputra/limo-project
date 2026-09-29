@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RemedialManager } from "@/components/dashboard/remedial-manager";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { listGuruRemedials } from "@/server/services/remedial-service";
 import { prisma } from "@/server/db/prisma";
@@ -12,7 +13,7 @@ export const metadata = { title: "Remedial dan Revisi" };
 export default async function GuruRemedialPage({ params }: { params: Promise<{ kelasId: string }> }) {
   if (!isFeatureEnabled("remedialEnabled") || !isFeatureEnabled("assignmentsEnabled")) notFound();
   const actor = await requireActor();
-  requireRole(actor, ["GURU"]);
+  await requirePermission(actor, "guru.class.manage");
   const { kelasId } = await params;
   const [kelas, assignments, students, { items: remedials }] = await Promise.all([
     prisma.kelas.findUnique({ where: { id: kelasId }, select: { id: true, name: true, program: { select: { name: true } }, level: { select: { name: true } } } }),

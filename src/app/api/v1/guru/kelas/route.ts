@@ -1,4 +1,4 @@
-import { requireActor } from "@/server/auth/session";
+import { requireActor, requireRole } from "@/server/auth/session";
 import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
 import { listMyKelas } from "@/server/services/lms-service";
@@ -10,6 +10,7 @@ export async function GET(request: Request) {
 
   try {
     const actor = await requireActor();
+    requireRole(actor, ["ADMIN", "GURU"]);
     return apiOk(await listMyKelas(actor), { requestId });
   } catch (error) {
     return apiError(error, { requestId });

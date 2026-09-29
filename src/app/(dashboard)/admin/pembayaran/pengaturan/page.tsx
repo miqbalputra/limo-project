@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { PaymentGatewaySettings } from "@/components/dashboard/payment-gateway-settings";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
-import { requireActor, requireRole } from "@/server/auth/session";
+import { requireActor } from "@/server/auth/session";
+import { requirePermission } from "@/server/auth/permissions";
 import { listPaymentGatewaySettings } from "@/server/services/payment-gateway-service";
 
 export const metadata = { title: "Pengaturan Payment Gateway" };
 
 export default async function PaymentGatewaySettingsPage() {
   const actor = await requireActor();
-  requireRole(actor, ["ADMIN"]);
+  await requirePermission(actor, "admin.billing.manage");
   const items = await listPaymentGatewaySettings(actor);
   return (
     <main className="space-y-6">
