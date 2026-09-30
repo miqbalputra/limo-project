@@ -3,6 +3,7 @@ import { requireActor } from "@/server/auth/session";
 import { requirePermission } from "@/server/auth/permissions";
 import { listMyKelas } from "@/server/services/lms-service";
 import { BankSoalForm } from "@/components/dashboard/bank-soal-form";
+import { AssessmentTabs } from "@/components/dashboard/assessment-tabs";
 
 export const metadata = { title: "Buat Soal" };
 
@@ -21,6 +22,7 @@ export default async function GuruBankSoalBaruPage() {
         </div>
         <Link href="/guru/bank-soal" className="tailadmin-button-outline px-4 py-2">Kembali ke daftar soal</Link>
       </div>
+      <AssessmentTabs />
       <BankSoalForm kelasOptions={kelas.map((item) => ({ id: item.id, name: `${item.program.name} - ${item.name}` }))} />
     </main>
   );

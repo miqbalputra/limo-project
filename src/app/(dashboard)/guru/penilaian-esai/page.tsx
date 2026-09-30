@@ -5,6 +5,7 @@ import {
   MetricCard,
 } from "@/components/dashboard/dashboard-widgets";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
+import { AssessmentTabs } from "@/components/dashboard/assessment-tabs";
 import { LocalizedContent } from "@/components/localized-content";
 import { requireActor } from "@/server/auth/session";
 import { requirePermission } from "@/server/auth/permissions";
@@ -42,6 +43,7 @@ export default async function GuruPenilaianEsaiPage({
           </div>
         }
       />
+      <AssessmentTabs />
       <section className="grid gap-4 sm:grid-cols-2">
         <MetricCard
           label="Perlu ditinjau"

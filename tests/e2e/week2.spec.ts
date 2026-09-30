@@ -47,9 +47,13 @@ test("Week 2 guru LMS and exam pages are usable on mobile", async ({ page }) => 
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/guru/ujian");
-  await expect(page.getByRole("heading", { name: "Ujian", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Buat Ujian" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ujian & Kuis", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Buat Ujian (dari Bank Soal)" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Duplikat sebagai Draf" }).first()).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await page.goto("/guru/ujian/baru");
+  await expect(page.getByRole("heading", { name: "Buat Ujian" })).toBeVisible();
   await expect(page.getByPlaceholder("Durasi ujian dalam menit")).toBeVisible();
   await page.getByPlaceholder("Judul ujian").fill("Preview Assessment Demo");
   await page.locator('textarea[name="description"]').fill("Assessment preview before publish.");
@@ -60,6 +64,7 @@ test("Week 2 guru LMS and exam pages are usable on mobile", async ({ page }) => 
   await expect(page.getByText(/Soal terpilih \(1\)/)).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
+  await page.goto("/guru/ujian");
   const hasilHref = await page.getByRole("link", { name: "Input Hasil" }).first().getAttribute("href");
   expect(hasilHref).toBeTruthy();
   await page.goto(hasilHref || "/guru/ujian");

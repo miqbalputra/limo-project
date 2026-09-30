@@ -2,6 +2,7 @@ import { requireActor } from "@/server/auth/session";
 import { requirePermission } from "@/server/auth/permissions";
 import { listMyKelas } from "@/server/services/lms-service";
 import { QuizBuilder } from "@/components/dashboard/quiz-builder";
+import { AssessmentTabs } from "@/components/dashboard/assessment-tabs";
 import { emptyQuizForm } from "@/lib/quiz-builder";
 
 export const metadata = { title: "Buat Formulir Kuis" };
@@ -18,6 +19,7 @@ export default async function GuruKuisBaruPage() {
         <h1 className="mt-1 tailadmin-page-title">Buat Formulir Baru</h1>
         <p className="mt-2 tailadmin-muted">Susun soal satu per satu seperti Google Forms. Draf tersimpan otomatis setelah formulir pertama dibuat.</p>
       </div>
+      <AssessmentTabs />
       <QuizBuilder
         initial={emptyQuizForm()}
         kelasOptions={kelas.map((item) => ({ id: item.id, name: `${item.program.name} - ${item.name}` }))}

@@ -103,7 +103,7 @@ export function UjianForm({ kelasOptions, soalOptions }: { kelasOptions: KelasOp
 
   return (
     <form ref={formRef} onSubmit={onSubmit} className="tailadmin-card grid gap-3 p-5">
-      <h2 className="font-semibold text-gray-900">Buat Ujian</h2>
+      <h2 className="font-semibold text-gray-900">Detail Ujian</h2>
       {error ? <p className="tailadmin-alert-error">{error}</p> : null}
       <select name="kelasId" required aria-invalid={Boolean(fieldErrors.kelasId)} aria-describedby="ujian-class-error" className="tailadmin-input">
         <option value="">Pilih kelas</option>

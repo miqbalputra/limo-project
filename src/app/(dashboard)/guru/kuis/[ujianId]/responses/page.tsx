@@ -17,7 +17,7 @@ export default async function GuruKuisResponsesPage({ params }: { params: Promis
   return (
     <main className="space-y-6">
       <div>
-        <Link href="/guru/kuis" className="text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Kembali ke Formulir Kuis</Link>
+        <Link href="/guru/ujian" className="text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Kembali ke daftar asesmen</Link>
         <h1 className="mt-3 tailadmin-page-title">Respons: {data.quiz.title}</h1>
         <p className="mt-2 tailadmin-muted">Ringkasan jawaban dari tautan publik dan pengerjaan online via wali.</p>
         <div className="mt-3 flex flex-wrap gap-2">

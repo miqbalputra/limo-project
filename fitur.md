@@ -540,7 +540,9 @@ Modul ujian menyediakan pembuatan ujian, pelaksanaan ujian online oleh Wali, inp
 
 ### Halaman akses
 
-- `/guru/ujian`
+- `/guru/ujian` (satu daftar untuk ujian dan formulir kuis)
+- `/guru/ujian/baru` (buat ujian dari Bank Soal)
+- `/guru/kuis/baru` (buat formulir kuis online)
 - `/guru/ujian/[ujianId]/hasil`
 - `/guru/ujian/[ujianId]/hasil/[hasilId]/koreksi`
 - `/wali/tugas`

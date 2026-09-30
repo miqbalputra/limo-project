@@ -435,3 +435,17 @@ Dibangun 3 fase sesuai `rencana.md` FASE 9, di balik flag **`CLASS_DISCUSSION_EN
 - **Rilis nilai per attempt/hasil**: `HasilUjian.releasedAt` (migrasi `20260925090000_exam_result_release_per_student`); service `releaseHasilUjian` (guru pengampu/admin, hanya FINAL/CORRECTED) + route `POST /api/v1/hasil-ujian/[hasilId]/release` + tombol `ExamResultReleaseButton` di halaman hasil guru. Query visibilitas nilai (daftar ujian siswa/wali, beranda siswa, beranda wali, laporan) kini `OR` dengan `releasedAt`, melampaui flag global `showResultToSiswa/Wali`.
 - **Belum dikerjakan:** cicilan/angsuran (butuh kebijakan pembayaran parsial), Q&A per materi/modul (enum `DISCUSSION`), mode "angkat & pindah" drag keyboard penuh.
 - **Verifikasi:** `typecheck` ✓ · `lint` 0 error ✓ · `npm test` 36 · `test:diskusi` **25/25** · `test:siswa-ujian` **14/14** · `test:billing-voucher` 9/9 · e2e `student-exam` 2/2, `class-forum` 1/1, `billing-voucher` 1/1, `mobile-layout` 16/16.
+
+## Rapikan IA Asesmen Guru (30 Sep 2026)
+
+- **Akar masalah**: `/guru/ujian` dan `/guru/kuis` sama-sama memanggil `listUjian(...)` yang membaca tabel `Ujian` yang sama — dua item nav terpisah untuk satu entitas. Selain itu hanya `/guru/ujian` yang masih menaruh form pembuatan **inline** di halaman daftar.
+- **Satu hub asesmen**: `/guru/ujian` kini daftar tunggal (judul "Ujian & Kuis"). Navigasi GURU grup **Evaluasi** menjadi **Bank Soal**, **Ujian & Kuis**, **Penilaian Esai** (item "Formulir Kuis" dihapus).
+- **Pola create disamakan**: form ujian pindah ke halaman khusus **`/guru/ujian/baru`** (mengikuti pola `/guru/bank-soal/baru` dan `/guru/kuis/baru`). Judul form diubah menjadi "Detail Ujian" agar tidak duplikat dengan judul halaman.
+- **Aksi baris seragam**: **Input Hasil** (`/guru/ujian/[id]/hasil`), **Respons** (`/guru/kuis/[id]/responses`), **Edit formulir** (`/guru/kuis/[id]/edit`), plus Duplikat/Status/Share.
+- **Redirect deklaratif**: `/guru/kuis` → `/guru/ujian` via `next.config.ts` `redirects()` (HTTP 307). Sub-rute builder tetap utuh: `/guru/kuis/baru`, `/guru/kuis/[ujianId]/edit`, `/responses`, `/responses/[responseId]`. Tanpa perubahan model/skema.
+- **Komponen baru `AssessmentTabs`** menyatukan tiga area (Ujian & Kuis, Bank Soal, Penilaian Esai) di halaman daftar maupun halaman buat.
+- **Dua bug pra-ada yang ikut ditutup**:
+  - Item nav GURU `/guru/todo` ("Perlu Ditindaklanjuti") tidak di-gate `calendarEnabled` padahal guard `requireTodoFeature` memakainya → menu menuju 404 saat flag produksi mati. Kini di-gate seperti WALI/SISWA.
+  - Baseline snapshot `guru-arabic-bank-soal-card` basi sejak `BankSoalActions` ditambahkan (61bd2e9) sehingga `mobile-layout` gagal; baseline diperbarui.
+- **Verifikasi (semua hijau)**: `sqlite:setup` ✓ · `typecheck` ✓ · `lint` 0 error (3 warning pra-ada) ✓ · `npm test` 34 · `test:guards` 221 route · integrasi `test:quiz-builder` ✓, `test:week2` ✓ · e2e `week2.spec.ts` 2/2 (1 flaky pra-ada pada autosave ujian wali, lulus di retry), `quiz-builder` 2/2, `guru-workspace` 2/2, `accessibility` 5/5, `production-navigation` 2/2, `a8-g12` 1/1, `mobile-layout` 16/16.
+- **Backlog (bukan bagian perubahan ini)**: menyatukan dua jalur rilis nilai (`HasilUjian.releasedAt` vs `QuizResponse.scoreReleasedAt`) dan dua penyimpanan jawaban; opsi diskriminator `Ujian.kind` bila nanti perlu memfilter daftar.

@@ -120,13 +120,15 @@ try {
   const guru = await login("guru@limo.local");
   const wali = await login("wali@limo.local");
 
-  const listPage = await request("/guru/kuis", { cookie: guru.cookie });
+  const listPage = await request("/guru/ujian", { cookie: guru.cookie });
   assert.equal(listPage.response.status, 200);
-  assert.match(String(listPage.payload), /Formulir Kuis/);
+  assert.match(String(listPage.payload), /Ujian &(?:amp;)? Kuis/);
+  const legacyList = await request("/guru/kuis", { cookie: guru.cookie });
+  assert.ok([307, 308].includes(legacyList.response.status), "Daftar kuis lama harus mengarah ke daftar asesmen");
   const newPage = await request("/guru/kuis/baru", { cookie: guru.cookie });
   assert.equal(newPage.response.status, 200);
   assert.match(String(newPage.payload), /Buat Formulir Kuis/);
-  ok("Halaman khusus Formulir Kuis (list & buat) dapat diakses guru");
+  ok("Hub asesmen (Ujian & Kuis) dan halaman buat dapat diakses guru");
 
   const kelas = await prisma.kelas.findFirst({ where: { status: "ACTIVE", guruProfile: { user: { email: "guru@limo.local" } } }, select: { id: true } });
   assert.ok(kelas, "Kelas milik guru harus tersedia");

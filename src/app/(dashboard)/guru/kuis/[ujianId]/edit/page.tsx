@@ -94,7 +94,7 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
   return (
     <main className="space-y-6">
       <div>
-        <Link href="/guru/kuis" className="text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Kembali ke Formulir Kuis</Link>
+        <Link href="/guru/ujian" className="text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Kembali ke daftar asesmen</Link>
         <h1 className="mt-3 tailadmin-page-title">Edit Formulir</h1>
         <p className="mt-2 tailadmin-muted">Perubahan tersimpan otomatis selama status masih draf. Kuis yang sudah dikerjakan tidak dapat diubah (duplikat dulu).</p>
       </div>

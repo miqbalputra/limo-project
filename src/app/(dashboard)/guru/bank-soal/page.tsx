@@ -3,6 +3,7 @@ import { requireActor } from "@/server/auth/session";
 import { requirePermission } from "@/server/auth/permissions";
 import { listBankSoal } from "@/server/services/exam-service";
 import { BankSoalActions } from "@/components/dashboard/bank-soal-actions";
+import { AssessmentTabs } from "@/components/dashboard/assessment-tabs";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { LocalizedContent } from "@/components/localized-content";
@@ -29,6 +30,7 @@ export default async function GuruBankSoalPage({ searchParams }: { searchParams:
           <Link href="/guru/bank-soal/baru" target="_blank" rel="noopener noreferrer" className="tailadmin-button-primary px-4 py-2">Buat soal (tab baru)</Link>
         </div>
       </div>
+      <AssessmentTabs />
       <section className="space-y-4">
         {soal.length > 0 ? soal.map((item) => (
           <article key={item.id} data-testid="bank-soal-card" className="tailadmin-card p-5">

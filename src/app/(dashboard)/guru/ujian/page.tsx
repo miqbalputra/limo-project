@@ -1,40 +1,38 @@
 import Link from "next/link";
 import { requireActor } from "@/server/auth/session";
 import { requirePermission } from "@/server/auth/permissions";
-import { listBankSoal, listUjian } from "@/server/services/exam-service";
-import { listMyKelas } from "@/server/services/lms-service";
-import { UjianForm } from "@/components/dashboard/ujian-form";
+import { listUjian } from "@/server/services/exam-service";
 import { ExamDuplicateButton } from "@/components/dashboard/exam-duplicate-button";
 import { ExamStatusActions } from "@/components/dashboard/exam-status-actions";
 import { ShareExamButton } from "@/components/dashboard/share-exam-button";
+import { AssessmentTabs } from "@/components/dashboard/assessment-tabs";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { LocalizedContent } from "@/components/localized-content";
 import { formatUiLabel } from "@/lib/ui-labels";
 
-export const metadata = { title: "Ujian" };
+export const metadata = { title: "Ujian & Kuis" };
 
 export default async function GuruUjianPage({ searchParams }: { searchParams: Promise<{ page?: string; search?: string }> }) {
   const actor = await requireActor();
   await requirePermission(actor, "guru.assessment.manage");
   const params = await searchParams;
   const search = typeof params.search === "string" ? params.search.trim() : "";
-  const [{ items: ujian, pagination }, { items: kelas }, { items: soal }] = await Promise.all([
-    listUjian(actor, { page: Number(params.page) || 1, pageSize: 20, search }),
-    listMyKelas(actor),
-    listBankSoal(actor),
-  ]);
+  const { items: ujian, pagination } = await listUjian(actor, { page: Number(params.page) || 1, pageSize: 20, search });
 
   return (
     <main className="space-y-6">
-      <div>
-        <h1 className="tailadmin-page-title">Ujian</h1>
-        <p className="mt-2 tailadmin-muted">Susun evaluasi untuk input oleh Guru atau pengerjaan melalui akun Wali.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="tailadmin-page-title">Ujian &amp; Kuis</h1>
+          <p className="mt-2 tailadmin-muted">Satu daftar untuk semua asesmen. Ujian dapat diinput oleh Guru dari Bank Soal, sedangkan Formulir Kuis dikerjakan online lalu dibagikan tautannya.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/guru/ujian/baru" className="tailadmin-button-primary px-4 py-2">Buat Ujian (dari Bank Soal)</Link>
+          <Link href="/guru/kuis/baru" className="tailadmin-button-outline px-4 py-2">Buat Formulir Kuis (online)</Link>
+        </div>
       </div>
-      <UjianForm
-        kelasOptions={kelas.map((item) => ({ id: item.id, name: `${item.program.name} - ${item.name}` }))}
-        soalOptions={soal.map((item) => ({ id: item.id, label: `${formatUiLabel(item.type)} / ${formatUiLabel(item.skill)} / ${formatUiLabel(item.difficulty)}`, question: item.question, language: item.language, direction: item.direction }))}
-      />
+      <AssessmentTabs />
       <section className="space-y-4">
         <form method="get" className="tailadmin-card grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto]">
           <input name="search" defaultValue={search} placeholder="Cari judul ujian" aria-label="Cari ujian" className="tailadmin-input" />
@@ -47,8 +45,10 @@ export default async function GuruUjianPage({ searchParams }: { searchParams: Pr
             <p className="mt-1 text-theme-sm text-gray-500">{formatUiLabel(item.mode)} / {formatUiLabel(item.status)} / {formatUiLabel(item.deliveryMode)} / {item.durationMinutes} menit / {item.questions.length} soal / {item._count.results} hasil / {item._count.attempts} percobaan online</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Link href={`/guru/ujian/${item.id}/hasil`} className="tailadmin-button-primary px-4 py-2">Input Hasil</Link>
-               <ExamDuplicateButton ujianId={item.id} />
-               <ExamStatusActions ujianId={item.id} status={item.status} />
+              <Link href={`/guru/kuis/${item.id}/responses`} className="tailadmin-button-outline px-4 py-2">Respons</Link>
+              <Link href={`/guru/kuis/${item.id}/edit`} className="tailadmin-button-outline px-4 py-2">Edit formulir</Link>
+              <ExamDuplicateButton ujianId={item.id} />
+              <ExamStatusActions ujianId={item.id} status={item.status} />
             </div>
             <div className="mt-3">
               <ShareExamButton ujianId={item.id} hasToken={Boolean(item.shareToken)} />
@@ -65,7 +65,7 @@ export default async function GuruUjianPage({ searchParams }: { searchParams: Pr
               ))}
             </ol>
           </article>
-        )) : <EmptyState icon="exam" title="Belum ada ujian" description="Pilih kelas dan soal dari bank soal untuk membuat evaluasi pertama." />}
+        )) : <EmptyState icon="exam" title="Belum ada asesmen" description="Mulai dengan “Buat Ujian” dari Bank Soal, atau susun soal langsung lewat “Buat Formulir Kuis”." />}
       </section>
       <PaginationControls basePath="/guru/ujian" page={pagination.page} totalPages={pagination.totalPages} params={{ search: search || undefined }} />
     </main>

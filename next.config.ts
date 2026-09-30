@@ -6,6 +6,11 @@ const nextConfig: NextConfig = {
   outputFileTracingExcludes: {
     "/*": ["./storage/**", "./.next/**"],
   },
+  async redirects() {
+    return [
+      { source: "/guru/kuis", destination: "/guru/ujian", permanent: false },
+    ];
+  },
   async headers() {
     return [
       {
