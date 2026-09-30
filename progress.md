@@ -449,3 +449,32 @@ Dibangun 3 fase sesuai `rencana.md` FASE 9, di balik flag **`CLASS_DISCUSSION_EN
   - Baseline snapshot `guru-arabic-bank-soal-card` basi sejak `BankSoalActions` ditambahkan (61bd2e9) sehingga `mobile-layout` gagal; baseline diperbarui.
 - **Verifikasi (semua hijau)**: `sqlite:setup` ✓ · `typecheck` ✓ · `lint` 0 error (3 warning pra-ada) ✓ · `npm test` 34 · `test:guards` 221 route · integrasi `test:quiz-builder` ✓, `test:week2` ✓ · e2e `week2.spec.ts` 2/2 (1 flaky pra-ada pada autosave ujian wali, lulus di retry), `quiz-builder` 2/2, `guru-workspace` 2/2, `accessibility` 5/5, `production-navigation` 2/2, `a8-g12` 1/1, `mobile-layout` 16/16.
 - **Backlog (bukan bagian perubahan ini)**: menyatukan dua jalur rilis nilai (`HasilUjian.releasedAt` vs `QuizResponse.scoreReleasedAt`) dan dua penyimpanan jawaban; opsi diskriminator `Ujian.kind` bila nanti perlu memfilter daftar.
+
+## Builder Asesmen Tunggal ala Google Forms — Fase 1 (30 Sep 2026)
+
+- **Satu builder untuk semua asesmen**: `UjianForm` (form ujian lama) dihapus. `/guru/ujian/baru` kini mengarah ke builder ala Google Forms (`/guru/kuis/baru`), dan hub "Ujian & Kuis" punya satu CTA "Buat formulir baru".
+- **21 tipe soal didukung builder** (sebelumnya 12): ditambah MENJODOHKAN, URUTAN, CLOZE, GAMBAR, LISTENING, READING, SPEAKING, WRITING, ROLEPLAY. Menu tipe kini dikelompokkan (Pilihan, Teks, Skala & kisi, Tanggal & berkas, Bahasa & performa) lewat `src/lib/question-types.ts` sebagai sumber tunggal untuk UI + validasi server.
+- **Editor baru**: pasangan (menjodohkan), daftar urut (urutan), stimulus/bacaan/konteks, rubrik penilaian inline (speaking/writing/roleplay), serta panel **"Metadata & pedagogi"** per soal (bahasa, arah RTL, level kognitif, keterampilan, kesulitan, standar, tipe asesmen). `examDate` ditambahkan ke tab Pengaturan.
+- **Round-trip lossless (perbaikan kerusakan data)**: sebelumnya membuka asesmen berisi tipe di luar 12 tipe builder mengubah tipenya menjadi `ESAI` saat disimpan, dan `examDate`, `stimulusText`, `language`/`direction`, `rubric`, serta metadata pedagogis tidak pernah dibaca maupun ditulis. Kini `getQuizForm` men-select seluruh kolom, `createSectionsAndQuestions` mengisi seluruh kolom `BankSoal`, dan pemetaan DTO→state dipindah ke `src/lib/quiz-builder-mapping.ts` (fallback ke ESAI dihapus). **Tanpa migrasi DB.**
+- **Perbaikan mobile**: baris opsi builder dibuat `flex-wrap` + input `min-w-0`, sehingga tidak ada lagi overflow horizontal pada 390px (sebelumnya meluber ±7px).
+- **Verifikasi**: `sqlite:setup` ✓ · `typecheck` ✓ · `lint` 0 error ✓ · `npm test` 43 ✓ · `test:guards` 221 route ✓ · `test:quiz-builder` ✓ (termasuk blok baru "21 tipe + metadata round-trip tanpa kehilangan") · e2e `week2` 3/3 ✓ · e2e `quiz-builder` 2/2 ✓.
+- **Belum selesai**: (3) builder **Tugas & Modul** memakai pola kartu yang sama; (4) pembaruan dokumen/tes untuk fase 3.
+
+## Builder Asesmen Tunggal ala Google Forms — Fase 2: Pustaka Soal (30 Sep 2026)
+
+- **Bank soal menyatu ke form builder.** Tidak ada lagi pembuatan soal berdiri sendiri: `bank-soal-form.tsx`, `bank-soal-preview.tsx`, `bank-soal-draft-preview.tsx`, `lib/bank-soal-draft.ts`, serta halaman `/guru/bank-soal/baru`, `/guru/bank-soal/[id]/edit`, `/guru/bank-soal/pratinjau`, dan `/guru/bank-soal/[id]/pratinjau` **dihapus**. Soal selalu dibuat di dalam formulir (builder otomatis menyimpannya ke `BankSoal`).
+- **`/guru/bank-soal` menjadi Pustaka Soal**: pencarian pertanyaan + filter tipe + toggle arsip; kartu soal menampilkan stimulus/media/opsi/kunci (sehingga tidak perlu halaman pratinjau terpisah); aksi Duplikat/Arsipkan/Pulihkan/Hapus. CTA "Buat formulir baru" mengarah ke builder. Aksi "Ubah" dihapus karena pengubahan soal dilakukan di formulir pemiliknya.
+- **Navigasi & tab**: label nav GURU "Bank Soal" → **"Pustaka Soal"**; `AssessmentTabs` memakai label baru.
+- **API dipertahankan**: `POST/PATCH/DELETE /api/v1/bank-soal` tetap tersedia (dipakai uji integrasi dan kemungkinan integrasi luar); hanya UI-nya yang dihapus.
+- **Tes**: `bank-soal-builder.spec.ts` diganti **`bank-soal-library.spec.ts`** (pustaka menampilkan soal & tanpa jalur pembuatan terpisah; cari + filter tipe; duplikat). `week2.spec.ts` dan `accessibility.spec.ts` disesuaikan; blok snapshot form Arab dihapus dan baseline `guru-arabic-bank-soal-card` diperbarui (kartu lebih pendek karena tautan pratinjau hilang).
+- **Dokumen**: `fitur.md`, `docs/UI_UX_AUDIT.md`, `docs/ROLE_ACCESS_MATRIX.md`, `docs/KNOWN_LIMITATIONS.md` diperbarui.
+- **Verifikasi**: `typecheck` ✓ · `lint` 0 error ✓ · e2e `bank-soal-library` 3/3 ✓ · `week2` 3/3 ✓ · `accessibility` 5/5 ✓ · `mobile-layout` 16/16 ✓.
+- **Selesai.** Lanjut ke Fase 3 (lihat bagian berikutnya).
+
+## Builder Asesmen Tunggal ala Google Forms — Fase 3: Kartu Bersama untuk Tugas & Modul (30 Sep 2026)
+
+- **Primitif kartu bersama**: komponen baru `src/components/builder/builder-card.tsx` (`BuilderCard`) dengan pola kartu Google Forms — label kecil, judul, deskripsi, deretan aksi, dan isi yang ditumpuk vertikal.
+- **Builder Tugas** (`assignment-builder.tsx`) dan **Builder Modul** (`learning-module-builder.tsx`) kini memakai `BuilderCard` untuk kartu "Buat tugas baru", "Buat alur belajar baru", dan panel "Tambah Aktivitas". Baris aktivitas modul memakai `tailadmin-card` agar seragam dengan kartu soal.
+- **Tanpa perubahan model, service, endpoint, atau props** — hanya tata letak. Teks yang dikunci tes tetap sama: heading **"Buat tugas baru"** dan **"Buat alur belajar baru"**; `useAsyncAction`, `useConfirmDialog`, dan testid (`remedial-*`, `assignment-submissions`) tidak berubah.
+- **Verifikasi**: `typecheck` ✓ · `lint` 0 error ✓ · `npm test` 43 ✓ · `test:guards` 221 route ✓ · integrasi `test:week4` 6/6 ✓ · `test:week5` 8/8 ✓ · e2e `week4` 2/2 ✓ · `week5` 2/2 ✓.
+- **Catatan**: ekstraksi kit penuh untuk kartu soal (`src/components/builder/*`) belum dilakukan; sejauh ini hanya `BuilderCard` yang diekstrak dan dipakai bersama.

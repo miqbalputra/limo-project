@@ -49,7 +49,7 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
      { label: "Perlu Ditindaklanjuti", href: "/guru/todo", icon: "todo", section: "Pembelajaran", requiredFeatures: ["calendarEnabled"] },
     { label: "Materi", href: "/guru/materi", icon: "materials", section: "Pembelajaran" },
     { label: "RPP", href: "/guru/rpp", icon: "materials", section: "Pembelajaran" },
-    { label: "Bank Soal", href: "/guru/bank-soal", icon: "exam", section: "Evaluasi" },
+    { label: "Pustaka Soal", href: "/guru/bank-soal", icon: "exam", section: "Evaluasi" },
     { label: "Ujian & Kuis", href: "/guru/ujian", icon: "audit", section: "Evaluasi" },
     { label: "Penilaian Esai", href: "/guru/penilaian-esai", icon: "exam", section: "Evaluasi" },
     { label: "Presensi", href: "/guru/presensi", icon: "presensi", section: "Monitoring" },

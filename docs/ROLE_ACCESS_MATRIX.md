@@ -13,7 +13,7 @@ Matrix ini mendokumentasikan akses MVP berdasarkan implementasi saat ini. Menu b
 | Modul Pembelajaran | Lihat operasional | Builder modul, item existing, reorder, publish/archive/duplicate untuk kelas diampu | Struktur published anak secara read-only | Struktur published kelas sendiri |
 | Tugas Online | Lihat operasional | Create/publish/archive dan monitor submission kelas diampu | Lihat tugas, jawaban, file, dan status anak secara read-only | Autosave draft dan submit sesuai tipe tugas |
 | RPP | Service mendukung admin | Create/publish/archive kelas diampu | Lihat RPP published anak | Belum ada akses khusus |
-| Bank Soal | Service mendukung admin | Create/list soal kelas diampu/umum | Tidak ada | Tidak ada |
+| Pustaka Soal | Service mendukung admin | Telusuri/pakai ulang soal kelas diampu/umum (soal dibuat di formulir) | Tidak ada | Tidak ada |
 | Ujian | Service mendukung admin | Builder ujian, input hasil offline, koreksi | Kerjakan ujian daring mode wali untuk anak + lihat nilai final | Kerjakan ujian daring mode siswa (mulai/draf/kumpulkan), unduh berkas jawaban sendiri, lihat nilai setelah dirilis |
 | Pengumuman | Lihat semua + kelola laporan | Buat/ubah/arsip pengumuman untuk kelas diampu | Baca sesuai audience (SISWA/WALI/SEMUA) + tandai sudah dibaca | Baca sesuai audience + tandai sudah dibaca |
 | Diskusi | Tinjau laporan konten, putuskan selesaikan/abaikan | Buat/balas, pin/kunci/sembunyikan/hapus, tandai jawaban guru, lampirkan berkas | Baca + balas (tanpa moderasi) | Buat thread, baca, balas, laporkan |

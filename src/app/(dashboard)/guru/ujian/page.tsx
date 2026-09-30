@@ -25,11 +25,11 @@ export default async function GuruUjianPage({ searchParams }: { searchParams: Pr
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="tailadmin-page-title">Ujian &amp; Kuis</h1>
-          <p className="mt-2 tailadmin-muted">Satu daftar untuk semua asesmen. Ujian dapat diinput oleh Guru dari Bank Soal, sedangkan Formulir Kuis dikerjakan online lalu dibagikan tautannya.</p>
+          <p className="mt-2 tailadmin-muted">Satu daftar untuk semua asesmen. Semua dibuat dengan builder yang sama, semudah membuat Google Form.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/guru/ujian/baru" className="tailadmin-button-primary px-4 py-2">Buat Ujian (dari Bank Soal)</Link>
-          <Link href="/guru/kuis/baru" className="tailadmin-button-outline px-4 py-2">Buat Formulir Kuis (online)</Link>
+          <Link href="/guru/kuis/baru" className="tailadmin-button-primary px-4 py-2">Buat formulir baru</Link>
+          <Link href="/guru/bank-soal" className="tailadmin-button-outline px-4 py-2">Pustaka Soal</Link>
         </div>
       </div>
       <AssessmentTabs />
@@ -65,7 +65,7 @@ export default async function GuruUjianPage({ searchParams }: { searchParams: Pr
               ))}
             </ol>
           </article>
-        )) : <EmptyState icon="exam" title="Belum ada asesmen" description="Mulai dengan “Buat Ujian” dari Bank Soal, atau susun soal langsung lewat “Buat Formulir Kuis”." />}
+        )) : <EmptyState icon="exam" title="Belum ada asesmen" description="Klik “Buat formulir baru” untuk menyusun soal pertama dengan builder ala Google Forms." />}
       </section>
       <PaginationControls basePath="/guru/ujian" page={pagination.page} totalPages={pagination.totalPages} params={{ search: search || undefined }} />
     </main>

@@ -5,91 +5,16 @@ import { getQuizForm } from "@/server/services/quiz-builder-service";
 import { listMyKelas } from "@/server/services/lms-service";
 import { listUjian } from "@/server/services/exam-service";
 import { QuizBuilder } from "@/components/dashboard/quiz-builder";
-import type { QuizFormState } from "@/lib/quiz-builder";
+import { toQuizFormState, type QuizFormDto } from "@/lib/quiz-builder-mapping";
 
-export const metadata = { title: "Edit Formulir Kuis" };
-
-const BUILDER_TYPES = new Set(["PILIHAN_GANDA", "MULTI_SELECT", "BENAR_SALAH", "ISIAN_SINGKAT", "DROPDOWN", "SKALA", "RATING", "TANGGAL", "WAKTU", "GRID", "FILE_UPLOAD", "ESAI"]);
+export const metadata = { title: "Edit Formulir" };
 
 export default async function GuruKuisEditPage({ params }: { params: Promise<{ ujianId: string }> }) {
   const actor = await requireActor();
   await requirePermission(actor, "guru.assessment.manage");
   const { ujianId } = await params;
   const [{ item }, { items: kelas }, { items: ujianList }] = await Promise.all([getQuizForm(actor, ujianId), listMyKelas(actor), listUjian(actor, { page: 1, pageSize: 100 })]);
-
-  const sectionKeys = item.sections.map((_, index) => `s-${item.id}-${index}`);
-  if (sectionKeys.length === 0) sectionKeys.push(`s-${item.id}-0`);
-
-  const initial: QuizFormState = {
-    kelasId: item.kelasId,
-    title: item.title,
-    description: item.description ?? "",
-    mode: item.mode,
-    deliveryMode: item.deliveryMode,
-    durationMinutes: item.durationMinutes,
-    maxAttempts: item.maxAttempts,
-    shuffleQuestions: item.shuffleQuestions,
-    shuffleOptions: item.shuffleOptions,
-    passingScore: item.passingScore === null ? "" : String(item.passingScore),
-    showScoreImmediately: item.showScoreImmediately,
-    showAnswersAfterSubmit: item.showAnswersAfterSubmit,
-    collectRespondentName: item.collectRespondentName,
-    showResultToWali: item.showResultToWali,
-    showResultToSiswa: item.showResultToSiswa ?? true,
-    secureMode: item.secureMode ?? false,
-    themeColor: item.themeColor ?? "blue",
-    headerImageUrl: item.headerImageUrl ?? "",
-    confirmationMessage: item.confirmationMessage ?? "",
-    collectRespondentEmail: item.collectRespondentEmail ?? false,
-    sendCopyToRespondent: item.sendCopyToRespondent ?? false,
-    oneResponsePerEmail: item.oneResponsePerEmail ?? false,
-    notifyGuruOnResponse: item.notifyGuruOnResponse ?? false,
-    presentationMode: item.presentationMode ?? "ALL",
-    releaseMode: item.releaseMode ?? "IMMEDIATE",
-    availableFrom: item.availableFrom ?? "",
-    availableUntil: item.availableUntil ?? "",
-    sections: item.sections.length > 0
-      ? item.sections.map((section, index) => ({ key: sectionKeys[index], title: section.title, description: section.description ?? "" }))
-      : [{ key: sectionKeys[0], title: "Bagian 1", description: "" }],
-    questions: item.questions.map((question) => ({
-      key: `q-${question.id}`,
-      type: BUILDER_TYPES.has(question.type) ? question.type : "ESAI",
-      question: question.question,
-      helpText: question.helpText ?? "",
-      required: question.required,
-      points: question.points,
-      allowOther: question.allowOther,
-      shuffleOptions: question.shuffleOptions,
-      mediaUrl: question.mediaUrl ?? "",
-      explanation: question.explanation ?? "",
-      expectedAnswer: question.expectedAnswer ?? (question.type === "BENAR_SALAH" ? "benar" : ""),
-      scaleMin: question.scaleMin,
-      scaleMax: question.scaleMax,
-      scaleMinLabel: question.scaleMinLabel,
-      scaleMaxLabel: question.scaleMaxLabel,
-      gridRows: question.gridRows,
-      gridMultiple: question.gridMultiple,
-      gridCorrect: question.gridCorrect,
-      validationType: question.validationType ?? "NONE",
-      validationMin: question.validationMin === null || question.validationMin === undefined ? "" : String(question.validationMin),
-      validationMax: question.validationMax === null || question.validationMax === undefined ? "" : String(question.validationMax),
-      validationPattern: question.validationPattern ?? "",
-      validationMessage: question.validationMessage ?? "",
-      acceptedAnswers: question.acceptedAnswers ?? [],
-      feedbackCorrect: question.feedbackCorrect ?? "",
-      feedbackIncorrect: question.feedbackIncorrect ?? "",
-      uploadAllowedTypes: question.uploadAllowedTypes ?? [],
-      uploadMaxSizeMb: question.uploadMaxSizeMb ?? 0,
-      sectionKey: sectionKeys[question.sectionIndex] ?? sectionKeys[0],
-      branchRules: (Array.isArray(question.branchRules) ? (question.branchRules as Array<{ label: string; goToSectionIndex: number | null }>) : []).map((rule) => ({
-        label: rule.label,
-        goToSectionKey: rule.goToSectionIndex !== null ? (sectionKeys[rule.goToSectionIndex] ?? null) : null,
-      })),
-      options: question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" || question.type === "DROPDOWN" || question.type === "SKALA" || question.type === "RATING" || question.type === "GRID"
-        ? question.options.map((option) => ({ content: option.content, isCorrect: question.correctLabels.includes(option.label), mediaUrl: option.mediaUrl ?? "" }))
-        : [],
-    })),
-  };
+  const initial = toQuizFormState(item as unknown as QuizFormDto);
 
   return (
     <main className="space-y-6">

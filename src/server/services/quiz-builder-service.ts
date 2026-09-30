@@ -53,6 +53,16 @@ function structuredPayloadFor(question: QuestionInput): Prisma.InputJsonValue | 
       message: question.validationMessage || null,
     };
   }
+  if (question.type === "MENJODOHKAN" && question.pairs.length > 0) {
+    const pairs = question.pairs.filter((pair) => pair.left.trim() && pair.right.trim());
+    payload.pairs = pairs;
+    payload.answerKey = Object.fromEntries(pairs.map((pair) => [pair.left.trim(), pair.right.trim()]));
+  }
+  if (question.type === "URUTAN" && question.sequenceItems.length > 0) {
+    const items = question.sequenceItems.map((item) => item.trim()).filter(Boolean);
+    payload.items = items;
+    payload.answerKey = items;
+  }
   return Object.keys(payload).length > 0 ? (payload as Prisma.InputJsonValue) : undefined;
 }
 
@@ -85,6 +95,15 @@ async function createSectionsAndQuestions(tx: Tx, ujianId: string, kelasId: stri
           expectedAnswer: question.expectedAnswer?.trim() || undefined,
           mediaUrl: question.mediaUrl?.trim() || undefined,
           structuredPayload: structuredPayloadFor(question),
+          stimulusText: question.stimulusText?.trim() || undefined,
+          language: question.language?.trim() || undefined,
+          direction: question.direction || undefined,
+          cognitiveLevel: question.cognitiveLevel,
+          skill: question.skill,
+          difficulty: question.difficulty,
+          standard: question.standard?.trim() || undefined,
+          assessmentType: question.assessmentType,
+          rubric: question.rubric.length > 0 ? ({ criteria: question.rubric } as Prisma.InputJsonValue) : undefined,
           explanation: question.explanation?.trim() || undefined,
           allowOther: question.type === "PILIHAN_GANDA" || question.type === "MULTI_SELECT" || question.type === "DROPDOWN" ? question.allowOther : false,
           shuffleOptions: question.shuffleOptions,
@@ -163,6 +182,7 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
       releaseMode: true,
       availableFrom: true,
       availableUntil: true,
+      examDate: true,
       shareToken: true,
       createdAt: true,
       sections: { orderBy: { order: "asc" }, select: { id: true, order: true, title: true, description: true } },
@@ -185,6 +205,15 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
               expectedAnswer: true,
               mediaUrl: true,
               structuredPayload: true,
+              stimulusText: true,
+              language: true,
+              direction: true,
+              cognitiveLevel: true,
+              skill: true,
+              difficulty: true,
+              standard: true,
+              assessmentType: true,
+              rubric: true,
               allowOther: true,
               shuffleOptions: true,
               acceptedAnswers: true,
@@ -212,12 +241,21 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
       ...ujian,
       availableFrom: ujian.availableFrom ? ujian.availableFrom.toISOString().slice(0, 10) : null,
       availableUntil: ujian.availableUntil ? ujian.availableUntil.toISOString().slice(0, 10) : null,
+      examDate: ujian.examDate ? ujian.examDate.toISOString().slice(0, 10) : null,
       sections: ujian.sections.map((section) => ({ title: section.title, description: section.description })),
       questions: ujian.questions.map((question) => {
         const payload = (question.bankSoal.structuredPayload ?? null) as
-          | { min?: number; max?: number; minLabel?: string; maxLabel?: string; rows?: string[]; multiple?: boolean; correct?: Record<string, string>; validation?: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null } }
+          | { min?: number; max?: number; minLabel?: string; maxLabel?: string; rows?: string[]; multiple?: boolean; correct?: Record<string, string>; validation?: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null }; pairs?: Array<{ left?: string; right?: string }>; items?: string[] }
           | null;
         const rows = Array.isArray(payload?.rows) ? payload!.rows : [];
+        const rubricRaw = (question.bankSoal.rubric ?? null) as { criteria?: Array<{ name?: unknown; max?: unknown }> } | null;
+        const rubric = Array.isArray(rubricRaw?.criteria)
+          ? rubricRaw!.criteria.map((row) => ({ name: typeof row.name === "string" ? row.name : "", max: row.max !== undefined && row.max !== null ? String(row.max) : "" }))
+          : [];
+        const pairs = Array.isArray(payload?.pairs)
+          ? payload!.pairs.map((pair) => ({ left: typeof pair.left === "string" ? pair.left : "", right: typeof pair.right === "string" ? pair.right : "" }))
+          : [];
+        const sequenceItems = Array.isArray(payload?.items) ? payload!.items.filter((item): item is string => typeof item === "string") : [];
         return {
           id: question.id,
           type: question.bankSoal.type,
@@ -248,6 +286,17 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
           feedbackCorrect: question.bankSoal.feedbackCorrect ?? "",
           feedbackIncorrect: question.bankSoal.feedbackIncorrect ?? "",
           ...fileUploadFields(question.bankSoal.fileUploadConfig),
+          stimulusText: question.bankSoal.stimulusText ?? "",
+          language: question.bankSoal.language ?? "",
+          direction: question.bankSoal.direction ?? "",
+          cognitiveLevel: question.bankSoal.cognitiveLevel,
+          skill: question.bankSoal.skill,
+          difficulty: question.bankSoal.difficulty,
+          standard: question.bankSoal.standard ?? "",
+          assessmentType: question.bankSoal.assessmentType,
+          rubric,
+          pairs,
+          sequenceItems,
           options: question.bankSoal.options.map((option) => ({ label: option.label, content: option.content, mediaUrl: option.mediaUrl })),
           correctLabels: question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label),
         };
@@ -294,6 +343,7 @@ export async function createQuizForm(actor: Actor, input: unknown) {
         notifyGuruOnResponse: parsed.data.notifyGuruOnResponse,
         presentationMode: parsed.data.presentationMode,
         releaseMode: parsed.data.releaseMode,
+        examDate: parseDate(parsed.data.examDate),
         availableFrom: parseDate(parsed.data.availableFrom),
         availableUntil: parseDate(parsed.data.availableUntil),
         createdById: actor.id,
@@ -362,6 +412,7 @@ export async function updateQuizForm(actor: Actor, ujianId: string, input: unkno
         notifyGuruOnResponse: parsed.data.notifyGuruOnResponse,
         presentationMode: parsed.data.presentationMode,
         releaseMode: parsed.data.releaseMode,
+        examDate: parseDate(parsed.data.examDate),
         availableFrom: parseDate(parsed.data.availableFrom),
         availableUntil: parseDate(parsed.data.availableUntil),
       },

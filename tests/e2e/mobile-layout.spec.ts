@@ -110,29 +110,11 @@ test("Guru and Wali hero asides fit real mobile browser viewports", async ({ pag
   await expectNoHorizontalOverflow(page);
 });
 
-test("Guru Arabic question form and seeded RTL card use localized content", async ({ page }) => {
+test("Seeded RTL bank-soal card uses localized content", async ({ page }) => {
   test.setTimeout(60_000);
-  const arabicPrompt = "مَرْحَبًا يا Bilal، ماذا تتعلّم في LIMO A1؟";
 
   await login(page, "guru.arab@limo.local");
   await expect(page).toHaveURL(/\/guru$/, { timeout: 15_000 });
-  await page.goto("/guru/bank-soal/baru");
-  await hideNextDevTools(page);
-
-  const form = page.getByTestId("bank-soal-form");
-  await expect(form).toBeVisible();
-  await form.locator('select[name="kelasId"]').selectOption({ label: "Arabic for Kids - Arabic Pemula A" });
-  await form.getByLabel("Bahasa konten").fill("ar");
-  await form.getByLabel("Arah konten").selectOption("rtl");
-  const questionField = page.getByTestId("bank-soal-question-field");
-  await questionField.fill(arabicPrompt);
-  await expect(questionField).toHaveAttribute("lang", "ar");
-  await expect(questionField).toHaveAttribute("dir", "rtl");
-  await expect(page.getByTestId("bank-soal-primary-content")).toHaveScreenshot("guru-arabic-bank-soal-form.png", { animations: "disabled" });
-
-  const fontVariable = await page.locator("html").evaluate((element) => getComputedStyle(element).getPropertyValue("--font-arabic").trim());
-  expect(fontVariable).not.toBe("");
-
   await page.goto("/guru/bank-soal");
   await hideNextDevTools(page);
 

@@ -85,8 +85,8 @@ Kecuali bagian Status Implementasi, temuan, skor, daftar residu, dan rekomendasi
 | Kelas Saya | `/guru/kelas`, `/guru/kelas/[kelasId]` | Ada | Kartu kelas, roster, detail, dan ringkasan tersedia. |
 | Sesi | Form/list di `/guru/kelas/[kelasId]`, agenda `/guru/jadwal` | **Parsial/Gap IA** | Tidak ada `/guru/sesi`; edit/cancel dan lifecycle sesi tidak lengkap. |
 | Materi | `/guru/materi` -> `/guru/kelas/[kelasId]` | Parsial | Halaman Materi hanya launcher kelas; workspace aktual bercampur dengan sesi dan roster. |
-| Bank Soal | `/guru/bank-soal` | Ada, parsial | Create/list/pagination tersedia; search/filter/edit dan empty state belum matang. |
-| Ujian | `/guru/ujian` (hub "Ujian & Kuis" + `/guru/ujian/baru`), nested hasil/koreksi | Ada | Satu daftar untuk ujian dan formulir kuis; pembuatan dipisah ke `/guru/ujian/baru` (dari Bank Soal) dan `/guru/kuis/baru` (builder). `/guru/kuis` lama mengarah ke hub. Konflik PRD, RTL, dan scaling masih ada. |
+| Pustaka Soal | `/guru/bank-soal` | Ada | Telusuri/cari/filter/duplikat/arsip soal. Pembuatan dan pengubahan soal dilakukan di builder formulir (`/guru/kuis/baru`), bukan halaman berdiri sendiri. |
+| Ujian | `/guru/ujian` (hub "Ujian & Kuis") + builder `/guru/kuis/baru` & `/guru/kuis/[ujianId]/edit`, nested hasil/koreksi | Ada | Satu daftar untuk semua asesmen; semuanya dibuat dengan builder ala Google Forms yang sama (21 tipe soal). `/guru/ujian/baru` mengarah ke builder. |
 | Presensi | `/guru/presensi`, `/guru/presensi/[sesiKelasId]` | Ada, bermasalah | Card-first dan bulk hadir bagus, tetapi `TERLAMBAT` tidak dapat diinput. |
 | Progres | `/guru/progres`, `/guru/progres/[sesiKelasId]` | Ada, bermasalah | Ada autosave dan input per siswa, tetapi pergantian kategori dapat menyimpan nilai kategori lain. |
 | Penilaian Esai | Nested di `/guru/ujian/[ujianId]/hasil/.../koreksi` | **Parsial/Gap IA** | Tidak ada queue lintas ujian, count pekerjaan, filter `NEEDS_REVIEW`, atau menu khusus. |

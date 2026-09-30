@@ -1,7 +1,8 @@
 import { z } from "zod";
+import { QUESTION_TYPE_VALUES } from "@/lib/question-types";
 
-// Tipe soal yang ditampilkan di Form Builder (mirip Google Forms, sesuai kebutuhan LIMO).
-export const QUIZ_QUESTION_TYPES = ["PILIHAN_GANDA", "MULTI_SELECT", "BENAR_SALAH", "ISIAN_SINGKAT", "DROPDOWN", "SKALA", "RATING", "TANGGAL", "WAKTU", "GRID", "FILE_UPLOAD", "ESAI"] as const;
+// Tipe soal yang ditampilkan di Form Builder (ala Google Forms + tipe performa LIMO).
+export const QUIZ_QUESTION_TYPES = QUESTION_TYPE_VALUES;
 
 export const QUIZ_THEME_COLORS = ["blue", "green", "purple", "orange", "red", "teal", "slate"] as const;
 
@@ -66,6 +67,23 @@ const questionSchema = z
     uploadMaxSizeMb: z.coerce.number().int().min(0).max(200).default(0),
     options: z.array(optionSchema).max(10).default([]),
     correctLabels: z.array(z.string().trim().min(1).max(8)).max(10).default([]),
+    stimulusText: z.string().trim().max(10000).optional().or(z.literal("")),
+    language: z.string().trim().max(16).optional().or(z.literal("")),
+    direction: z.enum(["ltr", "rtl"]).optional().or(z.literal("")),
+    cognitiveLevel: z.enum(["LOTS", "MOTS", "HOTS"]).default("LOTS"),
+    skill: z.enum(["LISTENING", "READING", "SPEAKING", "WRITING", "VOCABULARY", "GRAMMAR", "PRONUNCIATION", "NUMERACY", "LITERACY"]).default("VOCABULARY"),
+    difficulty: z.enum(["EASY", "MEDIUM", "HARD"]).default("EASY"),
+    standard: z.string().trim().max(64).optional().or(z.literal("")),
+    assessmentType: z.enum(["FORMATIVE", "SUMMATIVE", "PLACEMENT", "DIAGNOSTIC"]).default("FORMATIVE"),
+    rubric: z
+      .array(z.object({ name: z.string().trim().min(1).max(120), max: z.coerce.number().int().min(1).max(1000) }))
+      .max(10)
+      .default([]),
+    pairs: z
+      .array(z.object({ left: z.string().trim().min(1).max(500), right: z.string().trim().min(1).max(500) }))
+      .max(10)
+      .default([]),
+    sequenceItems: z.array(z.string().trim().min(1).max(500)).max(20).default([]),
   })
   .superRefine((value, ctx) => {
     if (singleChoiceTypes.has(value.type)) {
@@ -133,6 +151,15 @@ const questionSchema = z
     if ((value.type === "TANGGAL" || value.type === "WAKTU") && !(value.expectedAnswer || "").trim()) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["expectedAnswer"], message: "Kunci jawaban wajib diisi" });
     }
+    if (value.type === "CLOZE" && !(value.expectedAnswer || "").trim()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["expectedAnswer"], message: "Kunci cloze wajib diisi" });
+    }
+    if (value.type === "MENJODOHKAN" && value.pairs.filter((pair) => pair.left.trim() && pair.right.trim()).length < 2) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["pairs"], message: "Minimal dua pasangan jawaban" });
+    }
+    if (value.type === "URUTAN" && value.sequenceItems.length < 2) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sequenceItems"], message: "Minimal dua item urutan" });
+    }
   });
 
 const dateField = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal(""));
@@ -166,6 +193,7 @@ export const saveQuizFormSchema = z.object({
   notifyGuruOnResponse: z.boolean().default(false),
   presentationMode: z.enum(["ALL", "ONE_PER_PAGE"]).default("ALL"),
   releaseMode: z.enum(["IMMEDIATE", "AFTER_REVIEW"]).default("IMMEDIATE"),
+  examDate: dateField,
   availableFrom: dateField,
   availableUntil: dateField,
   sections: z

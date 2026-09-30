@@ -94,7 +94,7 @@ test("Guru session, essay, and bank-soal workspaces have no WCAG 2 A/AA violatio
   await login(page, "guru@limo.local");
   await expect(page).toHaveURL(/\/guru$/, { timeout: 15_000 });
 
-  for (const path of ["/guru/sesi", "/guru/penilaian-esai", "/guru/bank-soal", "/guru/bank-soal/baru"]) {
+  for (const path of ["/guru/sesi", "/guru/penilaian-esai", "/guru/bank-soal", "/guru/kuis/baru"]) {
     await page.goto(path);
     await expect(page.locator("#dashboard-content")).toBeVisible();
     await expectNoAxeViolations(page, DASHBOARD_INTERACTION_SCOPE);

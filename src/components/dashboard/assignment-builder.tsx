@@ -8,6 +8,7 @@ import { requestJson } from "@/lib/api-json-client";
 import { formatUiLabel } from "@/lib/ui-labels";
 import { useAsyncAction } from "@/components/dashboard/use-async-action";
 import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
+import { BuilderCard } from "@/components/builder/builder-card";
 
 type DateValue = string | Date | null;
 const assignmentRequestFallback = "Perubahan tugas gagal disimpan";
@@ -74,12 +75,8 @@ export function AssignmentBuilder({ kelasId, initialAssignments, rubrics = [] }:
 
   return (
     <div className="space-y-6">
-      <form onSubmit={create} className="tailadmin-card grid gap-4 p-5">
-        <div>
-          <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-500">Tugas online</p>
-          <h2 className="mt-1 text-lg font-semibold text-gray-900">Buat tugas baru</h2>
-          <p className="mt-1 text-theme-sm text-gray-500">Tugas terpisah dari ujian. Draf siswa tersimpan dengan nomor versi dan dapat dilanjutkan setelah login ulang.</p>
-        </div>
+      <form onSubmit={create}>
+        <BuilderCard eyebrow="Tugas online" title="Buat tugas baru" description="Tugas terpisah dari ujian. Draf siswa tersimpan dengan nomor versi dan dapat dilanjutkan setelah login ulang.">
         {error ? <p className="tailadmin-alert-error">{error}</p> : null}
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem_7rem]">
           <input name="title" required minLength={3} maxLength={200} placeholder="Judul tugas" className="tailadmin-input" />
@@ -106,6 +103,7 @@ export function AssignmentBuilder({ kelasId, initialAssignments, rubrics = [] }:
           <label className="flex items-center gap-2"><input name="allowResubmission" type="checkbox" /> Izinkan revisi</label>
         </div>
         <button disabled={isSubmitting} className="tailadmin-button-primary w-full sm:w-fit">{isSubmitting ? "Menyimpan..." : "Simpan Draf Tugas"}</button>
+        </BuilderCard>
       </form>
 
       {initialAssignments.length > 0 ? <div className="space-y-4">{initialAssignments.map((assignment) => <AssignmentCard key={assignment.id} assignment={assignment} rubrics={rubrics} onRefresh={() => router.refresh()} />)}</div> : <div className="tailadmin-card p-8 text-center text-theme-sm text-gray-500">Belum ada tugas. Buat draf pertama untuk kelas ini.</div>}

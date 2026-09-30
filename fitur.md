@@ -487,7 +487,7 @@ Bank soal menyimpan pertanyaan yang dapat digunakan kembali ketika Guru membuat 
 
 ### Halaman akses
 
-- `/guru/bank-soal`
+- `/guru/bank-soal` (Pustaka Soal — telusuri & pakai ulang; soal dibuat di formulir)
 
 ## 14. Ujian dan Penilaian
 
@@ -541,7 +541,7 @@ Modul ujian menyediakan pembuatan ujian, pelaksanaan ujian online oleh Wali, inp
 ### Halaman akses
 
 - `/guru/ujian` (satu daftar untuk ujian dan formulir kuis)
-- `/guru/ujian/baru` (buat ujian dari Bank Soal)
+- `/guru/ujian/baru` (mengarah ke builder formulir)
 - `/guru/kuis/baru` (buat formulir kuis online)
 - `/guru/ujian/[ujianId]/hasil`
 - `/guru/ujian/[ujianId]/hasil/[hasilId]/koreksi`

@@ -7,31 +7,43 @@ import { AssessmentTabs } from "@/components/dashboard/assessment-tabs";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { LocalizedContent } from "@/components/localized-content";
+import { QUESTION_TYPE_VALUES } from "@/lib/question-types";
 import { formatUiLabel } from "@/lib/ui-labels";
 
-export const metadata = { title: "Bank Soal" };
+export const metadata = { title: "Pustaka Soal" };
 
-export default async function GuruBankSoalPage({ searchParams }: { searchParams: Promise<{ page?: string; arsip?: string }> }) {
+export default async function GuruBankSoalPage({ searchParams }: { searchParams: Promise<{ page?: string; arsip?: string; search?: string; type?: string }> }) {
   const actor = await requireActor();
   await requirePermission(actor, "guru.assessment.manage");
   const params = await searchParams;
   const includeArchived = params.arsip === "1";
-  const { items: soal, pagination } = await listBankSoal(actor, { page: Number(params.page) || 1, pageSize: 20, includeArchived });
+  const search = typeof params.search === "string" ? params.search.trim() : "";
+  const type = QUESTION_TYPE_VALUES.find((value) => value === params.type);
+  const { items: soal, pagination } = await listBankSoal(actor, { page: Number(params.page) || 1, pageSize: 20, includeArchived, search, type });
 
   return (
     <main className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="tailadmin-page-title">Bank Soal</h1>
-          <p className="mt-2 tailadmin-muted">Kelola soal Bahasa Inggris dan Arab untuk gambar, pilihan ganda, benar/salah, mencocokkan, cloze, listening, speaking, writing, reading, dan roleplay.</p>
+          <h1 className="tailadmin-page-title">Pustaka Soal</h1>
+          <p className="mt-2 tailadmin-muted">Soal dibuat di dalam formulir, lalu otomatis tersimpan di pustaka ini untuk dipakai ulang. Susun soal baru dari halaman formulir.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={includeArchived ? "/guru/bank-soal" : "/guru/bank-soal?arsip=1"} className="tailadmin-button-outline px-4 py-2">{includeArchived ? "Sembunyikan arsip" : "Tampilkan arsip"}</Link>
-          <Link href="/guru/bank-soal/baru" target="_blank" rel="noopener noreferrer" className="tailadmin-button-primary px-4 py-2">Buat soal (tab baru)</Link>
+          <Link href="/guru/kuis/baru" className="tailadmin-button-primary px-4 py-2">Buat formulir baru</Link>
         </div>
       </div>
       <AssessmentTabs />
       <section className="space-y-4">
+        <form method="get" className="tailadmin-card grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,220px)_auto]">
+          <input name="search" defaultValue={search} placeholder="Cari pertanyaan" aria-label="Cari soal" className="tailadmin-input" />
+          <select name="type" defaultValue={type ?? ""} aria-label="Filter tipe soal" className="tailadmin-input">
+            <option value="">Semua tipe</option>
+            {QUESTION_TYPE_VALUES.map((value) => <option key={value} value={value}>{formatUiLabel(value)}</option>)}
+          </select>
+          <button type="submit" className="tailadmin-button-primary">Terapkan</button>
+          {includeArchived ? <input type="hidden" name="arsip" value="1" /> : null}
+        </form>
         {soal.length > 0 ? soal.map((item) => (
           <article key={item.id} data-testid="bank-soal-card" className="tailadmin-card p-5">
             <div className="flex flex-wrap gap-2">
@@ -54,12 +66,11 @@ export default async function GuruBankSoalPage({ searchParams }: { searchParams:
                 ))}
               </ul>
             ) : null}
-            <Link href={`/guru/bank-soal/${item.id}/pratinjau`} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex text-theme-sm font-semibold text-limo-blue-700 underline hover:text-limo-blue-800">Pratinjau (tab baru)</Link>
             <BankSoalActions id={item.id} archived={Boolean(item.archivedAt)} />
           </article>
-        )) : <EmptyState icon="exam" title="Bank soal masih kosong" description="Klik “Buat soal (tab baru)” untuk menyusun soal pertama pada kelas yang Anda ampu." />}
+        )) : <EmptyState icon="exam" title="Pustaka soal masih kosong" description="Buat soal di dalam formulir. Setiap soal yang Anda susun akan otomatis muncul di pustaka ini." />}
       </section>
-      <PaginationControls basePath="/guru/bank-soal" page={pagination.page} totalPages={pagination.totalPages} params={{ arsip: includeArchived ? "1" : undefined }} />
+      <PaginationControls basePath="/guru/bank-soal" page={pagination.page} totalPages={pagination.totalPages} params={{ arsip: includeArchived ? "1" : undefined, search: search || undefined, type: type || undefined }} />
     </main>
   );
 }

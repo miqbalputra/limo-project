@@ -35,33 +35,21 @@ test("Week 2 guru LMS and exam pages are usable on mobile", async ({ page }) => 
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/guru/bank-soal");
-  await expect(page.getByRole("heading", { name: "Bank Soal", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Buat soal (tab baru)" })).toBeVisible();
-  await expectNoHorizontalOverflow(page);
-
-  await page.goto("/guru/bank-soal/baru");
-  await expect(page.getByRole("heading", { name: "Buat soal", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Tambah Bank Soal" })).toBeVisible();
-  await expect(page.getByPlaceholder("Tulis pertanyaan atau prompt untuk siswa")).toBeVisible();
-  await expect(page.locator('select[name="type"]')).toContainText("Bermain peran");
+  await expect(page.getByRole("heading", { name: "Pustaka Soal", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Buat formulir baru" })).toBeVisible();
+  await expect(page.getByPlaceholder("Cari pertanyaan")).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/guru/ujian");
   await expect(page.getByRole("heading", { name: "Ujian & Kuis", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Buat Ujian (dari Bank Soal)" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Buat formulir baru" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Duplikat sebagai Draf" }).first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
-  await page.goto("/guru/ujian/baru");
-  await expect(page.getByRole("heading", { name: "Buat Ujian" })).toBeVisible();
-  await expect(page.getByPlaceholder("Durasi ujian dalam menit")).toBeVisible();
-  await page.getByPlaceholder("Judul ujian").fill("Preview Assessment Demo");
-  await page.locator('textarea[name="description"]').fill("Assessment preview before publish.");
-  await page.locator('input[name="bankSoalId"]').first().check();
-  await page.getByRole("button", { name: "Lihat pratinjau" }).click();
-  await expect(page.getByRole("heading", { name: "Preview Assessment Demo" })).toBeVisible();
-  await expect(page.getByText("Assessment preview before publish.")).toBeVisible();
-  await expect(page.getByText(/Soal terpilih \(1\)/)).toBeVisible();
+  await page.goto("/guru/kuis/baru");
+  await expect(page.getByRole("heading", { name: "Buat Formulir Baru" })).toBeVisible();
+  await expect(page.getByLabel("Pertanyaan soal 1")).toBeVisible();
+  await expect(page.getByRole("button", { name: "+ Isian singkat" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/guru/ujian");

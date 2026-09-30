@@ -83,6 +83,39 @@ function baseQuestions() {
   ];
 }
 
+const ALL_QUESTION_TYPES = ["PILIHAN_GANDA", "MULTI_SELECT", "DROPDOWN", "BENAR_SALAH", "ISIAN_SINGKAT", "ESAI", "CLOZE", "SKALA", "RATING", "GRID", "TANGGAL", "WAKTU", "FILE_UPLOAD", "MENJODOHKAN", "URUTAN", "GAMBAR", "LISTENING", "READING", "SPEAKING", "WRITING", "ROLEPLAY"];
+
+function optionRows(contents) {
+  return contents.map((content, index) => ({ label: "ABCDEFGHIJ"[index], content }));
+}
+
+function allTypeQuestions() {
+  const base = (type, extra = {}) => ({ type, question: `Soal ${type} uji`, required: true, points: 1, sectionIndex: 0, options: [], correctLabels: [], ...extra });
+  return [
+    base("PILIHAN_GANDA", { options: optionRows(["Satu", "Dua"]), correctLabels: ["A"] }),
+    base("MULTI_SELECT", { options: optionRows(["Satu", "Dua", "Tiga"]), correctLabels: ["A", "C"] }),
+    base("DROPDOWN", { options: optionRows(["Satu", "Dua"]), correctLabels: ["B"] }),
+    base("BENAR_SALAH", { expectedAnswer: "benar" }),
+    base("ISIAN_SINGKAT", { expectedAnswer: "dua" }),
+    base("ESAI", {}),
+    base("CLOZE", { expectedAnswer: "kucing" }),
+    base("SKALA", { options: optionRows(["1", "2", "3", "4", "5"]), correctLabels: ["D"], scaleMin: 1, scaleMax: 5, expectedAnswer: "4" }),
+    base("RATING", { options: optionRows(["1", "2", "3", "4", "5"]), correctLabels: ["E"], scaleMin: 1, scaleMax: 5, expectedAnswer: "5" }),
+    base("GRID", { options: optionRows(["Ya", "Tidak"]), gridRows: ["Baris satu", "Baris dua"], gridMultiple: false, gridCorrect: ["A", "B"] }),
+    base("TANGGAL", { expectedAnswer: "2026-10-05" }),
+    base("WAKTU", { expectedAnswer: "08:30" }),
+    base("FILE_UPLOAD", { uploadAllowedTypes: ["text/plain"], uploadMaxSizeMb: 2 }),
+    base("MENJODOHKAN", { pairs: [{ left: "satu", right: "one" }, { left: "dua", right: "two" }] }),
+    base("URUTAN", { sequenceItems: ["Satu", "Dua", "Tiga"] }),
+    base("GAMBAR", { mediaUrl: "/uploads/contoh.png" }),
+    base("LISTENING", { mediaUrl: "/uploads/contoh.mp3" }),
+    base("READING", { stimulusText: "Teks bacaan uji", language: "ar", direction: "rtl", skill: "READING", difficulty: "HARD", cognitiveLevel: "HOTS", assessmentType: "SUMMATIVE", standard: "CEFR A1" }),
+    base("SPEAKING", { rubric: [{ name: "Kelancaran", max: 4 }] }),
+    base("WRITING", { rubric: [{ name: "Isi", max: 5 }] }),
+    base("ROLEPLAY", { rubric: [{ name: "Ekspresi", max: 3 }] }),
+  ];
+}
+
 function basePayload(kelasId) {
   return {
     kelasId,
@@ -660,6 +693,55 @@ try {
   const blockedAfterResponse = await request(`/api/v1/kuis/${ujianId}`, { method: "PATCH", cookie: guru.cookie, body: basePayload(kelas.id) });
   assert.equal(blockedAfterResponse.response.status, 409);
   ok("Kuis yang sudah dikerjakan tidak dapat diubah (409)");
+
+  // Builder terpadu: 21 tipe soal + metadata tidak hilang saat disimpan lalu dibaca ulang.
+  const allForm = await request("/api/v1/kuis", {
+    method: "POST",
+    cookie: guru.cookie,
+    body: {
+      kelasId: kelas.id,
+      title: `Semua Tipe ${runId}`,
+      description: "Round-trip 21 tipe",
+      mode: "UJIAN",
+      deliveryMode: "ONLINE_VIA_WALI",
+      durationMinutes: 45,
+      maxAttempts: 1,
+      examDate: "2026-10-05",
+      sections: [{ title: "Bagian 1", description: "" }],
+      questions: allTypeQuestions(),
+    },
+  });
+  assert.equal(allForm.response.status, 201, JSON.stringify(allForm.payload));
+  const allFormId = allForm.payload.data.item.id;
+
+  const allDetail = await request(`/api/v1/kuis/${allFormId}`, { cookie: guru.cookie });
+  assert.equal(allDetail.response.status, 200, JSON.stringify(allDetail.payload));
+  const savedForm = allDetail.payload.data.item;
+  assert.equal(savedForm.examDate, "2026-10-05", "examDate harus tersimpan dan terbaca");
+  assert.equal(savedForm.questions.length, ALL_QUESTION_TYPES.length, "semua tipe soal tersimpan");
+  const byType = new Map(savedForm.questions.map((question) => [question.type, question]));
+  for (const type of ALL_QUESTION_TYPES) assert.ok(byType.has(type), `tipe ${type} harus tersimpan`);
+
+  assert.equal(byType.get("MENJODOHKAN").pairs.length, 2, "pasangan menjodohkan tersimpan");
+  assert.deepEqual(byType.get("URUTAN").sequenceItems, ["Satu", "Dua", "Tiga"]);
+  const reading = byType.get("READING");
+  assert.equal(reading.stimulusText, "Teks bacaan uji");
+  assert.equal(reading.language, "ar");
+  assert.equal(reading.direction, "rtl");
+  assert.equal(reading.skill, "READING");
+  assert.equal(reading.difficulty, "HARD");
+  assert.equal(reading.cognitiveLevel, "HOTS");
+  assert.equal(reading.assessmentType, "SUMMATIVE");
+  assert.equal(reading.standard, "CEFR A1");
+  assert.deepEqual(byType.get("SPEAKING").rubric, [{ name: "Kelancaran", max: "4" }], "rubrik tersimpan");
+  ok("Builder terpadu: 21 tipe + metadata (examDate, stimulus, bahasa, rubrik) round-trip tanpa kehilangan");
+
+  const allBankIds = (await prisma.ujianSoal.findMany({ where: { ujianId: allFormId }, select: { bankSoalId: true } })).map((row) => row.bankSoalId);
+  await prisma.ujian.delete({ where: { id: allFormId } }).catch(() => undefined);
+  if (allBankIds.length > 0) {
+    await prisma.opsiSoal.deleteMany({ where: { bankSoalId: { in: allBankIds } } }).catch(() => undefined);
+    await prisma.bankSoal.deleteMany({ where: { id: { in: allBankIds } } }).catch(() => undefined);
+  }
 } finally {
   if (mediaId) {
     const media = await prisma.quizMedia.findUnique({ where: { id: mediaId }, select: { storagePath: true } }).catch(() => null);

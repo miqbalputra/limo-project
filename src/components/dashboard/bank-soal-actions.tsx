@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
@@ -49,7 +48,6 @@ export function BankSoalActions({ id, archived = false }: { id: string; archived
   return (
     <>
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Link href={`/guru/bank-soal/${id}/edit`} className="tailadmin-button-outline px-3 py-2 text-theme-xs">Ubah</Link>
         <button type="button" disabled={Boolean(busy)} onClick={() => void duplicate()} className="tailadmin-button-outline px-3 py-2 text-theme-xs">{busy === "duplicate" ? "Memproses..." : "Duplikat"}</button>
         {archived ? (
           <button type="button" disabled={Boolean(busy)} onClick={() => void restore()} className="tailadmin-button-primary px-3 py-2 text-theme-xs">Pulihkan</button>

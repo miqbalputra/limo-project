@@ -9,6 +9,16 @@ export type QuizBranchRule = {
   goToSectionKey: string | null;
 };
 
+export type QuizRubricRow = {
+  name: string;
+  max: string;
+};
+
+export type QuizPair = {
+  left: string;
+  right: string;
+};
+
 export type QuizQuestion = {
   key: string;
   type: string;
@@ -41,6 +51,17 @@ export type QuizQuestion = {
   uploadAllowedTypes: string[];
   uploadMaxSizeMb: number;
   options: { content: string; isCorrect: boolean; mediaUrl: string }[];
+  stimulusText: string;
+  language: string;
+  direction: string;
+  cognitiveLevel: string;
+  skill: string;
+  difficulty: string;
+  standard: string;
+  assessmentType: string;
+  rubric: QuizRubricRow[];
+  pairs: QuizPair[];
+  sequenceItems: string[];
 };
 
 export type QuizFormState = {
@@ -69,6 +90,7 @@ export type QuizFormState = {
   notifyGuruOnResponse: boolean;
   presentationMode: string;
   releaseMode: string;
+  examDate: string;
   availableFrom: string;
   availableUntil: string;
   sections: QuizSection[];
@@ -87,8 +109,27 @@ export function newSectionKey() {
   return `s-${Date.now()}-${counter}`;
 }
 
+const CHOICE_TYPES = new Set(["PILIHAN_GANDA", "MULTI_SELECT", "DROPDOWN"]);
+const SCALE_TYPES = new Set(["SKALA", "RATING"]);
+
+export function questionHasOptions(type: string) {
+  return CHOICE_TYPES.has(type);
+}
+
+export function questionHasScale(type: string) {
+  return SCALE_TYPES.has(type);
+}
+
+export function newRubricRow(): QuizRubricRow {
+  return { name: "", max: "" };
+}
+
+export function newPair(): QuizPair {
+  return { left: "", right: "" };
+}
+
 export function newQuestion(type = "PILIHAN_GANDA", sectionKey = ""): QuizQuestion {
-  const withOptions = type === "PILIHAN_GANDA" || type === "MULTI_SELECT" || type === "DROPDOWN";
+  const blank = { content: "", isCorrect: false, mediaUrl: "" };
   const grid = type === "GRID";
   return {
     key: newQuestionKey(),
@@ -121,7 +162,24 @@ export function newQuestion(type = "PILIHAN_GANDA", sectionKey = ""): QuizQuesti
     feedbackIncorrect: "",
     uploadAllowedTypes: [],
     uploadMaxSizeMb: 0,
-    options: withOptions ? [{ content: "", isCorrect: false, mediaUrl: "" }, { content: "", isCorrect: false, mediaUrl: "" }] : grid ? [{ content: "", isCorrect: false, mediaUrl: "" }, { content: "", isCorrect: false, mediaUrl: "" }, { content: "", isCorrect: false, mediaUrl: "" }] : [],
+    options: CHOICE_TYPES.has(type)
+      ? [blank, blank]
+      : grid
+        ? [blank, blank, blank]
+        : SCALE_TYPES.has(type)
+          ? Array.from({ length: 5 }, (_, index) => ({ content: String(index + 1), isCorrect: index === 0, mediaUrl: "" }))
+          : [],
+    stimulusText: "",
+    language: "",
+    direction: "",
+    cognitiveLevel: "LOTS",
+    skill: "VOCABULARY",
+    difficulty: "EASY",
+    standard: "",
+    assessmentType: "FORMATIVE",
+    rubric: [],
+    pairs: type === "MENJODOHKAN" ? [newPair(), newPair()] : [],
+    sequenceItems: type === "URUTAN" ? ["", "", ""] : [],
   };
 }
 
@@ -153,6 +211,7 @@ export function emptyQuizForm(): QuizFormState {
     notifyGuruOnResponse: false,
     presentationMode: "ALL",
     releaseMode: "IMMEDIATE",
+    examDate: "",
     availableFrom: "",
     availableUntil: "",
     sections: [{ key: sectionKey, title: "Bagian 1", description: "" }],

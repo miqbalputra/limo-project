@@ -8,6 +8,7 @@ import { requestJson } from "@/lib/api-json-client";
 import { formatUiLabel } from "@/lib/ui-labels";
 import { useAsyncAction } from "@/components/dashboard/use-async-action";
 import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
+import { BuilderCard } from "@/components/builder/builder-card";
 
 type DateValue = string | Date | null;
 const moduleRequestFallback = "Perubahan modul gagal disimpan";
@@ -95,12 +96,8 @@ export function LearningModuleBuilder({ kelasId, initialModules, options }: { ke
 
   return (
     <div className="space-y-6">
-      <form onSubmit={createModule} className="tailadmin-card grid gap-4 p-5">
-        <div>
-          <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-500">Penyusun modul</p>
-          <h2 className="mt-1 text-lg font-semibold text-gray-900">Buat alur belajar baru</h2>
-          <p className="mt-1 text-theme-sm text-gray-500">Susun materi, sesi, dan ujian yang sudah ada tanpa menghapus akses daftar materi lama.</p>
-        </div>
+      <form onSubmit={createModule}>
+        <BuilderCard eyebrow="Penyusun modul" title="Buat alur belajar baru" description="Susun materi, sesi, dan ujian yang sudah ada tanpa menghapus akses daftar materi lama.">
         {error ? <p className="tailadmin-alert-error">{error}</p> : null}
         <div className="grid gap-3 md:grid-cols-2">
           <input name="title" required minLength={3} maxLength={200} placeholder="Judul modul, misalnya Unit 1: Greetings" className="tailadmin-input" />
@@ -118,6 +115,7 @@ export function LearningModuleBuilder({ kelasId, initialModules, options }: { ke
         <button disabled={isCreating} className="tailadmin-button-primary w-full sm:w-fit">
           {isCreating ? "Menyimpan..." : "Tambah Modul"}
         </button>
+        </BuilderCard>
       </form>
 
       {initialModules.length > 0 ? (
@@ -301,11 +299,10 @@ function ModuleItemForm({ moduleId, items, options, onDone }: { moduleId: string
   }
 
   return (
-    <form onSubmit={submit} className="tailadmin-card p-4">
-      <h3 className="font-semibold text-gray-900">Tambah Aktivitas</h3>
-      <p className="mt-1 text-theme-xs leading-5 text-gray-500">Fase ini menghubungkan materi, sesi, dan ujian yang sudah ada.</p>
-      {error ? <p className="mt-3 tailadmin-alert-error">{error}</p> : null}
-      <div className="mt-4 grid gap-3">
+    <form onSubmit={submit}>
+      <BuilderCard eyebrow="Aktivitas modul" title="Tambah Aktivitas" description="Fase ini menghubungkan materi, sesi, dan ujian yang sudah ada.">
+      {error ? <p className="tailadmin-alert-error">{error}</p> : null}
+      <div className="grid gap-3">
         <select name="itemType" value={itemType} onChange={(event) => changeType(event.target.value)} dir="auto" className="tailadmin-input">
           <option value="MATERIAL">{formatUiLabel("MATERIAL")}</option>
           <option value="ASSIGNMENT">{formatUiLabel("ASSIGNMENT")}</option>
@@ -336,6 +333,7 @@ function ModuleItemForm({ moduleId, items, options, onDone }: { moduleId: string
         <label className="flex items-center gap-2 text-theme-sm text-gray-600"><input name="isRequired" type="checkbox" defaultChecked /> Aktivitas wajib</label>
         <button disabled={isSubmitting || choices.length === 0} className="tailadmin-button-primary w-full">{isSubmitting ? "Menambahkan..." : "Tambahkan ke Modul"}</button>
       </div>
+      </BuilderCard>
     </form>
   );
 }
@@ -348,7 +346,7 @@ function ModuleItemRow({ item, index, total, onMove, onDelete, busy }: { item: L
   }
 
   return (
-    <><article className="rounded-xl border border-gray-100 bg-white p-4 shadow-theme-xs">
+    <><article className="tailadmin-card p-4">
       <div className="flex items-start gap-3">
         <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-limo-blue-50 text-theme-xs font-semibold text-limo-blue-600">{index + 1}</span>
         <div className="min-w-0 flex-1">

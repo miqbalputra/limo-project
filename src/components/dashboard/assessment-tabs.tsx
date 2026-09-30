@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 const TABS = [
   { label: "Ujian & Kuis", href: "/guru/ujian", prefixes: ["/guru/ujian", "/guru/kuis"] },
-  { label: "Bank Soal", href: "/guru/bank-soal", prefixes: ["/guru/bank-soal"] },
+  { label: "Pustaka Soal", href: "/guru/bank-soal", prefixes: ["/guru/bank-soal"] },
   { label: "Penilaian Esai", href: "/guru/penilaian-esai", prefixes: ["/guru/penilaian-esai"] },
 ] as const;
 
