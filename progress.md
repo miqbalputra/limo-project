@@ -515,3 +515,10 @@ Dibangun 3 fase sesuai `rencana.md` FASE 9, di balik flag **`CLASS_DISCUSSION_EN
 - `quiz-builder.tsx` menyusut **1362 → 1291 baris** (dari 1657 sebelum ekstraksi dimulai, turun ±22%). Tanpa perubahan perilaku, markup, atau nama aksesibel.
 - **Verifikasi**: `typecheck` ✓ · `lint` 0 error ✓ · e2e `form-builder-editors` 2/2 ✓ (menjodohkan, urutan, rubrik, metadata) · e2e `quiz-builder` 2/2 ✓.
 - **Sisa ekstraksi**: validasi jawaban, unggah berkas, branching, stimulus, umpan balik, kunci tanggal/waktu, blok isian/cloze, dan pemilih bank soal/dialog impor; lalu hook state/undo/autosave.
+
+## Ekstraksi Kit Builder — Tahap 6: Sisa Field Kartu Soal (30 Sep 2026)
+
+- `src/components/builder/question-extra-fields.tsx` (`QuestionExtraFields`) menampung sisa field kartu soal: umpan balik benar/salah, konfigurasi unggah berkas, branching antar bagian, kunci benar/salah, kunci + validasi jawaban (angka/panjang/regex/jumlah pilihan), pembahasan, dan footer (wajib diisi, poin, acak opsi).
+- `quiz-builder.tsx` menyusut **1291 → 1171 baris** (dari 1657 sebelum ekstraksi dimulai, turun ±29%).
+- **Verifikasi**: `typecheck` ✓ · `lint` 0 error ✓ · e2e `form-builder-editors` 2/2 ✓ · e2e `quiz-builder` 2/2 ✓.
+- **Sisa ekstraksi**: pengelola bagian (section), pemilih bank soal, dialog impor soal; lalu hook state/undo/autosave.
