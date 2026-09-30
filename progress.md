@@ -501,3 +501,10 @@ Dibangun 3 fase sesuai `rencana.md` FASE 9, di balik flag **`CLASS_DISCUSSION_EN
 - `quiz-builder.tsx` menyusut **1490 → 1423 baris**. Tanpa perubahan perilaku, markup, atau nama aksesibel.
 - **Verifikasi**: `typecheck` ✓ · `lint` 0 error ✓ · e2e `form-builder-editors` 2/2 ✓ · e2e `quiz-builder` 2/2 ✓.
 - **Sisa ekstraksi**: editor tabel (baris + kunci), skala/rating, menjodohkan, urutan, rubrik, stimulus, metadata, validasi, unggah, branching; lalu hook state/undo/autosave.
+
+## Ekstraksi Kit Builder — Tahap 4: Editor Tabel & Skala (30 Sep 2026)
+
+- Editor **tabel pilihan** dan **skala/rating** dipindah ke `src/components/builder/question-grid-scale-editors.tsx` (`QuestionGridEditor`, `QuestionScaleEditor`): baris pernyataan dengan drag + tombol urut dan kunci kolom; rentang skala, label ujung, dan jawaban benar.
+- `quiz-builder.tsx` menyusut **1423 → 1362 baris**. Tanpa perubahan perilaku, markup, atau nama aksesibel.
+- **Verifikasi**: `typecheck` ✓ · `lint` 0 error ✓ · e2e `form-builder-editors` 2/2 ✓ (khususnya skala & tabel) · e2e `quiz-builder` 2/2 ✓.
+- **Sisa ekstraksi**: menjodohkan, urutan, rubrik, stimulus, metadata & pedagogi, validasi jawaban, unggah berkas, branching, dan pemilih bank soal/impor; lalu hook state/undo/autosave.
