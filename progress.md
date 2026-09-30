@@ -486,3 +486,10 @@ Dibangun 3 fase sesuai `rencana.md` FASE 9, di balik flag **`CLASS_DISCUSSION_EN
 - **Verifikasi**: `typecheck` ✓ · `lint` 0 error ✓ · `npm test` 43 ✓ · `test:guards` 221 route ✓ · `test:quiz-builder` ✓ (termasuk round-trip 21 tipe) · e2e `quiz-builder` 2/2 ✓ (termasuk interaksi tab Pengaturan).
 - **Tahap 2 (30 Sep 2026)**: kartu kepala + toolbar (status draf/terbit, simpan, undo/redo, pratinjau, cetak PDF, duplikat, publikasi, judul, deskripsi, pemilih kelas) dipindah ke `src/components/builder/builder-header-card.tsx` (`BuilderHeaderCard`). `quiz-builder.tsx` kini ±1460 baris. Verifikasi: `typecheck` ✓ · `lint` 0 error ✓ · e2e `quiz-builder` 2/2 ✓.
 - **Sisa ekstraksi**: kartu soal + editor per tipe (bagian terbesar, ±600 baris) dan hook state/undo/autosave.
+
+## Jaring Pengaman E2E Editor Builder (30 Sep 2026)
+
+- Spec baru `tests/e2e/form-builder-editors.spec.ts` (2 tes) mengisi lalu menyimpan dan memuat ulang lewat UI untuk editor yang sebelumnya **tanpa cakupan e2e**: **skala** (min/max/label/jawaban benar), **urutan** (item), **menjodohkan** (pasangan), **tabel** (kolom, baris, kunci), **cloze** (stimulus + kunci), **unggah berkas** (tipe + ukuran), **rubrik** (kriteria + skor maks), dan **metadata & pedagogi** (bahasa, arah RTL, level kognitif, keterampilan, kesulitan, tipe asesmen). Tes juga memastikan tidak ada overflow horizontal.
+- Perbaikan aksesibilitas kecil: `<select>` kunci baris tabel kini punya `aria-label` `Kunci baris N` (sebelumnya tidak bernama sehingga ambigu bagi pembaca layar dan tes).
+- Verifikasi: e2e `form-builder-editors` 2/2 ✓.
+- Ini prasyarat sebelum memindahkan kartu soal + editor dari `quiz-builder.tsx` ke `src/components/builder/*`.

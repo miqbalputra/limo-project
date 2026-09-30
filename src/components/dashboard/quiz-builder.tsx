@@ -1152,7 +1152,7 @@ export function QuizBuilder({
                           <input value={row} onChange={(event) => updateGridRow(question.key, rowIndex, event.target.value)} placeholder={`Pernyataan ${rowIndex + 1}`} dir="auto" className="tailadmin-input flex-1" />
                           <label className="flex items-center gap-1 text-theme-xs text-gray-500">
                             Kunci
-                            <select value={question.gridCorrect[rowIndex] ?? ""} onChange={(event) => setGridCorrect(question.key, rowIndex, event.target.value)} className="tailadmin-input py-1.5">
+                            <select value={question.gridCorrect[rowIndex] ?? ""} onChange={(event) => setGridCorrect(question.key, rowIndex, event.target.value)} aria-label={`Kunci baris ${rowIndex + 1}`} className="tailadmin-input py-1.5">
                               <option value="">-</option>
                               {question.options.map((_, columnIndex) => <option key={columnIndex} value={LABELS[columnIndex]}>{LABELS[columnIndex]}</option>)}
                             </select>
