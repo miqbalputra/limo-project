@@ -7,6 +7,7 @@ import { ShareExamButton } from "@/components/dashboard/share-exam-button";
 import { QuizPreview } from "@/components/dashboard/quiz-preview";
 import { formatUiLabel } from "@/lib/ui-labels";
 import { questionTypesByGroup } from "@/lib/question-types";
+import { BuilderSettingsPanel } from "@/components/builder/builder-settings-panel";
 import { newPair, newQuestion, newQuestionKey, newRubricRow, newSectionKey, questionHasOptions, questionHasScale, type QuizFormState, type QuizQuestion } from "@/lib/quiz-builder";
 
 type KelasOption = { id: string; name: string };
@@ -21,16 +22,6 @@ const MANUAL_TYPES = new Set(["SPEAKING", "WRITING", "ROLEPLAY", "GAMBAR", "LIST
 const STIMULUS_TYPES = new Set(["READING", "LISTENING", "CLOZE", "GAMBAR", "ROLEPLAY", "SPEAKING", "WRITING"]);
 
 const LABELS = "ABCDEFGHIJ".split("");
-
-export const THEME_COLORS = [
-  { value: "blue", label: "Biru", hex: "#465fff" },
-  { value: "green", label: "Hijau", hex: "#12b76a" },
-  { value: "purple", label: "Ungu", hex: "#7a5af8" },
-  { value: "orange", label: "Oranye", hex: "#f79009" },
-  { value: "red", label: "Merah", hex: "#f04438" },
-  { value: "teal", label: "Teal", hex: "#15b79e" },
-  { value: "slate", label: "Abu", hex: "#475467" },
-] as const;
 
 function toPayload(form: QuizFormState) {
   const sectionIndexByKey = new Map(form.sections.map((section, index) => [section.key, index]));
@@ -1511,126 +1502,7 @@ export function QuizBuilder({
           </section>
         </div>
       ) : (
-        <section className="tailadmin-card grid gap-4 p-5 sm:grid-cols-2">
-          <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-            Jenis
-            <select value={form.mode} onChange={(event) => patchForm({ mode: event.target.value })} className="mt-2 tailadmin-input">
-              <option value="UJIAN">Ujian</option>
-              <option value="LATIHAN">Latihan</option>
-            </select>
-          </label>
-          <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-            Mode pengiriman
-            <select value={form.deliveryMode} onChange={(event) => patchForm({ deliveryMode: event.target.value })} className="mt-2 tailadmin-input">
-              <option value="ONLINE_VIA_WALI">Online via wali</option>
-              <option value="ONLINE_VIA_SISWA">Online via siswa</option>
-              <option value="BOTH">Online + input guru</option>
-              <option value="TEACHER_ENTRY">Input guru saja</option>
-            </select>
-          </label>
-          <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-            Durasi (menit)
-            <input type="number" min={1} max={600} value={form.durationMinutes} onChange={(event) => patchForm({ durationMinutes: Number(event.target.value) || 1 })} className="mt-2 tailadmin-input" />
-          </label>
-          <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-            Maksimal percobaan
-            <input type="number" min={1} max={5} value={form.maxAttempts} onChange={(event) => patchForm({ maxAttempts: Number(event.target.value) || 1 })} className="mt-2 tailadmin-input" />
-          </label>
-          <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-            KKM / nilai lulus (0-100)
-            <input type="number" min={0} max={100} value={form.passingScore} onChange={(event) => patchForm({ passingScore: event.target.value })} placeholder="Opsional" className="mt-2 tailadmin-input" />
-          </label>
-          <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-            Tanggal ujian
-            <input type="date" value={form.examDate} onChange={(event) => patchForm({ examDate: event.target.value })} className="mt-2 tailadmin-input" />
-          </label>
-          <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-            Tersedia mulai
-            <input type="date" value={form.availableFrom} onChange={(event) => patchForm({ availableFrom: event.target.value })} className="mt-2 tailadmin-input" />
-          </label>
-          <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-            Tersedia sampai
-            <input type="date" value={form.availableUntil} onChange={(event) => patchForm({ availableUntil: event.target.value })} className="mt-2 tailadmin-input" />
-          </label>
-          <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-            Tampilan soal
-            <select value={form.presentationMode} onChange={(event) => patchForm({ presentationMode: event.target.value })} className="mt-2 tailadmin-input">
-              <option value="ALL">Semua soal per halaman</option>
-              <option value="ONE_PER_PAGE">Satu soal per halaman</option>
-            </select>
-          </label>
-          <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-            Rilis nilai
-            <select value={form.releaseMode} onChange={(event) => patchForm({ releaseMode: event.target.value })} className="mt-2 tailadmin-input">
-              <option value="IMMEDIATE">Langsung setelah submit</option>
-              <option value="AFTER_REVIEW">Setelah guru merilis</option>
-            </select>
-          </label>
-          <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2">
-            <Toggle label="Acak urutan soal" checked={form.shuffleQuestions} onChange={(value) => patchForm({ shuffleQuestions: value })} />
-            <Toggle label="Acak urutan opsi" checked={form.shuffleOptions} onChange={(value) => patchForm({ shuffleOptions: value })} />
-            <Toggle label="Tampilkan skor langsung" checked={form.showScoreImmediately} onChange={(value) => patchForm({ showScoreImmediately: value })} />
-            <Toggle label="Tampilkan kunci & pembahasan" checked={form.showAnswersAfterSubmit} onChange={(value) => patchForm({ showAnswersAfterSubmit: value })} />
-            <Toggle label="Minta nama responden (tautan publik)" checked={form.collectRespondentName} onChange={(value) => patchForm({ collectRespondentName: value })} />
-            <Toggle label="Tampilkan hasil ke wali" checked={form.showResultToWali} onChange={(value) => patchForm({ showResultToWali: value })} />
-            <Toggle label="Tampilkan nilai ke siswa" checked={form.showResultToSiswa} onChange={(value) => patchForm({ showResultToSiswa: value })} />
-            <Toggle label="Mode aman (deteksi pindah tab)" checked={form.secureMode} onChange={(value) => patchForm({ secureMode: value })} />
-            <Toggle label="Kumpulkan email responden" checked={form.collectRespondentEmail} onChange={(value) => patchForm({ collectRespondentEmail: value })} />
-            <Toggle label="Kirim salinan jawaban ke responden" checked={form.sendCopyToRespondent} onChange={(value) => patchForm({ sendCopyToRespondent: value })} />
-            <Toggle label="Batasi 1 respons per email" checked={form.oneResponsePerEmail} onChange={(value) => patchForm({ oneResponsePerEmail: value })} />
-            <Toggle label="Notifikasi guru saat ada respons" checked={form.notifyGuruOnResponse} onChange={(value) => patchForm({ notifyGuruOnResponse: value })} />
-          </div>
-          <div className="sm:col-span-2">
-            <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">Gambar header (opsional)</p>
-            <p className="mt-1 text-theme-xs text-gray-400">Ditampilkan di bagian atas halaman publik kuis.</p>
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              {form.headerImageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={form.headerImageUrl} alt="Gambar header" className="h-20 w-full max-w-xs rounded-xl object-cover ring-1 ring-gray-200" />
-              ) : (
-                <span className="grid h-20 w-full max-w-xs place-items-center rounded-xl bg-gray-50 text-theme-xs text-gray-400 ring-1 ring-gray-200">Belum ada gambar</span>
-              )}
-              <div className="flex items-center gap-2">
-                <label className="tailadmin-button-outline cursor-pointer px-4 py-2 text-theme-xs focus-within:ring-2 focus-within:ring-limo-blue-500">
-                  {form.headerImageUrl ? "Ganti gambar" : "Unggah gambar"}
-                  <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void uploadHeaderImage(file); }} />
-                </label>
-                {form.headerImageUrl ? (
-                  <button type="button" onClick={() => patchForm({ headerImageUrl: "" })} className="text-theme-xs font-semibold text-error-600">Hapus gambar</button>
-                ) : null}
-              </div>
-            </div>
-          </div>
-          <div className="sm:col-span-2">
-            <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">Tema warna</p>
-            <p className="mt-1 text-theme-xs text-gray-400">Warna aksen untuk halaman publik kuis.</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {THEME_COLORS.map((color) => (
-                <button
-                  key={color.value}
-                  type="button"
-                  onClick={() => patchForm({ themeColor: color.value })}
-                  aria-label={`Tema ${color.label}`}
-                  aria-pressed={form.themeColor === color.value}
-                  title={color.label}
-                  className={`size-9 rounded-full border-2 transition ${form.themeColor === color.value ? "border-gray-900 ring-2 ring-gray-200" : "border-white ring-1 ring-gray-200"}`}
-                  style={{ backgroundColor: color.hex }}
-                />
-              ))}
-            </div>
-          </div>
-          <label className="sm:col-span-2 text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-            Pesan setelah dikirim (opsional)
-            <input
-              value={form.confirmationMessage}
-              onChange={(event) => patchForm({ confirmationMessage: event.target.value })}
-              placeholder="Contoh: Terima kasih, jawabanmu sudah tersimpan."
-              aria-label="Pesan konfirmasi"
-              dir="auto"
-              className="mt-2 tailadmin-input"
-            />
-          </label>
-        </section>
+        <BuilderSettingsPanel form={form} onPatch={patchForm} onUploadHeaderImage={uploadHeaderImage} />
       )}
 
       {currentStatus === "PUBLISHED" && id ? (
@@ -1643,14 +1515,5 @@ export function QuizBuilder({
 
       {previewOpen ? <QuizPreview form={form} onClose={() => setPreviewOpen(false)} /> : null}
     </div>
-  );
-}
-
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (_value: boolean) => void }) {
-  return (
-    <label className="flex items-center gap-2 rounded-xl bg-gray-50 p-3 text-theme-sm text-gray-700">
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="accent-limo-blue-500" />
-      {label}
-    </label>
   );
 }
