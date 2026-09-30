@@ -484,4 +484,5 @@ Dibangun 3 fase sesuai `rencana.md` FASE 9, di balik flag **`CLASS_DISCUSSION_EN
 - Panel **Pengaturan** builder soal dipindah dari `quiz-builder.tsx` ke komponen baru `src/components/builder/builder-settings-panel.tsx` (`BuilderSettingsPanel`); `Toggle` dan `THEME_COLORS` ikut pindah ke sana.
 - `quiz-builder.tsx` menyusut **1657 → 1520 baris**. Komponen hanya menerima `form`, `onPatch`, dan `onUploadHeaderImage` — tanpa perubahan perilaku, markup, atau nama aksesibel.
 - **Verifikasi**: `typecheck` ✓ · `lint` 0 error ✓ · `npm test` 43 ✓ · `test:guards` 221 route ✓ · `test:quiz-builder` ✓ (termasuk round-trip 21 tipe) · e2e `quiz-builder` 2/2 ✓ (termasuk interaksi tab Pengaturan).
-- **Sisa ekstraksi**: kartu soal + editor per tipe (bagian terbesar, ±600 baris), toolbar kepala (undo/redo/pratinjau/simpan/publikasi), dan hook state/undo/autosave.
+- **Tahap 2 (30 Sep 2026)**: kartu kepala + toolbar (status draf/terbit, simpan, undo/redo, pratinjau, cetak PDF, duplikat, publikasi, judul, deskripsi, pemilih kelas) dipindah ke `src/components/builder/builder-header-card.tsx` (`BuilderHeaderCard`). `quiz-builder.tsx` kini ±1460 baris. Verifikasi: `typecheck` ✓ · `lint` 0 error ✓ · e2e `quiz-builder` 2/2 ✓.
+- **Sisa ekstraksi**: kartu soal + editor per tipe (bagian terbesar, ±600 baris) dan hook state/undo/autosave.
