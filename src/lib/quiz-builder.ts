@@ -116,6 +116,8 @@ export function questionHasOptions(type: string) {
   return CHOICE_TYPES.has(type);
 }
 
+export const QUESTION_OPTION_LABELS = "ABCDEFGHIJ".split("");
+
 export function questionHasScale(type: string) {
   return SCALE_TYPES.has(type);
 }

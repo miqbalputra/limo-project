@@ -493,3 +493,11 @@ Dibangun 3 fase sesuai `rencana.md` FASE 9, di balik flag **`CLASS_DISCUSSION_EN
 - Perbaikan aksesibilitas kecil: `<select>` kunci baris tabel kini punya `aria-label` `Kunci baris N` (sebelumnya tidak bernama sehingga ambigu bagi pembaca layar dan tes).
 - Verifikasi: e2e `form-builder-editors` 2/2 ✓.
 - Ini prasyarat sebelum memindahkan kartu soal + editor dari `quiz-builder.tsx` ke `src/components/builder/*`.
+
+## Ekstraksi Kit Builder — Tahap 3: Editor Opsi (30 Sep 2026)
+
+- Editor opsi jawaban (pilihan ganda, kotak centang, dropdown, dan kolom tabel) dipindah ke `src/components/builder/question-options-editor.tsx` (`QuestionOptionsEditor`): pengurutan drag + tombol, gambar opsi, tombol hapus, dan opsi "Lainnya".
+- `QUESTION_OPTION_LABELS` dipindah ke `src/lib/quiz-builder.ts` agar label A–J tidak diduplikasi.
+- `quiz-builder.tsx` menyusut **1490 → 1423 baris**. Tanpa perubahan perilaku, markup, atau nama aksesibel.
+- **Verifikasi**: `typecheck` ✓ · `lint` 0 error ✓ · e2e `form-builder-editors` 2/2 ✓ · e2e `quiz-builder` 2/2 ✓.
+- **Sisa ekstraksi**: editor tabel (baris + kunci), skala/rating, menjodohkan, urutan, rubrik, stimulus, metadata, validasi, unggah, branching; lalu hook state/undo/autosave.
