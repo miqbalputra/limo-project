@@ -791,6 +791,7 @@ export function QuizBuilder({
               {form.sections.map((section, index) => (
                 <div
                   key={section.key}
+                  data-testid="builder-section-card"
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={() => {
                     if (dragSection) {
@@ -818,7 +819,7 @@ export function QuizBuilder({
                     <button type="button" onClick={() => moveSection(index, index - 1)} disabled={index === 0} aria-label="Naikkan bagian" className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-3 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">↑</button>
                     <button type="button" onClick={() => moveSection(index, index + 1)} disabled={index === form.sections.length - 1} aria-label="Turunkan bagian" className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-3 text-theme-xs text-gray-500 hover:bg-gray-50 disabled:opacity-40">↓</button>
                     {form.sections.length > 1 ? (
-                      <button type="button" onClick={() => removeSection(section.key)} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-error-200 px-3 text-theme-xs text-error-600 hover:bg-error-50">Hapus</button>
+                      <button type="button" onClick={() => removeSection(section.key)} aria-label={`Hapus bagian ${index + 1}`} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-error-200 px-3 text-theme-xs text-error-600 hover:bg-error-50">Hapus</button>
                     ) : null}
                   </div>
                   <input value={section.description} onChange={(event) => patchSection(section.key, { description: event.target.value })} placeholder="Deskripsi bagian (opsional)" dir="auto" className="tailadmin-input" />

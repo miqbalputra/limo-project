@@ -522,3 +522,24 @@ Dibangun 3 fase sesuai `rencana.md` FASE 9, di balik flag **`CLASS_DISCUSSION_EN
 - `quiz-builder.tsx` menyusut **1291 → 1171 baris** (dari 1657 sebelum ekstraksi dimulai, turun ±29%).
 - **Verifikasi**: `typecheck` ✓ · `lint` 0 error ✓ · e2e `form-builder-editors` 2/2 ✓ · e2e `quiz-builder` 2/2 ✓.
 - **Sisa ekstraksi**: pengelola bagian (section), pemilih bank soal, dialog impor soal; lalu hook state/undo/autosave.
+
+## Titik Lanjut (Resume Point) — Ekstraksi Kit Builder (30 Sep 2026)
+
+**Sudah selesai & ter-push** (commit `fc1e0c3` → `47bfac1`):
+- `src/components/builder/`: `builder-card.tsx`, `builder-header-card.tsx`, `builder-settings-panel.tsx`, `question-options-editor.tsx`, `question-grid-scale-editors.tsx`, `question-structure-editors.tsx`, `question-extra-fields.tsx`.
+- Pendukung: `src/lib/question-types.ts` (21 tipe), `src/lib/quiz-builder-mapping.ts` (DTO→state, tanpa downgrade ESAI), `QUESTION_OPTION_LABELS` di `src/lib/quiz-builder.ts`.
+- `quiz-builder.tsx`: **1657 → 1172 baris** (±30% lebih pendek), tanpa perubahan perilaku.
+
+**E2E sudah ditambahkan**
+- `tests/e2e/form-builder-editors.spec.ts` — 2/2 hijau: skala, urutan, menjodohkan, tabel, cloze, unggah berkas, rubrik, metadata.
+- `tests/e2e/form-builder-sections.spec.ts` — **1 hijau**, 2 `fixme`: pengelola bagian (tambah/ubah/reorder/hapus + munculnya "Bagian soal ini") sudah teruji. **Modal bank soal & dialog impor belum hijau** — daftar hasil tidak muncul saat diuji, sehingga keduanya ditandai `test.fixme` (bukan regresi produk; cakupan API-nya ada di `tests/run-quiz-builder-integration.mjs`).
+
+**Langkah berikutnya (urut)**
+1. **Perbaiki alur modal bank soal/impor** sampai bisa diuji end-to-end, lalu hidupkan kembali dua test `fixme` di `form-builder-sections.spec.ts`. Petunjuk: hasil pencarian bank soal (`bankResults`) tidak terender setelah tombol "Cari" di modal; periksa `openBankPicker`/`searchBankSoal` dan `addSelectedFromBank` yang memakai `window.location.reload()`.
+2. **Ekstraksi tahap 7**: `QuestionSectionManager` (blok "Bagian (section)") + pemilih bank soal + dialog impor keluar dari `quiz-builder.tsx`.
+3. **Ekstraksi tahap 8 (terakhir, paling berisiko)**: hook `useFormBuilder` — state, history/undo-redo, autosave, `toPayload`, `validate`. Sentuh seluruh alur simpan, jadi jalankan `test:quiz-builder` + e2e `quiz-builder` + `form-builder-editors` + `form-builder-sections` setelahnya.
+
+**Perintah verifikasi rutin**
+`npm run typecheck` · `npm run lint` · `npm test` · `npm run test:guards` · `E2E_SPEC=<spec> npm run test:e2e` · `npm run test:quiz-builder` (butuh dev server `NODE_ENV=development`).
+
+**Catatan**: `masalah/` (screenshot pengguna) sengaja dibiarkan untracked, tidak pernah ikut commit.
