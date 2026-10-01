@@ -525,19 +525,21 @@ Dibangun 3 fase sesuai `rencana.md` FASE 9, di balik flag **`CLASS_DISCUSSION_EN
 
 ## Titik Lanjut (Resume Point) — Ekstraksi Kit Builder (30 Sep 2026)
 
-**Sudah selesai & ter-push** (commit `fc1e0c3` → `47bfac1`):
-- `src/components/builder/`: `builder-card.tsx`, `builder-header-card.tsx`, `builder-settings-panel.tsx`, `question-options-editor.tsx`, `question-grid-scale-editors.tsx`, `question-structure-editors.tsx`, `question-extra-fields.tsx`.
-- Pendukung: `src/lib/question-types.ts` (21 tipe), `src/lib/quiz-builder-mapping.ts` (DTO→state, tanpa downgrade ESAI), `QUESTION_OPTION_LABELS` di `src/lib/quiz-builder.ts`.
-- `quiz-builder.tsx`: **1657 → 1172 baris** (±30% lebih pendek), tanpa perubahan perilaku.
+**Sudah selesai** (commit `fc1e0c3` → `d2a15b1`; tahap 7–8 belum di-commit):
+- `src/components/builder/`: `builder-card.tsx`, `builder-header-card.tsx`, `builder-settings-panel.tsx`, `question-options-editor.tsx`, `question-grid-scale-editors.tsx`, `question-structure-editors.tsx`, `question-extra-fields.tsx`, `question-section-manager.tsx`, `question-source-panels.tsx`.
+- Hook `src/components/dashboard/use-form-builder.ts`: state form, save/publish, autosave (debounce 1,2 dtk), history/undo-redo + shortcut Ctrl/Cmd+Z, `toPayload`, `validate`, dan seluruh mutasi soal/opsi/bagian/cabang.
+- Pendukung: `src/lib/question-types.ts` (21 tipe), `src/lib/quiz-builder-mapping.ts` (DTO→state, tanpa downgrade ESAI), `QUESTION_OPTION_LABELS` + set `CHOICE_TYPES`/`SCALE_TYPES`/`MANUAL_TYPES`/`STIMULUS_TYPES` di `src/lib/quiz-builder.ts`.
+- `quiz-builder.tsx`: **1657 → 398 baris** (±76% lebih pendek), tanpa perubahan perilaku.
 
 **E2E sudah ditambahkan**
 - `tests/e2e/form-builder-editors.spec.ts` — 2/2 hijau: skala, urutan, menjodohkan, tabel, cloze, unggah berkas, rubrik, metadata.
-- `tests/e2e/form-builder-sections.spec.ts` — **1 hijau**, 2 `fixme`: pengelola bagian (tambah/ubah/reorder/hapus + munculnya "Bagian soal ini") sudah teruji. **Modal bank soal & dialog impor belum hijau** — daftar hasil tidak muncul saat diuji, sehingga keduanya ditandai `test.fixme` (bukan regresi produk; cakupan API-nya ada di `tests/run-quiz-builder-integration.mjs`).
+- `tests/e2e/form-builder-sections.spec.ts` — **3/3 hijau**: pengelola bagian (tambah/ubah/reorder/hapus + munculnya "Bagian soal ini"), modal **Bank soal** (cari + tambahkan soal lama ke formulir), dan dialog **Impor soal** (muat daftar soal dari formulir sumber).
 
-**Langkah berikutnya (urut)**
-1. **Perbaiki alur modal bank soal/impor** sampai bisa diuji end-to-end, lalu hidupkan kembali dua test `fixme` di `form-builder-sections.spec.ts`. Petunjuk: hasil pencarian bank soal (`bankResults`) tidak terender setelah tombol "Cari" di modal; periksa `openBankPicker`/`searchBankSoal` dan `addSelectedFromBank` yang memakai `window.location.reload()`.
-2. **Ekstraksi tahap 7**: `QuestionSectionManager` (blok "Bagian (section)") + pemilih bank soal + dialog impor keluar dari `quiz-builder.tsx`.
-3. **Ekstraksi tahap 8 (terakhir, paling berisiko)**: hook `useFormBuilder` — state, history/undo-redo, autosave, `toPayload`, `validate`. Sentuh seluruh alur simpan, jadi jalankan `test:quiz-builder` + e2e `quiz-builder` + `form-builder-editors` + `form-builder-sections` setelahnya.
+**Status: selesai.** Seluruh tahap ekstraksi kit builder (1–8) tuntas; tidak ada langkah lanjutan wajib. Backlog opsional: pindahkan juga state UI yang tersisa (tab, pratinjau, pencarian soal, drag) ke hook bila kelak ingin builder lebih tipis lagi.
+
+**Catatan (1 Okt 2026):** alur modal bank soal/impor selesai — dua test `fixme` di `form-builder-sections.spec.ts` kini hijau (3/3). Akar masalah: (a) hasil pertama pencarian bank soal adalah soal yang baru dibuat (urut `createdAt desc`) sehingga penambahan dianggap duplikat → test diperbaiki dengan mencari soal seed; (b) `/guru/kuis/baru` tidak mengirim `importOptions`, sehingga bagian impor tidak muncul sampai halaman di-reload → halaman buat kini memuat `listUjian` dan mengirim `importOptions`, jadi impor langsung tersedia di alur buat. Verifikasi: `typecheck` ✓ · `lint` 0 error ✓ · e2e `form-builder-sections` 3/3 ✓.
+**Ekstraksi tahap 7 selesai (1 Okt 2026):** `QuestionSectionManager` (blok "Bagian (section)": drag + ubah/urut/hapus) dan `BankSoalPicker` + `ImportQuestions` (pemilih bank soal & dialog impor — state, panggilan API, dan reload dipindah ke komponen) keluar dari `quiz-builder.tsx`. `quiz-builder.tsx` **1172 → 952 baris**. Verifikasi: `typecheck` ✓ · `lint` 0 error ✓ · `npm test` 43 ✓ · e2e `form-builder-sections` 3/3 ✓ · e2e `form-builder-editors` 2/2 ✓ · e2e `quiz-builder` 2/2 ✓.
+**Ekstraksi tahap 8 selesai (1 Okt 2026):** hook `useFormBuilder` (`src/components/dashboard/use-form-builder.ts`, 673 baris) mengambil alih form, save/publish, autosave, history/undo-redo + shortcut, `toPayload`, `validate`, serta semua mutasi soal/opsi/bagian/cabang. State UI sisa (tab, pratinjau, pencarian, drag) tetap di komponen. `quiz-builder.tsx` **952 → 398 baris** (dari 1657, ±76% lebih pendek), tanpa perubahan perilaku. Verifikasi: `typecheck` ✓ · `lint` 0 error ✓ · `npm test` 43 ✓ · e2e `quiz-builder` 2/2 ✓ · e2e `form-builder-editors` 2/2 ✓ · e2e `form-builder-sections` 3/3 ✓.
 
 **Perintah verifikasi rutin**
 `npm run typecheck` · `npm run lint` · `npm test` · `npm run test:guards` · `E2E_SPEC=<spec> npm run test:e2e` · `npm run test:quiz-builder` (butuh dev server `NODE_ENV=development`).

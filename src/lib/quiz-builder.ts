@@ -109,8 +109,10 @@ export function newSectionKey() {
   return `s-${Date.now()}-${counter}`;
 }
 
-const CHOICE_TYPES = new Set(["PILIHAN_GANDA", "MULTI_SELECT", "DROPDOWN"]);
-const SCALE_TYPES = new Set(["SKALA", "RATING"]);
+export const CHOICE_TYPES = new Set(["PILIHAN_GANDA", "MULTI_SELECT", "DROPDOWN"]);
+export const SCALE_TYPES = new Set(["SKALA", "RATING"]);
+export const MANUAL_TYPES = new Set(["SPEAKING", "WRITING", "ROLEPLAY", "GAMBAR", "LISTENING", "READING"]);
+export const STIMULUS_TYPES = new Set(["READING", "LISTENING", "CLOZE", "GAMBAR", "ROLEPLAY", "SPEAKING", "WRITING"]);
 
 export function questionHasOptions(type: string) {
   return CHOICE_TYPES.has(type);
