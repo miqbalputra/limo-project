@@ -51,9 +51,7 @@ test("Pengelola bagian bisa menambah, mengubah, mengurutkan, dan menghapus bagia
   await expect(page.getByLabel("Bagian soal ini")).toHaveCount(0);
 });
 
-// PENDING: alur modal bank soal belum stabil di e2e (daftar hasil tidak muncul saat diuji).
-// Cakupan API-nya sudah ada di tests/run-quiz-builder-integration.mjs; UI-nya perlu diperbaiki dulu.
-test.fixme("Modal bank soal bisa mencari dan menambahkan soal ke formulir", async ({ page }) => {
+test("Modal bank soal bisa mencari dan menambahkan soal ke formulir", async ({ page }) => {
   test.setTimeout(180_000);
   await login(page);
   await openNewForm(page);
@@ -64,6 +62,8 @@ test.fixme("Modal bank soal bisa mencari dan menambahkan soal ke formulir", asyn
   const dialog = page.getByRole("dialog", { name: "Bank soal" });
   await expect(dialog).toBeVisible();
 
+  // Cari soal lama dari seed (bukan soal yang baru dibuat) agar tidak dianggap duplikat.
+  await dialog.getByLabel("Cari bank soal").fill("greeting");
   await dialog.getByRole("button", { name: "Cari" }).click();
   const firstResult = dialog.getByRole("checkbox").first();
   await expect(firstResult).toBeVisible({ timeout: 30_000 });
@@ -74,8 +74,7 @@ test.fixme("Modal bank soal bisa mencari dan menambahkan soal ke formulir", asyn
   await expect(page.getByText("Soal 2", { exact: true })).toBeVisible({ timeout: 45_000 });
 });
 
-// PENDING: ikut menunggu perbaikan alur modal di atas agar bisa diuji end-to-end.
-test.fixme("Dialog impor soal memuat daftar soal dari formulir sumber", async ({ page }) => {
+test("Dialog impor soal memuat daftar soal dari formulir sumber", async ({ page }) => {
   test.setTimeout(180_000);
   await login(page);
   await openNewForm(page);
