@@ -528,7 +528,7 @@ Sebagian besar selesai (dibangun 25 Sep 2026, flag `CLASS_DISCUSSION_ENABLED`): 
 
 ### Fase 10: Laporan Perkembangan Berkala
 
-Laporan operasional Admin, CSV, dan ringkasan Wali sudah ada, tetapi belum ada `ProgressReport`, snapshot versioning, workflow narasi Guru, publikasi laporan, read tracking, atau PDF laporan periodik terotorisasi.
+Implemented. `ProgressReport` + `ProgressReportRead` menyimpan snapshot data periode (kehadiran, penyelesaian aktivitas wajib, rata-rata pemahaman/ujian, tugas, nilai akhir) saat draf dibuat, narasi Guru (ringkasan, kelebihan, area perbaikan, rekomendasi), status `DRAFT`/`PUBLISHED`/`REVISED` dengan alasan revisi ber-audit, read tracking, notifikasi ke wali/siswa saat terbit, dan PDF terotorisasi (Amiri untuk nama Arab). Guru membuat/mengubah/menerbitkan, Admin memantau, Wali & Siswa membaca laporan terbit.
 
 Risiko lintas fase terbesar adalah kompatibilitas histori online exam lama. Data attempt lama harus tetap diperlakukan sebagai attempt yang dibuat oleh Wali, sedangkan attempt baru dari portal Siswa perlu memiliki actor Siswa tanpa menghapus atau mengubah histori lama.
 

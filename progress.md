@@ -1,6 +1,17 @@
 # Progress Implementasi LIMO
 
-Terakhir diperbarui: 29 September 2026
+Terakhir diperbarui: 1 Oktober 2026
+
+## Laporan Perkembangan Berkala (rencana.md Fase 10) — 1 Okt 2026
+
+- **Model baru**: `ProgressReport` + `ProgressReportRead` (read receipt); migrasi `20261001010000_progress_reports`.
+- **Snapshot dikunci saat draf dibuat** dari data periode (kehadiran, penyelesaian aktivitas wajib, rata-rata pemahaman/ujian, tugas, nilai akhir); koreksi data setelah terbit tidak mengubah laporan lama.
+- **Service** `progress-report-service.ts`: generate draf, ubah draf, terbit (idempoten + notifikasi ke wali/siswa), revisi wajib alasan + audit before/after, daftar per peran, read tracking/unread count. **PDF** `progress-report-pdf-service.ts` (A4, Amiri untuk nama Arab) dibangun dari snapshot terbit.
+- **API**: `GET/POST /api/v1/guru/reports`, `GET/PATCH /api/v1/guru/reports/[reportId]`, `.../publish`, `.../revise`, `GET /api/v1/admin/reports`, `GET /api/v1/wali/reports` + `.../read`, `GET /api/v1/siswa/reports` + `.../read`, `GET /api/v1/reports/[reportId]/pdf`.
+- **UI**: Guru `/guru/laporan-perkembangan` (buat/ubah/terbit/revisi + PDF), Wali `/wali/laporan`, Siswa `/siswa/laporan`, Admin `/admin/laporan-perkembangan`. Navigasi di-gate flag `periodicReportsEnabled`; izin baru `guru.report.manage`, `wali.report.view`, `siswa.report.view`.
+- **Verifikasi (hijau)**: `typecheck` ✓ · `lint` 0 error ✓ · `npm test` 43 ✓ · `test:guards` 231 route ✓ · `npm run build` ✓ (159 halaman) · integrasi **`test:laporan` 14/14**.
+- **Wajib saat deploy**: `npx prisma migrate deploy` untuk `20261001010000_progress_reports`.
+- **Sisa** (bukan bagian fase ini): Q&A per materi/modul, sumber remedial QUIZ/EXAM/COMPETENCY.
 
 ## Resume Point (29 Sep 2026) — Kematangan Dashboard Admin & Guru
 

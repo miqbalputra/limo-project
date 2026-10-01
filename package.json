@@ -29,6 +29,7 @@
     "test:accounts": "node tests/run-account-management-integration.mjs",
     "test:users": "node tests/run-user-management-integration.mjs",
     "test:sertifikat": "node tests/run-certificate-integration.mjs",
+    "test:laporan": "node tests/run-progress-report-integration.mjs",
     "test:siswa-ujian": "node tests/run-student-exam-integration.mjs",
     "test:diskusi": "node tests/run-class-forum-integration.mjs",
     "test:week1": "node tests/run-week1-integration.mjs",

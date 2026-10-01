@@ -112,6 +112,18 @@ enum RppMode {
   FILE
 }
 
+enum ProgressReportType {
+  WEEKLY
+  MONTHLY
+  LEVEL_COMPLETION
+}
+
+enum ProgressReportStatus {
+  DRAFT
+  PUBLISHED
+  REVISED
+}
+
 enum LearningModuleStatus {
   DRAFT
   SCHEDULED
@@ -433,6 +445,8 @@ model User {
   diskusiLaporanMade         DiskusiLaporan[]       @relation("DiskusiLaporanReporter")
   diskusiLaporanResolved     DiskusiLaporan[]       @relation("DiskusiLaporanResolver")
   permissionOverrides        UserPermissionOverride[] @relation("UserPermissionOverrideUser")
+  progressReportsCreated     ProgressReport[]       @relation("ProgressReportCreator")
+  progressReportReads        ProgressReportRead[]
 }
 
 model Session {
@@ -685,6 +699,7 @@ model Siswa {
   tarif                 Tarif[]
   ujianAttempts         UjianAttempt[]
   sertifikat            Sertifikat[]
+  progressReports       ProgressReport[]
 }
 
 model WaliSiswa {
@@ -733,6 +748,7 @@ model Kelas {
   pengumuman      Pengumuman[]
   diskusiThreads  DiskusiThread[]
   voucher         Voucher[]
+  progressReports ProgressReport[]
 
   @@unique([programId, levelId, name])
   @@index([guruProfileId])
@@ -1905,4 +1921,46 @@ model UserPermissionOverride {
 
   @@unique([userId, permission])
   @@index([userId])
+}
+
+model ProgressReport {
+  id                    String               @id @default(cuid())
+  studentId             String
+  student               Siswa                @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  kelasId               String
+  kelas                 Kelas                @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  reportType            ProgressReportType   @default(MONTHLY)
+  status                ProgressReportStatus @default(DRAFT)
+  periodStart           DateTime
+  periodEnd             DateTime
+  summary               String               @db.Text
+  strengths             String               @db.Text
+  improvementAreas      String               @db.Text
+  teacherRecommendation String               @db.Text
+  snapshotData          Json?
+  createdById           String?
+  createdBy             User?                @relation("ProgressReportCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  publishedAt           DateTime?
+  revisedAt             DateTime?
+  revisionReason        String?              @db.Text
+  notifiedAt            DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  reads                 ProgressReportRead[]
+
+  @@index([studentId, periodStart])
+  @@index([kelasId, status])
+  @@index([status, publishedAt])
+}
+
+model ProgressReportRead {
+  id       String         @id @default(cuid())
+  reportId String
+  report   ProgressReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt   DateTime       @default(now())
+
+  @@unique([reportId, userId])
+  @@index([userId, readAt])
 }
