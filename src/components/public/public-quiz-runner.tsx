@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArabicTextField, LocalizedContent } from "@/components/localized-content";
 import { AudioRecorder } from "@/components/quiz/audio-recorder";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { requestJson } from "@/lib/api-json-client";
 import { canRecordAudio, formatFileSize, uploadAcceptAttribute } from "@/lib/quiz-upload";
 import { accentTextOn, darken, themeAccent } from "@/lib/quiz-theme";
@@ -121,6 +122,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [submitting, setSubmitting] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [uploadingId, setUploadingId] = useState("");
   const [currentSection, setCurrentSection] = useState(0);
   const [errorQuestionId, setErrorQuestionId] = useState("");
@@ -429,7 +431,13 @@ export function PublicQuizRunner({ token }: { token: string }) {
     if (!context) return;
     const visible = context.questions.filter((question) => question.sectionIndex === currentSection);
     if (visible.length === 0) return;
-    if (!window.confirm("Bersihkan jawaban pada bagian ini?")) return;
+    setClearConfirmOpen(true);
+  }
+
+  function performClearSection() {
+    if (!context) return;
+    const visible = context.questions.filter((question) => question.sectionIndex === currentSection);
+    if (visible.length === 0) return;
     setAnswers((current) => {
       const next = { ...current };
       for (const question of visible) delete next[question.id];
@@ -638,6 +646,17 @@ export function PublicQuizRunner({ token }: { token: string }) {
           )}
         </div>
 
+        <ConfirmDialog
+          open={clearConfirmOpen}
+          title="Bersihkan jawaban bagian ini?"
+          description="Semua jawaban yang sudah diisi pada bagian ini akan dikosongkan."
+          confirmLabel="Ya, bersihkan"
+          variant="destructive"
+          isBusy={false}
+          onClose={() => setClearConfirmOpen(false)}
+          onConfirm={() => { performClearSection(); setClearConfirmOpen(false); }}
+        />
+
         {reviewOpen && context ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/40 p-4" role="presentation">
             <section role="dialog" aria-modal="true" aria-labelledby="quiz-review-title" className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-theme-xl">
@@ -837,6 +856,7 @@ function AnswerInput({ question, answer, onChange, accent, onUploadFile, uploadi
       <select
         value={answer?.selectedOption ?? ""}
         onChange={(event) => onChange({ selectedOption: event.target.value })}
+        aria-label="Pilih jawaban"
         className="mt-3 tailadmin-input sm:max-w-sm"
       >
         <option value="">Pilih jawaban</option>

@@ -293,6 +293,7 @@ export function GradebookManager({
             <select
               value={itemCategory}
               onChange={(event) => setItemCategory(event.target.value)}
+              aria-label="Kategori item nilai"
               className="tailadmin-input"
             >
               <option value="">Pilih kategori</option>
@@ -308,6 +309,7 @@ export function GradebookManager({
                 setItemType(event.target.value);
                 setItemSourceId("");
               }}
+              aria-label="Jenis item nilai"
               className="tailadmin-input"
             >
               <option value="MANUAL">{formatUiLabel("MANUAL")}</option>
@@ -320,6 +322,7 @@ export function GradebookManager({
             <select
               value={itemSourceId}
               onChange={(event) => selectSource(event.target.value)}
+              aria-label="Sumber nilai"
               className="tailadmin-input"
             >
               <option value="">Pilih sumber</option>
@@ -620,11 +623,13 @@ function ManualEntryCell({
           type="number"
           min={0}
           max={item.maxScore}
+          aria-label="Nilai"
           className="tailadmin-input w-24"
         />
         <select
           value={status}
           onChange={(event) => setStatus(event.target.value)}
+          aria-label="Status nilai"
           className="tailadmin-input text-[11px]"
         >
           <option value="GRADED">{formatUiLabel("GRADED")}</option>

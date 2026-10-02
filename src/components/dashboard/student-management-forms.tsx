@@ -71,18 +71,30 @@ export function UpdateStudentForm({
     <>
       <form onSubmit={onSubmit} className="tailadmin-card grid gap-3 p-5">
         <h2 className="font-semibold text-gray-900">Data Siswa</h2>
-        {mutation.error ? <p className="tailadmin-alert-error">{mutation.error}</p> : null}
-        <input name="name" required defaultValue={student.name} className="tailadmin-input" />
-        <input name="birthDate" type="date" defaultValue={student.birthDate} className="tailadmin-input" />
-        <select name="programId" required defaultValue={student.programId} className="tailadmin-input">
-          {programs.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
-        <select name="status" defaultValue={student.status} className="tailadmin-input">
-          <option value="ACTIVE">{formatUiLabel("ACTIVE")}</option>
-          <option value="INACTIVE">{formatUiLabel("INACTIVE")}</option>
-          <option value="GRADUATED">{formatUiLabel("GRADUATED")}</option>
-          <option value="ARCHIVED">{formatUiLabel("ARCHIVED")}</option>
-        </select>
+        {mutation.error ? <p role="alert" className="tailadmin-alert-error">{mutation.error}</p> : null}
+        <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+          Nama siswa
+          <input name="name" required defaultValue={student.name} className="mt-1 tailadmin-input" />
+        </label>
+        <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+          Tanggal lahir
+          <input name="birthDate" type="date" defaultValue={student.birthDate} className="mt-1 tailadmin-input" />
+        </label>
+        <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+          Program
+          <select name="programId" required defaultValue={student.programId} className="mt-1 tailadmin-input">
+            {programs.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+        </label>
+        <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+          Status
+          <select name="status" defaultValue={student.status} className="mt-1 tailadmin-input">
+            <option value="ACTIVE">{formatUiLabel("ACTIVE")}</option>
+            <option value="INACTIVE">{formatUiLabel("INACTIVE")}</option>
+            <option value="GRADUATED">{formatUiLabel("GRADUATED")}</option>
+            <option value="ARCHIVED">{formatUiLabel("ARCHIVED")}</option>
+          </select>
+        </label>
         <button disabled={mutation.isSubmitting} className="tailadmin-button-primary">{mutation.isSubmitting ? "Menyimpan..." : "Simpan Perubahan"}</button>
       </form>
       <ConfirmDialog open={Boolean(pendingUpdate)} title="Ubah status siswa?" description={pendingUpdate?.status === "ARCHIVED" ? "Siswa akan diarsipkan dan keanggotaan kelas aktifnya diakhiri." : pendingUpdate?.status === "ACTIVE" ? "Status siswa akan diaktifkan kembali. Pastikan keanggotaan kelas yang diperlukan sudah sesuai." : "Perubahan ke status nonaktif akan mengakhiri keanggotaan kelas aktif siswa."} confirmLabel="Ya, ubah status" variant={pendingUpdate?.status === "ARCHIVED" ? "destructive" : "status"} isBusy={mutation.isSubmitting} error={mutation.error} onClose={() => { if (!mutation.isSubmitting) setPendingUpdate(null); }} onConfirm={() => { if (pendingUpdate) void saveStudent(pendingUpdate); }} />
@@ -110,12 +122,18 @@ export function StudentRelationForm({ studentId, walis }: { studentId: string; w
   return (
     <form onSubmit={onSubmit} className="tailadmin-card grid gap-3 p-5">
       <h2 className="font-semibold text-gray-900">Hubungkan Wali</h2>
-      {mutation.error ? <p className="tailadmin-alert-error">{mutation.error}</p> : null}
-      <select name="waliProfileId" required className="tailadmin-input">
-        <option value="">Pilih wali</option>
-        {walis.map((item) => <option key={item.id} value={item.id}>{item.user.name} - {item.user.email}</option>)}
-      </select>
-      <input name="relationship" defaultValue="Orang tua" className="tailadmin-input" />
+      {mutation.error ? <p role="alert" className="tailadmin-alert-error">{mutation.error}</p> : null}
+      <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+        Wali
+        <select name="waliProfileId" required className="mt-1 tailadmin-input">
+          <option value="">Pilih wali</option>
+          {walis.map((item) => <option key={item.id} value={item.id}>{item.user.name} - {item.user.email}</option>)}
+        </select>
+      </label>
+      <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+        Hubungan
+        <input name="relationship" defaultValue="Orang tua" className="mt-1 tailadmin-input" />
+      </label>
        <label className="text-theme-sm text-gray-700"><input name="isPrimary" type="checkbox" className="mr-2 accent-limo-blue-500" />Wali utama</label>
       <button disabled={mutation.isSubmitting} className="tailadmin-button-primary">Hubungkan Wali</button>
     </form>
@@ -144,12 +162,18 @@ export function TransferStudentForm({ studentId, kelas }: { studentId: string; k
     <>
       <form onSubmit={onSubmit} className="tailadmin-card grid gap-3 p-5">
         <h2 className="font-semibold text-gray-900">Mutasi Kelas</h2>
-        {mutation.error ? <p className="tailadmin-alert-error">{mutation.error}</p> : null}
-        <select name="kelasId" required className="tailadmin-input">
-          <option value="">Pilih kelas tujuan</option>
-          {kelas.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
-        <input name="startDate" type="date" required className="tailadmin-input" />
+        {mutation.error ? <p role="alert" className="tailadmin-alert-error">{mutation.error}</p> : null}
+        <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+          Kelas tujuan
+          <select name="kelasId" required className="mt-1 tailadmin-input">
+            <option value="">Pilih kelas tujuan</option>
+            {kelas.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+        </label>
+        <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+          Tanggal mulai
+          <input name="startDate" type="date" required className="mt-1 tailadmin-input" />
+        </label>
         <button disabled={mutation.isSubmitting} className="tailadmin-button-primary">Pindahkan Kelas</button>
       </form>
       <ConfirmDialog open={Boolean(pendingTransfer)} title="Pindahkan siswa ke kelas baru?" description={pendingTransfer ? <>Keanggotaan kelas aktif akan ditutup dan siswa akan masuk ke <strong>{kelas.find((item) => item.id === pendingTransfer.kelasId)?.name || "kelas tujuan"}</strong> mulai {pendingTransfer.startDate}.</> : ""} confirmLabel="Ya, pindahkan siswa" variant="status" isBusy={mutation.isSubmitting} error={mutation.error} onClose={() => { if (!mutation.isSubmitting) setPendingTransfer(null); }} onConfirm={() => { if (pendingTransfer) void transferStudent(pendingTransfer); }} />
@@ -169,7 +193,7 @@ export function StudentRecordActions({ studentId, archived }: { studentId: strin
   return (
     <>
       <div>
-      {mutation.error ? <p className="mb-2 tailadmin-alert-error">{mutation.error}</p> : null}
+      {mutation.error ? <p role="alert" className="mb-2 tailadmin-alert-error">{mutation.error}</p> : null}
       <button
         type="button"
         disabled={mutation.isSubmitting}

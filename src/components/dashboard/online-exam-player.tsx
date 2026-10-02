@@ -644,7 +644,7 @@ function AnswerInput({ question, answer, uploading, fileDownloadBase, onUploadFi
 
   if (type === "DROPDOWN") {
     return (
-      <select value={answer?.selectedOption ?? ""} onChange={(event) => onChange({ selectedOption: event.target.value })} className="mt-4 tailadmin-input sm:max-w-sm">
+      <select value={answer?.selectedOption ?? ""} onChange={(event) => onChange({ selectedOption: event.target.value })} aria-label="Pilih jawaban" className="mt-4 tailadmin-input sm:max-w-sm">
         <option value="">Pilih jawaban</option>
         {options.map((option) => <option key={option.label} value={option.label}>{option.content}</option>)}
       </select>

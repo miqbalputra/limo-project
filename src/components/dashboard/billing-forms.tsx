@@ -49,26 +49,47 @@ export function TarifForm({ programs, kelas, siswa }: { programs: Option[]; kela
     <form onSubmit={onSubmit} className="tailadmin-card grid gap-3 p-5">
       <h2 className="font-semibold text-gray-900">Tambah Tarif</h2>
       <p className="text-theme-xs text-gray-500">Tarif khusus <strong>siswa</strong> mengalahkan tarif kelas, dan tarif kelas mengalahkan tarif program.</p>
-      {error ? <p className="tailadmin-alert-error">{error}</p> : null}
-      <input name="name" required placeholder="Nama tarif" className="tailadmin-input" />
+      {error ? <p role="alert" className="tailadmin-alert-error">{error}</p> : null}
+      <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+        Nama tarif
+        <input name="name" required placeholder="Nama tarif" className="mt-1 tailadmin-input" />
+      </label>
       <div className="grid gap-3 sm:grid-cols-2">
-        <select name="programId" className="tailadmin-input">
-          <option value="">Pilih program</option>
-          {programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
-        </select>
-        <select name="kelasId" className="tailadmin-input">
-          <option value="">Opsional kelas spesifik</option>
-          {kelas.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
+        <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+          Program
+          <select name="programId" className="mt-1 tailadmin-input">
+            <option value="">Pilih program</option>
+            {programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
+          </select>
+        </label>
+        <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+          Kelas (opsional)
+          <select name="kelasId" className="mt-1 tailadmin-input">
+            <option value="">Opsional kelas spesifik</option>
+            {kelas.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+        </label>
       </div>
-      <select name="siswaId" aria-label="Siswa tarif" className="tailadmin-input">
-        <option value="">Opsional siswa spesifik (khusus anak ini)</option>
-        {siswa.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-      </select>
-      <input name="amount" required type="number" min={1} placeholder="Nominal" className="tailadmin-input" />
+      <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+        Siswa (opsional)
+        <select name="siswaId" className="mt-1 tailadmin-input">
+          <option value="">Opsional siswa spesifik (khusus anak ini)</option>
+          {siswa.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>
+      </label>
+      <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+        Nominal
+        <input name="amount" required type="number" min={1} placeholder="Nominal" className="mt-1 tailadmin-input" />
+      </label>
       <div className="grid gap-3 sm:grid-cols-2">
-        <input name="effectiveFrom" required type="date" className="tailadmin-input" />
-        <input name="effectiveTo" type="date" className="tailadmin-input" />
+        <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+          Berlaku dari
+          <input name="effectiveFrom" required type="date" className="mt-1 tailadmin-input" />
+        </label>
+        <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+          Berlaku sampai (opsional)
+          <input name="effectiveTo" type="date" className="mt-1 tailadmin-input" />
+        </label>
       </div>
       <button disabled={isSubmitting} className="tailadmin-button-primary">
         {isSubmitting ? "Menyimpan..." : "Simpan Tarif"}
