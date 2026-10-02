@@ -54,6 +54,7 @@ Each webhook receives:
 ```json
 {
   "event": "limo.notification",
+  "schoolName": "LIMO",
   "notificationId": "...",
   "channel": "email|whatsapp",
   "recipient": "email-or-phone",
@@ -66,7 +67,7 @@ Each webhook receives:
 }
 ```
 
-LIMO sends `X-Limo-Webhook-Secret`. n8n must validate it before forwarding email or GOWA WhatsApp messages, and return a 2xx response only after accepting the event. The existing notification retry job handles failed webhook delivery and attempt limits.
+`schoolName` berasal dari pengaturan sekolah (`SchoolSetting`) dan dipakai workflow email sebagai fallback subjek (`Notifikasi <schoolName>`). LIMO sends `X-Limo-Webhook-Secret`. n8n must validate it before forwarding email or GOWA WhatsApp messages, and return a 2xx response only after accepting the event. The existing notification retry job handles failed webhook delivery and attempt limits.
 
 ### Registration notification templates
 

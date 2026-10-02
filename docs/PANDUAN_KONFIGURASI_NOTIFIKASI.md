@@ -162,6 +162,7 @@ Rincian node berikut untuk verifikasi/manual:
      }
      ```
    - Options: Timeout `10000` ms
+   - **On Error**: `Continue (using error output)` — supaya kegagalan GOWA tercatat `FAILED` dan dicoba ulang oleh LIMO.
 4. **Respond to Webhook** (setelah HTTP Request sukses)
    - Respond With: `JSON`
    - Response Code: `200`
@@ -169,8 +170,11 @@ Rincian node berikut untuk verifikasi/manual:
 5. **Respond to Webhook** (cabang `false`)
    - Response Code: `401`
    - Response Body: `{ "ok": false, "error": "invalid secret" }`
+6. **Respond to Webhook** (cabang error HTTP Request)
+   - Response Code: `500`
+   - Response Body: `{ "ok": false, "error": "whatsapp gagal dikirim" }`
 
-Hubungkan: Webhook → IF; IF `true` → HTTP Request → Respond 200; IF `false` → Respond 401.
+Hubungkan: Webhook → IF; IF `true` → HTTP Request → Respond 200; HTTP Request (error) → Respond 500; IF `false` → Respond 401.
 
 Simpan, klik **Active**, lalu salin **Production URL** ke `N8N_WHATSAPP_WEBHOOK_URL`.
 
@@ -184,14 +188,15 @@ Import lalu **pilih ulang credential Basic Auth GOWA** dan ganti secret.
   "nodes": [
     { "parameters": { "httpMethod": "POST", "path": "limo-whatsapp", "responseMode": "responseNode", "options": {} }, "id": "w1", "name": "Webhook", "type": "n8n-nodes-base.webhook", "typeVersion": 2, "position": [0, 0] },
     { "parameters": { "conditions": { "string": [{ "value1": "={{ $json.headers[\"x-limo-webhook-secret\"] }}", "operation": "equal", "value2": "secret-acak-panjang-untuk-n8n" }] } }, "id": "i1", "name": "IF Secret", "type": "n8n-nodes-base.if", "typeVersion": 1, "position": [220, 0] },
-    { "parameters": { "method": "POST", "url": "http://gowa:3000/send/message", "authentication": "genericCredentialType", "genericAuthType": "httpBasicAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={\n  \"phone\": \"{{ $json.body.recipient }}\",\n  \"message\": \"{{ $json.body.body }}\"\n}", "options": { "timeout": 10000 } }, "id": "h1", "name": "GOWA Send", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [460, -80] },
+    { "parameters": { "method": "POST", "url": "http://gowa:3000/send/message", "authentication": "genericCredentialType", "genericAuthType": "httpBasicAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={\n  \"phone\": \"{{ $json.body.recipient }}\",\n  \"message\": \"{{ $json.body.body }}\"\n}", "options": { "timeout": 10000 } }, "id": "h1", "name": "GOWA Send", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [460, -80], "onError": "continueErrorOutput" },
     { "parameters": { "respondWith": "json", "responseBody": "={ \"ok\": true }", "options": { "responseCode": 200 } }, "id": "r1", "name": "Respond 200", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1, "position": [700, -80] },
-    { "parameters": { "respondWith": "json", "responseBody": "={ \"ok\": false, \"error\": \"invalid secret\" }", "options": { "responseCode": 401 } }, "id": "r2", "name": "Respond 401", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1, "position": [460, 120] }
+    { "parameters": { "respondWith": "json", "responseBody": "={ \"ok\": false, \"error\": \"invalid secret\" }", "options": { "responseCode": 401 } }, "id": "r2", "name": "Respond 401", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1, "position": [460, 120] },
+    { "parameters": { "respondWith": "json", "responseBody": "={ \"ok\": false, \"error\": \"whatsapp gagal dikirim\" }", "options": { "responseCode": 500 } }, "id": "r3", "name": "Respond 500", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1, "position": [700, 120] }
   ],
   "connections": {
     "Webhook": { "main": [[{ "node": "IF Secret", "type": "main", "index": 0 }]] },
     "IF Secret": { "main": [[{ "node": "GOWA Send", "type": "main", "index": 0 }], [{ "node": "Respond 401", "type": "main", "index": 0 }]] },
-    "GOWA Send": { "main": [[{ "node": "Respond 200", "type": "main", "index": 0 }]] }
+    "GOWA Send": { "main": [[{ "node": "Respond 200", "type": "main", "index": 0 }], [{ "node": "Respond 500", "type": "main", "index": 0 }]] }
   },
   "settings": { "executionOrder": "v1" }
 }
@@ -208,7 +213,7 @@ Rincian manual:
 3. **Gmail** (cabang `true`), credential **Gmail OAuth2**:
    - Resource/Operation: `Message` / `Send`
    - To (`sendTo`): `{{ $json.body.recipient }}`
-   - Subject: `{{ $json.body.subject || "Notifikasi LIMO" }}`
+   - Subject: `{{ $json.body.subject || ("Notifikasi " + ($json.body.schoolName || "LIMO")) }}`
    - Email Type: `Text`
    - Message: `{{ $json.body.body }}`
    - Options → `Append n8n attribution`: matikan (nonaktif)
@@ -232,6 +237,7 @@ Aplikasi mengirim:
 ```json
 {
   "event": "limo.notification",
+  "schoolName": "LIMO",
   "notificationId": "cmxxxxxxxx",
   "channel": "whatsapp",
   "recipient": "6281234567890",

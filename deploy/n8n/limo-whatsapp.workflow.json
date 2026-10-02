@@ -55,6 +55,7 @@
       "id": "5f1a1c10-0003-4a03-9a03-000000000003",
       "name": "GOWA Send Message",
       "type": "n8n-nodes-base.httpRequest",
+      "onError": "continueErrorOutput",
       "typeVersion": 4.2,
       "position": [
         460,
@@ -94,6 +95,23 @@
         460,
         120
       ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, error: 'whatsapp gagal dikirim' } }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "5f1a1c10-0006-4a06-9a06-000000000006",
+      "name": "Respond 500",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        700,
+        120
+      ]
     }
   ],
   "connections": {
@@ -131,6 +149,13 @@
         [
           {
             "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 500",
             "type": "main",
             "index": 0
           }

@@ -42,7 +42,7 @@
     {
       "parameters": {
         "sendTo": "={{ $json.body.recipient }}",
-        "subject": "={{ $json.body.subject || \"Notifikasi LIMO\" }}",
+        "subject": "={{ $json.body.subject || (\"Notifikasi \" + ($json.body.schoolName || \"LIMO\")) }}",
         "emailType": "text",
         "message": "={{ $json.body.body }}",
         "options": {
@@ -62,7 +62,7 @@
     {
       "parameters": {
         "chatId": "GANTI_CHAT_ID_TELEGRAM",
-        "text": "=✅ LIMO email terkirim\nKepada: {{ $json.body.recipient }}\nSubjek: {{ $json.body.subject }}\nTemplate: {{ $json.body.metadata?.template || '-' }}\nNotif ID: {{ $json.body.notificationId }}"
+        "text": "=✅ {{ $('Webhook').item.json.body.schoolName || 'LIMO' }} email terkirim\nKepada: {{ $('Webhook').item.json.body.recipient }}\nSubjek: {{ $('Webhook').item.json.body.subject || '-' }}\nTemplate: {{ $('Webhook').item.json.body.template || $('Webhook').item.json.body.metadata?.event || '-' }}\nNotif ID: {{ $('Webhook').item.json.body.notificationId }}"
       },
       "id": "5f1a1c20-0006-4a06-9a06-000000000006",
       "name": "Telegram Sukses",
@@ -77,7 +77,7 @@
     {
       "parameters": {
         "chatId": "GANTI_CHAT_ID_TELEGRAM",
-        "text": "=❌ LIMO email GAGAL terkirim\nKepada: {{ $json.body.recipient }}\nSubjek: {{ $json.body.subject }}\nTemplate: {{ $json.body.metadata?.template || '-' }}\nNotif ID: {{ $json.body.notificationId }}\nError: {{ $json.error?.message || $json.error?.description || 'tidak diketahui' }}"
+        "text": "=❌ {{ $('Webhook').item.json.body.schoolName || 'LIMO' }} email GAGAL terkirim\nKepada: {{ $('Webhook').item.json.body.recipient }}\nSubjek: {{ $('Webhook').item.json.body.subject || '-' }}\nTemplate: {{ $('Webhook').item.json.body.template || $('Webhook').item.json.body.metadata?.event || '-' }}\nNotif ID: {{ $('Webhook').item.json.body.notificationId }}\nError: {{ $json.error?.message || $json.error?.description || 'tidak diketahui' }}"
       },
       "id": "5f1a1c20-0007-4a07-9a07-000000000007",
       "name": "Telegram Gagal",
