@@ -43,6 +43,8 @@ export default async function GuruKuisResponsesPage({ params }: { params: Promis
           <div className="divide-y divide-gray-100">
             {data.questionStats.map((question, index) => {
               const percent = question.answered > 0 ? Math.round((question.correct / question.answered) * 100) : 0;
+              const distribution = Array.isArray(question.optionDistribution) ? question.optionDistribution : [];
+              const maxCount = Math.max(1, ...distribution.map((entry) => entry.count));
               return (
                 <div key={question.id} className="px-5 py-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -51,6 +53,19 @@ export default async function GuruKuisResponsesPage({ params }: { params: Promis
                   </div>
                   <p className="mt-1 line-clamp-2 text-theme-sm text-gray-600">{question.question}</p>
                   <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-limo-blue-500" style={{ width: `${percent}%` }} /></div>
+                  {distribution.length > 0 && question.answered > 0 ? (
+                    <div className="mt-3 grid gap-1.5">
+                      {distribution.map((entry) => (
+                        <div key={entry.label} className="flex items-center gap-2">
+                          <span className={`w-6 shrink-0 text-theme-xs font-bold ${entry.isCorrect ? "text-success-700" : "text-gray-400"}`}>{entry.label}</span>
+                          <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-100">
+                            <div className={`h-full rounded-full ${entry.isCorrect ? "bg-success-500" : "bg-gray-300"}`} style={{ width: `${Math.round((entry.count / maxCount) * 100)}%` }} />
+                          </div>
+                          <span className="w-8 shrink-0 text-right text-theme-xs text-gray-500">{entry.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               );
             })}

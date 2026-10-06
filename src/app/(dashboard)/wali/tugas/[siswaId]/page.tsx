@@ -4,7 +4,7 @@ import { requirePermission } from "@/server/auth/permissions";
 import { listWaliStudentTasks } from "@/server/services/online-exam-service";
 import { DashboardHero, EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { withWaliChildContext } from "@/lib/wali-selector";
-import { formatUiLabel, getUiToneClass } from "@/lib/ui-labels";
+import { assessmentClassLabel, formatUiLabel, getUiToneClass } from "@/lib/ui-labels";
 
 export const metadata = { title: "Daftar Tugas Anak" };
 
@@ -34,7 +34,7 @@ export default async function WaliStudentTasksPage({ params }: { params: Promise
               <article key={task.id} className="tailadmin-card min-w-0 p-5">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-700">{task.kelas.program.name} / {task.kelas.name}</p>
+                    <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-700">{assessmentClassLabel(task.kelas)}</p>
                     <h2 className="mt-1 truncate text-lg font-semibold text-gray-900" title={task.title}>{task.title}</h2>
                     <p className="mt-2 text-theme-sm text-gray-500">{task._count.questions} soal / {task.durationMinutes} menit{task.availableUntil ? ` / sampai ${task.availableUntil.toISOString().slice(0, 10)}` : ""}</p>
                   </div>

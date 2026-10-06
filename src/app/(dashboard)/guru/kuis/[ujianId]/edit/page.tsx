@@ -4,7 +4,7 @@ import { requirePermission } from "@/server/auth/permissions";
 import { getQuizForm } from "@/server/services/quiz-builder-service";
 import { listMyKelas } from "@/server/services/lms-service";
 import { listUjian } from "@/server/services/exam-service";
-import { QuizBuilder } from "@/components/dashboard/quiz-builder";
+import { FormsBuilder } from "@/components/forms-builder/form-builder";
 import { toQuizFormState, type QuizFormDto } from "@/lib/quiz-builder-mapping";
 
 export const metadata = { title: "Edit Formulir" };
@@ -17,13 +17,13 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
   const initial = toQuizFormState(item as unknown as QuizFormDto);
 
   return (
-    <main className="space-y-6">
-      <div>
+    <main className="mx-auto max-w-4xl space-y-4">
+      <div className="px-1">
         <Link href="/guru/ujian" className="text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Kembali ke daftar asesmen</Link>
-        <h1 className="mt-3 tailadmin-page-title">Edit Formulir</h1>
-        <p className="mt-2 tailadmin-muted">Perubahan tersimpan otomatis selama status masih draf. Kuis yang sudah dikerjakan tidak dapat diubah (duplikat dulu).</p>
+        <h1 className="mt-2 tailadmin-page-title">Edit Formulir</h1>
+        <p className="mt-2 tailadmin-muted">Semua perubahan tersimpan otomatis selama status masih draf. Kuis yang sudah dikerjakan tidak dapat diubah (duplikat dulu).</p>
       </div>
-      <QuizBuilder
+      <FormsBuilder
         ujianId={item.id}
         status={item.status}
         shareToken={item.shareToken}
@@ -34,3 +34,4 @@ export default async function GuruKuisEditPage({ params }: { params: Promise<{ u
     </main>
   );
 }
+

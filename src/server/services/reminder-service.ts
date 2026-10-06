@@ -155,13 +155,13 @@ async function loadCandidates(now: Date) {
   }
   for (const exam of exams) {
     const dueAt = exam.examDate || exam.availableUntil;
-    if (!dueAt) continue;
+    if (!dueAt || exam.kelasId === null) continue;
     for (const enrollment of enrollmentByClass.get(exam.kelasId) || []) {
       if (!isActiveAt(enrollment.startDate, enrollment.endDate, dueAt) || completedExams.has(`${exam.id}:${enrollment.siswaId}`)) continue;
       const accountEmail = enrollment.siswa.siswaAccount?.user.email;
       if (!accountEmail) continue;
-      candidates.push({ recipient: accountEmail, phone: null, recipientRole: "SISWA", sourceType: "Ujian", sourceId: exam.id, title: exam.title, className: exam.kelas.name, childName: null, dueAt, href: `/siswa/kelas/${exam.kelasId}`, siswaId: enrollment.siswaId, window: getReminderWindow(dueAt, now)! });
-      for (const contact of relationsByStudent.get(enrollment.siswaId) || []) candidates.push({ recipient: contact.email, phone: contact.phone, recipientRole: "WALI", sourceType: "Ujian", sourceId: exam.id, title: exam.title, className: exam.kelas.name, childName: enrollment.siswa.name, dueAt, href: `/wali/tugas/${enrollment.siswaId}`, siswaId: enrollment.siswaId, window: getReminderWindow(dueAt, now)! });
+      candidates.push({ recipient: accountEmail, phone: null, recipientRole: "SISWA", sourceType: "Ujian", sourceId: exam.id, title: exam.title, className: exam.kelas?.name ?? "Ujian", childName: null, dueAt, href: `/siswa/kelas/${exam.kelasId}`, siswaId: enrollment.siswaId, window: getReminderWindow(dueAt, now)! });
+      for (const contact of relationsByStudent.get(enrollment.siswaId) || []) candidates.push({ recipient: contact.email, phone: contact.phone, recipientRole: "WALI", sourceType: "Ujian", sourceId: exam.id, title: exam.title, className: exam.kelas?.name ?? "Ujian", childName: enrollment.siswa.name, dueAt, href: `/wali/tugas/${enrollment.siswaId}`, siswaId: enrollment.siswaId, window: getReminderWindow(dueAt, now)! });
     }
   }
   for (const participant of remedials) {

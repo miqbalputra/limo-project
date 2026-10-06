@@ -8,39 +8,49 @@ test("Guru dapat membuat formulir kuis ala Google Forms dan membagikannya", asyn
   await loginViaForm(page, "guru@limo.local");
   await expect(page).toHaveURL(/\/guru$/);
   await page.goto("/guru/kuis/baru");
-  await expect(page.getByRole("heading", { name: "Buat Formulir Baru" })).toBeVisible();
-
-  // Validasi: belum pilih kelas → error
-  await page.getByRole("button", { name: "Simpan", exact: true }).click();
-  await expect(page.getByRole("alert").filter({ hasText: "Pilih kelas terlebih dahulu." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Formulir baru" })).toBeVisible();
 
   await page.getByLabel("Judul formulir").fill("Kuis E2E Builder");
-  await page.getByLabel("Kelas").selectOption({ index: 1 });
   await page.getByLabel("Pertanyaan soal 1").fill("Ibu kota Indonesia?");
-  await page.getByLabel("Opsi A soal 1").fill("Jakarta");
-  await page.getByLabel("Opsi B soal 1").fill("Bandung");
-  await page.getByRole("button", { name: "Tandai opsi A benar" }).click();
+  await page.getByLabel("Teks opsi A").fill("Jakarta");
+  await page.getByLabel("Teks opsi B").fill("Bandung");
+  await page.getByRole("radio", { name: "Tandai jawaban benar opsi A" }).check();
 
-  // Tambah soal kedua (isian)
-  await page.getByRole("button", { name: "+ Isian singkat" }).click();
+  // Tambah soal kedua (isian) lewat menu tambah pertanyaan ala Google Forms.
+  await page.getByRole("button", { name: "+ Pertanyaan" }).click();
+  await page.getByRole("button", { name: /Isian singkat/ }).click();
   await page.getByLabel("Pertanyaan soal 2").fill("Lambang air?");
-  await page.getByLabel("Kunci jawaban").fill("H2O");
-  await expect(page.getByText("Soal 2")).toBeVisible();
+  await page.getByRole("button", { name: "Kunci jawaban" }).click();
+  await page.getByLabel("Kunci jawaban", { exact: true }).fill("H2O");
+  await expect(page.getByText("Semua perubahan tersimpan")).toBeVisible({ timeout: 30_000 });
 
-  // Duplikat soal lalu hapus agar tidak mengganggu
-  await page.getByRole("button", { name: "Duplikat" }).first().click();
-  await expect(page.getByText("Soal 3")).toBeVisible();
-  await page.getByRole("button", { name: "Hapus" }).last().click();
-  await expect(page.getByText("Soal 3")).toHaveCount(0);
+  // Duplikat soal lalu hapus salinannya agar tidak mengganggu.
+  await page.getByRole("button", { name: "Duplikat soal" }).click();
+  const duplicated = page.getByRole("button", { name: /Lambang air\?/ });
+  await expect(duplicated).toBeVisible({ timeout: 30_000 });
+  await duplicated.click();
+  await page.getByRole("button", { name: "Hapus soal" }).click();
+  await expect(page.getByRole("button", { name: /Lambang air\?/ })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Simpan", exact: true }).click();
-  await expect(page).toHaveURL(/\/guru\/kuis\/[^/]+\/edit$/, { timeout: 30_000 });
+  // Kirim → preflight verifikasi kunci → publikasi.
+  await page.getByRole("button", { name: "Kirim" }).click();
+  const preflight = page.getByRole("dialog", { name: "Verifikasi formulir" });
+  await expect(preflight).toBeVisible({ timeout: 30_000 });
+  await expect(preflight.getByText("belum siap dikirim")).toBeVisible(); // mode online default tanpa kelas
 
-  await page.getByRole("button", { name: "Publikasikan" }).click();
-  await expect(page.getByText("Terbit", { exact: true })).toBeVisible({ timeout: 30_000 });
+  // Pilih kelas lewat sheet pengaturan lalu kirim ulang.
+  await preflight.getByLabel("Tutup", { exact: true }).click();
+  await page.getByRole("button", { name: "Pengaturan formulir" }).click();
+  const settings = page.getByRole("dialog", { name: "Pengaturan formulir" });
+  await settings.getByLabel(/Kelas \(opsional/).selectOption({ index: 1 });
+  await settings.getByRole("button", { name: "Tutup" }).click();
 
-  await page.getByRole("button", { name: "Bagikan kuis" }).click();
-  const link = page.getByLabel("Tautan kuis");
+  await page.getByRole("button", { name: "Kirim" }).click();
+  await expect(page.getByRole("dialog", { name: "Verifikasi formulir" }).getByText("Semua kunci jawaban terpasang")).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Publikasikan sekarang" }).click();
+
+  const share = page.getByRole("dialog", { name: "Formulir siap dikirim" });
+  const link = share.getByLabel("Tautan publik formulir");
   await expect(link).toBeVisible({ timeout: 30_000 });
   await expect(link).toHaveValue(/\/kuis\//, { timeout: 30_000 });
 });
@@ -50,50 +60,55 @@ test("Builder punya handle urut, dan pemutar publik mode satu soal per halaman r
 
   await loginViaForm(page, "guru@limo.local");
   await page.goto("/guru/kuis/baru");
-  await expect(page.getByRole("heading", { name: "Buat Formulir Baru" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Formulir baru" })).toBeVisible();
 
   await page.getByLabel("Judul formulir").fill(`Kuis Satu Soal ${Date.now()}`);
-  await page.getByLabel("Kelas").selectOption({ index: 1 });
   await page.getByLabel("Pertanyaan soal 1").fill("Soal pertama?");
-  await page.getByLabel("Opsi A soal 1").fill("Ya");
-  await page.getByLabel("Opsi B soal 1").fill("Tidak");
-  await page.getByRole("button", { name: "Tandai opsi A benar" }).click();
-  await page.getByRole("button", { name: "+ Isian singkat" }).click();
-  await page.getByLabel("Pertanyaan soal 2").fill("Soal kedua?");
-  await page.getByLabel("Kunci jawaban").fill("dua");
+  await page.getByLabel("Teks opsi A").fill("Ya");
+  await page.getByLabel("Teks opsi B").fill("Tidak");
+  await page.getByRole("radio", { name: "Tandai jawaban benar opsi A" }).check();
 
-  // Handle drag & drop tersedia dan punya label aksesibilitas.
-  await expect(page.getByRole("button", { name: "Tarik untuk mengurutkan soal 1" })).toBeVisible();
+  await page.getByRole("button", { name: "+ Pertanyaan" }).click();
+  await page.getByRole("button", { name: /Isian singkat/ }).click();
+  await page.getByLabel("Pertanyaan soal 2").fill("Soal kedua?");
+  await page.getByRole("button", { name: "Kunci jawaban" }).click();
+  await page.getByLabel("Kunci jawaban", { exact: true }).fill("dua");
+
+  // Handle drag & drop tersedia dan punya label aksesibilitas (kartu aktif).
+  await expect(page.getByRole("button", { name: "Tarik untuk mengurutkan soal 2" })).toBeVisible();
+
+  // Kartu non-aktif bisa diklik untuk diaktifkan (kartu aktif penuh editor).
+  await page.getByRole("button", { name: /Soal pertama\?/ }).click();
+  await expect(page.getByLabel("Pertanyaan soal 1")).toBeVisible();
   await expect(page.getByRole("button", { name: "Tarik untuk mengurutkan opsi A" }).first()).toBeVisible();
 
-  // Kartu soal dapat dilipat dan dibuka kembali.
-  await page.getByRole("button", { name: "Lipat soal 1" }).click();
-  await expect(page.getByLabel("Pertanyaan soal 1")).toBeHidden();
-  await page.getByRole("button", { name: "Buka soal 1" }).click();
-  await expect(page.getByLabel("Pertanyaan soal 1")).toBeVisible();
-
-  // Pencarian soal menyaring kartu.
+  // Pencarian soal menyaring kartu; setelah dibersihkan kartu aktif kembali tampil.
   await page.getByLabel("Cari soal").fill("Soal kedua");
   await expect(page.getByLabel("Pertanyaan soal 1")).toBeHidden();
-  await expect(page.getByText("1 dari 2 soal cocok")).toBeVisible();
   await page.getByLabel("Cari soal").fill("");
   await expect(page.getByLabel("Pertanyaan soal 1")).toBeVisible();
 
   // Jadikan semua soal opsional agar tombol Kumpulkan langsung membuka tinjauan.
-  await page.getByRole("checkbox", { name: "Wajib diisi" }).nth(0).uncheck();
-  await page.getByRole("checkbox", { name: "Wajib diisi" }).nth(1).uncheck();
+  await page.getByLabel("Wajib", { exact: true }).uncheck();
+  await page.getByRole("button", { name: /Soal kedua\?/ }).click();
+  await page.getByLabel("Wajib", { exact: true }).uncheck();
 
   // Setelan: satu soal per halaman.
-  await page.getByRole("button", { name: "Pengaturan" }).click();
-  await page.getByLabel("Tampilan soal").selectOption("ONE_PER_PAGE");
+  await page.getByRole("button", { name: "Pengaturan formulir" }).click();
+  const settings = page.getByRole("dialog", { name: "Pengaturan formulir" });
+  await settings.getByLabel("Tampilan soal").selectOption("ONE_PER_PAGE");
+  await settings.getByLabel(/Kelas \(opsional/).selectOption({ index: 1 });
+  await settings.getByRole("button", { name: "Tutup" }).click();
 
-  await page.getByRole("button", { name: "Simpan", exact: true }).click();
-  await expect(page).toHaveURL(/\/guru\/kuis\/[^/]+\/edit$/, { timeout: 30_000 });
-  await page.getByRole("button", { name: "Publikasikan" }).click();
-  await expect(page.getByText("Terbit", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Semua perubahan tersimpan")).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Kirim" }).click();
+  await expect(page.getByRole("dialog", { name: "Verifikasi formulir" }).getByText("Semua kunci jawaban terpasang")).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Publikasikan sekarang" }).click();
 
-  await page.getByRole("button", { name: "Bagikan kuis" }).click();
-  const shareValue = await page.getByLabel("Tautan kuis").inputValue();
+  const share = page.getByRole("dialog", { name: "Formulir siap dikirim" });
+  const linkInput = share.getByLabel("Tautan publik formulir");
+  await expect(linkInput).toHaveValue(/\/kuis\//, { timeout: 30_000 });
+  const shareValue = await linkInput.inputValue();
   const sharePath = new URL(shareValue, page.url()).pathname;
   expect(sharePath).toMatch(/^\/kuis\//);
 

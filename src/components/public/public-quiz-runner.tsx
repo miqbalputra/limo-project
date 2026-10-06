@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArabicTextField, LocalizedContent } from "@/components/localized-content";
 import { AudioRecorder } from "@/components/quiz/audio-recorder";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
-import { requestJson } from "@/lib/api-json-client";
+import { ApiJsonError, requestJson } from "@/lib/api-json-client";
 import { canRecordAudio, formatFileSize, uploadAcceptAttribute } from "@/lib/quiz-upload";
 import { accentTextOn, darken, themeAccent } from "@/lib/quiz-theme";
 import { clearQueuedUploads, loadQueuedUploads, removeQueuedUpload, saveQueuedUpload } from "@/lib/upload-queue";
@@ -18,14 +18,15 @@ type QuizIntro = {
   passingScore: number | null;
   collectRespondentName: boolean;
   collectRespondentEmail: boolean;
+  oneResponsePerEmail: boolean;
   showScoreImmediately: boolean;
   showAnswersAfterSubmit: boolean;
   shuffleQuestions: boolean;
   themeColor: string | null;
   headerImageUrl: string | null;
   confirmationMessage: string | null;
-  programName: string;
-  className: string;
+  programName: string | null;
+  className: string | null;
 };
 
 type PublicSection = { index: number; title: string; description: string | null };
@@ -135,6 +136,17 @@ export function PublicQuizRunner({ token }: { token: string }) {
 
   useEffect(() => {
     let active = true;
+    async function loadIntro() {
+      // Satu kali coba ulang: pada SQLite, permintaan tepat setelah tulisan lain
+      // bisa gagal sesaat karena database sedang sibuk.
+      try {
+        return await requestJson<{ quiz: QuizIntro }>(`/api/v1/public/quiz/${token}`);
+      } catch (caught) {
+        if (caught instanceof ApiJsonError && caught.status === 404) throw caught;
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        return await requestJson<{ quiz: QuizIntro }>(`/api/v1/public/quiz/${token}`);
+      }
+    }
     async function boot() {
       const savedId = window.localStorage.getItem(storageKey);
       if (savedId) {
@@ -154,7 +166,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
           window.localStorage.removeItem(storageKey);
         }
       }
-      const response = await requestJson<{ quiz: QuizIntro }>(`/api/v1/public/quiz/${token}`);
+      const response = await loadIntro();
       if (!active) return;
       setIntro(response.data.quiz);
       setPhase("intro");
@@ -547,7 +559,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={intro.headerImageUrl} alt="Header kuis" className="-m-6 mb-5 h-44 w-[calc(100%+3rem)] object-cover sm:-m-8 sm:mb-6 sm:h-56 sm:w-[calc(100%+4rem)]" />
           ) : null}
-          <p className="text-theme-xs font-bold uppercase tracking-widest" style={{ color: darken(accent, 0.15) }}>{intro.programName} / {intro.className}</p>
+          <p className="text-theme-xs font-bold uppercase tracking-widest" style={{ color: darken(accent, 0.15) }}>{[intro.programName, intro.className].filter(Boolean).join(" / ") || "Formulir"}</p>
           <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-gray-900 sm:text-3xl">{intro.title}</h1>
           {intro.description ? <p className="mt-3 whitespace-pre-wrap text-theme-sm leading-7 text-gray-600">{intro.description}</p> : null}
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -688,6 +700,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
 
   if (phase === "result" && result) {
     const showScore = result.showScoreImmediately && !result.releasePending;
+    const allowAnotherResponse = intro ? !intro.oneResponsePerEmail : true;
     return (
       <div className="mx-auto max-w-3xl px-5 py-12 sm:py-16">
         <div className="tailadmin-card p-6 sm:p-8">
@@ -720,6 +733,36 @@ export function PublicQuizRunner({ token }: { token: string }) {
                 ))}
               </ol>
             </section>
+          ) : null}
+          {allowAnotherResponse ? (
+            <div className="mt-8 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  window.localStorage.removeItem(storageKey);
+                  setResult(null);
+                  setContext(null);
+                  setAnswers({});
+                  setRespondentName("");
+                  setRespondentEmail("");
+                  setRemainingSeconds(null);
+                  setCurrentSection(0);
+                  setQuestionIndex(0);
+                  setError("");
+                  if (intro) {
+                    setPhase("intro");
+                  } else {
+                    setPhase("loading");
+                    requestJson<{ quiz: QuizIntro }>(`/api/v1/public/quiz/${token}`)
+                      .then((response) => { setIntro(response.data.quiz); setPhase("intro"); })
+                      .catch((caught) => { setError(caught instanceof Error ? caught.message : "Kuis tidak dapat dibuka"); setPhase("error"); });
+                  }
+                }}
+                className="tailadmin-button-outline px-6 py-3"
+              >
+                Kirim respons lain
+              </button>
+            </div>
           ) : null}
         </div>
       </div>

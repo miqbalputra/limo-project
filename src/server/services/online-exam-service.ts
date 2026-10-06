@@ -637,12 +637,14 @@ async function resolveAttemptFile(attempt: { hasilUjianId: string | null; draftA
 }
 
 export async function getWaliAttemptFile(actor: Actor, ujianId: string, attemptId: string, fileId: string) {
-  const ujian = await prisma.ujian.findUnique({ where: { id: ujianId }, select: { kelasId: true } });
+  const ujian = await prisma.ujian.findUnique({ where: { id: ujianId }, select: { kelasId: true, createdById: true } });
   if (!ujian) {
     throw new NotFoundError("Ujian tidak ditemukan");
   }
   if (actor.role !== "ADMIN") {
-    if (actor.role !== "GURU" || !(await canManageClass(actor, ujian.kelasId))) {
+    const ownedByCreator = ujian.createdById === actor.id;
+    const managesClass = ujian.kelasId !== null && (await canManageClass(actor, ujian.kelasId));
+    if (actor.role !== "GURU" || (!ownedByCreator && !managesClass)) {
       throw new ForbiddenError();
     }
   }

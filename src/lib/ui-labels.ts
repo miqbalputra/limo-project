@@ -87,6 +87,13 @@ const labels: Record<string, string> = {
   MULTI_SELECT: "Pilihan lebih dari satu",
   BENAR_SALAH: "Benar atau salah",
   ISIAN_SINGKAT: "Isian singkat",
+  DROPDOWN: "Dropdown",
+  SKALA: "Skala linier",
+  RATING: "Rating bintang",
+  GRID: "Kisi-kisi pilihan",
+  TANGGAL: "Tanggal",
+  WAKTU: "Waktu",
+  FILE_UPLOAD: "Unggah berkas",
   MENJODOHKAN: "Menjodohkan",
   URUTAN: "Urutan",
   CLOZE: "Cloze",
@@ -227,4 +234,8 @@ export function getUiTone(value: string | null | undefined): UiTone {
 
 export function getUiToneClass(value: string | null | undefined) {
   return toneClasses[getUiTone(value)];
+}
+
+export function assessmentClassLabel(kelas: { name: string; program: { name: string } } | null | undefined) {
+  return kelas ? `${kelas.program.name} / ${kelas.name}` : "Tanpa kelas (tautan publik)";
 }

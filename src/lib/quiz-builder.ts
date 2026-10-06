@@ -181,7 +181,7 @@ export function newQuestion(type = "PILIHAN_GANDA", sectionKey = ""): QuizQuesti
     difficulty: "EASY",
     standard: "",
     assessmentType: "FORMATIVE",
-    rubric: [],
+    rubric: MANUAL_TYPES.has(type) ? [newRubricRow()] : [],
     pairs: type === "MENJODOHKAN" ? [newPair(), newPair()] : [],
     sequenceItems: type === "URUTAN" ? ["", "", ""] : [],
   };

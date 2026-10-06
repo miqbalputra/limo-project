@@ -7,6 +7,7 @@ import { getStudentExamInstruction } from "@/server/services/online-exam-service
 import { StartExamAttemptButton } from "@/components/dashboard/start-exam-attempt-button";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
+import { assessmentClassLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Instruksi Ujian" };
 
@@ -20,7 +21,7 @@ export default async function StudentExamInstructionPage({ params }: { params: P
   return (
     <main className="space-y-6">
       <DashboardHero
-        eyebrow={`${ujian.kelas.program.name} / ${ujian.kelas.name}`}
+        eyebrow={assessmentClassLabel(ujian.kelas)}
         title={ujian.title}
         description="Baca instruksi sebelum memulai. Kerjakan sendiri dan pastikan koneksi internet stabil."
         actions={<><Link href="/siswa/ujian" className="tailadmin-button-outline px-4 py-2">Kembali</Link><StartExamAttemptButton endpoint={`/api/v1/siswa/ujian/${ujian.id}/attempt`} redirectBase="/siswa/ujian/attempt" /></>}

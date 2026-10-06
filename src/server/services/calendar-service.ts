@@ -185,9 +185,10 @@ export async function listCalendarEvents(actor: Actor, input: unknown = {}) {
     addEvent(events, actor, { id: `Assignment:${item.id}`, eventType: "ASSIGNMENT_DUE", title: `Tenggat: ${item.title}`, description: item.cutoffAt ? `Cutoff ${item.cutoffAt.toISOString()}` : item.instructions.slice(0, 240), startAt: item.dueAt, endAt: new Date(item.dueAt.getTime() + 30 * 60 * 1000), allDay: false, visibility: "ALL", classId: item.kelasId, className: item.kelas.name, sourceType: "Assignment", sourceId: item.id, status: item.status });
   }
   for (const item of exams) {
+    if (!item.kelasId) continue;
     const startAt = item.examDate || item.availableUntil || item.availableFrom;
     if (!startAt || startAt < from || startAt >= to || !isWithinEnrollment(scope, item.kelasId, startAt)) continue;
-    addEvent(events, actor, { id: `Ujian:${item.id}`, eventType: "EXAM", title: `Ujian: ${item.title}`, description: item.description, startAt, endAt: new Date(startAt.getTime() + Math.max(item.durationMinutes, 1) * 60 * 1000), allDay: false, visibility: "ALL", classId: item.kelasId, className: item.kelas.name, sourceType: "Ujian", sourceId: item.id, status: item.status });
+    addEvent(events, actor, { id: `Ujian:${item.id}`, eventType: "EXAM", title: `Ujian: ${item.title}`, description: item.description, startAt, endAt: new Date(startAt.getTime() + Math.max(item.durationMinutes, 1) * 60 * 1000), allDay: false, visibility: "ALL", classId: item.kelasId, className: item.kelas?.name ?? null, sourceType: "Ujian", sourceId: item.id, status: item.status });
   }
   for (const item of remedials) {
     if (!isWithinEnrollment(scope, item.kelasId, item.dueAt)) continue;

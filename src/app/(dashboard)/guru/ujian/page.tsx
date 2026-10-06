@@ -9,7 +9,7 @@ import { AssessmentTabs } from "@/components/dashboard/assessment-tabs";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
 import { LocalizedContent } from "@/components/localized-content";
-import { formatUiLabel } from "@/lib/ui-labels";
+import { formatUiLabel, assessmentClassLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Ujian & Kuis" };
 
@@ -40,7 +40,7 @@ export default async function GuruUjianPage({ searchParams }: { searchParams: Pr
         </form>
         {ujian.length > 0 ? ujian.map((item) => (
           <article key={item.id} className="tailadmin-card p-5">
-            <p className="text-theme-sm font-semibold text-limo-blue-700">{item.kelas.program.name} / {item.kelas.name}</p>
+            <p className="text-theme-sm font-semibold text-limo-blue-700">{assessmentClassLabel(item.kelas)}</p>
             <h2 className="mt-1 text-lg font-semibold text-gray-900">{item.title}</h2>
             <p className="mt-1 text-theme-sm text-gray-500">{formatUiLabel(item.mode)} / {formatUiLabel(item.status)} / {formatUiLabel(item.deliveryMode)} / {item.durationMinutes} menit / {item.questions.length} soal / {item._count.results} hasil / {item._count.attempts} percobaan online</p>
             <div className="mt-3 flex flex-wrap gap-2">

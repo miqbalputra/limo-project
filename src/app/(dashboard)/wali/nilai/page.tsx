@@ -37,7 +37,7 @@ export default async function WaliNilaiPage({ searchParams }: { searchParams: Pr
               <div className="min-w-0">
                 <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-400">Nilai terbaru</p>
                 <h2 className="mt-1 truncate text-lg font-semibold text-gray-900" title={latestResult.result.ujian.title}>{latestResult.result.ujian.title}</h2>
-                <p className="mt-1 text-theme-sm text-gray-500">{latestResult.childName} / {latestResult.result.ujian.kelas.program.name} - {latestResult.result.ujian.kelas.name}</p>
+                <p className="mt-1 text-theme-sm text-gray-500">{latestResult.childName} / {latestResult.result.ujian.kelas ? `${latestResult.result.ujian.kelas.program.name} - ${latestResult.result.ujian.kelas.name}` : "Tanpa kelas"}</p>
               </div>
             </div>
             <div className="min-w-32 rounded-2xl bg-gray-50 p-4 text-center">
@@ -87,7 +87,7 @@ export default async function WaliNilaiPage({ searchParams }: { searchParams: Pr
                       <div key={result.id} className="grid grid-cols-[1fr_auto] gap-3 border-b border-gray-100 px-4 py-3 last:border-b-0">
                         <div className="min-w-0">
                           <p className="truncate text-theme-sm font-semibold text-gray-900" title={result.ujian.title}>{result.ujian.title}</p>
-                          <p className="mt-1 text-theme-xs text-gray-500">{result.ujian.kelas.name} / {formatDate(result.ujian.examDate)}</p>
+                          <p className="mt-1 text-theme-xs text-gray-500">{result.ujian.kelas?.name ?? "Ujian"} / {formatDate(result.ujian.examDate)}</p>
                         </div>
                         <p className="self-center text-lg font-semibold text-success-700">{result.totalScore?.toString() ?? "-"}</p>
                       </div>

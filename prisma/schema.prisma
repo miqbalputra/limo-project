@@ -1409,8 +1409,8 @@ model OpsiSoal {
 
 model Ujian {
   id               String         @id @default(cuid())
-  kelasId          String
-  kelas            Kelas          @relation(fields: [kelasId], references: [id], onDelete: Restrict)
+  kelasId          String?
+  kelas            Kelas?         @relation(fields: [kelasId], references: [id], onDelete: SetNull)
   title            String
   description      String?        @db.Text
   status           PublishStatus  @default(DRAFT)

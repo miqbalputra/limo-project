@@ -742,6 +742,97 @@ try {
     await prisma.opsiSoal.deleteMany({ where: { bankSoalId: { in: allBankIds } } }).catch(() => undefined);
     await prisma.bankSoal.deleteMany({ where: { id: { in: allBankIds } } }).catch(() => undefined);
   }
+
+  // --- Paritas Google Forms: formulir publik tanpa kelas + preflight kunci ---
+  const gridKeyless = [
+    {
+      type: "GRID",
+      question: `Kisi tanpa kunci ${runId}`,
+      required: true,
+      points: 1,
+      sectionIndex: 0,
+      gridRows: ["Baris satu", "Baris dua"],
+      gridCorrect: ["A", ""],
+      options: optionRows(["Ya", "Tidak"]),
+    },
+  ];
+
+  const keylessForm = await request("/api/v1/kuis", {
+    method: "POST",
+    cookie: guru.cookie,
+    body: {
+      title: `Publik Tanpa Kelas ${runId}`,
+      description: "Formulir publik tanpa kelas",
+      mode: "LATIHAN",
+      deliveryMode: "TEACHER_ENTRY",
+      durationMinutes: 10,
+      sections: [{ title: "Bagian 1", description: "" }],
+      questions: gridKeyless,
+    },
+  });
+  assert.equal(keylessForm.response.status, 201, JSON.stringify(keylessForm.payload));
+  const keylessId = keylessForm.payload.data.item.id;
+
+  const keylessDetail = await request(`/api/v1/kuis/${keylessId}`, { cookie: guru.cookie });
+  assert.equal(keylessDetail.payload.data.item.kelasId, null, "formulir tanpa kelasId tersimpan null");
+
+  const keylessPublish = await request(`/api/v1/kuis/${keylessId}/publish`, { method: "POST", cookie: guru.cookie, body: {} });
+  assert.equal(keylessPublish.response.status, 400, "GRID tanpa kunci per baris harus ditolak");
+  assert.match(JSON.stringify(keylessPublish.payload), /kunci/i, "pesan penolakan menyebut kunci");
+
+  const keylessPreflight = await request(`/api/v1/kuis/${keylessId}/preflight`, { cookie: guru.cookie });
+  assert.equal(keylessPreflight.response.status, 200, JSON.stringify(keylessPreflight.payload));
+  assert.equal(keylessPreflight.payload.data.item.withoutClass, true);
+  assert.equal(keylessPreflight.payload.data.item.missingAnswerKeys.length, 1, "preflight menandai grid tanpa kunci");
+
+  const keylessFixed = await request(`/api/v1/kuis/${keylessId}`, {
+    method: "PATCH",
+    cookie: guru.cookie,
+    body: {
+      title: `Publik Tanpa Kelas ${runId}`,
+      deliveryMode: "TEACHER_ENTRY",
+      durationMinutes: 10,
+      sections: [{ title: "Bagian 1", description: "" }],
+      questions: [{ ...gridKeyless[0], gridCorrect: ["A", "B"] }],
+    },
+  });
+  assert.equal(keylessFixed.response.status, 200, JSON.stringify(keylessFixed.payload));
+
+  const fixedPreflight = await request(`/api/v1/kuis/${keylessId}/preflight`, { cookie: guru.cookie });
+  assert.equal(fixedPreflight.payload.data.item.missingAnswerKeys.length, 0, "preflight bersih setelah kunci lengkap");
+
+  const fixedPublish = await request(`/api/v1/kuis/${keylessId}/publish`, { method: "POST", cookie: guru.cookie, body: {} });
+  assert.equal(fixedPublish.response.status, 200, JSON.stringify(fixedPublish.payload));
+
+  const classlessOnline = await request("/api/v1/kuis", {
+    method: "POST",
+    cookie: guru.cookie,
+    body: {
+      title: `Tanpa Kelas Online ${runId}`,
+      deliveryMode: "ONLINE_VIA_WALI",
+      durationMinutes: 10,
+      sections: [{ title: "Bagian 1", description: "" }],
+      questions: [{ type: "PILIHAN_GANDA", question: `Soal online ${runId}`, options: optionRows(["Satu", "Dua"]), correctLabels: ["A"] }],
+    },
+  });
+  assert.equal(classlessOnline.response.status, 201);
+  const classlessOnlineId = classlessOnline.payload.data.item.id;
+  const classlessOnlinePublish = await request(`/api/v1/kuis/${classlessOnlineId}/publish`, { method: "POST", cookie: guru.cookie, body: {} });
+  assert.equal(classlessOnlinePublish.response.status, 400, "mode online tanpa kelas harus ditolak saat publikasi");
+  assert.match(JSON.stringify(classlessOnlinePublish.payload), /kelas/i);
+
+  const hubList = await request("/guru/ujian", { cookie: guru.cookie });
+  assert.match(String(hubList.payload), /Tanpa kelas/, "hub menampilkan label formulir tanpa kelas");
+
+  for (const cleanupId of [keylessId, classlessOnlineId]) {
+    const ids = (await prisma.ujianSoal.findMany({ where: { ujianId: cleanupId }, select: { bankSoalId: true } })).map((row) => row.bankSoalId);
+    await prisma.ujian.delete({ where: { id: cleanupId } }).catch(() => undefined);
+    if (ids.length > 0) {
+      await prisma.opsiSoal.deleteMany({ where: { bankSoalId: { in: ids } } }).catch(() => undefined);
+      await prisma.bankSoal.deleteMany({ where: { id: { in: ids } } }).catch(() => undefined);
+    }
+  }
+  ok("Formulir publik tanpa kelas: preflight + penolakan kunci GRID & mode online tanpa kelas");
 } finally {
   if (mediaId) {
     const media = await prisma.quizMedia.findUnique({ where: { id: mediaId }, select: { storagePath: true } }).catch(() => null);

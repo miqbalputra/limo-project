@@ -501,12 +501,16 @@ export async function addBankSoalToQuiz(actor: Actor, ujianId: string, input: un
   const parsed = addBankSoalToQuizSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Permintaan belum valid", parsed.error.flatten().fieldErrors);
 
-  const ujian = await prisma.ujian.findUnique({ where: { id: ujianId }, select: { id: true, kelasId: true, status: true } });
+  const ujian = await prisma.ujian.findUnique({ where: { id: ujianId }, select: { id: true, kelasId: true, status: true, createdById: true } });
   if (!ujian) throw new NotFoundError("Kuis tidak ditemukan");
 
   if (actor.role !== "ADMIN") {
-    const kelas = await prisma.kelas.findUnique({ where: { id: ujian.kelasId }, select: { guruProfile: { select: { userId: true } } } });
-    if (kelas?.guruProfile?.userId !== actor.id) throw new ForbiddenError();
+    if (ujian.kelasId === null) {
+      if (ujian.createdById !== actor.id) throw new ForbiddenError();
+    } else {
+      const kelas = await prisma.kelas.findUnique({ where: { id: ujian.kelasId }, select: { guruProfile: { select: { userId: true } } } });
+      if (kelas?.guruProfile?.userId !== actor.id) throw new ForbiddenError();
+    }
   }
 
   const soal = await prisma.bankSoal.findMany({
@@ -548,7 +552,12 @@ export async function listUjian(actor: Actor, input?: unknown) {
   const filters = parseExamListFilters(input);
   const scope = actor.role === "ADMIN"
     ? {}
-    : { kelas: { guruProfile: { userId: actor.id } } };
+    : {
+        OR: [
+          { kelas: { guruProfile: { userId: actor.id } } },
+          { kelasId: null, createdById: actor.id },
+        ],
+      };
   const where = {
     AND: [
       scope,
@@ -837,11 +846,14 @@ export async function updateUjianStatus(actor: Actor, ujianId: string, input: un
   if (parsed.data.status === "PUBLISHED" && existing.questions.length === 0) {
     throw new ValidationError("Ujian harus memiliki minimal satu soal sebelum dipublish");
   }
+  if (parsed.data.status === "PUBLISHED" && existing.kelasId === null && existing.deliveryMode !== "TEACHER_ENTRY") {
+    throw new ValidationError("Formulir tanpa kelas hanya bisa dikirim lewat tautan publik. Pilih kelas untuk mengirim ke wali/siswa.");
+  }
 
   const item = await prisma.ujian.update({ where: { id: ujianId }, data: { status: parsed.data.status }, select: { id: true, title: true, status: true } });
   await prisma.auditLog.create({ data: { actorId: actor.id, action: `UJIAN_${parsed.data.status}`, entityType: "Ujian", entityId: ujianId } });
 
-  if (parsed.data.status === "PUBLISHED" && existing.status !== "PUBLISHED" && ["ONLINE_VIA_WALI", "BOTH", "ONLINE_VIA_SISWA"].includes(existing.deliveryMode)) {
+  if (parsed.data.status === "PUBLISHED" && existing.status !== "PUBLISHED" && existing.kelasId !== null && ["ONLINE_VIA_WALI", "BOTH", "ONLINE_VIA_SISWA"].includes(existing.deliveryMode)) {
     const students = await prisma.kelasSiswa.findMany({ where: { kelasId: existing.kelasId, status: "ACTIVE" }, select: { siswaId: true } });
     const siswaIds = students.map((student) => student.siswaId);
     if (["ONLINE_VIA_WALI", "BOTH"].includes(existing.deliveryMode)) {
@@ -878,6 +890,10 @@ export async function listExamStudents(actor: Actor, ujianId: string) {
   }
 
   await assertQuestionScope(actor, ujian.kelasId);
+
+  if (ujian.kelasId === null) {
+    return { items: [] };
+  }
 
   const items = await prisma.kelasSiswa.findMany({
     where: { kelasId: ujian.kelasId, status: "ACTIVE" },
@@ -975,12 +991,14 @@ export async function releaseHasilUjian(actor: Actor, hasilId: string) {
 
   const hasil = await prisma.hasilUjian.findUnique({
     where: { id: hasilId },
-    select: { id: true, status: true, releasedAt: true, ujianId: true, siswaId: true, ujian: { select: { kelasId: true } } },
+    select: { id: true, status: true, releasedAt: true, ujianId: true, siswaId: true, ujian: { select: { kelasId: true, createdById: true } } },
   });
   if (!hasil) throw new NotFoundError("Hasil ujian tidak ditemukan");
 
-  if (actor.role === "GURU" && !(await canManageClass(actor, hasil.ujian.kelasId))) {
-    throw new ForbiddenError();
+  if (actor.role === "GURU") {
+    const owned = hasil.ujian.createdById === actor.id;
+    const managesClass = hasil.ujian.kelasId !== null && (await canManageClass(actor, hasil.ujian.kelasId));
+    if (!owned && !managesClass) throw new ForbiddenError();
   }
 
   if (!["FINAL", "CORRECTED"].includes(hasil.status)) {
@@ -1165,7 +1183,7 @@ export async function submitHasilUjian(actor: Actor, input: unknown, options: Su
   await assertQuestionScope(actor, ujian.kelasId);
 
   const enrollment = await prisma.kelasSiswa.findFirst({
-    where: { kelasId: ujian.kelasId, siswaId: parsed.data.siswaId, status: "ACTIVE" },
+    where: { kelasId: ujian.kelasId ?? "", siswaId: parsed.data.siswaId, status: "ACTIVE" },
     select: { id: true },
   });
 

@@ -10,7 +10,7 @@ import { LocalizedContent } from "@/components/localized-content";
 import { requireActor } from "@/server/auth/session";
 import { requirePermission } from "@/server/auth/permissions";
 import { listEssayReviewQueue } from "@/server/services/exam-service";
-import { formatUiLabel, getUiToneClass } from "@/lib/ui-labels";
+import { assessmentClassLabel, formatUiLabel, getUiToneClass } from "@/lib/ui-labels";
 
 export const metadata = { title: "Penilaian Esai" };
 
@@ -81,7 +81,7 @@ export default async function GuruPenilaianEsaiPage({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <p className="text-theme-xs font-semibold uppercase tracking-wide text-limo-blue-700">
-                      {item.ujian.kelas.program.name} / {item.ujian.kelas.name}
+                      {assessmentClassLabel(item.ujian.kelas)}
                     </p>
                     <h3 className="mt-1 font-semibold text-gray-900">
                       {item.siswa.name}

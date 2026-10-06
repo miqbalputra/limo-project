@@ -74,7 +74,7 @@ async function getStudentTodo(actor: Actor, now: Date) {
     const done = exam.results.length > 0;
     const dueAt = exam.examDate || exam.availableUntil;
     const status = todoStatus(done, dueAt, now);
-    items.push({ key: `Ujian:${exam.id}:${account.siswaId}`, kind: "EXAM", title: `Ikuti ujian: ${exam.title}`, description: exam.kelas.name, entityType: "Ujian", entityId: exam.id, classId: exam.kelasId, siswaId: account.siswaId, childName: null, dueAt, status, isOverdue: status === "OVERDUE", priority: priority(status, dueAt, now), href: `/siswa/kelas/${exam.kelasId}` });
+    items.push({ key: `Ujian:${exam.id}:${account.siswaId}`, kind: "EXAM", title: `Ikuti ujian: ${exam.title}`, description: exam.kelas?.name ?? "Ujian", entityType: "Ujian", entityId: exam.id, classId: exam.kelasId, siswaId: account.siswaId, childName: null, dueAt, status, isOverdue: status === "OVERDUE", priority: priority(status, dueAt, now), href: `/siswa/kelas/${exam.kelasId}` });
   }
   for (const remedial of remedials) {
     const status = todoStatus(false, remedial.remedial.dueAt, now);
@@ -114,7 +114,7 @@ async function getWaliTodo(actor: Actor, now: Date) {
       if (!enrollmentKeys.has(`${studentId}:${exam.kelasId}`) || (exam.availableFrom && exam.availableFrom > now)) continue;
       const dueAt = exam.examDate || exam.availableUntil;
       const status = todoStatus(completed.has(studentId), dueAt, now);
-      items.push({ key: `Ujian:${exam.id}:${studentId}`, kind: "EXAM", title: `Ujian ${childNames.get(studentId)}: ${exam.title}`, description: exam.kelas.name, entityType: "Ujian", entityId: exam.id, classId: exam.kelasId, siswaId: studentId, childName: childNames.get(studentId) || null, dueAt, status, isOverdue: status === "OVERDUE", priority: priority(status, dueAt, now), href: `/wali/tugas/${studentId}` });
+      items.push({ key: `Ujian:${exam.id}:${studentId}`, kind: "EXAM", title: `Ujian ${childNames.get(studentId)}: ${exam.title}`, description: exam.kelas?.name ?? "Ujian", entityType: "Ujian", entityId: exam.id, classId: exam.kelasId, siswaId: studentId, childName: childNames.get(studentId) || null, dueAt, status, isOverdue: status === "OVERDUE", priority: priority(status, dueAt, now), href: `/wali/tugas/${studentId}` });
     }
   }
   for (const session of sessions) {

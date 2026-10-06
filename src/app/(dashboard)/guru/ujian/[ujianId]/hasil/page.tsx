@@ -6,7 +6,7 @@ import { HasilUjianForm } from "@/components/dashboard/hasil-ujian-form";
 import { ExamResultReleaseButton } from "@/components/dashboard/exam-result-release-button";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { EmptyState } from "@/components/dashboard/dashboard-widgets";
-import { formatUiLabel } from "@/lib/ui-labels";
+import { assessmentClassLabel, formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Input Hasil Ujian" };
 
@@ -27,7 +27,7 @@ export default async function GuruInputHasilUjianPage({ params, searchParams }: 
   return (
     <main className="space-y-6">
       <div>
-        <p className="text-theme-sm font-semibold text-limo-blue-700">{ujian.kelas.program.name} / {ujian.kelas.name}</p>
+        <p className="text-theme-sm font-semibold text-limo-blue-700">{assessmentClassLabel(ujian.kelas)}</p>
         <h1 className="mt-1 tailadmin-page-title">{ujian.title}</h1>
         <p className="mt-2 tailadmin-muted">Input jawaban dari ujian luring. Soal objektif dihitung otomatis; berbicara, menulis, bermain peran, dan esai tanpa skor perlu ditinjau.</p>
       </div>

@@ -48,7 +48,7 @@ export type QuizFormQuestionDto = {
 
 export type QuizFormDto = {
   id: string;
-  kelasId: string;
+  kelasId: string | null;
   title: string;
   description: string | null;
   mode: string;
@@ -87,7 +87,7 @@ export function toQuizFormState(item: QuizFormDto): QuizFormState {
   if (sectionKeys.length === 0) sectionKeys.push(`s-${item.id}-0`);
 
   return {
-    kelasId: item.kelasId,
+    kelasId: item.kelasId ?? "",
     title: item.title,
     description: item.description ?? "",
     mode: item.mode,

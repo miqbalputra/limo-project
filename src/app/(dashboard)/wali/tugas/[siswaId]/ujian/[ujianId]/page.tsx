@@ -5,6 +5,7 @@ import { getWaliExamInstruction } from "@/server/services/online-exam-service";
 import { StartExamAttemptButton } from "@/components/dashboard/start-exam-attempt-button";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
+import { assessmentClassLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Instruksi Ujian" };
 
@@ -17,7 +18,7 @@ export default async function WaliExamInstructionPage({ params }: { params: Prom
   return (
     <main className="space-y-6">
       <DashboardHero
-        eyebrow={`${siswa.nomorInduk} / ${ujian.kelas.program.name}`}
+        eyebrow={`${siswa.nomorInduk} / ${ujian.kelas ? ujian.kelas.program.name : assessmentClassLabel(null)}`}
         title={ujian.title}
         description="Baca instruksi sebelum memulai. Orang tua mendampingi penggunaan perangkat, anak tetap menjawab sendiri."
         actions={<><Link href={`/wali/tugas/${siswa.id}`} className="tailadmin-button-outline px-4 py-2">Kembali</Link><StartExamAttemptButton endpoint={`/api/v1/wali/tugas/${siswa.id}/ujian/${ujian.id}/attempt`} redirectBase="/wali/tugas/attempt" childId={siswa.id} /></>}

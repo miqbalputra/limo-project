@@ -17,8 +17,12 @@ function parseDate(value: string | undefined) {
   return new Date(`${value}T00:00:00.000Z`);
 }
 
-async function assertClassScope(actor: Actor, kelasId: string) {
+async function assertClassScope(actor: Actor, kelasId: string | null) {
   if (actor.role === "ADMIN") return;
+  if (kelasId === null) {
+    if (actor.role === "GURU") return;
+    throw new ForbiddenError();
+  }
   if (actor.role !== "GURU") throw new ForbiddenError();
 
   const allowed = await canManageClass(actor, kelasId);
@@ -73,7 +77,7 @@ function fileUploadFields(value: unknown) {
   return { uploadAllowedTypes: allowedTypes, uploadMaxSizeMb: maxSizeMb };
 }
 
-async function createSectionsAndQuestions(tx: Tx, ujianId: string, kelasId: string, data: { sections: Array<{ title: string; description?: string }>; questions: QuestionInput[] }, actorId: string) {
+async function createSectionsAndQuestions(tx: Tx, ujianId: string, kelasId: string | null, data: { sections: Array<{ title: string; description?: string }>; questions: QuestionInput[] }, actorId: string) {
   const sectionIds = new Map<number, string>();
   for (const [index, section] of data.sections.entries()) {
     const created = await tx.ujianSection.create({
@@ -88,7 +92,7 @@ async function createSectionsAndQuestions(tx: Tx, ujianId: string, kelasId: stri
     for (const question of data.questions.filter((item) => item.sectionIndex === sectionIndex)) {
       const soal = await tx.bankSoal.create({
         data: {
-          kelasId,
+          kelasId: kelasId ?? undefined,
           type: question.type,
           question: question.question,
           helpText: question.helpText?.trim() || undefined,
@@ -312,12 +316,12 @@ export async function createQuizForm(actor: Actor, input: unknown) {
     throw new ValidationError("Formulir kuis belum valid", parsed.error.flatten().fieldErrors);
   }
 
-  await assertClassScope(actor, parsed.data.kelasId);
+  await assertClassScope(actor, parsed.data.kelasId ?? null);
 
   const item = await prisma.$transaction(async (tx) => {
     const ujian = await tx.ujian.create({
       data: {
-        kelasId: parsed.data.kelasId,
+        kelasId: parsed.data.kelasId ?? null,
         title: parsed.data.title,
         description: parsed.data.description || undefined,
         status: "DRAFT",
@@ -351,7 +355,7 @@ export async function createQuizForm(actor: Actor, input: unknown) {
       select: { id: true, title: true, status: true },
     });
 
-    await createSectionsAndQuestions(tx, ujian.id, parsed.data.kelasId, { sections: parsed.data.sections, questions: parsed.data.questions }, actor.id);
+    await createSectionsAndQuestions(tx, ujian.id, parsed.data.kelasId ?? null, { sections: parsed.data.sections, questions: parsed.data.questions }, actor.id);
     await tx.auditLog.create({ data: { actorId: actor.id, action: "QUIZ_FORM_CREATED", entityType: "Ujian", entityId: ujian.id } });
 
     return ujian;
@@ -377,7 +381,7 @@ export async function updateQuizForm(actor: Actor, ujianId: string, input: unkno
   }
 
   await assertClassScope(actor, existing.kelasId);
-  await assertClassScope(actor, parsed.data.kelasId);
+  await assertClassScope(actor, parsed.data.kelasId ?? null);
 
   if (existing.status === "PUBLISHED" && (existing._count.attempts > 0 || existing._count.results > 0 || existing._count.responses > 0)) {
     throw new ConflictError("Kuis sudah dikerjakan. Duplikat kuis untuk mengubah soal.");
@@ -387,7 +391,7 @@ export async function updateQuizForm(actor: Actor, ujianId: string, input: unkno
     await tx.ujian.update({
       where: { id: ujianId },
       data: {
-        kelasId: parsed.data.kelasId,
+        kelasId: parsed.data.kelasId ?? null,
         title: parsed.data.title,
         description: parsed.data.description || undefined,
         mode: parsed.data.mode,
@@ -431,7 +435,7 @@ export async function updateQuizForm(actor: Actor, ujianId: string, input: unkno
       }
     }
 
-    await createSectionsAndQuestions(tx, ujianId, parsed.data.kelasId, { sections: parsed.data.sections, questions: parsed.data.questions }, actor.id);
+    await createSectionsAndQuestions(tx, ujianId, parsed.data.kelasId ?? null, { sections: parsed.data.sections, questions: parsed.data.questions }, actor.id);
     await tx.auditLog.create({ data: { actorId: actor.id, action: "QUIZ_FORM_UPDATED", entityType: "Ujian", entityId: ujianId } });
   });
 
@@ -523,10 +527,24 @@ export async function getQuizResponses(actor: Actor, ujianId: string) {
   const questionStats = ujian.questions.map((question) => {
     let correct = 0;
     let answered = 0;
+    const optionCounts = new Map<string, number>();
 
     for (const response of responses) {
       const answers = Array.isArray(response.finalAnswers) ? (response.finalAnswers as Array<Record<string, unknown>>) : [];
       const answer = answers.find((item) => item && item.ujianSoalId === question.id);
+      const typed = answer as { selectedOption?: unknown; selectedOptions?: unknown } | undefined;
+
+      const labels = Array.isArray(typed?.selectedOptions)
+        ? (typed?.selectedOptions as unknown[]).map((value) => String(value).toUpperCase())
+        : typed?.selectedOption
+          ? [String(typed.selectedOption).toUpperCase()]
+          : [];
+
+      for (const label of labels) {
+        if (!label) continue;
+        optionCounts.set(label, (optionCounts.get(label) ?? 0) + 1);
+      }
+
       const verdict = gradeAnswer(question.bankSoal, answer as never);
       if (verdict !== null) {
         answered += 1;
@@ -534,7 +552,18 @@ export async function getQuizResponses(actor: Actor, ujianId: string) {
       }
     }
 
-    return { id: question.id, question: question.bankSoal.question, type: question.bankSoal.type, correct, answered };
+    return {
+      id: question.id,
+      question: question.bankSoal.question,
+      type: question.bankSoal.type,
+      correct,
+      answered,
+      optionDistribution: question.bankSoal.options.map((option) => ({
+        label: option.label,
+        isCorrect: option.isCorrect,
+        count: optionCounts.get(option.label.toUpperCase()) ?? 0,
+      })),
+    };
   });
 
   return {
@@ -1151,6 +1180,165 @@ export async function duplicateQuizForm(actor: Actor, ujianId: string) {
   return { item };
 }
 
+const OBJECTIVE_KEY_TYPES = new Set([
+  "PILIHAN_GANDA",
+  "MULTI_SELECT",
+  "DROPDOWN",
+  "BENAR_SALAH",
+  "ISIAN_SINGKAT",
+  "CLOZE",
+  "SKALA",
+  "RATING",
+  "GRID",
+  "TANGGAL",
+  "WAKTU",
+  "MENJODOHKAN",
+  "URUTAN",
+]);
+
+type PreflightQuestion = {
+  order: number;
+  weight: Prisma.Decimal;
+  bankSoal: {
+    type: string;
+    question: string;
+    expectedAnswer: string | null;
+    acceptedAnswers: Prisma.JsonValue | null;
+    rubric: Prisma.JsonValue | null;
+    structuredPayload: Prisma.JsonValue | null;
+    options: { label: string; isCorrect: boolean }[];
+  };
+};
+
+function questionHasAnswerKey(question: PreflightQuestion): boolean {
+  const bank = question.bankSoal;
+  const payload = (bank.structuredPayload ?? null) as {
+    rows?: string[];
+    correct?: Record<string, string> | null;
+    answerKey?: unknown;
+  } | null;
+  const acceptedAnswers = Array.isArray(bank.acceptedAnswers) ? (bank.acceptedAnswers as unknown[]) : [];
+
+  switch (bank.type) {
+    case "PILIHAN_GANDA":
+    case "MULTI_SELECT":
+    case "DROPDOWN":
+    case "SKALA":
+    case "RATING":
+      return bank.options.some((option) => option.isCorrect) || [bank.expectedAnswer ?? ""].some((value) => value.trim().length > 0);
+    case "BENAR_SALAH":
+      return ["benar", "salah"].includes((bank.expectedAnswer ?? "").trim().toLowerCase());
+    case "ISIAN_SINGKAT":
+    case "CLOZE":
+    case "TANGGAL":
+    case "WAKTU":
+      return Boolean((bank.expectedAnswer ?? "").trim()) || acceptedAnswers.some((value) => typeof value === "string" && value.trim().length > 0);
+    case "GRID": {
+      const rows = Array.isArray(payload?.rows) ? (payload as { rows: string[] }).rows : [];
+      if (rows.length === 0) return false;
+      const correct = payload?.correct ?? {};
+      return rows.every((_, index) => Boolean(correct?.[String(index)]));
+    }
+    case "MENJODOHKAN": {
+      const key = payload?.answerKey;
+      return typeof key === "object" && key !== null && !Array.isArray(key) && Object.keys(key as Record<string, unknown>).length > 0;
+    }
+    case "URUTAN": {
+      const key = payload?.answerKey;
+      return Array.isArray(key) && key.length > 0;
+    }
+    default:
+      return true;
+  }
+}
+
+function isManualReviewQuestion(bank: PreflightQuestion["bankSoal"]): boolean {
+  return new Set(["ESAI", "FILE_UPLOAD", "GAMBAR", "LISTENING", "READING", "SPEAKING", "WRITING", "ROLEPLAY"]).has(bank.type);
+}
+
+function collectMissingAnswerKeys(questions: PreflightQuestion[]): { labels: string[]; keyless: { order: number; question: string; type: string }[] } {
+  const missing: string[] = [];
+  const keyless: { order: number; question: string; type: string }[] = [];
+
+  for (const question of questions) {
+    if (!OBJECTIVE_KEY_TYPES.has(question.bankSoal.type) || questionHasAnswerKey(question)) continue;
+    const rowGap = question.bankSoal.type === "GRID"
+      ? " (Ada baris yang belum punya kunci kolom)"
+      : "";
+    missing.push(`Soal ${question.order + 1}${rowGap}: tandai jawaban benar terlebih dahulu.`);
+    keyless.push({ order: question.order, question: question.bankSoal.question, type: question.bankSoal.type });
+  }
+
+  return { labels: missing, keyless };
+}
+
+async function loadPreflightQuestions(ujianId: string): Promise<PreflightQuestion[]> {
+  const questions = await prisma.ujianSoal.findMany({
+    where: { ujianId },
+    orderBy: { order: "asc" },
+    select: {
+      order: true,
+      weight: true,
+      required: true,
+      bankSoal: { select: { type: true, question: true, expectedAnswer: true, acceptedAnswers: true, rubric: true, structuredPayload: true, options: { select: { label: true, isCorrect: true }, orderBy: { order: "asc" } } } },
+    },
+  });
+
+  return questions as unknown as PreflightQuestion[];
+}
+
+export async function assertQuizAnswerKeys(ujianId: string) {
+  const questions = await loadPreflightQuestions(ujianId);
+  const { labels: missingAnswerKeys } = collectMissingAnswerKeys(questions);
+  if (missingAnswerKeys.length > 0) {
+    throw new ValidationError("Publikasi diblokir — masih ada soal tanpa kunci jawaban: " + missingAnswerKeys.join(" "), { missingAnswerKeys });
+  }
+}
+
+export async function preflightQuizForm(actor: Actor, ujianId: string) {
+  const ujian = await prisma.ujian.findUnique({
+    where: { id: ujianId },
+    select: { id: true, title: true, status: true, kelasId: true, deliveryMode: true },
+  });
+  if (!ujian) {
+    throw new NotFoundError("Kuis tidak ditemukan");
+  }
+  await assertClassScope(actor, ujian.kelasId);
+
+  const typed = await loadPreflightQuestions(ujianId);
+  const { labels: missingAnswerKeys, keyless } = collectMissingAnswerKeys(typed);
+
+  let objectiveCount = 0;
+  let manualCount = 0;
+  let objectiveWeight = 0;
+  let manualWeight = 0;
+
+  for (const question of typed) {
+    if (isManualReviewQuestion(question.bankSoal)) {
+      manualCount += 1;
+      manualWeight += Number(question.weight);
+    } else {
+      objectiveCount += 1;
+      objectiveWeight += Number(question.weight);
+    }
+  }
+
+  const totalWeight = objectiveWeight + manualWeight;
+  return {
+    item: {
+      title: ujian.title,
+      status: ujian.status,
+      withoutClass: ujian.kelasId === null,
+      classGateWarning: ujian.kelasId === null && ujian.deliveryMode !== "TEACHER_ENTRY",
+      missingAnswerKeys,
+      keylessQuestionIds: keyless,
+      objectiveQuestions: objectiveCount,
+      manualQuestions: manualCount,
+      coveragePercent: totalWeight > 0 ? Math.round((objectiveWeight / totalWeight) * 100) : 0,
+    },
+  };
+}
+
 export async function publishQuizForm(actor: Actor, ujianId: string) {
   const ujian = await prisma.ujian.findUnique({
     where: { id: ujianId },
@@ -1164,15 +1352,20 @@ export async function publishQuizForm(actor: Actor, ujianId: string) {
   await assertClassScope(actor, ujian.kelasId);
 
   if (ujian.status !== "PUBLISHED") {
+    if (ujian.kelasId === null && ujian.deliveryMode !== "TEACHER_ENTRY") {
+      throw new ValidationError("Formulir tanpa kelas hanya bisa dikirim lewat tautan publik. Pilih kelas untuk mengirim ke wali/siswa.");
+    }
     const questionCount = await prisma.ujianSoal.count({ where: { ujianId } });
     if (questionCount === 0) {
       throw new ValidationError("Tambahkan minimal satu soal sebelum publikasi");
     }
 
+    await assertQuizAnswerKeys(ujianId);
+
     await prisma.ujian.update({ where: { id: ujianId }, data: { status: "PUBLISHED" } });
     await prisma.auditLog.create({ data: { actorId: actor.id, action: "QUIZ_FORM_PUBLISHED", entityType: "Ujian", entityId: ujianId } });
 
-    if (["ONLINE_VIA_WALI", "BOTH", "ONLINE_VIA_SISWA"].includes(ujian.deliveryMode)) {
+    if (ujian.kelasId !== null && ["ONLINE_VIA_WALI", "BOTH", "ONLINE_VIA_SISWA"].includes(ujian.deliveryMode)) {
       const students = await prisma.kelasSiswa.findMany({ where: { kelasId: ujian.kelasId, status: "ACTIVE" }, select: { siswaId: true } });
       const siswaIds = students.map((student) => student.siswaId);
       if (["ONLINE_VIA_WALI", "BOTH"].includes(ujian.deliveryMode)) {

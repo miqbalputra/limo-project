@@ -165,7 +165,7 @@ const questionSchema = z
 const dateField = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal(""));
 
 export const saveQuizFormSchema = z.object({
-  kelasId: z.string().min(8).max(64),
+  kelasId: z.string().min(8).max(64).optional(),
   title: z.string().trim().min(2).max(200),
   description: z.string().trim().max(2000).optional().or(z.literal("")),
   mode: z.enum(["UJIAN", "LATIHAN"]).default("UJIAN"),
