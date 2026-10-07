@@ -17,6 +17,15 @@ export type QuizRubricRow = {
 export type QuizPair = {
   left: string;
   right: string;
+  leftMediaUrl: string;
+  rightMediaUrl: string;
+};
+
+export type MatchingPairPayload = {
+  left: string;
+  right: string;
+  leftMediaUrl: string | null;
+  rightMediaUrl: string | null;
 };
 
 export type QuizQuestion = {
@@ -128,8 +137,24 @@ export function newRubricRow(): QuizRubricRow {
   return { name: "", max: "" };
 }
 
+export function pairSideFilled(side: string | undefined | null, mediaUrl: string | undefined | null) {
+  return Boolean(side?.trim()) || Boolean(mediaUrl?.trim());
+}
+
+export function pairIsComplete(pair: QuizPair) {
+  return pairSideFilled(pair.left, pair.leftMediaUrl) && pairSideFilled(pair.right, pair.rightMediaUrl);
+}
+
+export function pairLeftAnchor(left: string, index: number) {
+  return left.trim() || `#L-${index}`;
+}
+
+export function pairRightAnchor(right: string, index: number) {
+  return right.trim() || `#R-${index}`;
+}
+
 export function newPair(): QuizPair {
-  return { left: "", right: "" };
+  return { left: "", right: "", leftMediaUrl: "", rightMediaUrl: "" };
 }
 
 export function newQuestion(type = "PILIHAN_GANDA", sectionKey = ""): QuizQuestion {

@@ -18,6 +18,8 @@ type StructuredPayload = {
   kind?: string;
   rows?: string[];
   multiple?: boolean;
+  pairs?: Array<{ left?: string; right?: string; leftMediaUrl?: string | null; rightMediaUrl?: string | null }>;
+  items?: string[];
   validation?: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null };
 } | null;
 
@@ -69,6 +71,15 @@ export default async function StudentAttemptPage({ params }: { params: Promise<{
             uploadMaxSizeMb: upload.maxSizeMb,
             scale: { min: payload?.min ?? null, max: payload?.max ?? null, minLabel: payload?.minLabel ?? null, maxLabel: payload?.maxLabel ?? null, kind: payload?.kind ?? null },
             grid: { rows: Array.isArray(payload?.rows) ? payload!.rows : [], multiple: Boolean(payload?.multiple) },
+            matchingPairs: Array.isArray(payload?.pairs)
+              ? payload!.pairs.map((pair) => ({
+                  left: typeof pair.left === "string" ? pair.left : "",
+                  right: typeof pair.right === "string" ? pair.right : "",
+                  leftMediaUrl: typeof pair.leftMediaUrl === "string" ? pair.leftMediaUrl : null,
+                  rightMediaUrl: typeof pair.rightMediaUrl === "string" ? pair.rightMediaUrl : null,
+                }))
+              : [],
+            sequenceItems: Array.isArray(payload?.items) ? payload!.items.filter((item): item is string => typeof item === "string") : [],
             validation: payload?.validation ?? null,
           },
         };

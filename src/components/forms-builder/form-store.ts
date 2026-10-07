@@ -252,6 +252,24 @@ export function useFormBuilderStore({ ujianId, status, initial }: { ujianId?: st
     }
   }
 
+  async function closePublication() {
+    if (!idRef.current) return null;
+    setBusy(true);
+    try {
+      await flushSave();
+      await requestJson(`/api/v1/kuis/${idRef.current}/unpublish`, { method: "POST", body: {}, fallbackMessage: "Gagal menutup publikasi" });
+      setCurrentStatus("DRAFT");
+      setNotice("Publikasi ditutup. Tautan berhenti menerima jawaban; buka lagi kapanpun lewat tombol Kirim.");
+      router.refresh();
+      return true;
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Gagal menutup publikasi");
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function patchForm(patch: Partial<QuizFormState>) {
     patchFormLocal({ ...formRef.current, ...patch });
   }
@@ -402,6 +420,22 @@ export function useFormBuilderStore({ ujianId, status, initial }: { ujianId?: st
 
   function setPair(key: string, index: number, field: "left" | "right", value: string) {
     updatePairs(key, (pairs) => pairs.map((pair, position) => (position === index ? { ...pair, [field]: value } : pair)));
+  }
+
+  function clearPairMedia(key: string, index: number, field: "left" | "right") {
+    updatePairs(key, (pairs) => pairs.map((pair, position) => (position === index ? { ...pair, [field === "left" ? "leftMediaUrl" : "rightMediaUrl"]: "" } : pair)));
+  }
+
+  async function uploadPairMedia(key: string, index: number, field: "left" | "right", file: File) {
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      const result = await requestJson<{ item: { url: string } }>("/api/v1/kuis/media", { method: "POST", body: formData, fallbackMessage: "Gagal mengunggah gambar pasangan" });
+      updatePairs(key, (pairs) => pairs.map((pair, position) => (position === index ? { ...pair, [field === "left" ? "leftMediaUrl" : "rightMediaUrl"]: result.data.item.url } : pair)));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Gagal mengunggah gambar pasangan");
+    }
   }
 
   function removePair(key: string, index: number) {
@@ -619,6 +653,8 @@ export function useFormBuilderStore({ ujianId, status, initial }: { ujianId?: st
     setBranchRule,
     addPair,
     setPair,
+    clearPairMedia,
+    uploadPairMedia,
     removePair,
     addSequenceItem,
     setSequenceItem,
@@ -644,6 +680,7 @@ export function useFormBuilderStore({ ujianId, status, initial }: { ujianId?: st
     save,
     runPreflight,
     publishNow,
+    closePublication,
     undo,
     redo,
     restoreDraft,

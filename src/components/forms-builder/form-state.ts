@@ -4,6 +4,8 @@ import {
   CHOICE_TYPES,
   MANUAL_TYPES,
   SCALE_TYPES,
+  pairIsComplete,
+  pairSideFilled,
   type QuizFormState,
   type QuizQuestion,
 } from "@/lib/quiz-builder";
@@ -121,7 +123,7 @@ export function toPayload(form: QuizFormState) {
       standard: question.standard,
       assessmentType: question.assessmentType,
       rubric: question.rubric.map((row) => ({ name: row.name.trim(), max: Number(row.max || 0) })).filter((row) => row.name && row.max > 0),
-      pairs: question.pairs.map((pair) => ({ left: pair.left.trim(), right: pair.right.trim() })).filter((pair) => pair.left && pair.right),
+      pairs: question.pairs.map((pair) => ({ left: pair.left.trim(), right: pair.right.trim(), leftMediaUrl: pair.leftMediaUrl, rightMediaUrl: pair.rightMediaUrl })).filter((pair) => pairIsComplete(pair)),
       sequenceItems: question.sequenceItems.map((item) => item.trim()).filter(Boolean),
       sectionIndex: sectionIndexByKey.get(question.sectionKey) ?? 0,
       branchRules: question.branchRules.map((rule) => ({
@@ -173,9 +175,19 @@ export function collectClientKeyGaps(form: QuizFormState): { messages: string[];
       continue;
     }
 
-    if (question.type === "MENJODOHKAN" && question.pairs.filter((pair) => pair.left.trim() && pair.right.trim()).length < 2) {
+    if (question.type === "MENJODOHKAN" && question.pairs.filter((pair) => pairIsComplete(pair)).length < 2) {
       messages.push(`Soal ${index + 1}: lengkapi minimal dua pasangan menjodohkan.`);
       blocked = true;
+    }
+    if (question.type === "MENJODOHKAN") {
+      for (const [pairIndex, pair] of question.pairs.entries()) {
+        const oneSide = pairSideFilled(pair.left, pair.leftMediaUrl) || pairSideFilled(pair.right, pair.rightMediaUrl);
+        if (oneSide && !pairIsComplete(pair)) {
+          messages.push(`Soal ${index + 1}: pasangan ${pairIndex + 1} harus lengkap di kedua sisi (teks atau gambar).`);
+          blocked = true;
+          break;
+        }
+      }
     }
 
     if (question.type === "URUTAN" && question.sequenceItems.filter((item) => item.trim()).length < 2) {
@@ -225,7 +237,7 @@ export function validateForm(form: QuizFormState, published: boolean) {
     if (published && question.type === "ISIAN_SINGKAT" && !question.expectedAnswer.trim()) return `Soal ${number}: kunci jawaban wajib diisi.`;
     if (published && (question.type === "TANGGAL" || question.type === "WAKTU") && !question.expectedAnswer.trim()) return `Soal ${number}: kunci jawaban wajib diisi.`;
     if (published && question.type === "CLOZE" && !question.expectedAnswer.trim()) return `Soal ${number}: kunci cloze wajib diisi.`;
-    if (published && question.type === "MENJODOHKAN" && question.pairs.filter((pair) => pair.left.trim() && pair.right.trim()).length < 2) return `Soal ${number}: minimal dua pasangan jawaban.`;
+    if (published && question.type === "MENJODOHKAN" && question.pairs.filter((pair) => pairIsComplete(pair)).length < 2) return `Soal ${number}: minimal dua pasangan jawaban.`;
     if (published && question.type === "URUTAN" && question.sequenceItems.filter((item) => item.trim()).length < 2) return `Soal ${number}: minimal dua item urutan.`;
   }
 
@@ -242,6 +254,14 @@ export function questionKeySummary(question: QuizQuestion): string | null {
   if (question.type === "GRID") {
     const filled = question.gridCorrect.filter((value) => value.trim()).length;
     return `${filled}/${question.gridRows.length} baris berkunci`;
+  }
+  if (question.type === "MENJODOHKAN") {
+    const filled = question.pairs.filter((pair) => pairIsComplete(pair)).length;
+    return filled > 0 ? `${filled}/${question.pairs.length} pasangan berkunci` : "Kunci belum diatur";
+  }
+  if (question.type === "URUTAN") {
+    const filled = question.sequenceItems.filter((item) => item.trim()).length;
+    return filled > 0 ? `${filled} item berkunci` : "Kunci belum diatur";
   }
   if (CHOICE_TYPES.has(question.type)) {
     const correct = question.options.filter((option) => option.isCorrect).length;

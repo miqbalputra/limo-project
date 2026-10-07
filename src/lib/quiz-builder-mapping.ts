@@ -40,7 +40,7 @@ export type QuizFormQuestionDto = {
   standard: string;
   assessmentType: string;
   rubric: QuizRubricRow[];
-  pairs: Array<{ left: string; right: string }>;
+  pairs: Array<{ left: string; right: string; leftMediaUrl?: string; rightMediaUrl?: string }>;
   sequenceItems: string[];
   options: Array<{ label: string; content: string; mediaUrl: string | null }>;
   correctLabels: string[];
@@ -173,7 +173,12 @@ function toQuizQuestion(question: QuizFormQuestionDto, sectionKeys: string[]): Q
     standard: question.standard ?? "",
     assessmentType: question.assessmentType,
     rubric: question.rubric ?? [],
-    pairs: question.pairs ?? [],
+    pairs: (question.pairs ?? []).map((pair) => ({
+      left: pair.left ?? "",
+      right: pair.right ?? "",
+      leftMediaUrl: pair.leftMediaUrl ?? "",
+      rightMediaUrl: pair.rightMediaUrl ?? "",
+    })),
     sequenceItems: question.sequenceItems ?? [],
   };
 }

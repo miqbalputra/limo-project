@@ -136,8 +136,15 @@ export function FormsBuilder({ ujianId, status, shareToken, initial, kelasOption
             className="mt-2 w-full resize-none border-0 bg-transparent px-1 text-theme-sm text-gray-500 placeholder:text-gray-300 focus:outline-none"
           />
           {currentStatus === "PUBLISHED" ? (
-            <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-success-50 px-3 py-1 text-theme-xs font-semibold text-success-700">Terpublikasi · <button type="button" className="underline" onClick={() => setSheet("share")}>lihat tautan</button></p>
-          ) : null}
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <p className="inline-flex items-center gap-2 rounded-full bg-success-50 px-3 py-1 text-theme-xs font-semibold text-success-700">Sudah publish · <button type="button" className="underline" onClick={() => setSheet("share")}>lihat tautan</button></p>
+              <button type="button" onClick={() => void store.closePublication()} disabled={busy} className="text-theme-xs font-semibold text-error-600 underline hover:text-error-700 disabled:opacity-40" title="Tutup publikasi — tautan berhenti menerima jawaban, dapat dibuka lagi kapanpun">
+                Tutup publikasi
+              </button>
+            </div>
+          ) : (
+            <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-theme-xs font-semibold text-gray-500">Draf · publikasi tertutup, buka lagi lewat tombol Kirim</p>
+          )}
         </section>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -304,7 +311,17 @@ function PreviewQuestion({ question, index }: { question: QuizQuestion; index: n
       ) : null}
       {question.type === "MENJODOHKAN" ? (
         <ul className="mt-3 grid gap-1.5 text-theme-sm text-gray-600">
-          {question.pairs.map((pair, pairIndex) => <li key={pairIndex} className="flex items-center gap-2"><span dir="auto">{pair.left}</span><span className="text-gray-300">→</span><span className="rounded-lg border border-gray-200 px-2 py-0.5 text-theme-xs text-gray-400">pilih jodoh</span></li>)}
+          {question.pairs.map((pair, pairIndex) => (
+            <li key={pairIndex} className="flex items-center gap-2">
+              <span dir="auto">{pair.left || null}</span>
+              {pair.leftMediaUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={pair.leftMediaUrl} alt={`Kiri ${pairIndex + 1}`} className="h-10 w-10 rounded object-cover ring-1 ring-gray-100" />
+              ) : null}
+              <span className="text-gray-300">→</span>
+              <span className="rounded-lg border border-gray-200 px-2 py-0.5 text-theme-xs text-gray-400">pilih jodoh</span>
+            </li>
+          ))}
         </ul>
       ) : null}
       {question.type === "URUTAN" ? (

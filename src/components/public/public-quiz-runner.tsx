@@ -6,6 +6,7 @@ import { AudioRecorder } from "@/components/quiz/audio-recorder";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { ApiJsonError, requestJson } from "@/lib/api-json-client";
 import { canRecordAudio, formatFileSize, uploadAcceptAttribute } from "@/lib/quiz-upload";
+import { pairLeftAnchor, pairRightAnchor } from "@/lib/quiz-builder";
 import { accentTextOn, darken, themeAccent } from "@/lib/quiz-theme";
 import { clearQueuedUploads, loadQueuedUploads, removeQueuedUpload, saveQueuedUpload } from "@/lib/upload-queue";
 
@@ -54,6 +55,8 @@ type PublicQuestion = {
   kind: string | null;
   gridRows: string[];
   gridMultiple: boolean;
+  matchingPairs: { left: string; right: string; leftMediaUrl: string | null; rightMediaUrl: string | null }[];
+  sequenceItems: string[];
   uploadAllowedTypes: string[];
   uploadMaxSizeMb: number;
   validation: { type: string; min: number | null; max: number | null; pattern: string | null; message: string | null } | null;
@@ -66,7 +69,7 @@ type DraftAnswer = {
   selectedOptions?: string[];
   shortAnswer?: string;
   essayAnswer?: string;
-  structuredAnswer?: Record<string, string | string[]>;
+  structuredAnswer?: Record<string, string | string[]> | string[];
 };
 
 type AttemptContext = {
@@ -967,7 +970,7 @@ function AnswerInput({ question, answer, onChange, accent, onUploadFile, uploadi
   }
 
   if (question.type === "GRID") {
-    const structured = answer?.structuredAnswer ?? {};
+    const structured = (answer?.structuredAnswer ?? {}) as Record<string, string | string[]>;
     const toggle = (rowIndex: number, label: string) => {
       const key = String(rowIndex);
       if (question.gridMultiple) {
@@ -1017,8 +1020,9 @@ function AnswerInput({ question, answer, onChange, accent, onUploadFile, uploadi
   }
 
   if (question.type === "FILE_UPLOAD") {
-    const rawName = answer?.structuredAnswer?.name;
-    const fileName = typeof rawName === "string" ? rawName : "";
+    const stored = (answer?.structuredAnswer ?? {}) as Record<string, unknown>;
+    const rawName = typeof stored.name === "string" ? stored.name : "";
+    const fileName = rawName;
     const allowedTypes = question.uploadAllowedTypes ?? [];
     const maxSizeMb = question.uploadMaxSizeMb ?? 0;
     const accept = uploadAcceptAttribute(allowedTypes);
@@ -1045,6 +1049,91 @@ function AnswerInput({ question, answer, onChange, accent, onUploadFile, uploadi
           {fileName ? <p className="mt-2 text-theme-sm text-gray-600">Berkas: {fileName}</p> : <p className="mt-2 text-theme-xs text-gray-500">{hint}</p>}
         </div>
         {canRecordAudio(allowedTypes) ? <AudioRecorder onRecorded={onUploadFile} disabled={uploading} busy={uploading} /> : null}
+      </div>
+    );
+  }
+
+  if (question.type === "MENJODOHKAN") {
+    const pairs = question.matchingPairs;
+    const structured = (answer?.structuredAnswer ?? {}) as Record<string, unknown>;
+    const pick = (pairIndex: number, value: string) => {
+      const anchor = pairLeftAnchor(pairs[pairIndex]?.left ?? "", pairIndex);
+      onChange({ structuredAnswer: { ...structured, [anchor]: value } as Record<string, string | string[]> });
+    };
+    return (
+      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <div className="grid content-start gap-3">
+          {pairs.map((pair, pairIndex) => (
+            <div key={pairIndex} className="rounded-xl border border-gray-200 bg-white p-3">
+              <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-400">Soal {pairIndex + 1}</p>
+              <div className="mt-1.5 flex items-center gap-2">
+                {pair.leftMediaUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={pair.leftMediaUrl} alt={`Soal ${pairIndex + 1}`} className="max-h-20 rounded-lg object-contain ring-1 ring-gray-100" />
+                ) : null}
+                {pair.left ? <LocalizedContent text={pair.left} language={question.language} direction="auto" className="min-w-0 flex-1 text-theme-sm text-gray-800">{pair.left}</LocalizedContent> : null}
+                {!pair.left && !pair.leftMediaUrl ? <span className="text-theme-sm text-gray-400">(kosong)</span> : null}
+              </div>
+              <select
+                value={typeof structured[pairLeftAnchor(pair.left, pairIndex)] === "string" ? String(structured[pairLeftAnchor(pair.left, pairIndex)]) : ""}
+                onChange={(event) => pick(pairIndex, event.target.value)}
+                aria-label={`Jodoh untuk soal ${pairIndex + 1}`}
+                className="tailadmin-input mt-2"
+              >
+                <option value="">Pilih jodoh</option>
+                {pairs.map((match, matchIndex) => (
+                  <option key={matchIndex} value={pairRightAnchor(match.right, matchIndex)}>
+                    Jodoh {matchIndex + 1}{match.right ? ` · ${match.right}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+        <div className="grid content-start gap-3 sm:border-s sm:border-gray-100 sm:ps-4">
+          {pairs.map((pair, pairIndex) => (
+            <div key={pairIndex} className="rounded-xl bg-gray-50 p-3">
+              <div className="flex items-center gap-2">
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-white text-theme-xs font-bold text-gray-600 ring-1 ring-gray-200">{pairIndex + 1}</span>
+                {pair.rightMediaUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={pair.rightMediaUrl} alt={`Jodoh ${pairIndex + 1}`} className="max-h-20 rounded-lg object-contain ring-1 ring-gray-100" />
+                ) : null}
+                {pair.right ? <LocalizedContent text={pair.right} language={question.language} direction="auto" className="min-w-0 flex-1 text-theme-sm text-gray-700">{pair.right}</LocalizedContent> : null}
+                {!pair.right && !pair.rightMediaUrl ? <span className="text-theme-sm text-gray-400">(kosong)</span> : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (question.type === "URUTAN") {
+    const items = question.sequenceItems;
+    const given = Array.isArray(answer?.structuredAnswer) ? [...(answer!.structuredAnswer as string[])] : items.map(() => "");
+    return (
+      <div className="mt-3 grid gap-2">
+        {items.map((item, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-gray-100 text-theme-xs font-bold text-gray-600">{index + 1}</span>
+            <select
+              value={given[index] ?? ""}
+              onChange={(event) => {
+                const next = [...given];
+                next[index] = event.target.value;
+                onChange({ structuredAnswer: next });
+              }}
+              aria-label={`Posisi ${index + 1}`}
+              className="tailadmin-input"
+            >
+              <option value="">Pilih urutan</option>
+              {items.map((choice, choiceIndex) => (
+                <option key={choiceIndex} value={choice}>{choice || `Item ${choiceIndex + 1}`}</option>
+              ))}
+            </select>
+          </div>
+        ))}
       </div>
     );
   }
@@ -1088,7 +1177,7 @@ function restoreDraft(value: unknown): Record<string, DraftAnswer> {
       selectedOptions: Array.isArray(record.selectedOptions) ? record.selectedOptions.filter((option): option is string => typeof option === "string") : undefined,
       shortAnswer: typeof record.shortAnswer === "string" ? record.shortAnswer : undefined,
       essayAnswer: typeof record.essayAnswer === "string" ? record.essayAnswer : undefined,
-      structuredAnswer: record.structuredAnswer && typeof record.structuredAnswer === "object" ? (record.structuredAnswer as Record<string, string | string[]>) : undefined,
+      structuredAnswer: record.structuredAnswer && typeof record.structuredAnswer === "object" ? (record.structuredAnswer as Record<string, string | string[]> | string[]) : undefined,
     };
   }
   return result;

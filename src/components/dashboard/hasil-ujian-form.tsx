@@ -62,10 +62,15 @@ function getMatchingPairs(payload: unknown) {
   }
 
   return pairs
-    .map((item) => item && typeof item === "object" ? item as { left?: unknown; right?: unknown } : undefined)
-    .filter((item): item is { left?: unknown; right?: unknown } => Boolean(item))
-    .map((item) => ({ left: String(item.left || ""), right: String(item.right || "") }))
-    .filter((item) => item.left || item.right);
+    .map((item) => item && typeof item === "object" ? item as Record<string, unknown> : undefined)
+    .filter((item): item is Record<string, unknown> => Boolean(item))
+    .map((item) => ({
+      left: String(item.left || ""),
+      right: String(item.right || ""),
+      leftMediaUrl: typeof item.leftMediaUrl === "string" ? item.leftMediaUrl : "",
+      rightMediaUrl: typeof item.rightMediaUrl === "string" ? item.rightMediaUrl : "",
+    }))
+    .filter((item) => item.left || item.right || item.leftMediaUrl || item.rightMediaUrl);
 }
 
 function getSequenceItems(payload: unknown) {
@@ -274,7 +279,21 @@ function MatchingPreview({ payload, language, direction }: { payload: unknown; l
     <div className="rounded-lg bg-white p-3 text-theme-sm text-gray-700">
       <p className="font-semibold text-gray-900">Kunci pasangan</p>
       <ul className="mt-2 grid gap-1">
-        {pairs.map((item, index) => <li key={`${item.left}-${index}`}><LocalizedContent text={item.left} language={language} direction={direction}>{item.left}</LocalizedContent> = <LocalizedContent text={item.right} language={language} direction={direction}>{item.right}</LocalizedContent></li>)}
+        {pairs.map((item, index) => (
+          <li key={`${item.left}-${index}`} className="flex items-center gap-1">
+            {item.leftMediaUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={item.leftMediaUrl} alt={`Kiri ${index + 1}`} className="h-8 w-8 rounded object-cover ring-1 ring-gray-100" />
+            ) : null}
+            <LocalizedContent text={item.left} language={language} direction={direction}>{item.left}</LocalizedContent>
+            {" = "}
+            {item.rightMediaUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={item.rightMediaUrl} alt={`Kanan ${index + 1}`} className="h-8 w-8 rounded object-cover ring-1 ring-gray-100" />
+            ) : null}
+            <LocalizedContent text={item.right} language={language} direction={direction}>{item.right}</LocalizedContent>
+          </li>
+        ))}
       </ul>
     </div>
   );

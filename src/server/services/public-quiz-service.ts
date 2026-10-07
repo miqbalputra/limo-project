@@ -80,9 +80,18 @@ function sanitizeQuestion(question: {
     : question.bankSoal.options;
 
   const payload = (question.bankSoal.structuredPayload ?? null) as
-    | { min?: number; max?: number; minLabel?: string; maxLabel?: string; kind?: string; rows?: string[]; multiple?: boolean; validation?: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null } }
+    | { min?: number; max?: number; minLabel?: string; maxLabel?: string; kind?: string; rows?: string[]; multiple?: boolean; validation?: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null }; pairs?: Array<{ left?: string; right?: string; leftMediaUrl?: string | null; rightMediaUrl?: string | null }>; items?: string[] }
     | null;
   const upload = readFileUploadConfig(question.bankSoal.fileUploadConfig);
+  const matchingPairs = Array.isArray(payload?.pairs)
+    ? payload!.pairs.map((pair) => ({
+        left: typeof pair.left === "string" ? pair.left : "",
+        right: typeof pair.right === "string" ? pair.right : "",
+        leftMediaUrl: typeof pair.leftMediaUrl === "string" ? pair.leftMediaUrl : null,
+        rightMediaUrl: typeof pair.rightMediaUrl === "string" ? pair.rightMediaUrl : null,
+      }))
+    : [];
+  const sequenceItems = Array.isArray(payload?.items) ? payload!.items.filter((item): item is string => typeof item === "string") : [];
 
   return {
     id: question.id,
@@ -105,6 +114,8 @@ function sanitizeQuestion(question: {
     kind: payload?.kind ?? null,
     gridRows: Array.isArray(payload?.rows) ? payload!.rows : [],
     gridMultiple: Boolean(payload?.multiple),
+    matchingPairs,
+    sequenceItems,
     uploadAllowedTypes: question.bankSoal.type === "FILE_UPLOAD" ? upload.allowedTypes : [],
     uploadMaxSizeMb: question.bankSoal.type === "FILE_UPLOAD" ? upload.maxSizeMb : 0,
     validation: payload?.validation

@@ -152,21 +152,57 @@ export function ScaleEditor({ question, onUpdateScale }: {
   );
 }
 
-export function MatchingEditor({ question, onSetPair, onAddPair, onRemovePair }: {
+export function MatchingEditor({ question, onSetPair, onClearPairMedia, onUploadPairMedia, onAddPair, onRemovePair }: {
   question: QuizQuestion;
   onSetPair: (_key: string, _index: number, _field: "left" | "right", _value: string) => void;
+  onClearPairMedia: (_key: string, _index: number, _field: "left" | "right") => void;
+  onUploadPairMedia: (_key: string, _index: number, _field: "left" | "right", _file: File) => void;
   onAddPair: (_key: string) => void;
   onRemovePair: (_key: string, _index: number) => void;
 }) {
+  function pairSide(field: "left" | "right", index: number, placeholder: string, label: string) {
+    const pair = question.pairs[index];
+    const value = pair[field];
+    const media = field === "left" ? pair.leftMediaUrl : pair.rightMediaUrl;
+    return (
+      <div className="min-w-0 flex-1">
+        <input
+          value={value}
+          onChange={(event) => onSetPair(question.key, index, field, event.target.value)}
+          placeholder={placeholder}
+          aria-label={`${label} ${index + 1}`}
+          dir="auto"
+          className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-theme-sm focus:border-limo-blue-500 focus:outline-none"
+        />
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          {media ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={media} alt={`${label} ${index + 1}`} className="h-9 w-9 rounded object-cover ring-1 ring-gray-100" />
+              <button type="button" onClick={() => onClearPairMedia(question.key, index, field)} className="text-theme-xs font-semibold text-error-600">Hapus</button>
+            </>
+          ) : null}
+          <label className="cursor-pointer rounded-lg px-1.5 py-0.5 text-theme-xs font-semibold text-limo-blue-700 hover:bg-limo-blue-50" title="Lampirkan gambar">
+            {media ? "Ganti gambar" : "Gambar"}
+            <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) onUploadPairMedia(question.key, index, field, file); }} />
+          </label>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-2 rounded-xl border border-gray-200 p-3">
-      <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">Pasangan jawaban — pasangan &quot;kiri → kanan&quot; menjadi kunci</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">Pasangan jawaban — pasangan &quot;kiri → kanan&quot; menjadi kunci</p>
+        <p className="text-theme-xs text-gray-400">Tiap sisi boleh teks saja, gambar saja, atau keduanya.</p>
+      </div>
       {question.pairs.map((pair, index) => (
-        <div key={index} className="flex items-center gap-2">
-          <input value={pair.left} onChange={(event) => onSetPair(question.key, index, "left", event.target.value)} placeholder={`Soal ${index + 1}`} aria-label={`Pasangan kiri ${index + 1}`} dir="auto" className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-theme-sm focus:border-limo-blue-500 focus:outline-none" />
-          <span className="text-gray-400">→</span>
-          <input value={pair.right} onChange={(event) => onSetPair(question.key, index, "right", event.target.value)} placeholder={`Jodoh ${index + 1}`} aria-label={`Pasangan kanan ${index + 1}`} dir="auto" className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-theme-sm focus:border-limo-blue-500 focus:outline-none" />
-          <button type="button" onClick={() => onRemovePair(question.key, index)} disabled={question.pairs.length <= 2} aria-label={`Hapus pasangan ${index + 1}`} className="text-gray-400 hover:text-error-600 disabled:opacity-30">✕</button>
+        <div key={index} className="flex items-start gap-2 rounded-lg px-1 py-1 hover:bg-gray-50">
+          {pairSide("left", index, `Soal ${index + 1}`, "Pasangan kiri")}
+          <span className="pt-6 text-gray-400">→</span>
+          {pairSide("right", index, `Jodoh ${index + 1}`, "Pasangan kanan")}
+          <button type="button" onClick={() => onRemovePair(question.key, index)} disabled={question.pairs.length <= 2} aria-label={`Hapus pasangan ${index + 1}`} className="mt-1 text-gray-400 hover:text-error-600 disabled:opacity-30">✕</button>
         </div>
       ))}
       <button type="button" onClick={() => onAddPair(question.key)} className="w-fit text-theme-sm font-medium text-limo-blue-700 hover:text-limo-blue-800">+ Tambah pasangan</button>

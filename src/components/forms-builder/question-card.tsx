@@ -35,6 +35,8 @@ export function QuestionCard({ question, index, active, sections, onFocus, onPat
     uploadOptionMedia: (_key: string, _index: number, _file: File) => void;
     addPair: (_key: string) => void;
     setPair: (_key: string, _index: number, _field: "left" | "right", _value: string) => void;
+    clearPairMedia: (_key: string, _index: number, _field: "left" | "right") => void;
+    uploadPairMedia: (_key: string, _index: number, _field: "left" | "right", _file: File) => void;
     removePair: (_key: string, _index: number) => void;
     addSequenceItem: (_key: string) => void;
     setSequenceItem: (_key: string, _index: number, _value: string) => void;
@@ -153,7 +155,7 @@ export function QuestionCard({ question, index, active, sections, onFocus, onPat
               <ScaleEditor question={question} onUpdateScale={store.updateScale} />
             ) : null}
             {question.type === "MENJODOHKAN" ? (
-              <MatchingEditor question={question} onSetPair={store.setPair} onAddPair={store.addPair} onRemovePair={store.removePair} />
+              <MatchingEditor question={question} onSetPair={store.setPair} onClearPairMedia={store.clearPairMedia} onUploadPairMedia={store.uploadPairMedia} onAddPair={store.addPair} onRemovePair={store.removePair} />
             ) : null}
             {question.type === "URUTAN" ? (
               <SequenceEditor question={question} onSetSequenceItem={store.setSequenceItem} onAddSequenceItem={store.addSequenceItem} onRemoveSequenceItem={store.removeSequenceItem} />

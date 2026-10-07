@@ -8,6 +8,7 @@ import { notifySiswaForStudents, notifyWaliForStudents } from "@/server/services
 import { getQuizMedia } from "@/server/services/quiz-media-service";
 import { saveQuizFormSchema, importQuestionsSchema, gradeQuizResponseSchema, type SaveQuizFormInput } from "@/server/validation/quiz-builder";
 import { gradeObjectiveAnswer, isManualReviewType, type GradableAnswer } from "@/server/services/quiz-grading";
+import { pairIsComplete, pairLeftAnchor, pairRightAnchor, type QuizPair } from "@/lib/quiz-builder";
 
 type Tx = Prisma.TransactionClient;
 type QuestionInput = SaveQuizFormInput["questions"][number];
@@ -58,9 +59,19 @@ function structuredPayloadFor(question: QuestionInput): Prisma.InputJsonValue | 
     };
   }
   if (question.type === "MENJODOHKAN" && question.pairs.length > 0) {
-    const pairs = question.pairs.filter((pair) => pair.left.trim() && pair.right.trim());
-    payload.pairs = pairs;
-    payload.answerKey = Object.fromEntries(pairs.map((pair) => [pair.left.trim(), pair.right.trim()]));
+    const pairs: QuizPair[] = question.pairs.map((pair) => ({
+      left: pair.left ?? "",
+      right: pair.right ?? "",
+      leftMediaUrl: pair.leftMediaUrl ?? "",
+      rightMediaUrl: pair.rightMediaUrl ?? "",
+    })).filter(pairIsComplete);
+    payload.pairs = pairs.map((pair) => ({
+      left: pair.left.trim(),
+      right: pair.right.trim(),
+      leftMediaUrl: pair.leftMediaUrl?.trim() || null,
+      rightMediaUrl: pair.rightMediaUrl?.trim() || null,
+    }));
+    payload.answerKey = Object.fromEntries(pairs.map((pair, index) => [pairLeftAnchor(pair.left, index), pairRightAnchor(pair.right, index)]));
   }
   if (question.type === "URUTAN" && question.sequenceItems.length > 0) {
     const items = question.sequenceItems.map((item) => item.trim()).filter(Boolean);
@@ -249,7 +260,7 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
       sections: ujian.sections.map((section) => ({ title: section.title, description: section.description })),
       questions: ujian.questions.map((question) => {
         const payload = (question.bankSoal.structuredPayload ?? null) as
-          | { min?: number; max?: number; minLabel?: string; maxLabel?: string; rows?: string[]; multiple?: boolean; correct?: Record<string, string>; validation?: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null }; pairs?: Array<{ left?: string; right?: string }>; items?: string[] }
+          | { min?: number; max?: number; minLabel?: string; maxLabel?: string; rows?: string[]; multiple?: boolean; correct?: Record<string, string>; validation?: { type?: string; min?: number | null; max?: number | null; pattern?: string | null; message?: string | null }; pairs?: Array<{ left?: string; right?: string; leftMediaUrl?: string; rightMediaUrl?: string }>; items?: string[] }
           | null;
         const rows = Array.isArray(payload?.rows) ? payload!.rows : [];
         const rubricRaw = (question.bankSoal.rubric ?? null) as { criteria?: Array<{ name?: unknown; max?: unknown }> } | null;
@@ -257,7 +268,12 @@ export async function getQuizForm(actor: Actor, ujianId: string) {
           ? rubricRaw!.criteria.map((row) => ({ name: typeof row.name === "string" ? row.name : "", max: row.max !== undefined && row.max !== null ? String(row.max) : "" }))
           : [];
         const pairs = Array.isArray(payload?.pairs)
-          ? payload!.pairs.map((pair) => ({ left: typeof pair.left === "string" ? pair.left : "", right: typeof pair.right === "string" ? pair.right : "" }))
+          ? payload!.pairs.map((pair) => ({
+              left: typeof pair.left === "string" ? pair.left : "",
+              right: typeof pair.right === "string" ? pair.right : "",
+              leftMediaUrl: typeof pair.leftMediaUrl === "string" ? pair.leftMediaUrl : "",
+              rightMediaUrl: typeof pair.rightMediaUrl === "string" ? pair.rightMediaUrl : "",
+            }))
           : [];
         const sequenceItems = Array.isArray(payload?.items) ? payload!.items.filter((item): item is string => typeof item === "string") : [];
         return {
@@ -898,6 +914,21 @@ export async function getQuizResponseDetail(actor: Actor, ujianId: string, respo
       const stored = (record.structuredAnswer ?? {}) as Record<string, unknown>;
       answerText = typeof stored.name === "string" && stored.name ? stored.name : "-";
       fileId = typeof stored.fileId === "string" ? stored.fileId : null;
+    } else if (type === "MENJODOHKAN") {
+      const payload = (question.bankSoal.structuredPayload ?? null) as { pairs?: Array<{ left?: string; right?: string }> } | null;
+      const pairs = Array.isArray(payload?.pairs) ? payload!.pairs : [];
+      const given = (record.structuredAnswer ?? {}) as Record<string, unknown>;
+      const parts = pairs.map((pair, index) => {
+        const anchor = pair.left?.trim() || `#L-${index}`;
+        const raw = typeof given[anchor] === "string" ? given[anchor] as string : "";
+        const placeholder = /^#R-(\d+)$/.exec(raw);
+        const chosen = placeholder ? (pairs[Number(placeholder[1])]?.right?.trim() || "(Gambar)") : raw;
+        return `${pair.left || "Gambar"} → ${chosen || "-"}`;
+      });
+      if (parts.length > 0) answerText = parts.join(" | ");
+    } else if (type === "URUTAN") {
+      const given = Array.isArray(record.structuredAnswer) ? (record.structuredAnswer as unknown[]) : [];
+      if (given.length > 0) answerText = given.map((value, index) => `${index + 1}. ${String(value)}`).join(" | ");
     } else {
       answerText = (typeof record.shortAnswer === "string" && record.shortAnswer) || (typeof record.essayAnswer === "string" && record.essayAnswer) || "-";
     }
@@ -1366,4 +1397,20 @@ export async function publishQuizForm(actor: Actor, ujianId: string) {
   }
 
   return { item: { id: ujian.id, status: "PUBLISHED" as const } };
+}
+
+/** Menutup publikasi (PUBLISHED → DRAFT): tautan & portal berhenti menerima pengerjaan, dapat dibuka lagi kapanpun. */
+export async function closeQuizPublication(actor: Actor, ujianId: string) {
+  const ujian = await prisma.ujian.findUnique({ where: { id: ujianId }, select: { id: true, kelasId: true, status: true } });
+  if (!ujian) {
+    throw new NotFoundError("Kuis tidak ditemukan");
+  }
+  await assertClassScope(actor, ujian.kelasId);
+
+  if (ujian.status === "PUBLISHED") {
+    await prisma.ujian.update({ where: { id: ujianId }, data: { status: "DRAFT" } });
+    await prisma.auditLog.create({ data: { actorId: actor.id, action: "QUIZ_FORM_PUBLICATION_CLOSED", entityType: "Ujian", entityId: ujianId } });
+  }
+
+  return { item: { id: ujian.id, status: "DRAFT" as const } };
 }

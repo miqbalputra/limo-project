@@ -42,7 +42,15 @@ export default async function GuruUjianPage({ searchParams }: { searchParams: Pr
           <article key={item.id} className="tailadmin-card p-5">
             <p className="text-theme-sm font-semibold text-limo-blue-700">{assessmentClassLabel(item.kelas)}</p>
             <h2 className="mt-1 text-lg font-semibold text-gray-900">{item.title}</h2>
-            <p className="mt-1 text-theme-sm text-gray-500">{formatUiLabel(item.mode)} / {formatUiLabel(item.status)} / {formatUiLabel(item.deliveryMode)} / {item.durationMinutes} menit / {item.questions.length} soal / {item._count.results} hasil / {item._count.attempts} percobaan online</p>
+            <p className="mt-1 flex flex-wrap items-center gap-2 text-theme-sm text-gray-500">
+              <span>{formatUiLabel(item.mode)}</span>
+              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-theme-xs font-semibold ${item.status === "PUBLISHED" ? "bg-success-50 text-success-700" : item.status === "DRAFT" ? "bg-gray-100 text-gray-500" : "bg-warning-50 text-warning-700"}`}>{item.status === "PUBLISHED" ? "Sudah publish" : item.status === "DRAFT" ? "Draft" : "Diarsipkan"}</span>
+              <span>{formatUiLabel(item.deliveryMode)}</span>
+              <span>{item.durationMinutes} menit</span>
+              <span>{item.questions.length} soal</span>
+              <span>{item._count.results} hasil</span>
+              <span>{item._count.attempts} percobaan online</span>
+            </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Link href={`/guru/ujian/${item.id}/hasil`} className="tailadmin-button-primary px-4 py-2">Input Hasil</Link>
               <Link href={`/guru/kuis/${item.id}/responses`} className="tailadmin-button-outline px-4 py-2">Respons</Link>

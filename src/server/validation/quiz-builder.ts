@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { QUESTION_TYPE_VALUES } from "@/lib/question-types";
+import { pairSideFilled } from "@/lib/quiz-builder";
 
 // Tipe soal yang ditampilkan di Form Builder (ala Google Forms + tipe performa LIMO).
 export const QUIZ_QUESTION_TYPES = QUESTION_TYPE_VALUES;
@@ -80,7 +81,26 @@ const questionSchema = z
       .max(10)
       .default([]),
     pairs: z
-      .array(z.object({ left: z.string().trim().min(1).max(500), right: z.string().trim().min(1).max(500) }))
+      .array(
+        z.object({
+          left: z.string().trim().max(500),
+          right: z.string().trim().max(500),
+          leftMediaUrl: z
+            .string()
+            .trim()
+            .max(500)
+            .optional()
+            .or(z.literal(""))
+            .refine((value) => !value || /^https:\/\//.test(value) || value.startsWith("/"), "Media opsi harus HTTPS atau path lokal"),
+          rightMediaUrl: z
+            .string()
+            .trim()
+            .max(500)
+            .optional()
+            .or(z.literal(""))
+            .refine((value) => !value || /^https:\/\//.test(value) || value.startsWith("/"), "Media opsi harus HTTPS atau path lokal"),
+        }),
+      )
       .max(10)
       .default([]),
     sequenceItems: z.array(z.string().trim().min(1).max(500)).max(20).default([]),
@@ -154,9 +174,15 @@ const questionSchema = z
     if (value.type === "CLOZE" && !(value.expectedAnswer || "").trim()) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["expectedAnswer"], message: "Kunci cloze wajib diisi" });
     }
-    if (value.type === "MENJODOHKAN" && value.pairs.filter((pair) => pair.left.trim() && pair.right.trim()).length < 2) {
+    if (value.type === "MENJODOHKAN" && value.pairs.filter((pair) => pairSideFilled(pair.left, pair.leftMediaUrl) && pairSideFilled(pair.right, pair.rightMediaUrl)).length < 2) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["pairs"], message: "Minimal dua pasangan jawaban" });
     }
+    value.pairs.forEach((pair, pairIndex) => {
+      const oneSideFilled = pairSideFilled(pair.left, pair.leftMediaUrl) || pairSideFilled(pair.right, pair.rightMediaUrl);
+      if (oneSideFilled && !(pairSideFilled(pair.left, pair.leftMediaUrl) && pairSideFilled(pair.right, pair.rightMediaUrl))) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["pairs", pairIndex], message: "Setiap pasangan harus lengkap di kedua sisi (teks atau gambar)" });
+      }
+    });
     if (value.type === "URUTAN" && value.sequenceItems.length < 2) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sequenceItems"], message: "Minimal dua item urutan" });
     }
