@@ -1,6 +1,19 @@
 # Progress Implementasi LIMO
 
-Terakhir diperbarui: 1 Oktober 2026
+Terakhir diperbarui: 6 Oktober 2026
+
+## Builder Asesmen ala Google Forms — Audit + Rewrite Total (6 Okt 2026)
+
+- **Audit dashboard guru (fitur builder soal/ujian/kuis)** vs Google Forms: paritas inti sudah ada (21 tipe soal, auto-grading terpusat `quiz-grading.ts`, sections + branching, validasi jawaban, share publik + anti-duplikat, ekspor CSV/PDF, rilis nilai). Gap yang ditemukan: autosave hanya menyala setelah simpan pertama (risiko kehilangan draf baru), GRID bisa publish tanpa kunci per baris (nilai 0 semua), tidak ada verifikasi pra-publikasi, ringkasan respons tanpa distribusi opsi, kelas wajib untuk semua formulir, dan belum ada "kirim respons lain".
+- **Builder ditulis ulang total** ke `src/components/forms-builder/` (9 file baru) sesuai keputusan pengguna: kartu aktif tunggal ala Google Forms, tambah soal lewat menu tipe, drag handle soal/opsi, blok **Kunci jawaban** per kartu (opsi benar, kunci per baris GRID, umpan balik benar/salah, pembahasan), **autosave instan sejak perubahan pertama** (draf dibuat otomatis tanpa tombol simpan + backup localStorage + indikator "Semua perubahan tersimpan"), undo/redo 100 langkah, pratinjau ala responden, sheet pengaturan 4 tab (Umum/Kuis/Respons/Lanjutan). Builder lama dihapus (`quiz-builder.tsx`, `use-form-builder.ts`, `src/components/builder/*` kecuali `builder-card.tsx` yang masih dipakai tugas/modul).
+- **Preflight/verifikasi semua**: `GET /api/v1/kuis/[id]/preflight` + sheet verifikasi sebelum tombol "Kirim" — rincian soal objektif vs manual, cakupan % bobot auto-nilai, dan **publish diblokir** bila GRID/tipe objektif belum punya kunci (`assertQuizAnswerKeys` dipanggil `publishQuizForm`).
+- **Formulir publik tanpa kelas**: `Ujian.kelasId` nullable (migration `20261006010000_kuis_kelas_nullable`, FK → SetNull); `assertClassScope` null-safe (±20 call site); publish mode online wali/siswa tanpa kelas ditolak dengan pesan jelas; scope daftar guru mencakup formulir milik sendiri tanpa kelas; hub menampilkan label "Tanpa kelas (tautan publik)".
+- **Ringkasan respons ala GF**: distribusi pilihan per soal (bar dengan penanda kunci hijau) di `getQuizResponses` + halaman `/guru/kuis/[ujianId]/responses`.
+- **Pemutar publik**: tombol "Kirim respons lain" pasca-submit (sembunyi bila `oneResponsePerEmail` aktif) + satu kali retry transien saat memuat intro (SQLite busy).
+- **Perbaikan ikut audit**: label 7 tipe soal yang tampil "Tidak diketahui" (DROPDOWN/SKALA/RATING/GRID/TANGGAL/WAKTU/FILE_UPLOAD), race autosave vs tambah/impor soal pustaka (flush simpan SEBELUM POST agar PATCH full-replace tidak menghapus soal baru), rubrik awal tipe manual saat soal baru dibuat, ekor Kartu GRID kembali punya kolom editor.
+- **Verifikasi (hijau)**: `typecheck` ✓ · `lint` 0 error ✓ · `npm test` 43 ✓ · `test:guards` 232 route ✓ · `test:quiz-builder` **24/24** ✓ (termasuk kasus baru: formulir tanpa kelas, penolakan GRID tanpa kunci & mode online tanpa kelas) · `test:quiz-share` 5/5 ✓ · e2e Playwright 7/7 ✓ (quiz-builder, editors, sections, bank-soal).
+- **Deploy**: migrasi otomatis sudah disiapkan lewat `docker-entrypoint.sh` (`prisma migrate deploy` + retry 30x saat container start). Commit `0741cea` ter-push ke `origin/main`.
+- **Sisa backlog**: drag & drop MENJODOHKAN/URUTAN di pemutar (tombol ↑↓ ada), bukti deploy staging `demo.limoedu.id` (screenshot `masalah/1.PNG` dari build lama), dan `npm run db:parity` MariaDB.
 
 ## Laporan Perkembangan Berkala (rencana.md Fase 10) — 1 Okt 2026
 
