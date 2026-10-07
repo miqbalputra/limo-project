@@ -2,6 +2,26 @@
 
 Terakhir diperbarui: 7 Oktober 2026
 
+## Resume Point (7 Okt 2026, akhir hari)
+
+**Selesai & ter-push:**
+- `f72dbab` — penilaian otomatis diperkuat: grader tunggal (`exam-service` pakai `gradeObjectiveAnswer`, kunci kosong → needsReview), GRID multi-pilih, poin parsial (multi-select/grid/menjodohkan/urutan), SKALA/RATING fallback `expectedAnswer`, KKM `HasilUjian.passed` (migrasi `20261007010000_hasil_passed`), cron `quiz:finalize` didokumentasikan, overflow mobile builder 390px diperbaiki.
+- `fa75117` — audit menu & fitur Admin/Guru (53 halaman runtime hijau, tanpa P0) + perbaikan: gate flag → `notFound()` di 7 halaman kalender/todo, 4 izin guru "mati" kini ditegakkan (gradebook/remedial/pengumuman/diskusi), **fitur edit voucher** (service + schema + UI + audit `VOUCHER_UPDATED`), pagination laporan perkembangan admin & guru, metrik `/admin/audit` dari DB, spec e2e `billing-voucher` dikoreksi ke label "Siswa (opsional)".
+
+**Verifikasi terakhir (semua hijau):** `typecheck` · `lint` 0 error · `npm test` 44 · `test:guards` 232 · `test:billing-voucher` 14/14 · `test:diskusi` 25/25 · `test:laporan` 14/14 · `test:quiz-builder` 25/25 · `test:week2` · `test:siswa-ujian` 14/14 · `test:quiz-share` 5/5 · `build` (159 halaman) · e2e: quiz-builder, editors 2/2, sections 3/3, week2 3/3, student-exam 2/2, bank-soal-library 3/3, mobile-layout 16/16, production-navigation 2/2, accessibility 5/5, billing-voucher 4/4.
+
+**Catatan lingkungan:**
+- `NODE_ENV` di mesin ini **set global = production** → dev server harus dijalankan dengan `set NODE_ENV=development&& ...` atau semua route 500 (`env.ts` menolak `NOTIFICATION_PROVIDER=console` di produksi). Error ini terlihat sebagai 500 generik.
+- Log dev Next 16 tidak masuk ke stdout/capture; untuk debug pakai bukti dari response atau instrumentasi file (jangan andalkan log console).
+- `npx prisma db push` menjalankan generate dan mengunci `query_engine` DLL saat dev server hidup — hentikan dev server dulu sebelum e2e (`EPERM`).
+- Next 16 dev: hanya **satu** server dev per project dir (lock proyek); server kedua gagal start.
+
+**Wajib saat deploy:** `npx prisma migrate deploy` untuk `20261006010000_kuis_kelas_nullable` + `20261007010000_hasil_passed`; tambahan cron: `quiz:finalize` tiap menit (lihat `docs/DEPLOYMENT.md`).
+
+**Blocked (butuh akses infra):** migrasi/parity MariaDB staging + backup off-site, UAT Mayar/Pakasir merchant nyata + GOWA nyata, deploy staging `demo.limoedu.id`, hardening lanjutan (CSP, 2FA, observability, rate limit Redis).
+
+**Backlog P2 (berikutnya dipilih bila lanjut):** filter level/kelas `/admin/siswa`, dropdown siswa tarif maks 100 (autocomplete), CRUD SesiKelas di `/admin/jadwal`, tabel Admin default kartu di mobile, e2e RTL Arab, Q&A per materi/modul (sumber remedial QUIZ/EXAM/COMPETENCY), drag & drop menjodohkan/urutan di pemutar kuis.
+
 ## Audit Menu & Fitur Dashboard Admin + Guru (7 Okt 2026)
 
 - **Audit lengkap**: 24 item menu Admin + 14 item menu Guru dipetakan vs halaman nyata (`navigation.ts`, permissions, service), lalu diverifikasi runtime via browser sesi nyata — **53 halaman** (menu + detail: kelas/tugas/modul/remedial/gradebook/progres/pengumuman/diskusi, presensi/progres per sesi, submissions, hasil, respons, detail pendaftaran/siswa/akun/user, impor CSV) semua HTTP 200, tanpa error boundary/console error. **Tidak ada temuan P0** (tidak ada tombol mati, layar kosong, atau hardcoded placeholder).
