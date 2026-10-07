@@ -37,7 +37,7 @@ export default async function GuruKoreksiHasilUjianPage({ params }: { params: Pr
         <Link href={`/guru/ujian/${ujianId}/hasil`} className="text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">Kembali ke hasil ujian</Link>
         <p className="mt-4 text-theme-sm font-semibold text-limo-blue-700">{assessmentClassLabel(hasil.ujian.kelas)}</p>
         <h1 className="mt-1 tailadmin-page-title">Koreksi: {hasil.siswa.name}</h1>
-        <p className="mt-2 tailadmin-muted">{hasil.ujian.title}. Nilai sebelumnya {hasil.totalScore?.toString() ?? "-"}; perubahan akan disimpan sebagai {formatUiLabel("CORRECTED")} dan dicatat di log audit.</p>
+        <p className="mt-2 tailadmin-muted">{hasil.ujian.title}. Nilai sebelumnya {hasil.totalScore?.toString() ?? "-"}{hasil.passed === true ? " (Lulus KKM)" : hasil.passed === false ? " (Tidak lulus KKM)" : ""}; perubahan akan disimpan sebagai {formatUiLabel("CORRECTED")} dan dicatat di log audit.</p>
       </div>
       {hasil.attempt && hasil.attempt.violationCount > 0 ? (
         <p role="alert" className="tailadmin-alert-error">

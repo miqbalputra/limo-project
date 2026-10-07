@@ -63,7 +63,7 @@ export function QuestionCard({ question, index, active, sections, onFocus, onPat
     >
       {active ? (
         <div className="p-5">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <span
               draggable
               onDragStart={(event) => event.dataTransfer.setData("text/limo-question", question.key)}
@@ -252,7 +252,7 @@ export function QuestionCard({ question, index, active, sections, onFocus, onPat
           ) : null}
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-3">
-            <div className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center gap-1">
               <select value={question.type} onChange={(event) => onChangeType(question.key, event.target.value)} aria-label={`Tipe soal ${index + 1}`} className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-theme-sm text-gray-700 hover:bg-gray-100 focus:border-limo-blue-500 focus:outline-none">
                 {QUESTION_TYPE_GROUPS.map((entry) => (
                   <optgroup key={entry.group} label={entry.group}>
@@ -267,7 +267,7 @@ export function QuestionCard({ question, index, active, sections, onFocus, onPat
                 Metadata
               </button>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               {sections.length > 1 ? (
                 <select value={question.sectionKey} onChange={(event) => onPatch(question.key, { sectionKey: event.target.value })} aria-label={`Bagian soal ${index + 1}`} className="rounded-lg border border-gray-200 px-2 py-1.5 text-theme-xs text-gray-600 focus:border-limo-blue-500 focus:outline-none">
                   {sections.map((section, sectionIndex) => <option key={section.key} value={section.key}>Bagian {sectionIndex + 1}: {section.title}</option>)}

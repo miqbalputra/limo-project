@@ -42,6 +42,11 @@ Setiap soal dapat diberi metadata:
 - Soal objektif dihitung otomatis bila kunci tersedia.
 - Soal performa/esai masuk `NEEDS_REVIEW` jika guru belum mengisi skor manual.
 - Guru dapat mengisi transkrip/catatan performa pada input hasil offline.
+- **Poin parsial**: kotak centang (`correct − wrong` per kunci), tabel GRID (per baris), menjodohkan (per pasangan), dan urutan (per posisi) memperoleh poin proporsional; `benar` hanya saat skor penuh.
+- **GRID multi-pilih** (`gridMultiple`) didukung penilai otomatis — jawaban per baris berupa kumpulan label dibanding kunci baris.
+- **Soal objektif tanpa kunci** (mis. jalur input guru luring) jatuh ke `NEEDS_REVIEW`, bukan nilai 0.
+- **Skala/rating tanpa opsi bertanda benar** dinilai dari `expectedAnswer`.
+- **KKM pada HasilUjian**: kolom `passed` disimpan saat nilai finalisasi/koreksi (publik/wali/siswa), tampil sebagai "Lulus (KKM)" di halaman hasil guru.
 
 ## Paritas Ujian Online dengan Google Forms
 

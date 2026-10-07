@@ -7,7 +7,7 @@ import { canManageClass } from "@/server/policies/access-policy";
 import { notifySiswaForStudents, notifyWaliForStudents } from "@/server/services/notification-service";
 import { getQuizMedia } from "@/server/services/quiz-media-service";
 import { saveQuizFormSchema, importQuestionsSchema, gradeQuizResponseSchema, type SaveQuizFormInput } from "@/server/validation/quiz-builder";
-import { gradeObjectiveAnswer, type GradableAnswer } from "@/server/services/quiz-grading";
+import { gradeObjectiveAnswer, isManualReviewType, type GradableAnswer } from "@/server/services/quiz-grading";
 
 type Tx = Prisma.TransactionClient;
 type QuestionInput = SaveQuizFormInput["questions"][number];
@@ -446,40 +446,16 @@ export function gradeAnswer(
   bankSoal: { type: string; expectedAnswer: string | null; structuredPayload?: unknown; options: { label: string; isCorrect: boolean }[] },
   answer: { selectedOption?: string; selectedOptions?: string[]; shortAnswer?: string; structuredAnswer?: unknown } | undefined,
 ) {
-  const correctLabels = bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label.toUpperCase()).sort();
-
-  if (["PILIHAN_GANDA", "DROPDOWN", "SKALA", "RATING"].includes(bankSoal.type)) {
-    const selected = (answer?.selectedOption || "").toUpperCase();
-    return selected ? correctLabels[0] === selected : null;
-  }
-  if (bankSoal.type === "MULTI_SELECT") {
-    const selected = [...(answer?.selectedOptions || [])].map((label) => label.toUpperCase()).sort();
-    return selected.length > 0 ? JSON.stringify(selected) === JSON.stringify(correctLabels) : null;
-  }
-  if (bankSoal.type === "GRID") {
-    const payload = bankSoal.structuredPayload as { rows?: string[]; correct?: Record<string, string> } | null;
-    const rows = Array.isArray(payload?.rows) ? payload!.rows : [];
-    const given = answer?.structuredAnswer as Record<string, unknown> | undefined;
-    if (rows.length === 0 || !given || typeof given !== "object") return null;
-    let answered = false;
-    for (let index = 0; index < rows.length; index += 1) {
-      const raw = given[String(index)];
-      const expected = (payload?.correct?.[String(index)] || "").toUpperCase();
-      const selected = Array.isArray(raw) ? raw.map((value) => String(value).toUpperCase()).sort() : raw ? [String(raw).toUpperCase()] : [];
-      if (selected.length > 0) answered = true;
-      if (JSON.stringify(selected) !== JSON.stringify(expected ? [expected] : [])) return false;
-    }
-    return answered;
-  }
-  if (bankSoal.type === "BENAR_SALAH") {
-    const selected = (answer?.selectedOption || "").trim().toLowerCase();
-    return selected ? selected === (bankSoal.expectedAnswer || "").trim().toLowerCase() : null;
-  }
-  if (["ISIAN_SINGKAT", "CLOZE", "GAMBAR", "LISTENING", "READING", "TANGGAL", "WAKTU"].includes(bankSoal.type)) {
-    const selected = (answer?.shortAnswer || "").trim().toLowerCase().replace(/\s+/g, " ");
-    return selected ? selected === (bankSoal.expectedAnswer || "").trim().toLowerCase().replace(/\s+/g, " ") : null;
-  }
-  return null;
+  const graded = gradeObjectiveAnswer({
+    type: bankSoal.type,
+    weight: 1,
+    correctLabels: bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label.toUpperCase()).sort(),
+    expectedAnswer: bankSoal.expectedAnswer,
+    acceptedAnswers: null,
+    structuredPayload: bankSoal.structuredPayload,
+    answer: { ...answer, ujianSoalId: "" },
+  });
+  return graded.score === null ? null : graded.correct;
 }
 
 export async function getQuizResponses(actor: Actor, ujianId: string) {
@@ -1253,7 +1229,7 @@ function questionHasAnswerKey(question: PreflightQuestion): boolean {
 }
 
 function isManualReviewQuestion(bank: PreflightQuestion["bankSoal"]): boolean {
-  return new Set(["ESAI", "FILE_UPLOAD", "GAMBAR", "LISTENING", "READING", "SPEAKING", "WRITING", "ROLEPLAY"]).has(bank.type);
+  return isManualReviewType(bank.type);
 }
 
 function collectMissingAnswerKeys(questions: PreflightQuestion[]): { labels: string[]; keyless: { order: number; question: string; type: string }[] } {

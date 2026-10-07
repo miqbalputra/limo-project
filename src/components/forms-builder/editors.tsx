@@ -25,7 +25,7 @@ export function OptionsEditor({ question, onPatch, onMoveOption, onUpdateOption,
             if (dragIndex[0] !== null) onMoveOption(question.key, dragIndex[0], index > dragIndex[0] ? 1 : -1);
             dragIndex[1](null);
           }}
-          className="flex items-center gap-2 rounded-xl px-1 py-1 transition hover:bg-gray-50"
+          className="flex flex-wrap items-center gap-2 rounded-xl px-1 py-1 transition hover:bg-gray-50"
         >
           <span
             draggable

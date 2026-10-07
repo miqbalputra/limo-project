@@ -38,7 +38,7 @@ export default async function GuruInputHasilUjianPage({ params, searchParams }: 
           {hasil.length > 0 ? hasil.map((item) => (
             <article key={item.id} className="rounded-xl bg-gray-50 p-3">
               <p className="font-semibold text-gray-900">{item.siswa.name}</p>
-              <p className="text-theme-sm text-gray-500">Status {formatUiLabel(item.status)} / Skor {item.totalScore?.toString() ?? "-"}</p>
+              <p className="text-theme-sm text-gray-500">Status {formatUiLabel(item.status)} / Skor {item.totalScore?.toString() ?? "-"}{item.passed !== null && item.passed !== undefined ? <span className="ml-2 font-semibold text-success-700">{item.passed ? "Lulus (KKM)" : "Tidak lulus KKM"}</span> : null}</p>
               {["NEEDS_REVIEW", "FINAL", "CORRECTED"].includes(item.status) ? <Link href={`/guru/ujian/${ujianId}/hasil/${item.id}/koreksi`} className="mt-2 inline-block text-theme-sm font-semibold text-limo-blue-700 hover:text-limo-blue-800">{item.status === "NEEDS_REVIEW" ? "Tinjau hasil" : "Buka koreksi"}</Link> : null}
               {["FINAL", "CORRECTED"].includes(item.status) ? <div className="mt-2"><ExamResultReleaseButton hasilId={item.id} released={Boolean(item.releasedAt)} /></div> : null}
             </article>

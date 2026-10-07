@@ -47,9 +47,9 @@ test("Week 2 guru LMS and exam pages are usable on mobile", async ({ page }) => 
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/guru/kuis/baru");
-  await expect(page.getByRole("heading", { name: "Buat Formulir Baru" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Formulir baru" })).toBeVisible();
   await expect(page.getByLabel("Pertanyaan soal 1")).toBeVisible();
-  await expect(page.getByRole("button", { name: "+ Isian singkat" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "+ Pertanyaan" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/guru/ujian");

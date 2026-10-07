@@ -329,13 +329,18 @@ try {
     durationMinutes: 15,
     maxAttempts: 1,
     confirmationMessage: "Terima kasih sudah mengerjakan.",
+    passingScore: 70,
     sections: [{ title: "Bagian 1", description: "" }],
     questions: [
       { type: "DROPDOWN", question: `Pilih warna ${runId}`, required: true, points: 1, sectionIndex: 0, shuffleOptions: true, options: [{ label: "A", content: "Merah" }, { label: "B", content: "Biru" }], correctLabels: ["B"] },
       { type: "SKALA", question: `Nilai ${runId}`, required: true, points: 1, sectionIndex: 0, scaleMin: 1, scaleMax: 5, scaleMinLabel: "Rendah", scaleMaxLabel: "Tinggi", expectedAnswer: "4", options: [1, 2, 3, 4, 5].map((value, index) => ({ label: "ABCDE"[index], content: String(value) })), correctLabels: ["D"] },
       { type: "TANGGAL", question: `Tanggal ${runId}`, required: true, points: 1, sectionIndex: 0, expectedAnswer: "2026-08-17", options: [], correctLabels: [] },
       { type: "ISIAN_SINGKAT", question: `Berapa jumlah ${runId}`, required: true, points: 1, sectionIndex: 0, expectedAnswer: "7", acceptedAnswers: ["7", "tujuh"], feedbackCorrect: "Tepat sekali", feedbackIncorrect: "Coba lagi", validationType: "NUMBER", validationMin: 1, validationMax: 10, options: [], correctLabels: [] },
-      { type: "GRID", question: `Tabel ${runId}`, required: true, points: 1, sectionIndex: 0, gridRows: ["Baris satu", "Baris dua"], gridMultiple: false, gridCorrect: ["A", "B"], options: [{ label: "A", content: "Ya" }, { label: "B", content: "Tidak" }], correctLabels: [] },
+      { type: "GRID", question: `Tabel ${runId}`, required: true, points: 1, sectionIndex: 0, gridRows: ["Baris satu", "Baris dua"], gridMultiple: true, gridCorrect: ["A", "B"], options: [{ label: "A", content: "Ya" }, { label: "B", content: "Tidak" }], correctLabels: [] },
+      { type: "CLOZE", question: `Lengkapi ${runId}`, required: true, points: 1, sectionIndex: 0, expectedAnswer: "kucing", options: [], correctLabels: [] },
+      { type: "RATING", question: `Rating ${runId}`, required: true, points: 1, sectionIndex: 0, scaleMin: 1, scaleMax: 5, expectedAnswer: "5", options: [1, 2, 3, 4, 5].map((value, index) => ({ label: "ABCDE"[index], content: String(value) })), correctLabels: ["E"] },
+      { type: "MENJODOHKAN", question: `Jodohkan ${runId}`, required: true, points: 2, sectionIndex: 0, pairs: [{ left: "satu", right: "one" }, { left: "dua", right: "two" }] },
+      { type: "URUTAN", question: `Urutkan ${runId}`, required: true, points: 1, sectionIndex: 0, sequenceItems: ["Satu", "Dua", "Tiga"] },
     ],
   };
 
@@ -375,13 +380,53 @@ try {
         { ujianSoalId: scale.id, selectedOption: "D" },
         { ujianSoalId: advancedQuestions.find((question) => question.type === "TANGGAL").id, shortAnswer: "2026-08-17" },
         { ujianSoalId: isianValidated.id, shortAnswer: "7" },
-        { ujianSoalId: grid.id, structuredAnswer: { "0": "A", "1": "B" } },
+        { ujianSoalId: grid.id, structuredAnswer: { "0": ["A"], "1": ["B"] } },
+        { ujianSoalId: advancedQuestions.find((question) => question.type === "CLOZE").id, shortAnswer: "kucing" },
+        { ujianSoalId: advancedQuestions.find((question) => question.type === "RATING").id, selectedOption: "E" },
+        { ujianSoalId: advancedQuestions.find((question) => question.type === "MENJODOHKAN").id, structuredAnswer: { satu: "one", dua: "two" } },
+        { ujianSoalId: advancedQuestions.find((question) => question.type === "URUTAN").id, structuredAnswer: ["Satu", "Dua", "Tiga"] },
       ],
     },
   });
   assert.equal(advancedSubmit.response.status, 200, JSON.stringify(advancedSubmit.payload));
   assert.equal(advancedSubmit.payload.data.result.score, 100);
-  ok("Tipe soal baru (dropdown, skala, tanggal, tabel) + validasi jawaban dinilai otomatis");
+  assert.equal(advancedSubmit.payload.data.result.passed, true);
+  ok("Tipe soal baru (dropdown, skala, tanggal, tabel, cloze, rating, menjodohkan, urutan) dinilai otomatis penuh");
+
+  // Formulir kedua untuk jawaban parsial (maxAttempts publik 1 per ipHash, jadi butuh tautan sendiri):
+  // grid 1 dari 2 baris, menjodohkan 1 dari 2 pasangan (bobot 2), urutan 1 dari 3 posisi, cloze salah.
+  const partialForm = await request("/api/v1/kuis", { method: "POST", cookie: guru.cookie, body: { ...advancedPayload, title: `Formulir Parsial ${runId}` } });
+  assert.equal(partialForm.response.status, 201, JSON.stringify(partialForm.payload));
+  const partialFormId = partialForm.payload.data.item.id;
+  await request(`/api/v1/kuis/${partialFormId}/publish`, { method: "POST", cookie: guru.cookie, body: {} });
+  const partialShare = await request(`/api/v1/ujian/${partialFormId}/share`, { method: "POST", cookie: guru.cookie, body: {} });
+  const partialToken = partialShare.payload.data.token;
+  const partialStart = await request(`/api/v1/public/quiz/${partialToken}/responses`, { method: "POST", body: { respondentName: `Parsial ${runId}` } });
+  assert.equal(partialStart.response.status, 201, JSON.stringify(partialStart.payload));
+  const partialResponseId = partialStart.payload.data.responseId;
+  const partialContext = await request(`/api/v1/public/quiz/${partialToken}/responses/${partialResponseId}`);
+  const partialQuestions = partialContext.payload.data.questions;
+  const partialSubmit = await request(`/api/v1/public/quiz/${partialToken}/responses/${partialResponseId}/submit`, {
+    method: "POST",
+    body: {
+      answers: [
+        { ujianSoalId: partialQuestions.find((question) => question.type === "DROPDOWN").id, selectedOption: "A" },
+        { ujianSoalId: partialQuestions.find((question) => question.type === "SKALA").id, selectedOption: "D" },
+        { ujianSoalId: partialQuestions.find((question) => question.type === "TANGGAL").id, shortAnswer: "2026-08-17" },
+        { ujianSoalId: partialQuestions.find((question) => question.type === "ISIAN_SINGKAT").id, shortAnswer: "7" },
+        { ujianSoalId: partialQuestions.find((question) => question.type === "GRID").id, structuredAnswer: { "0": ["A"], "1": ["A"] } },
+        { ujianSoalId: partialQuestions.find((question) => question.type === "CLOZE").id, shortAnswer: "anjing" },
+        { ujianSoalId: partialQuestions.find((question) => question.type === "RATING").id, selectedOption: "E" },
+        { ujianSoalId: partialQuestions.find((question) => question.type === "MENJODOHKAN").id, structuredAnswer: { satu: "one" } },
+        { ujianSoalId: partialQuestions.find((question) => question.type === "URUTAN").id, structuredAnswer: ["Satu", "Tiga", "Dua"] },
+      ],
+    },
+  });
+  assert.equal(partialSubmit.response.status, 200, JSON.stringify(partialSubmit.payload));
+  // earned: dropdown 0, skala 1, tanggal 1, isian 1, grid 0.5, cloze 0, rating 1, menjodohkan 1, urutan 0.33 → 5.83/10 = 58.3.
+  assert.equal(partialSubmit.payload.data.result.score, 58.3);
+  assert.equal(partialSubmit.payload.data.result.passed, false);
+  ok("Skor parsial (tabel ganda/multi-select/menjodohkan/urutan per komponen) dan KKM HasilUjian-ala publik berfungsi");
 
   const advancedDetail = await request(`/api/v1/kuis/${advancedId}`, { cookie: guru.cookie });
   assert.equal(advancedDetail.payload.data.item.questions.find((question) => question.type === "DROPDOWN").shuffleOptions, true);
@@ -396,7 +441,7 @@ try {
   assert.equal(bankFilter.payload.data.items[0].type, "DROPDOWN");
 
   const bankQuestionId = bankFilter.payload.data.items[0].id;
-  const addDuplicate = await request(`/api/v1/kuis/${advancedId}/questions`, { method: "POST", cookie: guru.cookie, body: { bankSoalIds: [bankQuestionId] } });
+  const addDuplicate = await request(`/api/v1/kuis/${partialFormId}/questions`, { method: "POST", cookie: guru.cookie, body: { bankSoalIds: [bankQuestionId] } });
   assert.equal(addDuplicate.response.status, 201, JSON.stringify(addDuplicate.payload));
   assert.equal(addDuplicate.payload.data.added, 0, "Soal yang sudah ada di formulir harus dilewati");
   assert.equal(addDuplicate.payload.data.skipped, 1);
@@ -497,7 +542,7 @@ try {
   assert.equal(duplicate.response.status, 201, JSON.stringify(duplicate.payload));
   const duplicateId = duplicate.payload.data.item.id;
   const duplicateDetail = await request(`/api/v1/kuis/${duplicateId}`, { cookie: guru.cookie });
-  assert.equal(duplicateDetail.payload.data.item.questions.length, 5);
+  assert.equal(duplicateDetail.payload.data.item.questions.length, 9);
   assert.match(duplicateDetail.payload.data.item.title, /salinan/);
   assert.equal(duplicateDetail.payload.data.item.status, "DRAFT");
   ok("Duplikat formulir menyalin seluruh soal (termasuk tipe baru)");
@@ -529,6 +574,7 @@ try {
       deliveryMode: "ONLINE_VIA_WALI",
       durationMinutes: 15,
       maxAttempts: 1,
+      passingScore: 70,
       sections: [{ title: "Bagian 1", description: "" }],
       questions: [
         { type: "DROPDOWN", question: `Warna ${runId}`, required: true, points: 1, sectionIndex: 0, options: [{ label: "A", content: "Merah" }, { label: "B", content: "Biru" }], correctLabels: ["B"] },
@@ -556,11 +602,12 @@ try {
     ] },
   });
   assert.equal(attemptSubmit.response.status, 200, JSON.stringify(attemptSubmit.payload));
-  const waliHasil = await prisma.hasilUjian.findFirst({ where: { ujianId: waliUjianId, siswaId: waliFixture.siswa.id }, select: { totalScore: true, status: true } });
+  const waliHasil = await prisma.hasilUjian.findFirst({ where: { ujianId: waliUjianId, siswaId: waliFixture.siswa.id }, select: { totalScore: true, status: true, passed: true } });
   assert.ok(waliHasil, "Hasil ujian wali harus tersimpan");
   assert.equal(Number(waliHasil.totalScore), 100);
   assert.equal(waliHasil.status, "FINAL");
-  ok("Alur wali: dropdown & tabel (tipe baru) dinilai otomatis 100");
+  assert.equal(waliHasil.passed, true, "KKM harus tercatat pada hasil ujian wali/siswa");
+  ok("Alur wali: dropdown & tabel (tipe baru) dinilai otomatis 100 + KKM lulus");
 
   const waliBankIds = (await prisma.ujianSoal.findMany({ where: { ujianId: waliUjianId }, select: { bankSoalId: true } })).map((row) => row.bankSoalId);
   await prisma.ujianAttempt.deleteMany({ where: { ujianId: waliUjianId } }).catch(() => undefined);

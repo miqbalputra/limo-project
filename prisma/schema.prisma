@@ -1562,6 +1562,7 @@ model HasilUjian {
   siswa       Siswa            @relation(fields: [siswaId], references: [id], onDelete: Restrict)
   status      HasilUjianStatus @default(DRAFT)
   totalScore  Decimal?         @db.Decimal(10, 2)
+  passed      Boolean?
   finalizedAt DateTime?
   releasedAt  DateTime?
   createdById String?

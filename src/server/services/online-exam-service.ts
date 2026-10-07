@@ -783,6 +783,9 @@ async function finalizeAttempt(scope: AttemptScope, actor: Actor, attemptId: str
   });
 
   const totalScore = totalWeight > 0 ? Number(((earnedWeight / totalWeight) * 100).toFixed(2)) : 0;
+  const passed: boolean | null = attempt.ujian.passingScore === null || attempt.ujian.passingScore === undefined
+    ? null
+    : totalScore >= attempt.ujian.passingScore;
 
   const item = await prisma.$transaction(async (tx) => {
     const existing = await tx.hasilUjian.findUnique({
@@ -801,11 +804,11 @@ async function finalizeAttempt(scope: AttemptScope, actor: Actor, attemptId: str
     const hasil = existing
       ? await tx.hasilUjian.update({
           where: { id: existing.id },
-          data: { status: needsReview ? "NEEDS_REVIEW" : "FINAL", totalScore, finalizedAt: needsReview ? null : new Date(), updatedById: actor.id },
+          data: { status: needsReview ? "NEEDS_REVIEW" : "FINAL", totalScore, passed, finalizedAt: needsReview ? null : new Date(), updatedById: actor.id },
           select: { id: true, status: true, totalScore: true },
         })
       : await tx.hasilUjian.create({
-          data: { ujianId: attempt.ujianId, siswaId: attempt.siswaId, status: needsReview ? "NEEDS_REVIEW" : "FINAL", totalScore, finalizedAt: needsReview ? null : new Date(), createdById: actor.id, updatedById: actor.id },
+          data: { ujianId: attempt.ujianId, siswaId: attempt.siswaId, status: needsReview ? "NEEDS_REVIEW" : "FINAL", totalScore, passed, finalizedAt: needsReview ? null : new Date(), createdById: actor.id, updatedById: actor.id },
           select: { id: true, status: true, totalScore: true },
         });
 

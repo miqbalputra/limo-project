@@ -616,6 +616,56 @@ const tests = [
     },
   },
   {
+    name: "quiz grading gives partial credit, supports multi-answer grids, and flags keyless objective questions for review",
+    run: () => {
+      const keylessChoice = gradeObjectiveAnswer({ type: "PILIHAN_GANDA", weight: 2, correctLabels: [], expectedAnswer: null, acceptedAnswers: null, structuredPayload: null, answer: { ujianSoalId: "q1", selectedOption: "A" } });
+      assert.deepEqual(keylessChoice, { score: null, correct: null });
+
+      const keylessMulti = gradeObjectiveAnswer({ type: "MULTI_SELECT", weight: 2, correctLabels: [], expectedAnswer: null, acceptedAnswers: null, structuredPayload: null, answer: { ujianSoalId: "q1", selectedOptions: ["A"] } });
+      assert.deepEqual(keylessMulti, { score: null, correct: null });
+
+      const keylessGrid = gradeObjectiveAnswer({ type: "GRID", weight: 2, correctLabels: [], expectedAnswer: null, acceptedAnswers: null, structuredPayload: { rows: ["Sapi", "Kambing"], multiple: true, correct: { "0": "A" } }, answer: { ujianSoalId: "q1", structuredAnswer: { "0": ["A"], "1": ["A"] } } });
+      assert.deepEqual(keylessGrid, { score: null, correct: null });
+
+      const keylessMatching = gradeObjectiveAnswer({ type: "MENJODOHKAN", weight: 2, correctLabels: [], expectedAnswer: null, acceptedAnswers: null, structuredPayload: { pairs: [{ left: "satu", right: "one" }] }, answer: { ujianSoalId: "q1", structuredAnswer: { satu: "one" } } });
+      assert.deepEqual(keylessMatching, { score: null, correct: null });
+
+      // Multi-select parsial: (hits - wrong) / kunci × bobot.
+      const multiPartial = gradeObjectiveAnswer({ type: "MULTI_SELECT", weight: 3, correctLabels: ["A", "C"], expectedAnswer: null, acceptedAnswers: null, structuredPayload: null, answer: { ujianSoalId: "q1", selectedOptions: ["A", "B", "c"] } });
+      assert.deepEqual(multiPartial, { score: 1.5, correct: false });
+      const multiAllWrong = gradeObjectiveAnswer({ type: "MULTI_SELECT", weight: 3, correctLabels: ["A", "C"], expectedAnswer: null, acceptedAnswers: null, structuredPayload: null, answer: { ujianSoalId: "q1", selectedOptions: ["B"] } });
+      assert.deepEqual(multiAllWrong, { score: 0, correct: false });
+      const multiUnanswered = gradeObjectiveAnswer({ type: "MULTI_SELECT", weight: 3, correctLabels: ["A", "C"], expectedAnswer: null, acceptedAnswers: null, structuredPayload: null, answer: undefined });
+      assert.deepEqual(multiUnanswered, { score: 0, correct: false });
+
+      // Skala/rating tanpa opsi bertanda benar tetap dinilai dari expectedAnswer.
+      const ratingFallback = gradeObjectiveAnswer({ type: "RATING", weight: 2, correctLabels: [], expectedAnswer: "4", acceptedAnswers: null, structuredPayload: { kind: "rating", min: 1, max: 5 }, answer: { ujianSoalId: "q1", selectedOption: "4" } });
+      assert.deepEqual(ratingFallback, { score: 2, correct: true });
+      const ratingWrong = gradeObjectiveAnswer({ type: "RATING", weight: 2, correctLabels: [], expectedAnswer: "4", acceptedAnswers: null, structuredPayload: null, answer: { ujianSoalId: "q1", selectedOption: "5" } });
+      assert.deepEqual(ratingWrong, { score: 0, correct: false });
+
+      // GRID multi-pilih + parsial per baris.
+      const gridMultipleFull = gradeObjectiveAnswer({ type: "GRID", weight: 4, correctLabels: [], expectedAnswer: null, acceptedAnswers: null, structuredPayload: { rows: ["Sapi", "Kambing", "Kucing"], multiple: true, correct: { "0": "A", "1": "B", "2": "A" } }, answer: { ujianSoalId: "q1", structuredAnswer: { "0": "a", "1": ["B"], "2": "A" } } });
+      assert.deepEqual(gridMultipleFull, { score: 4, correct: true });
+      const gridPartial = gradeObjectiveAnswer({ type: "GRID", weight: 4, correctLabels: [], expectedAnswer: null, acceptedAnswers: null, structuredPayload: { rows: ["Sapi", "Kambing"], correct: { "0": "A", "1": "B" } }, answer: { ujianSoalId: "q1", structuredAnswer: { "0": "A", "1": "A" } } });
+      assert.deepEqual(gridPartial, { score: 2, correct: false });
+
+      // Menjodohkan parsial per pasangan.
+      const matchingPartial = gradeObjectiveAnswer({ type: "MENJODOHKAN", weight: 3, correctLabels: [], expectedAnswer: null, acceptedAnswers: null, structuredPayload: { pairs: [{ left: "satu", right: "one" }], answerKey: { satu: "one", dua: "two", tiga: "three" } }, answer: { ujianSoalId: "q1", structuredAnswer: { satu: "one", kucing: "three" } } });
+      assert.deepEqual(matchingPartial, { score: 1, correct: false });
+      const matchingFull = gradeObjectiveAnswer({ type: "MENJODOHKAN", weight: 3, correctLabels: [], expectedAnswer: null, acceptedAnswers: null, structuredPayload: { answerKey: { satu: "one", dua: "two" } }, answer: { ujianSoalId: "q1", structuredAnswer: { dua: "two", satu: "one" } } });
+      assert.deepEqual(matchingFull, { score: 3, correct: true });
+
+      // Urutan parsial per posisi.
+      const sequencePartial = gradeObjectiveAnswer({ type: "URUTAN", weight: 3, correctLabels: [], expectedAnswer: null, acceptedAnswers: null, structuredPayload: { items: ["Januari", "Februari", "Maret"], answerKey: ["Januari", "Februari", "Maret"] }, answer: { ujianSoalId: "q1", structuredAnswer: ["Januari", "Maret", "Februari"] } });
+      assert.deepEqual(sequencePartial, { score: 1, correct: false });
+
+      // Cloze dinilai lewat jalur teks (kunci wajib).
+      const cloze = gradeObjectiveAnswer({ type: "CLOZE", weight: 1, correctLabels: [], expectedAnswer: "kodok", acceptedAnswers: null, structuredPayload: null, answer: { ujianSoalId: "q1", shortAnswer: " Kodok " } });
+      assert.deepEqual(cloze, { score: 1, correct: true });
+    },
+  },
+  {
     name: "required enforcement skips questions in branched-away sections",
     run: () => {
       const questions = [

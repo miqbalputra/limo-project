@@ -1,6 +1,20 @@
 # Progress Implementasi LIMO
 
-Terakhir diperbarui: 6 Oktober 2026
+Terakhir diperbarui: 7 Oktober 2026
+
+## Penilaian Otomatis Diperkuat (grader tunggal, poin parsial, KKM HasilUjian) (7 Okt 2026)
+
+- **Grader tunggal `submitHasilUjian`**: jalur guru (TEACHER_ENTRY + koreksi) kini memakai `gradeObjectiveAnswer` terpusat — setelah sebelumnya memakai blok if/else duplikat yang menyebabkan (a) pilihan ganda/dropdown tanpa kunci dinilai **0 "salah"** alih-alih `needsReview`, dan (b) tipe GAMBAR/LISTENING/READING tidak konsisten antar jalur.
+- **Konsistensi tipe manual**: `isManualReviewType()` di `quiz-grading.ts` kini sumber tunggal (preflight `isManualReviewQuestion` ikut memakainya); grader mengembalikan `null` untuk soal objektif tanpa kunci → needsReview di semua jalur.
+- **GRID multi-pilih**: grader membaca `payload.multiple` (jawaban array per baris dibanding kunci baris).
+- **Poin parsial proporsional**: MULTI_SELECT (`correct−wrong` per kunci), GRID per baris, MENJODOHKAN per pasangan, URUTAN per posisi — dulunya all-or-nothing (jawaban 2 dari 4 benar = 0). `correct: true` hanya saat skor penuh.
+- **SKALA/RATING tanpa opsi bertanda benar** kini dinilai dari `expectedAnswer` (sebelumnya selalu 0 karena `correctLabels` kosong).
+- **KKM pada `HasilUjian`**: kolom baru `passed` (migrasi `20261007010000_hasil_passed`) terisi saat finalisasi wali/siswa dan input/koreksi guru; badge "Lulus/Tidak lulus KKM" di halaman `/guru/ujian/[id]/hasil` & koreksi; `db:parity` + `schema.sqlite.prisma` ikut diupdate.
+- **Cron `quiz:finalize`** didokumentasikan di `docs/DEPLOYMENT.md` (tiap menit, idempoten) agar respons kuis publik kedaluwarsa terfinalisasi otomatis.
+- **Perbaikan ikut-ikut**: `gradeAnswer` halaman respons kini mengembalikan hasil grader terpusat; **overflow horizontal baru di builder ala Google Forms pada 390px** (baris opsi + baris aksi kartu soal tanpa `flex-wrap`) diperbaiki di `question-card.tsx`/`editors.tsx`; `week2.spec.ts` disesuaikan ke builder baru (heading "Formulir baru", tombol "+ Pertanyaan").
+- **Assert grading baru**: unit test (kunci kosong→null, parsial multi/grid/menjodohkan/urutan, fallback rating, GRID ganda) + integrasi (formulir 9 tipe full-score 100 + passed true; respons parsial 58.3 & KKM gagal; wali HasilUjian `passed` lulus).
+- **Verifikasi (hijau)**: `typecheck` ✓ · `lint` 0 error ✓ · `npm test` **44** ✓ · `test:guards` 232 route ✓ · `test:quiz-builder` **25/25** ✓ · `test:week2` ✓ · `test:siswa-ujian` 14/14 ✓ · `test:quiz-share` 5/5 ✓ · build ✓ (159 halaman) · e2e quiz-builder ✓, editors 2/2 ✓, sections 3/3 ✓, week2 3/3 ✓, student-exam 2/2 ✓, bank-soal-library 3/3 ✓, mobile-layout 16/16 ✓, production-navigation 2/2 ✓, accessibility 5/5 ✓.
+- **Wajib saat deploy**: `npx prisma migrate deploy` untuk `20261007010000_hasil_passed`.
 
 ## Builder Asesmen ala Google Forms — Audit + Rewrite Total (6 Okt 2026)
 

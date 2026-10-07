@@ -31,6 +31,7 @@ function check(name, ok, detail = "") {
 const REQUIRED_TABLES = ["Voucher", "Pengumuman", "PengumumanRead", "DiskusiThread", "DiskusiBalasan", "DiskusiLaporan", "Sertifikat"];
 const REQUIRED_COLUMNS = [
   ["HasilUjian", "releasedAt"],
+  ["HasilUjian", "passed"],
   ["UjianAttempt", "siswaAccountId"],
   ["UjianAttempt", "startedByRole"],
   ["UjianAttempt", "violationCount"],
@@ -70,6 +71,7 @@ async function checkModelsAndColumns() {
 
   const columnProbes = [
     ["HasilUjian.releasedAt", () => prisma.hasilUjian.findFirst({ select: { releasedAt: true } })],
+    ["HasilUjian.passed", () => prisma.hasilUjian.findFirst({ select: { passed: true } })],
     ["UjianAttempt (siswaAccountId/startedByRole/violationCount)", () => prisma.ujianAttempt.findFirst({ select: { siswaAccountId: true, startedByRole: true, violationCount: true } })],
     ["Ujian (secureMode/showResultToSiswa)", () => prisma.ujian.findFirst({ select: { secureMode: true, showResultToSiswa: true } })],
     ["Tagihan (discountAmount/voucherId)", () => prisma.tagihan.findFirst({ select: { discountAmount: true, voucherId: true } })],

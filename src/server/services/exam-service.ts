@@ -11,7 +11,7 @@ import { notifySiswaForStudents, notifyWaliForStudents } from "@/server/services
 import { syncGradebookForSource } from "@/server/services/gradebook-service";
 import { syncActivityCompletionForExam } from "@/server/services/activity-completion-service";
 import { getQuizMedia } from "@/server/services/quiz-media-service";
-import { isTextAnswerAccepted } from "@/server/services/quiz-grading";
+import { gradeObjectiveAnswer } from "@/server/services/quiz-grading";
 import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 
 const optionBasedTypes = new Set(["PILIHAN_GANDA", "MULTI_SELECT"]);
@@ -23,18 +23,6 @@ function normalizeText(value: string | undefined) {
 
 function sortedLabels(values: string[] | undefined) {
   return [...new Set((values || []).map((value) => value.trim().toUpperCase()).filter(Boolean))].sort();
-}
-
-function jsonEquals(left: unknown, right: unknown) {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function getStructuredAnswerKey(payload: unknown) {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return undefined;
-  }
-
-  return (payload as { answerKey?: unknown }).answerKey;
 }
 
 function toInputJson(value: unknown) {
@@ -968,6 +956,7 @@ export async function listHasilUjian(actor: Actor, options: PaginationInput & { 
       id: true,
       status: true,
       totalScore: true,
+      passed: true,
       finalizedAt: true,
       releasedAt: true,
       siswa: { select: { id: true, name: true, nomorInduk: true } },
@@ -1069,6 +1058,7 @@ export async function getHasilUjianCorrectionContext(actor: Actor, hasilId: stri
       id: true,
       status: true,
       totalScore: true,
+      passed: true,
       siswa: { select: { id: true, name: true, nomorInduk: true } },
       ujian: {
         select: {
@@ -1211,168 +1201,51 @@ export async function submitHasilUjian(actor: Actor, input: unknown, options: Su
 
   const answerRows = ujian.questions.map((question) => {
     const answer = answersByQuestion.get(question.id);
-    const correctOptions = sortedLabels(question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label));
     const manualScore = answer?.essayScore === "" || answer?.essayScore === undefined ? undefined : Number(answer.essayScore);
+    const correctLabels = sortedLabels(question.bankSoal.options.filter((option) => option.isCorrect).map((option) => option.label));
+    const graded = gradeObjectiveAnswer({
+      type: question.bankSoal.type,
+      weight: Number(question.weight),
+      correctLabels,
+      expectedAnswer: question.bankSoal.expectedAnswer ?? null,
+      acceptedAnswers: question.bankSoal.acceptedAnswers,
+      structuredPayload: question.bankSoal.structuredPayload,
+      answer,
+    });
+    const isMulti = question.bankSoal.type === "MULTI_SELECT";
 
-    if (["PILIHAN_GANDA", "DROPDOWN", "SKALA", "RATING"].includes(question.bankSoal.type)) {
-      const selectedOption = answer?.selectedOption?.toUpperCase() || "";
-      const score = selectedOption && correctOptions[0] === selectedOption ? Number(question.weight) : 0;
-      earnedWeight += score;
+    if (graded.score === null) {
+      // Soal manual (esai/berkas), opsi "Lainnya", kunci belum ada, atau skor manual guru.
+      if (manualScore === undefined) {
+        needsReview = true;
+      } else {
+        if (manualScore > Number(question.weight)) {
+          throw new ValidationError(`Skor soal ${question.order + 1} tidak boleh melebihi bobot soal`);
+        }
 
-      return {
-        ujianSoalId: question.id,
-        bankSoalId: question.bankSoalId,
-        selectedOption,
-        selectedOptions: undefined,
-        shortAnswer: undefined,
-        structuredAnswer: undefined,
-        essayAnswer: undefined,
-        score,
-        needsReview: false,
-      };
-    }
-
-    if (question.bankSoal.type === "MULTI_SELECT") {
-      const selectedOptions = sortedLabels(answer?.selectedOptions);
-      const score = selectedOptions.length > 0 && jsonEquals(selectedOptions, correctOptions) ? Number(question.weight) : 0;
-      earnedWeight += score;
-
-      return {
-        ujianSoalId: question.id,
-        bankSoalId: question.bankSoalId,
-        selectedOption: undefined,
-        selectedOptions,
-        shortAnswer: undefined,
-        structuredAnswer: undefined,
-        essayAnswer: undefined,
-        score,
-        needsReview: false,
-      };
-    }
-
-    if (question.bankSoal.type === "BENAR_SALAH") {
-      const selectedOption = answer?.selectedOption || "";
-      const score = normalizeText(selectedOption) === normalizeText(question.bankSoal.expectedAnswer || undefined) ? Number(question.weight) : 0;
-      earnedWeight += score;
-
-      return {
-        ujianSoalId: question.id,
-        bankSoalId: question.bankSoalId,
-        selectedOption,
-        selectedOptions: undefined,
-        shortAnswer: undefined,
-        structuredAnswer: undefined,
-        essayAnswer: undefined,
-        score,
-        needsReview: false,
-      };
-    }
-
-    const hasTextKey = Boolean(question.bankSoal.expectedAnswer) || (Array.isArray(question.bankSoal.acceptedAnswers) && question.bankSoal.acceptedAnswers.length > 0);
-
-    if (["ISIAN_SINGKAT", "CLOZE", "TANGGAL", "WAKTU"].includes(question.bankSoal.type) && hasTextKey) {
-      const shortAnswer = answer?.shortAnswer || "";
-      const score = isTextAnswerAccepted({ answer: shortAnswer, expectedAnswer: question.bankSoal.expectedAnswer, acceptedAnswers: question.bankSoal.acceptedAnswers }) ? Number(question.weight) : 0;
-      earnedWeight += score;
-
-      return {
-        ujianSoalId: question.id,
-        bankSoalId: question.bankSoalId,
-        selectedOption: undefined,
-        selectedOptions: undefined,
-        shortAnswer,
-        structuredAnswer: undefined,
-        essayAnswer: undefined,
-        score,
-        needsReview: false,
-      };
-    }
-
-    if (question.bankSoal.type === "GRID") {
-      const payload = (question.bankSoal.structuredPayload ?? null) as { rows?: string[]; correct?: Record<string, string> } | null;
-      const rows = Array.isArray(payload?.rows) ? payload!.rows : [];
-      const given = (answer?.structuredAnswer ?? null) as Record<string, unknown> | null;
-      let answered = false;
-      let allCorrect = rows.length > 0;
-      for (let index = 0; index < rows.length; index += 1) {
-        const raw = given ? given[String(index)] : undefined;
-        const expected = (payload?.correct?.[String(index)] || "").toUpperCase();
-        const selected = Array.isArray(raw) ? raw.map((value) => String(value).toUpperCase()).sort() : raw ? [String(raw).toUpperCase()] : [];
-        if (selected.length > 0) answered = true;
-        if (!jsonEquals(selected, expected ? [expected] : [])) allCorrect = false;
+        earnedWeight += manualScore;
       }
-      if (answered) {
-        const score = allCorrect ? Number(question.weight) : 0;
-        earnedWeight += score;
-        return {
-          ujianSoalId: question.id,
-          bankSoalId: question.bankSoalId,
-          selectedOption: undefined,
-          selectedOptions: undefined,
-          shortAnswer: undefined,
-          structuredAnswer: answer?.structuredAnswer,
-          essayAnswer: undefined,
-          score,
-          needsReview: false,
-        };
-      }
-      needsReview = true;
-      return {
-        ujianSoalId: question.id,
-        bankSoalId: question.bankSoalId,
-        selectedOption: undefined,
-        selectedOptions: undefined,
-        shortAnswer: undefined,
-        structuredAnswer: answer?.structuredAnswer,
-        essayAnswer: undefined,
-        score: undefined,
-        needsReview: true,
-      };
-    }
-
-    const structuredAnswerKey = getStructuredAnswerKey(question.bankSoal.structuredPayload);
-
-    if (["MENJODOHKAN", "URUTAN"].includes(question.bankSoal.type) && structuredAnswerKey !== undefined && answer?.structuredAnswer !== undefined) {
-      const score = jsonEquals(answer.structuredAnswer, structuredAnswerKey) ? Number(question.weight) : 0;
-      earnedWeight += score;
-
-      return {
-        ujianSoalId: question.id,
-        bankSoalId: question.bankSoalId,
-        selectedOption: undefined,
-        selectedOptions: undefined,
-        shortAnswer: undefined,
-        structuredAnswer: answer.structuredAnswer,
-        essayAnswer: undefined,
-        score,
-        needsReview: false,
-      };
-    }
-
-    if (manualScore === undefined) {
-      needsReview = true;
     } else {
-      if (manualScore > Number(question.weight)) {
-        throw new ValidationError(`Skor soal ${question.order + 1} tidak boleh melebihi bobot soal`);
-      }
-
-      earnedWeight += manualScore;
+      earnedWeight += graded.score;
     }
 
     return {
       ujianSoalId: question.id,
       bankSoalId: question.bankSoalId,
-      selectedOption: undefined,
-      selectedOptions: undefined,
+      selectedOption: isMulti ? undefined : (answer?.selectedOption?.toUpperCase() || undefined),
+      selectedOptions: isMulti ? sortedLabels(answer?.selectedOptions) : undefined,
       shortAnswer: answer?.shortAnswer || undefined,
-      structuredAnswer: answer?.structuredAnswer,
+      structuredAnswer: toInputJson(answer?.structuredAnswer),
       essayAnswer: answer?.essayAnswer || undefined,
-      score: manualScore,
-      needsReview: manualScore === undefined,
+      score: graded.score === null ? manualScore : graded.score,
+      needsReview: graded.score === null && manualScore === undefined,
     };
   });
 
   const totalScore = totalWeight > 0 ? Number(((earnedWeight / totalWeight) * 100).toFixed(2)) : 0;
+  const passed: boolean | null = ujian.passingScore === null || ujian.passingScore === undefined
+    ? null
+    : totalScore >= ujian.passingScore;
 
   const item = await prisma.$transaction(async (tx) => {
     const existing = await tx.hasilUjian.findUnique({
@@ -1402,10 +1275,11 @@ export async function submitHasilUjian(actor: Actor, input: unknown, options: Su
           data: {
              status: resultStatus,
             totalScore,
+            passed,
             finalizedAt: needsReview ? null : new Date(),
             updatedById: actor.id,
           },
-          select: { id: true, status: true, totalScore: true },
+          select: { id: true, status: true, totalScore: true, passed: true },
         })
       : await tx.hasilUjian.create({
           data: {
@@ -1413,11 +1287,12 @@ export async function submitHasilUjian(actor: Actor, input: unknown, options: Su
             siswaId: parsed.data.siswaId,
              status: resultStatus,
             totalScore,
+            passed,
             finalizedAt: needsReview ? null : new Date(),
             createdById: actor.id,
             updatedById: actor.id,
           },
-          select: { id: true, status: true, totalScore: true },
+          select: { id: true, status: true, totalScore: true, passed: true },
         });
 
     await tx.jawabanUjian.createMany({

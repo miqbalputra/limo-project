@@ -126,12 +126,25 @@ export function findMissingRequiredAnswers(input: {
 }
 
 const SINGLE_CHOICE_TYPES = new Set(["PILIHAN_GANDA", "DROPDOWN", "SKALA", "RATING"]);
-const TEXT_ANSWER_TYPES = new Set(["ISIAN_SINGKAT", "CLOZE", "GAMBAR", "LISTENING", "READING", "TANGGAL", "WAKTU"]);
+const TEXT_ANSWER_TYPES = new Set(["ISIAN_SINGKAT", "CLOZE", "TANGGAL", "WAKTU"]);
 const PAIRING_TYPES = new Set(["MENJODOHKAN", "URUTAN"]);
+
+const MANUAL_REVIEW_TYPES = new Set(["ESAI", "FILE_UPLOAD", "GAMBAR", "LISTENING", "READING", "SPEAKING", "WRITING", "ROLEPLAY"]);
+
+export function isManualReviewType(type: string) {
+  return MANUAL_REVIEW_TYPES.has(type);
+}
+
+function roundFraction(numerator: number, denominator: number, weight: number) {
+  if (denominator <= 0) return 0;
+  return Number(((Math.max(0, numerator) / denominator) * weight).toFixed(2));
+}
 
 /**
  * Penilaian objektif terpusat untuk semua jalur (publik, wali, input guru, halaman hasil).
- * `score: null` berarti soal tidak dapat dinilai otomatis (jawaban manual / opsi "Lainnya").
+ * `score: null` berarti soal tidak dapat dinilai otomatis (jawaban manual / opsi "Lainnya" / kunci belum ada).
+ * Tipe multi-select, GRID, menjodohkan, dan urutan memberi poin parsial proporsional;
+ * `correct: true` hanya saat skor penuh.
  */
 export function gradeObjectiveAnswer(input: {
   type: string;
@@ -147,16 +160,30 @@ export function gradeObjectiveAnswer(input: {
   if (SINGLE_CHOICE_TYPES.has(type)) {
     const selected = answer?.selectedOption?.toUpperCase() || "";
     if (selected === "OTHER") return { score: null, correct: null };
+    if (input.correctLabels.length === 0) {
+      // Kunci berbasis expectedAnswer (skala/rating tanpa opsi bertanda benar)
+      if (input.expectedAnswer && input.expectedAnswer.trim()) {
+        const fallback = (answer?.selectedOption ?? answer?.shortAnswer ?? "").toUpperCase();
+        const score = fallback && normalizeAnswerText(fallback) === normalizeAnswerText(input.expectedAnswer) ? weight : 0;
+        return { score, correct: score > 0 };
+      }
+      return { score: null, correct: null };
+    }
     const score = selected && input.correctLabels[0] === selected ? weight : 0;
     return { score, correct: score > 0 };
   }
 
   if (type === "MULTI_SELECT") {
+    const key = input.correctLabels;
+    if (key.length === 0) return { score: null, correct: null };
     const raw = (answer?.selectedOptions ?? []).map((label) => label.toUpperCase());
     if (raw.includes("OTHER")) return { score: null, correct: null };
     const selected = sortedAnswerLabels(answer?.selectedOptions);
-    const score = selected.length > 0 && jsonValuesEqual(selected, input.correctLabels) ? weight : 0;
-    return { score, correct: score > 0 };
+    if (selected.length === 0) return { score: 0, correct: false };
+    const correctPicks = selected.filter((label) => key.includes(label)).length;
+    const wrongPicks = selected.filter((label) => !key.includes(label)).length;
+    const score = jsonValuesEqual(selected, key) ? weight : roundFraction(correctPicks - wrongPicks, key.length, weight);
+    return { score, correct: score === weight };
   }
 
   if (type === "BENAR_SALAH") {
@@ -176,27 +203,54 @@ export function gradeObjectiveAnswer(input: {
   if (type === "GRID") {
     const payload = (input.structuredPayload ?? null) as { rows?: string[]; correct?: Record<string, string> } | null;
     const rows = Array.isArray(payload?.rows) ? payload!.rows : [];
-    const given = (answer?.structuredAnswer ?? null) as Record<string, unknown> | null;
-    let answered = false;
-    let allCorrect = rows.length > 0;
+    const keyMap = payload?.correct ?? {};
+    if (rows.length === 0) return { score: null, correct: null };
+    // Semua baris wajib berkunci; publish blokir bila ada baris tanpa kunci (assertQuizAnswerKeys).
+    if (!rows.every((_, index) => Boolean((keyMap[String(index)] || "").trim()))) return { score: null, correct: null };
 
+    const given = (answer?.structuredAnswer ?? null) as Record<string, unknown> | null;
+    let rowsCorrect = 0;
     for (let index = 0; index < rows.length; index += 1) {
       const raw = given ? given[String(index)] : undefined;
-      const expected = (payload?.correct?.[String(index)] || "").toUpperCase();
-      const selected = Array.isArray(raw) ? raw.map((value) => String(value).toUpperCase()).sort() : raw ? [String(raw).toUpperCase()] : [];
-      if (selected.length > 0) answered = true;
-      if (!jsonValuesEqual(selected, expected ? [expected] : [])) allCorrect = false;
+      const expected = (keyMap[String(index)] || "").toUpperCase();
+      const selected = Array.isArray(raw)
+        ? raw.map((value) => String(value).toUpperCase()).sort()
+        : raw
+          ? [String(raw).toUpperCase()]
+          : [];
+      if (jsonValuesEqual(selected, [expected])) rowsCorrect += 1;
     }
 
-    if (!answered) return { score: null, correct: null };
-    const score = allCorrect ? weight : 0;
-    return { score, correct: score > 0 };
+    const score = rowsCorrect === rows.length ? weight : roundFraction(rowsCorrect, rows.length, weight);
+    return { score, correct: rowsCorrect === rows.length };
   }
 
   if (PAIRING_TYPES.has(type)) {
-    const answerKey = (input.structuredPayload as { answerKey?: unknown } | null)?.answerKey;
-    const score = jsonValuesEqual(answer?.structuredAnswer, answerKey) ? weight : 0;
-    return { score, correct: score > 0 };
+    const payload = (input.structuredPayload ?? null) as { answerKey?: unknown; pairs?: unknown[]; items?: unknown[] } | null;
+    const answerKey = payload?.answerKey;
+    if (answerKey === undefined || answerKey === null) return { score: null, correct: null };
+
+    if (type === "URUTAN") {
+      const items = Array.isArray(answerKey) ? answerKey : [];
+      if (items.length === 0) return { score: null, correct: null };
+      const given = Array.isArray(answer?.structuredAnswer) ? (answer!.structuredAnswer as unknown[]) : [];
+      let positionsCorrect = 0;
+      for (let index = 0; index < items.length; index += 1) {
+        if (jsonValuesEqual(given[index], items[index])) positionsCorrect += 1;
+      }
+      const score = positionsCorrect === items.length ? weight : roundFraction(positionsCorrect, items.length, weight);
+      return { score, correct: positionsCorrect === items.length };
+    }
+
+    const pairs = Object.entries(answerKey as Record<string, unknown>);
+    if (pairs.length === 0) return { score: null, correct: null };
+    const given = (answer?.structuredAnswer ?? null) as Record<string, unknown> | null;
+    let matched = 0;
+    for (const [left, right] of pairs) {
+      if (given && jsonValuesEqual(given[left], right)) matched += 1;
+    }
+    const score = matched === pairs.length ? weight : roundFraction(matched, pairs.length, weight);
+    return { score, correct: matched === pairs.length };
   }
 
   return { score: null, correct: null };
