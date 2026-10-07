@@ -1,6 +1,21 @@
 # Progress Implementasi LIMO
 
-Terakhir diperbarui: 7 Oktober 2026
+Terakhir diperbarui: 8 Oktober 2026
+
+## Resume Point (8 Okt 2026)
+
+**Selesai & ter-push (`7247c35`):** soal menjodohkan teks/gambar + status publikasi kuis.
+
+- **Menjodohkan teks & gambar**: pasangan kiri/kanan kini bisa teks saja, gambar saja, atau keduanya — `QuizPair {left, right, leftMediaUrl, rightMediaUrl}`; editor kartu menjodohkan punya upload gambar per sisi (`/api/v1/kuis/media`, tombol hapus/ganti). Tanpa migrasi DB: pasangan tersimpan di `BankSoal.structuredPayload.pairs`. Kunci `answerKey` memakai anchor teks kiri bila ada, else `#L-<index>`; identitas jodoh = teks kanan bila ada, else `#R-<index>` (helper `pairLeftAnchor`/`pairRightAnchor`/`pairIsComplete` di `src/lib/quiz-builder.ts`, dipakai service & client agar selalu konsisten).
+- **Validasi menjodohkan diperketat**: Zod + client (`form-state.ts`) menolak pasangan setengah-isi (satu sisi teks/gambar kosong) dan tetap minta minimal 2 pasangan lengkap; ringkasan kartu soal kini bertuliskan "N/M pasangan berkunci" (sebelumnya selalu "kunci belum diatur" karena membaca `expectedAnswer`).
+- **UI pengerjaan MENJODOHKAN & URUTAN ditambahkan** di runner publik (`public-quiz-runner.tsx`) dan `OnlineExamPlayer` (siswa/wali) — sebelumnya keduanya jatuh ke textarea esai sehingga tidak bisa dijawab (bug lama). Layout dua kolom: daftar soal kiri dengan dropdown "Pilih jodoh", daftar jodoh bernomor dengan thumbnail; URUTAN pakai dropdown item per posisi. Jawaban `structuredAnswer` tersimpan di DB (`QuizResponse.finalAnswers` / `JawabanUjian.structuredAnswer`), dinilai otomatis poin parsial oleh grader tunggal.
+- **Serialisasi publik** (`public-quiz-service.ts`) kini mengirim `matchingPairs` + `sequenceItems` (tanpa `answerKey`, kunci tidak bocor); dua halaman attempt (siswa & wali) memetakan payload yang sama menjadi `bankSoal.matchingPairs`/`sequenceItems`.
+- **Status publikasi**: badge "Sudah publish" di builder (`form-builder.tsx`) + badge berwarna di daftar `/guru/ujian` (Sudah publish/Draft/Diarsipkan). Tombol **"Tutup publikasi"** → `POST /api/v1/kuis/[id]/unpublish` → `closeQuizPublication` (PUBLISHED → DRAFT, audit `QUIZ_FORM_PUBLICATION_CLOSED`): link publik & portal berhenti menerima pengerjaan (gate `status !== "PUBLISHED"`), dan bisa dibuka lagi kapanpun lewat tombol Kirim (publish revalidasi soal & kunci). Hasil yang sudah ada tidak terhapus.
+- **Koreksi kecil terkait**: teks jawaban MENJODOHKAN/URUTAN di detail respons (`getQuizResponseDetail`) kini berarti (pasangan → jodoh, urutan bernomor), placeholder `#R-n` dirender jadi teks jodoh; `MatchingPreview` di koreksi guru menampilkan thumbnail gambar; pratinjau builder menampilkan thumbnail kiri.
+- **Verifikasi (semua hijau)**: `typecheck` ✓ · `lint` 0 error ✓ · `npm test` 45 ✓ · `test:quiz-builder` **25/25** ✓ · `test:quiz-share` **5/5** ✓ · `test:siswa-ujian` **14/14** ✓ (semua setelah perubahan ini).
+- **Catatan lingkungan (validasi integrasi)**: test di atas butuh dev server `NODE_ENV=development` — `NODE_ENV` mesin ini ter-set global production sehingga login 500; jalankan `cmd /c "set NODE_ENV=development&& npm run dev"` takarir, lalu tes. Artefak `.next/dev/types/` bisa korup saat server mati di tengah generate — hapus dua file tersebut lalu `typecheck` ulang.
+- **Deploy**: tanpa migrasi & env baru. Cukup **Redeploy** (build ulang image) di Dokploy — jangan restart-saja.
+- **Backlog lanjutan menjodohkan**: drag & drop antar kartu dan acak urutan jodoh di pemutar (kini dropdown), aksesibilitas drag handle.
 
 ## Resume Point (7 Okt 2026, akhir hari)
 
