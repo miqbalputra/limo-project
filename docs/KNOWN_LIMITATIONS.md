@@ -23,8 +23,10 @@ Dokumen ini mencatat gap MVP saat ini agar tidak dianggap selesai diam-diam.
 ## UI/UX
 
 - Dashboard shell sudah memakai pola TailAdmin termasuk sidebar collapse, command search, profile dropdown, breadcrumb, dan dropdown notifikasi berbasis data; polish visual per modul masih bisa dilanjutkan.
-- Modul akun Guru/Wali sudah memiliki CRUD, arsip/restore, reset password, kirim ulang aktivasi, dan impor CSV; tarif SPP juga sudah punya ubah/arsip/pulihkan; modul lain belum semuanya memiliki edit/update/delete/arsip lengkap.
-- Tabel besar belum semua memakai pagination UI penuh, meskipun query utama dibatasi.
+- Modul akun Guru/Wali sudah memiliki CRUD, arsip/restore, reset password, kirim ulang aktivasi, dan impor CSV; tarif SPP juga sudah punya ubah/arsip/pulihkan; **voucher kini juga punya edit** (nilai diskon, kuota, cakupan, masa berlaku, keterangan); modul lain belum semuanya memiliki edit/update/delete/arsip lengkap.
+- Tabel besar belum semua memakai pagination UI penuh, meskipun query utama dibatasi. Laporan perkembangan Admin/Guru kini sudah memakai `PaginationControls`.
+- Izin granular guru kini ditegakkan pada layar terkait: `guru.gradebook.manage` (gradebook), `guru.remedial.manage` (remedial), `guru.announcement.manage` (buat/ubah pengumuman), dan `guru.discussion.manage` (buat/moderasi diskusi) — dicabut di `/admin/akses` atau editor akun berartinya nyata.
+- Halaman ber-flag (kalender, todo) untuk semua role menampilkan `notFound()` bila flag dimatikan dan URL dibuka langsung, bukan error boundary.
 - Pilihan siswa pada form tarif SPP di `/admin/tagihan` menampilkan maksimal **100 siswa** (batas `pageSize` pada `listSiswa`); bila jumlah siswa melebihi itu, perlu diganti menjadi pencarian/autocomplete.
 - Aksi destruktif pada materi, ujian, sesi, dan hero carousel memakai `ConfirmDialog` in-app (bukan `window.confirm`); label enum (mis. aksi audit) tidak lagi mencetak token mentah. Sisa `window.confirm` hanya tombol bersihkan jawaban di pemutar kuis publik.
 - Halaman `/guru/bank-soal` kini memberi `aria-label` pada `<select>` kelas/tipe soal, dan tombol "Simpan sesi" memenuhi target sentuh ≥44px; audit axe halaman Guru (`/guru/sesi`, `/guru/penilaian-esai`, `/guru/bank-soal`) lulus.

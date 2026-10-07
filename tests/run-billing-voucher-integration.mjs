@@ -166,6 +166,20 @@ try {
   assert.equal(useInactive.response.status, 409, JSON.stringify(useInactive.payload));
   ok("Voucher nonaktif ditolak saat dipakai");
 
+  // Edit voucher: ubah nilai diskon, kuota, cakupan, dan masa berlaku via PATCH.
+  const editDenied = await request(`/api/v1/admin/voucher/${inactiveId}`, { method: "PATCH", cookie: wali.cookie, body: { discountValue: 10 } });
+  assert.equal(editDenied.response.status, 403);
+  const editInvalid = await request(`/api/v1/admin/voucher/${inactiveId}`, { method: "PATCH", cookie: admin.cookie, body: { discountType: "PERCENT", discountValue: 150 } });
+  assert.equal(editInvalid.response.status, 400);
+  const editOk = await request(`/api/v1/admin/voucher/${inactiveId}`, { method: "PATCH", cookie: admin.cookie, body: { description: "Diskon direvisi", discountType: "FIXED", discountValue: 8000, maxUses: 3, validFrom: "2030-01-01", validUntil: "2030-12-31" } });
+  assert.equal(editOk.response.status, 200, JSON.stringify(editOk.payload));
+  assert.equal(editOk.payload.data.item.discountType, "FIXED");
+  assert.equal(editOk.payload.data.item.discountValue, 8000);
+  assert.equal(editOk.payload.data.item.maxUses, 3);
+  const editAudit = await prisma.auditLog.findFirst({ where: { action: "VOUCHER_UPDATED", entityId: inactiveId }, orderBy: { createdAt: "desc" }, select: { id: true } });
+  assert.ok(editAudit, "Perubahan voucher harus tercatat di audit log");
+  ok("Voucher dapat diedit (nilai, kuota, cakupan, masa berlaku) dengan audit");
+
   // Cakupan voucher per program: program lain ditolak.
   const siswaRow = await prisma.siswa.findUniqueOrThrow({ where: { id: siswaId }, select: { programId: true } });
   const otherProgram = await prisma.program.findFirst({ where: { id: { not: siswaRow.programId } }, select: { id: true } });

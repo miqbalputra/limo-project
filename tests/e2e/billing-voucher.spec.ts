@@ -149,7 +149,7 @@ test("Admin dapat menambah tarif khusus siswa dan meninjau penyesuaian nominal",
   const createForm = page.locator("#invoice-tools form").first();
   const tarifName = `Tarif siswa e2e ${Date.now()}`;
   await createForm.getByPlaceholder("Nama tarif").fill(tarifName);
-  await createForm.getByLabel("Siswa tarif").selectOption({ index: 1 });
+  await createForm.getByLabel("Siswa (opsional)").selectOption({ index: 1 });
   await createForm.getByPlaceholder("Nominal").fill("123000");
   await createForm.locator('input[name="effectiveFrom"]').fill("2099-01-01");
   await createForm.getByRole("button", { name: "Simpan Tarif" }).click();

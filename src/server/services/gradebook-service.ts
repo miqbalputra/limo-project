@@ -6,6 +6,7 @@ import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { isFeatureEnabled, requireFeature } from "@/server/features/feature-flags";
 import { canAccessStudent, canManageClass } from "@/server/policies/access-policy";
+import { requirePermission } from "@/server/auth/permissions";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
 import { applyRemedialScorePolicy } from "@/server/services/remedial-score-policy";
 import { gradeCategorySchema, gradeEntrySchema, gradeItemSchema, publishFinalGradesSchema, updateGradeCategorySchema, updateGradeCategoryStatusSchema, updateGradeItemStatusSchema } from "@/server/validation/gradebook";
@@ -102,6 +103,9 @@ export async function listGradebookClasses(actor: Actor) {
 
 export async function createGradeCategory(actor: Actor, classId: string, input: unknown) {
   await assertGuruClass(actor, classId);
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.gradebook.manage");
+  }
   const parsed = gradeCategorySchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Data kategori gradebook belum valid", parsed.error.flatten().fieldErrors);
   if ((await categoryWeightTotal(classId)) + parsed.data.weight > 100.01) throw new ValidationError("Total bobot kategori tidak boleh melebihi 100%");
@@ -119,6 +123,9 @@ export async function updateGradeCategory(actor: Actor, categoryId: string, inpu
   const existing = await prisma.gradeCategory.findUnique({ where: { id: categoryId }, select: { id: true, classId: true, name: true, weight: true, order: true, dropLowestCount: true, status: true } });
   if (!existing) throw new NotFoundError("Kategori gradebook tidak ditemukan");
   await assertGuruClass(actor, existing.classId);
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.gradebook.manage");
+  }
   await assertConfigurationChange(existing.classId, parsed.data.confirmPublishedChange === true);
   const weight = parsed.data.weight ?? Number(existing.weight);
   if ((await categoryWeightTotal(existing.classId, categoryId)) + weight > 100.01) throw new ValidationError("Total bobot kategori tidak boleh melebihi 100%");
@@ -136,6 +143,9 @@ export async function updateGradeCategoryStatus(actor: Actor, categoryId: string
   const existing = await prisma.gradeCategory.findUnique({ where: { id: categoryId }, select: { id: true, classId: true, status: true } });
   if (!existing) throw new NotFoundError("Kategori gradebook tidak ditemukan");
   await assertGuruClass(actor, existing.classId);
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.gradebook.manage");
+  }
   await assertConfigurationChange(existing.classId, parsed.data.confirmPublishedChange === true);
   const item = await prisma.gradeCategory.update({ where: { id: categoryId }, data: { status: parsed.data.status }, select: { id: true, name: true, weight: true, order: true, dropLowestCount: true, status: true } });
   await prisma.auditLog.create({ data: { actorId: actor.id, action: `GRADE_CATEGORY_${parsed.data.status}`, entityType: "GradeCategory", entityId: categoryId, metadata: { previousStatus: existing.status } } });
@@ -158,6 +168,9 @@ async function validateGradeItemSource(classId: string, sourceType: SourceType, 
 
 export async function createGradeItem(actor: Actor, classId: string, input: unknown) {
   await assertGuruClass(actor, classId);
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.gradebook.manage");
+  }
   const parsed = gradeItemSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Data item gradebook belum valid", parsed.error.flatten().fieldErrors);
   const sourceId = parsed.data.sourceId || null;
@@ -181,6 +194,9 @@ export async function updateGradeItemStatus(actor: Actor, itemId: string, input:
   const existing = await prisma.gradeItem.findUnique({ where: { id: itemId }, select: { id: true, classId: true, category: { select: { status: true } }, status: true, sourceType: true, sourceId: true } });
   if (!existing) throw new NotFoundError("Item gradebook tidak ditemukan");
   await assertGuruClass(actor, existing.classId);
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.gradebook.manage");
+  }
   await assertConfigurationChange(existing.classId, parsed.data.confirmPublishedChange === true);
   if (parsed.data.status === "PUBLISHED" && existing.category.status !== "PUBLISHED") throw new ConflictError("Kategori harus dipublikasikan sebelum item gradebook");
   const item = await prisma.gradeItem.update({ where: { id: itemId }, data: { status: parsed.data.status }, select: { id: true, title: true, sourceType: true, sourceId: true, maxScore: true, status: true, categoryId: true } });
@@ -368,6 +384,9 @@ async function loadGradebookForPublishing(classId: string, studentIds: string[])
 
 export async function getGuruGradebook(actor: Actor, classId: string) {
   await assertGuruClass(actor, classId);
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.gradebook.manage");
+  }
   await syncClassSources(classId);
   return loadGradebook(classId, await getActiveStudentIds(classId), { includeDrafts: true, exposeProvisionalScores: true });
 }
@@ -390,6 +409,9 @@ export async function saveGradeEntry(actor: Actor, itemId: string, input: unknow
   const item = await prisma.gradeItem.findUnique({ where: { id: itemId }, select: { id: true, classId: true, sourceType: true, maxScore: true, status: true } });
   if (!item) throw new NotFoundError("Item gradebook tidak ditemukan");
   await assertGuruClass(actor, item.classId);
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.gradebook.manage");
+  }
   if (item.status === "LOCKED") throw new ConflictError("Item gradebook sudah terkunci");
   if (item.sourceType !== "MANUAL") throw new ConflictError("Entry dari Assignment/Ujian hanya dapat diubah melalui sumber assessment");
   const enrollment = await prisma.kelasSiswa.findFirst({ where: { kelasId: item.classId, siswaId: parsed.data.studentId, status: "ACTIVE" }, select: { id: true } });
@@ -418,6 +440,9 @@ async function notifyStudentFinalGrade(studentId: string, classId: string, final
 
 export async function publishFinalGrades(actor: Actor, classId: string, input: unknown) {
   await assertGuruClass(actor, classId);
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.gradebook.manage");
+  }
   const parsed = publishFinalGradesSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Data publish nilai akhir belum valid", parsed.error.flatten().fieldErrors);
   await syncClassSources(classId);

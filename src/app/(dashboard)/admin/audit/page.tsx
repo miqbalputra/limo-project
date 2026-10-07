@@ -47,6 +47,13 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
   ]);
   const paginationMeta = createPaginationMeta(pagination.page, pagination.pageSize, totalItems);
 
+  const weekStart = lastSevenDaysWindow();
+  const [authCount, academicCount, operationalCount] = await Promise.all([
+    prisma.auditLog.count({ where: { createdAt: { gte: weekStart }, OR: ["LOGIN", "PASSWORD", "SESSION", "AUTH"].map((token) => ({ action: { contains: token } })) } }),
+    prisma.auditLog.count({ where: { createdAt: { gte: weekStart }, entityType: { in: ["Materi", "BankSoal", "Ujian", "HasilUjian", "SesiKelas", "Presensi", "ProgresBelajar", "GradeCategory", "GradeItem", "LearningModule", "Assignment", "RemedialAssignment"] } } }),
+    prisma.auditLog.count({ where: { createdAt: { gte: weekStart }, entityType: { in: ["Siswa", "Pendaftaran", "Tagihan", "Pembayaran", "Voucher", "Tarif"] } } }),
+  ]);
+
   return (
     <main className="space-y-6">
       <div>
@@ -56,10 +63,10 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
       </div>
 
       <section className="grid gap-4 md:grid-cols-4">
-        <Metric label="Total Ditampilkan" value={String(items.length)} />
-        <Metric label="Autentikasi" value={String(items.filter((item) => item.action.includes("LOGIN") || item.action.includes("PASSWORD") || item.action.includes("USER")).length)} />
-        <Metric label="Akademik" value={String(items.filter((item) => ["Materi", "BankSoal", "Ujian", "HasilUjian", "SesiKelas"].includes(item.entityType)).length)} />
-        <Metric label="Operasional" value={String(items.filter((item) => ["Siswa", "Pendaftaran", "Tagihan", "Pembayaran"].includes(item.entityType)).length)} />
+        <Metric label="Cocok Filter" value={String(totalItems)} />
+        <Metric label={metricLabel("Autentikasi", weekStart)} value={String(authCount)} />
+        <Metric label={metricLabel("Akademik", weekStart)} value={String(academicCount)} />
+        <Metric label={metricLabel("Operasional", weekStart)} value={String(operationalCount)} />
       </section>
 
       <form method="get" className="tailadmin-card grid gap-3 p-4 md:grid-cols-[1fr_180px_180px_auto]">
@@ -119,6 +126,14 @@ function Metric({ label, value }: { label: string; value: string }) {
       <p className="mt-2 text-3xl font-semibold text-gray-900">{value}</p>
     </article>
   );
+}
+
+function lastSevenDaysWindow() {
+  return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+}
+
+function metricLabel(label: string, weekStart: Date) {
+  return `${label} · ${new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", timeZone: "Asia/Jakarta" }).format(weekStart)}–now`;
 }
 
 function formatDate(value: Date) {

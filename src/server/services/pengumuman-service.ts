@@ -74,6 +74,9 @@ async function assertPengumumanVisible(actor: Actor, pengumumanId: string) {
 }
 
 async function assertCanManagePengumuman(actor: Actor, kelasId: string | null) {
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.announcement.manage");
+  }
   if (kelasId) {
     await assertManageKelasForum(actor, kelasId);
     return;

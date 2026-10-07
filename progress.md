@@ -2,6 +2,18 @@
 
 Terakhir diperbarui: 7 Oktober 2026
 
+## Audit Menu & Fitur Dashboard Admin + Guru (7 Okt 2026)
+
+- **Audit lengkap**: 24 item menu Admin + 14 item menu Guru dipetakan vs halaman nyata (`navigation.ts`, permissions, service), lalu diverifikasi runtime via browser sesi nyata — **53 halaman** (menu + detail: kelas/tugas/modul/remedial/gradebook/progres/pengumuman/diskusi, presensi/progres per sesi, submissions, hasil, respons, detail pendaftaran/siswa/akun/user, impor CSV) semua HTTP 200, tanpa error boundary/console error. **Tidak ada temuan P0** (tidak ada tombol mati, layar kosong, atau hardcoded placeholder).
+- **Gate flag → notFound()**: akses URL langsung saat flag mati tadinya jatuh ke error boundary; kini 7 halaman (admin/guru/wali/siswa × kalender/todo) memakai `notFound()` — diverifikasi server `CALENDAR_ENABLED=false`: semua tampil 404 rapi.
+- **Izin guru yang "mati" kini ditegakkan**: `guru.gradebook.manage` (baca/tulis gradebook + kategori/item/entry/publish), `guru.remedial.manage` (buat/ubah/status/tutup/sinkron), `guru.announcement.manage` (buat/ubah pengumuman), `guru.discussion.manage` (buat thread + moderasi) — ditegakkan di service `gradebook-service`, `remedial-service`, `pengumuman-service`, `diskusi-service` dengan pola `role === "GURU"` sehingga jalur admin/wali/siswa tidak berubah.
+- **Fitur baru — edit voucher**: `updateVoucher` + schema patch parsial (description, nilai/jenis diskon + validasi persen ≤ 100 gabungan, minAmount, maxUses, cakupan program/kelas, masa berlaku) via `PATCH /api/v1/admin/voucher/[id]` (menggantikan `setVoucherActive`; patch `isActive` tetap memicu audit VOUCHER_ACTIVATED/ARCHIVED, perubahan lain → VOUCHER_UPDATED). UI tombol "Ubah" inline di katalog voucher `/admin/tagihan`.
+- **Pagination**: `/admin/laporan-perkembangan` (page param + PaginationControls) dan `/guru/laporan-perkembangan` (pageSize 50 eksplisit — sebelumnya default 20 dan tanpa kontrol).
+- **Metrik halaman `/admin/audit`** tidak lagi dihitung dari item halaman aktif: Autentikasi/Akademik/Operasional kini dihitung langsung dari database untuk 7 hari terakhir (label mencantumkan rentang) + kartu "Cocok Filter".
+- **Koreksi spec stale ditemukan saat e2e**: `billing-voucher.spec.ts` menunggu label "Siswa tarif" yang sudah tidak ada → disesuaikan ke "Siswa (opsional)" (4/4 hijau). Flaky pra-ada pada `week2` "resumes autosave" lulus di retry (3/3).
+- **Verifikasi (hijau)**: `typecheck` ✓ · `lint` 0 error ✓ · `npm test` 44 ✓ · `test:guards` 232 ✓ · `test:billing-voucher` **14/14** ✓ · `test:diskusi` 25/25 ✓ · `test:laporan` 14/14 ✓ · build ✓ (159 halaman) · e2e production-navigation 2/2 ✓, week2 3/3 ✓, accessibility 5/5 ✓, billing-voucher 4/4 ✓.
+- **Sisa backlog (P2, tercatat)**: filter level/kelas `/admin/siswa`, dropdown siswa tarif 100, admin jadwal CRUD SesiKelas, tabel Admin default kartu di mobile, RTL E2E, Q&A per materi/modul (sumber remedial QUIZ/EXAM/COMPETENCY).
+
 ## Penilaian Otomatis Diperkuat (grader tunggal, poin parsial, KKM HasilUjian) (7 Okt 2026)
 
 - **Grader tunggal `submitHasilUjian`**: jalur guru (TEACHER_ENTRY + koreksi) kini memakai `gradeObjectiveAnswer` terpusat — setelah sebelumnya memakai blok if/else duplikat yang menyebabkan (a) pilihan ganda/dropdown tanpa kunci dinilai **0 "salah"** alih-alih `needsReview`, dan (b) tipe GAMBAR/LISTENING/READING tidak konsisten antar jalur.

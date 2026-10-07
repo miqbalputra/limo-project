@@ -4,15 +4,17 @@ import { requirePermission } from "@/server/auth/permissions";
 import { getFeatureFlags } from "@/server/features/feature-flags";
 import { listProgressReports } from "@/server/services/progress-report-service";
 import { ProgressReportCard, type ProgressReportItem } from "@/components/dashboard/progress-report-card";
+import { PaginationControls } from "@/components/dashboard/pagination-controls";
 
 export const metadata = { title: "Laporan Perkembangan" };
 
-export default async function AdminProgressReportsPage() {
+export default async function AdminProgressReportsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const actor = await requireActor();
   await requirePermission(actor, "admin.reports.view");
   if (!getFeatureFlags().periodicReportsEnabled) notFound();
+  const { page } = await searchParams;
 
-  const { items, pagination } = await listProgressReports(actor, { pageSize: 50 });
+  const { items, pagination } = await listProgressReports(actor, { page: Number(page) || 1, pageSize: 50 });
 
   return (
     <main className="space-y-6">
@@ -26,6 +28,7 @@ export default async function AdminProgressReportsPage() {
           <ProgressReportCard key={item.id} item={item} />
         ))}
       </div>
+      <PaginationControls basePath="/admin/laporan-perkembangan" page={pagination.page} totalPages={pagination.totalPages} />
     </main>
   );
 }

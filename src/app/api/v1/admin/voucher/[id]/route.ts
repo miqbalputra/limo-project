@@ -3,7 +3,7 @@ import { getEnv } from "@/server/env";
 import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
 import { assertSameOrigin } from "@/server/security/origin";
-import { setVoucherActive } from "@/server/services/voucher-service";
+import { updateVoucher } from "@/server/services/voucher-service";
 
 export const runtime = "nodejs";
 
@@ -15,7 +15,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const actor = await requireActor();
     requireRole(actor, ["ADMIN"]);
     const { id } = await context.params;
-    return apiOk(await setVoucherActive(actor, id, await request.json()), { requestId });
+    return apiOk(await updateVoucher(actor, id, await request.json()), { requestId });
   } catch (error) {
     return apiError(error, { requestId });
   }

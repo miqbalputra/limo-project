@@ -1,5 +1,5 @@
 import "server-only";
-import type { Voucher } from "@prisma/client";
+import type { Prisma, Voucher } from "@prisma/client";
 import type { Actor } from "@/server/auth/session";
 import { requirePermission } from "@/server/auth/permissions";
 import { prisma } from "@/server/db/prisma";
@@ -112,23 +112,52 @@ export async function createVoucher(actor: Actor, input: unknown) {
   return { item: serializeVoucher(item) };
 }
 
-export async function setVoucherActive(actor: Actor, id: string, input: unknown) {
+export async function updateVoucher(actor: Actor, id: string, input: unknown) {
   await requirePermission(actor, "admin.billing.manage");
   const parsed = updateVoucherSchema.safeParse(input);
 
   if (!parsed.success) {
-    throw new ValidationError("Status voucher belum valid", parsed.error.flatten().fieldErrors);
+    throw new ValidationError("Perubahan voucher belum valid", parsed.error.flatten().fieldErrors);
   }
 
-  const existing = await prisma.voucher.findUnique({ where: { id }, select: { id: true } });
+  const existing = await prisma.voucher.findUnique({ where: { id } });
   if (!existing) {
     throw new NotFoundError("Voucher tidak ditemukan");
   }
 
-  const item = await prisma.voucher.update({ where: { id }, data: { isActive: parsed.data.isActive } });
-  await prisma.auditLog.create({
-    data: { actorId: actor.id, action: parsed.data.isActive ? "VOUCHER_ACTIVATED" : "VOUCHER_ARCHIVED", entityType: "Voucher", entityId: item.id },
+  const data = parsed.data;
+  const discountType = data.discountType ?? existing.discountType as "PERCENT" | "FIXED";
+  const discountValue = data.discountValue ?? Number(existing.discountValue);
+  if (discountType === "PERCENT" && discountValue > 100) {
+    throw new ValidationError("Diskon persen maksimal 100");
+  }
+
+  const item = await prisma.voucher.update({
+    where: { id },
+    data: {
+      ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
+      ...(data.description !== undefined ? { description: data.description || null } : {}),
+      ...(data.discountType !== undefined ? { discountType: data.discountType } : {}),
+      ...(data.discountValue !== undefined ? { discountValue: data.discountValue } : {}),
+      ...(data.minAmount !== undefined ? { minAmount: data.minAmount > 0 ? data.minAmount : null } : {}),
+      ...(data.maxUses !== undefined ? { maxUses: data.maxUses } : {}),
+      ...(data.programId !== undefined ? { programId: data.programId || null } : {}),
+      ...(data.kelasId !== undefined ? { kelasId: data.kelasId || null } : {}),
+      ...(data.validFrom !== undefined ? { validFrom: data.validFrom ? parseDayStart(data.validFrom) : null } : {}),
+      ...(data.validUntil !== undefined ? { validUntil: data.validUntil ? parseDayEnd(data.validUntil) : null } : {}),
+    },
   });
+
+  const metadata: Record<string, unknown> = { code: existing.code };
+  if (data.isActive !== undefined && data.isActive !== existing.isActive) {
+    await prisma.auditLog.create({
+      data: { actorId: actor.id, action: data.isActive ? "VOUCHER_ACTIVATED" : "VOUCHER_ARCHIVED", entityType: "Voucher", entityId: id, metadata: metadata as Prisma.InputJsonValue },
+    });
+  } else {
+    await prisma.auditLog.create({
+      data: { actorId: actor.id, action: "VOUCHER_UPDATED", entityType: "Voucher", entityId: id, metadata: metadata as Prisma.InputJsonValue },
+    });
+  }
 
   return { item: serializeVoucher(item) };
 }

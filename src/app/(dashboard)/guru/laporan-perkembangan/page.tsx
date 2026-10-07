@@ -6,18 +6,20 @@ import { prisma } from "@/server/db/prisma";
 import { listMyKelas } from "@/server/services/lms-service";
 import { listProgressReports } from "@/server/services/progress-report-service";
 import { ProgressReportWorkspace } from "@/components/dashboard/progress-report-workspace";
+import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import type { ProgressReportItem } from "@/components/dashboard/progress-report-card";
 
 export const metadata = { title: "Laporan Perkembangan" };
 
-export default async function GuruProgressReportsPage() {
+export default async function GuruProgressReportsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const actor = await requireActor();
   await requirePermission(actor, "guru.report.manage");
   if (!getFeatureFlags().periodicReportsEnabled) notFound();
+  const { page } = await searchParams;
 
-  const [{ items: kelas }, { items: reports }] = await Promise.all([
+  const [{ items: kelas }, { items: reports, pagination }] = await Promise.all([
     listMyKelas(actor),
-    listProgressReports(actor, {}),
+    listProgressReports(actor, { page: Number(page) || 1, pageSize: 50 }),
   ]);
 
   const kelasIds = kelas.map((item) => item.id);
@@ -42,6 +44,7 @@ export default async function GuruProgressReportsPage() {
         students={enrollments.map((entry) => ({ kelasId: entry.kelasId, id: entry.siswa.id, name: entry.siswa.name, nomorInduk: entry.siswa.nomorInduk }))}
         initialItems={reports as unknown as ProgressReportItem[]}
       />
+      <PaginationControls basePath="/guru/laporan-perkembangan" page={pagination.page} totalPages={pagination.totalPages} />
     </main>
   );
 }

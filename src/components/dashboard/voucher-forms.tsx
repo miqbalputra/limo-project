@@ -91,6 +91,109 @@ export function VoucherForm({ programs, kelas }: { programs: { id: string; name:
   );
 }
 
+type VoucherEditTarget = {
+  id: string;
+  description: string | null;
+  discountType: string;
+  discountValue: number;
+  minAmount: number | null;
+  maxUses: number | null;
+  programId: string | null;
+  kelasId: string | null;
+  validFrom: Date | string | null;
+  validUntil: Date | string | null;
+};
+
+function toDateInput(value: Date | string | null) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+}
+
+export function VoucherEditButton({ voucher, programs, kelas }: { voucher: VoucherEditTarget; programs: { id: string; name: string }[]; kelas: { id: string; name: string }[] }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const body: Record<string, unknown> = {
+      description: String(data.get("description") || ""),
+      discountType: String(data.get("discountType") || "PERCENT"),
+      discountValue: Number(data.get("discountValue") || 0),
+      programId: String(data.get("programId") || ""),
+      kelasId: String(data.get("kelasId") || ""),
+    };
+    const minAmount = Number(data.get("minAmount") || 0);
+    body.minAmount = minAmount;
+    const maxUses = Number(data.get("maxUses") || 0);
+    body.maxUses = maxUses;
+    const validFrom = String(data.get("validFrom") || "");
+    body.validFrom = validFrom;
+    const validUntil = String(data.get("validUntil") || "");
+    body.validUntil = validUntil;
+
+    setError("");
+    setSuccess("");
+    setIsSubmitting(true);
+    try {
+      await sendJson(`/api/v1/admin/voucher/${voucher.id}`, "PATCH", body);
+      setSuccess("Voucher berhasil diubah.");
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Voucher gagal diubah");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="shrink-0">
+      <button type="button" onClick={() => { setOpen((current) => !current); setSuccess(""); setError(""); }} aria-expanded={open} className="tailadmin-button-outline px-3 py-1 text-theme-xs">
+        Ubah
+      </button>
+      {open ? (
+        <form onSubmit={onSubmit} className="mt-2 grid w-full max-w-md gap-2 rounded-xl border border-gray-100 bg-gray-50 p-3 text-left">
+          <input name="description" defaultValue={voucher.description ?? ""} placeholder="Keterangan (opsional)" className="tailadmin-input" />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <select name="discountType" defaultValue={voucher.discountType} aria-label="Jenis diskon voucher" className="tailadmin-input">
+              <option value="PERCENT">Persen (%)</option>
+              <option value="FIXED">Nominal (Rp)</option>
+            </select>
+            <input name="discountValue" required type="number" min={1} step="any" defaultValue={voucher.discountValue} aria-label="Nilai diskon voucher" className="tailadmin-input" />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input name="minAmount" type="number" min={0} placeholder="Minimal tagihan (0 = tanpa)" defaultValue={voucher.minAmount ?? 0} aria-label="Minimal tagihan voucher" className="tailadmin-input" />
+            <input name="maxUses" type="number" min={0} placeholder="Kuota (0 = tanpa batas)" defaultValue={voucher.maxUses ?? 0} aria-label="Kuota voucher" className="tailadmin-input" />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <select name="programId" defaultValue={voucher.programId ?? ""} aria-label="Cakupan program voucher" className="tailadmin-input">
+              <option value="">Semua program</option>
+              {programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
+            </select>
+            <select name="kelasId" defaultValue={voucher.kelasId ?? ""} aria-label="Cakupan kelas voucher" className="tailadmin-input">
+              <option value="">Semua kelas</option>
+              {kelas.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="grid gap-1 text-theme-xs font-medium text-gray-500">Berlaku dari<input name="validFrom" type="date" defaultValue={toDateInput(voucher.validFrom)} className="tailadmin-input mt-1" /></label>
+            <label className="grid gap-1 text-theme-xs font-medium text-gray-500">Berlaku sampai<input name="validUntil" type="date" defaultValue={toDateInput(voucher.validUntil)} className="tailadmin-input mt-1" /></label>
+          </div>
+          {error ? <p role="alert" className="tailadmin-alert-error">{error}</p> : null}
+          {success ? <p role="status" className="tailadmin-alert-success">{success}</p> : null}
+          <button disabled={isSubmitting} className="tailadmin-button-primary justify-self-start">{isSubmitting ? "Menyimpan..." : "Simpan perubahan"}</button>
+        </form>
+      ) : null}
+      {success && !open ? <p className="mt-1 text-theme-xs text-success-700">{success}</p> : null}
+      {error && !open ? <p className="mt-1 text-theme-xs text-error-700">{error}</p> : null}
+    </div>
+  );
+}
+
 export function VoucherToggleButton({ id, isActive }: { id: string; isActive: boolean }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);

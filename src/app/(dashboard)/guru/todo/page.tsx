@@ -1,12 +1,15 @@
+import { notFound } from "next/navigation";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
 import { TodoList } from "@/components/dashboard/todo-list";
 import { requireActor } from "@/server/auth/session";
 import { requirePermission } from "@/server/auth/permissions";
+import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { listTodoItems } from "@/server/services/todo-service";
 
 export const metadata = { title: "Daftar Tugas Guru" };
 
 export default async function GuruTodoPage() {
+  if (!isFeatureEnabled("calendarEnabled")) notFound();
   const actor = await requireActor();
   await requirePermission(actor, "guru.class.manage");
   const { items } = await listTodoItems(actor);

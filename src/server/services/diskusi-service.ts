@@ -144,6 +144,9 @@ export async function createDiskusiThread(actor: Actor, input: unknown) {
   if (!parsed.success) throw new ValidationError("Thread diskusi belum valid", parsed.error.flatten().fieldErrors);
 
   assertCanWriteThread(actor);
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.discussion.manage");
+  }
   await assertViewKelasForum(actor, parsed.data.kelasId);
   assertRateLimited(actor);
 
@@ -346,6 +349,9 @@ export async function moderateDiskusiThread(actor: Actor, threadId: string, inpu
   const thread = await prisma.diskusiThread.findUnique({ where: { id: threadId }, select: { id: true, kelasId: true } });
   if (!thread) throw new NotFoundError("Diskusi tidak ditemukan");
 
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.discussion.manage");
+  }
   await assertManageKelasForum(actor, thread.kelasId);
 
   const action = parsed.data.action;
@@ -379,6 +385,9 @@ export async function moderateDiskusiBalasan(actor: Actor, replyId: string, inpu
   const reply = await prisma.diskusiBalasan.findUnique({ where: { id: replyId }, select: { id: true, threadId: true, thread: { select: { kelasId: true } } } });
   if (!reply) throw new NotFoundError("Balasan tidak ditemukan");
 
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.discussion.manage");
+  }
   await assertManageKelasForum(actor, reply.thread.kelasId);
 
   const action = parsed.data.action;

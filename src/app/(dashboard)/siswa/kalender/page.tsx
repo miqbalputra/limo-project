@@ -1,13 +1,16 @@
+import { notFound } from "next/navigation";
 import { CalendarRangeNav } from "@/components/dashboard/calendar-range-nav";
 import { CalendarView } from "@/components/dashboard/calendar-view";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
 import { requireActor } from "@/server/auth/session";
 import { requirePermission } from "@/server/auth/permissions";
+import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { listCalendarEvents, listCalendarFilterClasses, resolveCalendarPageRange } from "@/server/services/calendar-service";
 
 export const metadata = { title: "Kalender Siswa" };
 
 export default async function StudentCalendarPage({ searchParams }: { searchParams: Promise<{ month?: string; from?: string; to?: string; classId?: string }> }) {
+  if (!isFeatureEnabled("calendarEnabled") || !isFeatureEnabled("studentPortalEnabled")) notFound();
   const actor = await requireActor();
   await requirePermission(actor, "siswa.kalender.view");
   const params = await searchParams;

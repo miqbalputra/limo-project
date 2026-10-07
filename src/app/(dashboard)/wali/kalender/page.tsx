@@ -1,14 +1,17 @@
+import { notFound } from "next/navigation";
 import { CalendarRangeNav } from "@/components/dashboard/calendar-range-nav";
 import { CalendarView } from "@/components/dashboard/calendar-view";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
 import { requireActor } from "@/server/auth/session";
 import { requirePermission } from "@/server/auth/permissions";
+import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { resolveWaliChildId } from "@/server/dal/wali-selector-dal";
 import { listCalendarEvents, listCalendarFilterClasses, resolveCalendarPageRange } from "@/server/services/calendar-service";
 
 export const metadata = { title: "Kalender Anak" };
 
 export default async function WaliCalendarPage({ searchParams }: { searchParams: Promise<{ month?: string; from?: string; to?: string; classId?: string; anak?: string }> }) {
+  if (!isFeatureEnabled("calendarEnabled")) notFound();
   const actor = await requireActor();
   await requirePermission(actor, "wali.kalender.view");
   const params = await searchParams;

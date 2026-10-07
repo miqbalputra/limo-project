@@ -6,6 +6,7 @@ import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { isFeatureEnabled, requireFeature } from "@/server/features/feature-flags";
 import { canAccessStudent, canManageClass } from "@/server/policies/access-policy";
+import { requirePermission } from "@/server/auth/permissions";
 import { notifySiswaForStudents, notifyWaliForStudents } from "@/server/services/notification-service";
 import { applyRemedialScorePolicy, type RemedialScorePolicy } from "@/server/services/remedial-score-policy";
 import { createRemedialSchema, updateRemedialSchema, updateRemedialStatusSchema } from "@/server/validation/remedial";
@@ -103,6 +104,9 @@ async function captureOriginalScores(tx: Prisma.TransactionClient, assignmentId:
 
 export async function createRemedialAssignment(actor: Actor, classId: string, input: unknown, idempotencyKey?: string | null) {
   await assertGuruClass(actor, classId);
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.remedial.manage");
+  }
   const parsed = createRemedialSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError("Data remedial belum valid", parsed.error.flatten().fieldErrors);
   if (parsed.data.sourceType !== "ASSIGNMENT") throw new ValidationError("Sumber remedial QUIZ, EXAM, dan COMPETENCY belum tersedia pada fase ini");
@@ -171,6 +175,9 @@ async function notifyRemedialAssigned(remedialId: string, title: string, instruc
 
 export async function listGuruRemedials(actor: Actor, classId: string) {
   await assertGuruClass(actor, classId);
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.remedial.manage");
+  }
   const items = await prisma.remedialAssignment.findMany({ where: { kelasId: classId }, orderBy: [{ status: "asc" }, { dueAt: "asc" }, { createdAt: "desc" }], select: { id: true, sourceType: true, sourceId: true, kelasId: true, title: true, instructions: true, availableFrom: true, dueAt: true, scorePolicy: true, scoreCap: true, status: true, createdAt: true, updatedAt: true, participants: { orderBy: { student: { name: "asc" } }, select: { id: true, studentId: true, reason: true, status: true, assignedAt: true, completedAt: true, originalScore: true, remedialScore: true, effectiveScore: true, resultPublishedAt: true, student: { select: { id: true, name: true, nomorInduk: true } } } } } });
   const titles = await sourceTitles(items.map((item) => item.sourceId));
   return { items: items.map((item) => ({ ...serializeRemedial(item), sourceTitle: titles.get(item.sourceId) || "Sumber tidak ditemukan", participants: item.participants.map((participant) => ({ ...participant, originalScore: participant.originalScore === null ? null : Number(participant.originalScore), remedialScore: participant.remedialScore === null ? null : Number(participant.remedialScore), effectiveScore: participant.effectiveScore === null ? null : Number(participant.effectiveScore) })) })) };
@@ -182,6 +189,9 @@ export async function updateRemedialStatus(actor: Actor, remedialId: string, inp
   const existing = await prisma.remedialAssignment.findUnique({ where: { id: remedialId }, select: { id: true, kelasId: true, sourceId: true, status: true, title: true, instructions: true, availableFrom: true, dueAt: true, participants: { select: { id: true, studentId: true, originalSubmissionId: true } } } });
   if (!existing) throw new NotFoundError("Remedial tidak ditemukan");
   await assertGuruClass(actor, existing.kelasId);
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.remedial.manage");
+  }
   if (parsed.data.status === "PUBLISHED" && existing.participants.length === 0) throw new ValidationError("Remedial harus memiliki minimal satu peserta");
   const publishing = parsed.data.status === "PUBLISHED" && existing.status !== "PUBLISHED";
   if (publishing && existing.dueAt <= new Date()) throw new ValidationError("Tenggat remedial published harus berada di masa depan");
@@ -205,6 +215,9 @@ export async function updateRemedial(actor: Actor, remedialId: string, input: un
   const existing = await prisma.remedialAssignment.findUnique({ where: { id: remedialId }, select: { id: true, kelasId: true, status: true } });
   if (!existing) throw new NotFoundError("Remedial tidak ditemukan");
   await assertGuruClass(actor, existing.kelasId);
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.remedial.manage");
+  }
   if (existing.status === "ARCHIVED") throw new ConflictError("Remedial yang sudah ditutup tidak dapat diubah");
 
   const availableFrom = parseDateTime(parsed.data.availableFrom, "availableFrom");
@@ -234,6 +247,9 @@ export async function closeRemedial(actor: Actor, remedialId: string) {
   const existing = await prisma.remedialAssignment.findUnique({ where: { id: remedialId }, select: { id: true, kelasId: true, status: true } });
   if (!existing) throw new NotFoundError("Remedial tidak ditemukan");
   await assertGuruClass(actor, existing.kelasId);
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.remedial.manage");
+  }
   if (existing.status === "ARCHIVED") return { item: { id: remedialId, status: "ARCHIVED" } };
 
   const item = await prisma.remedialAssignment.update({ where: { id: remedialId }, data: { status: "ARCHIVED" }, select: { id: true, status: true } });
@@ -245,6 +261,9 @@ export async function syncRemedialParticipant(actor: Actor, participantId: strin
   const participant = await prisma.remedialParticipant.findUnique({ where: { id: participantId }, select: { id: true, remedial: { select: { kelasId: true } } } });
   if (!participant) throw new NotFoundError("Peserta remedial tidak ditemukan");
   await assertGuruClass(actor, participant.remedial.kelasId);
+  if (actor.role === "GURU") {
+    await requirePermission(actor, "guru.remedial.manage");
+  }
 
   const item = await syncRemedialParticipantResult(participantId, actor.id);
   return { item };

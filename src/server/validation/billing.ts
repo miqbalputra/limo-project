@@ -79,8 +79,20 @@ export const createVoucherSchema = z.object({
 }).refine((value) => value.discountType !== "PERCENT" || value.discountValue <= 100, "Diskon persen maksimal 100");
 
 export const updateVoucherSchema = z.object({
-  isActive: z.boolean(),
-});
+  isActive: z.boolean().optional(),
+  description: z.string().trim().max(191).optional().or(z.literal("")),
+  discountType: voucherDiscountTypeSchema.optional(),
+  discountValue: z.coerce.number().positive().max(100000000).optional(),
+  minAmount: z.coerce.number().nonnegative().max(100000000).optional(),
+  maxUses: z.preprocess((value) => (value === "" || value === null ? undefined : value), z.coerce.number().int().positive().max(100000).optional()),
+  programId: optionalIdSchema,
+  kelasId: optionalIdSchema,
+  validFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isValidDate, "Tanggal mulai tidak valid").optional().or(z.literal("")),
+  validUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isValidDate, "Tanggal berakhir tidak valid").optional().or(z.literal("")),
+}).refine(
+  (value) => !(value.discountType === "PERCENT" && value.discountValue !== undefined && value.discountValue > 100),
+  "Diskon persen maksimal 100",
+);
 
 export const applyVoucherSchema = z.object({
   code: z.string().trim().toUpperCase().min(3).max(32),

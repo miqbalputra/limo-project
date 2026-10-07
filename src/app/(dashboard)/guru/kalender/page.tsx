@@ -1,14 +1,17 @@
 import { CalendarEventForm } from "@/components/dashboard/calendar-event-form";
+import { notFound } from "next/navigation";
 import { CalendarRangeNav } from "@/components/dashboard/calendar-range-nav";
 import { CalendarView } from "@/components/dashboard/calendar-view";
 import { DashboardHero } from "@/components/dashboard/dashboard-widgets";
 import { requireActor } from "@/server/auth/session";
 import { requirePermission } from "@/server/auth/permissions";
+import { isFeatureEnabled } from "@/server/features/feature-flags";
 import { listCalendarEventClasses, listCalendarEvents, resolveCalendarPageRange } from "@/server/services/calendar-service";
 
 export const metadata = { title: "Kalender Guru" };
 
 export default async function GuruCalendarPage({ searchParams }: { searchParams: Promise<{ month?: string; from?: string; to?: string; classId?: string }> }) {
+  if (!isFeatureEnabled("calendarEnabled")) notFound();
   const actor = await requireActor();
   await requirePermission(actor, "guru.class.manage");
   const params = await searchParams;
