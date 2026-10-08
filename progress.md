@@ -2,6 +2,17 @@
 
 Terakhir diperbarui: 8 Oktober 2026
 
+## Resume Point (8 Okt 2026, lanjutan — drag & drop menjodohkan/urutan)
+
+**Selesai (belum di-commit):** backlog menjodohkan dari 7247c35 — drag & drop antar kartu + acak urutan jodoh di pemutar.
+
+- **Komponen bersama baru** `src/components/quiz/matching-sequence-input.tsx` (`MatchingInput` + `SequenceInput`), dipakai `public-quiz-runner.tsx` (kuis publik) dan `online-exam-player.tsx` (siswa/wali) — menggantikan blok dropdown duplikat.
+- **MENJODOHKAN**: kartu jodoh (kanan) bisa **drag & drop** ke kartu soal (kiri), plus **tap-to-pair** (klik kartu jodoh → klik slot tujuan; Enter/Space + `aria-pressed` untuk keyboard, Escape tak perlu — toggle). Tombol "Hapus pasangan" per kartu. Semantik jawaban tidak berubah: tetap `structuredAnswer[anchor-kiri] = anchor-kanan` (`pairLeftAnchor`/`pairRightAnchor`), jadi grading lama tetap valid.
+- **URUTAN**: baris posisi bisa **drag & drop** untuk menukar urutan (semantik move/insert), plus tombol ▲▼ per baris (aksesibilitas keyboard) dan dropdown pilih item per posisi (fallback sentuh).
+- **Acak urutan jodoh**: daftar jodoh diacak deterministik per soal (seed = id soal, PRNG LCG + FNV-1a) — urutan tampil tidak lagi sama dengan urutan builder; anchor kunci tetap dari indeks asli sehingga penilaian aman.
+- **Verifikasi (hijau)**: `typecheck` ✓ · `lint` 0 error ✓ · `npm test` 45 ✓ · `test:quiz-builder` 25/25 ✓ · `test:siswa-ujian` 14/14 ✓ · `test:quiz-share` 5/5 ✓ (semua di dev server `NODE_ENV=development`).
+- **Backlog tersisa**: bukti deploy staging `demo.limoedu.id`, `db:parity` MariaDB, P2 lain (filter level/kelas admin, dsb.).
+
 ## Resume Point (8 Okt 2026)
 
 **Selesai & ter-push (`7247c35`):** soal menjodohkan teks/gambar + status publikasi kuis.
