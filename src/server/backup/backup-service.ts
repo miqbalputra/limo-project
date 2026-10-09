@@ -7,6 +7,7 @@ import { chmod, cp, mkdir, readdir, readFile, rm, stat, writeFile } from "node:f
 import path from "node:path";
 import { promisify } from "node:util";
 import { getEnv } from "@/server/env";
+import { readBackupOffsiteConfig, uploadBackupOffsite, type OffsiteUploadStatus } from "./offsite.ts";
 
 const execFileAsync = promisify(execFile);
 const BACKUP_ID_PATTERN = /^\d{8}T\d{6}Z$/;
@@ -272,6 +273,24 @@ export async function createBackup(): Promise<BackupResult> {
     throw error;
   } finally {
     await rm(lockPath, { force: true });
+  }
+}
+
+export type BackupWithOffsiteResult = BackupResult & { offsite: OffsiteUploadStatus };
+
+export async function createBackupAndUpload(): Promise<BackupWithOffsiteResult> {
+  const result = await createBackup();
+  const config = readBackupOffsiteConfig();
+  if (!config) return { ...result, offsite: { configured: false } };
+  try {
+    const objects = await uploadBackupOffsite(
+      { backupId: result.id, zipPath: result.zipPath, manifestPath: result.manifestPath },
+      config,
+    );
+    return { ...result, offsite: { configured: true, uploaded: true, objects } };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { ...result, offsite: { configured: true, uploaded: false, error: message } };
   }
 }
 

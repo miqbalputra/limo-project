@@ -60,6 +60,7 @@ flock -n /var/lock/limo-deadline-reminders.lock npm run reminders:send
 flock -n /var/lock/limo-invoice-reminders.lock npm run reminders:invoices
 flock -n /var/lock/limo-pengumuman-publish.lock npm run pengumuman:publish
 flock -n /var/lock/limo-quiz-finalize.lock npm run quiz:finalize
+flock -n /var/lock/limo-backup.lock npm run backup:create
 ```
 
 Jadwalkan `notifications:retry` **setiap menit** (senyap saat idle). Jadwalkan `reminders:send` dan `reminders:invoices` **harian** (mis. pagi hari WIB) untuk reminder deadline tugas/ujian dan tagihan (H-3/H-1/jatuh tempo/terlambat) lewat email + WhatsApp ke wali. Jadwal final mengikuti timezone operasional `Asia/Jakarta`.
@@ -67,6 +68,8 @@ Jadwalkan `notifications:retry` **setiap menit** (senyap saat idle). Jadwalkan `
 Jadwalkan `pengumuman:publish` **setiap menit**: mengirim notifikasi untuk pengumuman kelas berjadwal yang sudah lewat waktu terbit. Idempoten (klaim atomik kolom `notifiedAt`); tampilan pengumuman tidak bergantung pada job karena visibilitas dihitung dari `publishAt`/`expiresAt` saat query.
 
 Jadwalkan `quiz:finalize` **setiap menit** (idempoten): menilai draf kuis publik yang ditinggalkan melewati grace window 20 detik sehingga respons kedaluwarsa terselesaikan otomatis (`NEEDS_REVIEW` bila ada jawaban manual) tanpa menunggu input.
+
+Jadwalkan `backup:create` **harian** (mis. 02:00 WIB). Isi `BACKUP_OFFSITE_*` (lihat `docs/BACKUP_RESTORE.md`) agar salinan off-site otomatis diunggah; tanpa itu backup hanya tersimpan lokal di `BACKUP_DIR` dan job tetap sukses. Uji `npm run backup:restore` ke target staging secara berkala.
 
 ## Rollback
 

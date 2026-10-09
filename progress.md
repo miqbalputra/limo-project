@@ -2,6 +2,17 @@
 
 Terakhir diperbarui: 8 Oktober 2026
 
+## Resume Point (8 Okt 2026, lanjutan 2 — backup off-site + UAT payment)
+
+**Selesai (belum di-commit):** backup off-site otomatis + runbook UAT payment.
+
+- **Backup off-site S3-compatible** (`src/server/backup/offsite.ts`): SigV4 PUT streaming tanpa dependency baru, kompatibel AWS S3/Cloudflare R2/MinIO. Env baru `BACKUP_OFFSITE_ENDPOINT/BUCKET/REGION/ACCESS_KEY_ID/SECRET_ACCESS_KEY/PREFIX` (semua terisi → off-site aktif). `createBackupAndUpload()` di backup-service dipakai `scripts/backup.ts` (`backup:create`) dan `POST /api/internal/backup`; unggah gagal → exit non-zero / HTTP 500 (artefak lokal tetap ada). Objek di `<prefix>/<backupId>/backup.zip` + `manifest.json`.
+- **Bug fix ikutan**: route internal sebelumnya spawn `scripts/backup.ts` tanpa hooks resolver `@/` → kini `--import ./scripts/register-node-module-hooks.mjs`.
+- **Unit test SigV4** (2 kasus baru di run-unit, total 47): canonical request cocok dengan contoh terdokumentasi AWS (GET object) + determinisme/divergensi PUT.
+- **Docs**: `BACKUP_RESTORE.md` — seksi "Off-site Otomatis (S3-compatible)"; `DEPLOYMENT.md` — cron harian `backup:create` + rujukan restore drill; `PAYMENT_GATEWAYS.md` — seksi **"UAT Merchant Nyata (wajib sebelum go-live)"** dengan 7 skenario wajib per provider (checkout, webhook paid, replay idempoten, secret salah ditolak, expired, reconcile dry-run, notifikasi wali) + kriteria lulus.
+- **Verifikasi (hijau)**: `typecheck` ✓ · `lint` 0 error ✓ · `npm test` **47** ✓ · `test:payment` ✓ · smoke `backup:create` di mesin lokal gagal bersih di guard SQLite (diharapkan; butuh MariaDB + bucket nyata untuk end-to-end).
+- **Tersisa untuk user (butuh akses)**: isi `BACKUP_OFFSITE_*` di produksi + jalankan sekali untuk verifikasi unggah; UAT payment transaksi kecil mengikuti runbook (butuh kredensial merchant Mayar/Pakasir di `/admin/pembayaran/pengaturan`).
+
 ## Resume Point (8 Okt 2026, lanjutan — drag & drop menjodohkan/urutan)
 
 **Selesai (belum di-commit):** backlog menjodohkan dari 7247c35 — drag & drop antar kartu + acak urutan jodoh di pemutar.

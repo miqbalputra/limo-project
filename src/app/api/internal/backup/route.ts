@@ -41,8 +41,8 @@ function resolveBackupArtifact(id: string, format: "sql" | "zip") {
 }
 
 async function runBackupCommand() {
-  return new Promise<{ id: string; createdAt: string; deletedBackupCount: number }>((resolve, reject) => {
-    const child = spawn(process.execPath, ["--experimental-strip-types", "scripts/backup.ts"], {
+  return new Promise<{ id: string; createdAt: string; deletedBackupCount: number; offsite: { configured: boolean; uploaded?: boolean; error?: string; objects?: Array<{ key: string }> } }>((resolve, reject) => {
+    const child = spawn(process.execPath, ["--import", "./scripts/register-node-module-hooks.mjs", "--experimental-strip-types", "scripts/backup.ts"], {
       cwd: process.cwd(),
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
@@ -58,7 +58,7 @@ async function runBackupCommand() {
         return;
       }
       try {
-        const result = JSON.parse(stdout.trim()) as { id: string; createdAt: string; deletedBackupCount: number };
+        const result = JSON.parse(stdout.trim()) as { id: string; createdAt: string; deletedBackupCount: number; offsite: { configured: boolean; uploaded?: boolean; error?: string; objects?: Array<{ key: string }> } };
         resolve(result);
       } catch {
         reject(new Error("Output backup tidak valid"));
@@ -72,10 +72,14 @@ export async function POST(request: Request) {
   try {
     assertBackupAuthorization(request);
     const result = await runBackupCommand();
+    if (result.offsite.configured && !result.offsite.uploaded) {
+      throw new Error(`Backup lokal dibuat (${result.id}) tetapi unggah off-site gagal: ${result.offsite.error || "tidak diketahui"}`);
+    }
     return apiOk({
       backupId: result.id,
       createdAt: result.createdAt,
       deletedBackupCount: result.deletedBackupCount,
+      offsite: result.offsite,
       sqlDownloadPath: `/api/internal/backup/download?backupId=${encodeURIComponent(result.id)}&format=sql`,
       zipDownloadPath: `/api/internal/backup/download?backupId=${encodeURIComponent(result.id)}&format=zip`,
     }, { requestId });

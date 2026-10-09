@@ -17,6 +17,27 @@ BACKUP_WEBHOOK_SECRET=ganti-dengan-secret-acak-minimal-32-karakter
 
 `BACKUP_WEBHOOK_SECRET` hanya digunakan oleh endpoint internal yang dipanggil n8n. Jangan memakai `N8N_WEBHOOK_SECRET` yang sama.
 
+## Off-site Otomatis (S3-compatible)
+
+Selain workflow n8n, aplikasi dapat mengunggah `backup.zip` + `manifest.json` langsung ke storage off-site yang kompatibel S3 (AWS S3, Cloudflare R2, MinIO) menggunakan SigV4 tanpa dependency tambahan. Isi variabel berikut (semua wajib agar off-site aktif):
+
+```env
+BACKUP_OFFSITE_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+BACKUP_OFFSITE_BUCKET=limo-backups
+BACKUP_OFFSITE_REGION=us-east-1
+BACKUP_OFFSITE_ACCESS_KEY_ID=...
+BACKUP_OFFSITE_SECRET_ACCESS_KEY=...
+BACKUP_OFFSITE_PREFIX=limo-backups
+```
+
+Catatan:
+
+- `BACKUP_OFFSITE_ENDPOINT` memakai path-style URL (`<endpoint>/<bucket>/<key>`) — kompatibel R2, MinIO, dan S3 region endpoint. Untuk AWS S3 gunakan endpoint regional seperti `https://s3.us-east-1.amazonaws.com`.
+- Untuk R2, `BACKUP_OFFSITE_REGION` boleh dibiarkan `us-east-1` (R2 mengabaikannya).
+- Saat off-site aktif, `npm run backup:create` dan `POST /api/internal/backup` otomatis mengunggah setelah backup lokal selesai. Jika unggah gagal, command keluar dengan error (exit non-zero / HTTP 500) meski artefak lokal tetap tersimpan — jangan abaikan: backup dianggap sukses hanya jika salinan off-site berhasil.
+- Objek disimpan pada `<prefix>/<backupId>/backup.zip` dan `<prefix>/<backupId>/manifest.json`.
+- Catatan keamanan: gunakan credential dengan hak tulis-saja (write-only) pada bucket khusus backup, dan aktifkan lifecycle/retention di sisi bucket agar salinan off-site tidak bisa dihapus dari aplikasi.
+
 ## Manual Backup
 
 ```bash

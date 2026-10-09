@@ -32,6 +32,7 @@ import { formatUiLabel, getUiTone, getUiToneClass, humanizeEnumLabel } from "../
 import { getSessionTouchIntervalMs, isTransientSessionWriteError } from "../src/server/auth/session-touch.ts";
 import { getWaliChildIdFromLocation, isWaliChildScopedPath, withWaliChildContext } from "../src/lib/wali-selector.ts";
 import { createMayarInvoice, verifyMayarWebhook } from "../src/server/providers/payment/mayar.ts";
+import { buildS3CanonicalRequest, signS3Request } from "../src/server/backup/offsite.ts";
 
 const tests = [
   {
@@ -716,6 +717,73 @@ const tests = [
       assert.equal(computeVoucherDiscount(33333, { discountType: "PERCENT", discountValue: 10 }), 3333);
       assert.equal(computeVoucherDiscount(0, { discountType: "PERCENT", discountValue: 25 }), 0);
       assert.equal(computeVoucherDiscount(100000, { discountType: "PERCENT", discountValue: 0 }), 0);
+    },
+  },
+  {
+    name: "backup off-site SigV4 canonical request matches the AWS documented GET example",
+    run: () => {
+      const emptyPayloadHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+      const input = {
+        method: "GET",
+        host: "examplebucket.s3.amazonaws.com",
+        uri: "/test.txt",
+        headers: {
+          host: "examplebucket.s3.amazonaws.com",
+          range: "bytes=0-9",
+          "x-amz-content-sha256": emptyPayloadHash,
+          "x-amz-date": "20130524T000000Z",
+        },
+        payloadHash: emptyPayloadHash,
+        region: "us-east-1",
+        accessKeyId: "AKIAIOSFODNN7EXAMPLE",
+        secretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+        now: new Date("2013-05-24T00:00:00.000Z"),
+      };
+      const { canonicalRequest } = buildS3CanonicalRequest(input);
+      const expected = [
+        "GET",
+        "/test.txt",
+        "",
+        "host:examplebucket.s3.amazonaws.com\nrange:bytes=0-9\nx-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\nx-amz-date:20130524T000000Z\n",
+        "host;range;x-amz-content-sha256;x-amz-date",
+        emptyPayloadHash,
+      ].join("\n");
+      assert.equal(canonicalRequest, expected);
+      const signed = signS3Request(input);
+      assert.match(signed.authorization, /Credential=AKIAIOSFODNN7EXAMPLE\/20130524\/us-east-1\/s3\/aws4_request/);
+      assert.match(signed.authorization, /SignedHeaders=host;range;x-amz-content-sha256;x-amz-date/);
+      assert.match(signed.authorization, /Signature=[0-9a-f]{64}$/);
+      const again = signS3Request(input);
+      assert.equal(signed.authorization, again.authorization);
+      const otherSecret = signS3Request({ ...input, secretAccessKey: "different-secret" });
+      assert.notEqual(signed.authorization, otherSecret.authorization);
+    },
+  },
+  {
+    name: "backup off-site SigV4 signer produces stable PUT authorization for backup upload",
+    run: () => {
+      const now = new Date("2026-10-08T01:02:03.000Z");
+      const base = {
+        method: "PUT",
+        host: "acc123.r2.cloudflarestorage.com",
+        uri: "/limo-backups/20261008T010203Z/backup.zip",
+        headers: {
+          host: "acc123.r2.cloudflarestorage.com",
+          "content-length": "1024",
+          "content-type": "application/zip",
+          "x-amz-content-sha256": "UNSIGNED-PAYLOAD",
+        },
+        payloadHash: "UNSIGNED-PAYLOAD",
+        region: "us-east-1",
+        accessKeyId: "r2-key",
+        secretAccessKey: "r2-secret",
+        now,
+      };
+      const signed = signS3Request(base);
+      assert.match(signed.authorization, /^AWS4-HMAC-SHA256 Credential=r2-key\/20261008\/us-east-1\/s3\/aws4_request/);
+      assert.match(signed.authorization, /SignedHeaders=content-length;content-type;host;x-amz-content-sha256;x-amz-date/);
+      assert.equal(signed.amzDate, "20261008T010203Z");
+      assert.notEqual(signS3Request({ ...base, now: new Date("2026-10-08T01:02:04.000Z") }).authorization, signed.authorization);
     },
   },
 ];
