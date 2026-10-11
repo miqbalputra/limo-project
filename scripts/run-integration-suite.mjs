@@ -135,6 +135,11 @@ function waitUntilHealthy(url, timeoutMs = 120_000) {
 }
 
 function startServer() {
+  // detached di Linux: child jadi ketua process group sendiri sehingga sinyal
+  // group (-pid) menjangkau npm → next dev → esbuild sekaligus. Tanpa ini
+  // SIGTERM hanya mengenai wrapper npm, next dev jadi yatim dan memegang lock
+  // dev Next 16 ("Another next dev server is already running") yang membuat
+  // step e2e berikutnya gagal start.
   const child = spawn(npmCommand, ["run", "--silent", "dev", "--", "--port", port, "--hostname", "127.0.0.1"], {
     cwd: rootDir,
     env: {
@@ -144,6 +149,7 @@ function startServer() {
     },
     stdio: "inherit",
     shell: process.platform === "win32",
+    detached: process.platform !== "win32",
   });
 
   const stop = () => {
@@ -151,7 +157,13 @@ function startServer() {
     if (process.platform === "win32") {
       spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", shell: true });
     } else {
-      child.kill("SIGTERM");
+      // Server dev sekali pakai — tidak butuh shutdown graceful; bunuh seluruh
+      // group seketika agar tidak ada proses yatim.
+      try {
+        process.kill(-child.pid, "SIGKILL");
+      } catch {
+        child.kill("SIGKILL");
+      }
     }
   };
 
