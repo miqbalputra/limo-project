@@ -91,7 +91,7 @@ jobs:
           npm run test:e2e 2>&1 | tee /tmp/e2e-full.log
           EXIT="${PIPESTATUS[0]}"
           if [ "$EXIT" -ne 0 ]; then
-            tail -c 1800 /tmp/e2e-full.log | while IFS= read -r line; do echo "::error::E2E $line"; done
+            grep -E "✘|[0-9]+ (failed|passed|flaky|did not run)" /tmp/e2e-full.log | tail -25 | while IFS= read -r line; do echo "::error::E2E $line"; done
           fi
           exit "$EXIT"
 
