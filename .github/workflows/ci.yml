@@ -89,6 +89,16 @@ jobs:
       - name: Run normal end-to-end tests
         run: npm run test:e2e
 
+      - name: Debug e2e webServer startup (sementara, hapus setelah CI hijau)
+        if: ${{ failure() }}
+        run: |
+          DB="file:./e2e-debugci.db"
+          export DATABASE_URL="$DB" LIMO_SQLITE_DATABASE_URL="$DB"
+          npm run --silent sqlite:setup > /dev/null 2>&1 || true
+          timeout 90 npx playwright test tests/e2e/a8-g12.spec.ts --reporter=line > /tmp/pw-debug.log 2>&1 || true
+          echo "::error::PWDEBUG_B ls $(ls -la prisma/*.db 2>/dev/null | head -3 | tr '\n' '|')"
+          tail -c 2500 /tmp/pw-debug.log | while IFS= read -r line; do echo "::error::PWDEBUG $line"; done
+
       - name: Run production PWA end-to-end tests
         run: npm run test:e2e:pwa
 
