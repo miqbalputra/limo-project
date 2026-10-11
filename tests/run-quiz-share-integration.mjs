@@ -37,6 +37,7 @@ function ok(label) {
 }
 
 let ujianId = null;
+let ujianParalelId = null;
 let soalId = null;
 
 try {
@@ -106,6 +107,37 @@ try {
   assert.equal(shareAgain.payload.data.token, token, "Token share stabil sampai dibuat ulang");
   ok("Guru dapat membuat tautan share kuis yang stabil");
 
+  // Regresi race: dua permintaan share paralel (meniru double-mount dialog di
+  // dev) tidak boleh menghasilkan tautan mati — yang kalah CAS wajib memakai
+  // token pemenang, bukan menimpanya.
+  const ujianParalel = await request("/api/v1/ujian", {
+    method: "POST",
+    cookie: guru.cookie,
+    body: {
+      kelasId: kelas.id,
+      title: `Kuis Paralel ${runId}`,
+      description: "Regresi token share paralel",
+      status: "PUBLISHED",
+      deliveryMode: "TEACHER_ENTRY",
+      durationMinutes: 15,
+      maxAttempts: 1,
+      mode: "LATIHAN",
+      questions: [{ bankSoalId: soalId, weight: 10 }],
+    },
+  });
+  assert.equal(ujianParalel.response.status, 201, JSON.stringify(ujianParalel.payload));
+  ujianParalelId = ujianParalel.payload.data.item.id;
+  const [shareA, shareB] = await Promise.all([
+    request(`/api/v1/ujian/${ujianParalelId}/share`, { method: "POST", cookie: guru.cookie, body: {} }),
+    request(`/api/v1/ujian/${ujianParalelId}/share`, { method: "POST", cookie: guru.cookie, body: {} }),
+  ]);
+  assert.equal(shareA.response.status, 201, JSON.stringify(shareA.payload));
+  assert.equal(shareB.response.status, 201, JSON.stringify(shareB.payload));
+  assert.equal(shareB.payload.data.token, shareA.payload.data.token, "Dua share paralel harus mengembalikan token yang sama");
+  const introParalel = await request(`/api/v1/public/quiz/${shareA.payload.data.token}`);
+  assert.equal(introParalel.response.status, 200, JSON.stringify(introParalel.payload));
+  ok("Dua permintaan share paralel menghasilkan satu token publik yang valid");
+
   const intro = await request(`/api/v1/public/quiz/${token}`);
   assert.equal(intro.response.status, 200, JSON.stringify(intro.payload));
   assert.equal(intro.payload.data.quiz.questionCount, 1);
@@ -159,6 +191,9 @@ try {
   assert.equal(wrongToken.response.status, 404);
   ok("Penilaian otomatis, KKM, pembahasan, anti-submit-ganda, dan proteksi respons bekerja");
 } finally {
+  if (ujianParalelId) {
+    await prisma.ujian.delete({ where: { id: ujianParalelId } }).catch(() => undefined);
+  }
   if (ujianId) {
     await prisma.ujian.delete({ where: { id: ujianId } }).catch(() => undefined);
   }

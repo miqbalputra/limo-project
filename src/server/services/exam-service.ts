@@ -806,18 +806,44 @@ export async function shareUjian(actor: Actor, ujianId: string, input: unknown =
   let token = ujian.shareToken;
 
   if (!token || parsed.data.regenerate) {
-    token = generateOpaqueToken(24);
+    const nextToken = generateOpaqueToken(24);
 
-    await prisma.ujian.update({ where: { id: ujian.id }, data: { shareToken: token } });
-    await prisma.auditLog.create({
-      data: {
-        actorId: actor.id,
-        action: "UJIAN_SHARE_TOKEN_CREATED",
-        entityType: "Ujian",
-        entityId: ujian.id,
-        metadata: { rotated: Boolean(ujian.shareToken) },
-      },
-    });
+    if (parsed.data.regenerate) {
+      await prisma.ujian.update({ where: { id: ujian.id }, data: { shareToken: nextToken } });
+      token = nextToken;
+    } else {
+      // Pembuatan token harus atomik: dua permintaan paralel bisa sama-sama
+      // membaca shareToken null, dan yang kalah CAS wajib memakai token
+      // pemenang agar tautan yang sudah tampil tidak mati.
+      const claimed = await prisma.ujian.updateMany({
+        where: { id: ujian.id, shareToken: null },
+        data: { shareToken: nextToken },
+      });
+      if (claimed.count === 0) {
+        const winner = await prisma.ujian.findUniqueOrThrow({
+          where: { id: ujian.id },
+          select: { shareToken: true },
+        });
+        if (!winner.shareToken) {
+          throw new ConflictError("Gagal menyiapkan tautan publik. Coba lagi.");
+        }
+        token = winner.shareToken;
+      } else {
+        token = nextToken;
+      }
+    }
+
+    if (token === nextToken) {
+      await prisma.auditLog.create({
+        data: {
+          actorId: actor.id,
+          action: "UJIAN_SHARE_TOKEN_CREATED",
+          entityType: "Ujian",
+          entityId: ujian.id,
+          metadata: { rotated: Boolean(ujian.shareToken) },
+        },
+      });
+    }
   }
 
   return { token, url: `/kuis/${token}`, title: ujian.title, status: ujian.status };
