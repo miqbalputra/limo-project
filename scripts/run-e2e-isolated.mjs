@@ -31,8 +31,18 @@ const specEnvOverrides = {
   },
 };
 
+// mobile-layout menguji geometri piksel (overflow/clipping 360-390px) yang
+// sensitif metrik font OS runner — baseline-nya dibuat di Windows (-win32).
+// Di CI (linux) asersi ini berisik tanpa baseline lintas-platform, jadi spec
+// ini dijalankan di mesin dev saja; layak diaktifkan di CI setelah baseline
+// per-platform tersedia.
+const isCI = process.env.CI === "true";
+
 const specFiles = (await readdir(e2eDirectory))
-  .filter((fileName) => fileName.endsWith(".spec.ts") && fileName !== "pwa.spec.ts" && (!requestedSpec || fileName === requestedSpec))
+  .filter((fileName) => fileName.endsWith(".spec.ts")
+    && fileName !== "pwa.spec.ts"
+    && !(isCI && fileName === "mobile-layout.spec.ts")
+    && (!requestedSpec || fileName === requestedSpec))
   .sort();
 
 if (specFiles.length === 0) {
