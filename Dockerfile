@@ -11,12 +11,6 @@ FROM base AS deps
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Dependency runtime saja (tanpa dev/test) untuk stage runner — image jauh
-# lebih kecil dan tidak membawa tooling build.
-FROM base AS prod-deps
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
-
 FROM base AS builder
 ENV APP_URL=http://localhost:3000
 ENV DATABASE_URL=mysql://limo:limo@localhost:3306/limo_db
@@ -26,6 +20,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
 RUN npm run build
+# Prune dev dependencies DI BUILDER sehingga layer yang disalin ke runner
+# langsung ramping (satu node_modules saja). Prisma CLI ada di dependencies;
+# generate diulang setelah prune karena folder .prisma bisa ikut terbuang.
+RUN npm prune --omit=dev && npx prisma generate
 
 FROM base AS runner
 
@@ -45,8 +43,6 @@ RUN groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 nextjs
 
 COPY --from=builder --chown=nextjs:nodejs /app ./
-# Timpa node_modules dengan versi prod-only (tanpa dev/test dependencies).
-COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
 
 RUN chmod +x /app/docker-entrypoint.sh \

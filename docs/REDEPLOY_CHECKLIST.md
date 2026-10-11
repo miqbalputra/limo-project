@@ -43,6 +43,14 @@ Catatan:
 
 ## 3. Langkah redeploy (Dokploy)
 
+0. **Cek disk VPS dulu** — build Docker gagal dengan `no space left on device` bila disk penuh (tiap build menyimpan layer + cache baru, dan image lama menumpuk):
+   ```bash
+   df -h                      # pastikan ≥ 5 GB bebas
+   docker system df           # lihat apa yang makan tempat
+   # Bila penuh — hapus image & build cache lama (AMAN; JANGAN pakai --volumes,
+   # volume berisi data MariaDB dan storage):
+   docker image prune -af && docker builder prune -af
+   ```
 1. Pastikan env di dashboard Dokploy sudah memuat nilai bagian (2) di atas.
 2. **Redeploy** service `web` (build ulang image) — jangan sekadar restart. Bila Dokploy mendukung build args, teruskan `LIMO_BUILD_SHA=$(git rev-parse HEAD)` dan `LIMO_BUILD_TIME=$(date -u +%FT%TZ)` agar `/api/health` menampilkan versi build (bila tidak diteruskan, `build.sha` = `null`).
 3. Tunggu log startup. Cari penanda migrasi berikut di log container:
