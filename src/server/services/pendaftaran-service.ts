@@ -65,7 +65,7 @@ async function createUniqueRegistrationCode() {
 }
 
 export async function submitPendaftaran(input: unknown, context: { ipAddress?: string | null }) {
-  assertRateLimit({
+  await assertRateLimit({
     key: `pendaftaran-submit:${context.ipAddress || "unknown"}`,
     limit: 10,
     windowMs: 60 * 60 * 1000,
@@ -180,7 +180,7 @@ export async function submitPendaftaran(input: unknown, context: { ipAddress?: s
 }
 
 export async function lookupPendaftaranStatus(input: unknown, context: { ipAddress?: string | null }) {
-  assertRateLimit({
+  await assertRateLimit({
     key: `pendaftaran-status:${context.ipAddress || "unknown"}`,
     limit: 20,
     windowMs: 60 * 60 * 1000,

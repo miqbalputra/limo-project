@@ -15,7 +15,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ass
     const env = getEnv();
     assertSameOrigin(request.headers, env.APP_URL);
     const actor = await requireActor();
-    assertRateLimit({ key: `assignment-submit:${actor.id}:${getClientAddress(request.headers)}`, limit: 30, windowMs: 15 * 60 * 1000, message: "Terlalu banyak submission. Coba lagi nanti" });
+    await assertRateLimit({ key: `assignment-submit:${actor.id}:${getClientAddress(request.headers)}`, limit: 30, windowMs: 15 * 60 * 1000, message: "Terlalu banyak submission. Coba lagi nanti" });
     const contentLength = Number(request.headers.get("content-length") || 0);
     if (Number.isFinite(contentLength) && contentLength > env.MAX_ASSIGNMENT_FILE_MB * 1024 * 1024 + 128 * 1024) throw new ValidationError(`Ukuran upload maksimal ${env.MAX_ASSIGNMENT_FILE_MB} MB`);
     const contentType = request.headers.get("content-type") || "";

@@ -1965,3 +1965,14 @@ model ProgressReportRead {
   @@unique([reportId, userId])
   @@index([userId, readAt])
 }
+
+model RateLimitCounter {
+  id          String   @id @default(cuid())
+  key         String
+  windowStart DateTime
+  count       Int
+  expiresAt   DateTime
+
+  @@unique([key, windowStart])
+  @@index([expiresAt])
+}

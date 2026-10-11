@@ -195,7 +195,7 @@ export async function getPublicQuizIntro(token: string) {
 }
 
 export async function startPublicQuizResponse(token: string, input: unknown, context: { ipAddress?: string | null }) {
-  assertRateLimit({
+  await assertRateLimit({
     key: `quiz-start:${context.ipAddress || "unknown"}`,
     limit: 30,
     windowMs: 60 * 60 * 1000,
@@ -560,7 +560,7 @@ export async function uploadPublicQuizFile(token: string, responseId: string, fi
     throw new ConflictError("Waktu pengerjaan sudah habis");
   }
 
-  assertRateLimit({ key: `quiz-upload:${response.id}`, limit: 60, windowMs: 60 * 60 * 1000, message: "Terlalu banyak unggahan. Coba lagi nanti." });
+  await assertRateLimit({ key: `quiz-upload:${response.id}`, limit: 60, windowMs: 60 * 60 * 1000, message: "Terlalu banyak unggahan. Coba lagi nanti." });
 
   const question = ujianSoalId ? response.ujian.questions.find((item) => item.id === ujianSoalId) : undefined;
   if (ujianSoalId && !question) {

@@ -62,6 +62,7 @@ const envSchema = z.object({
   BACKUP_OFFSITE_ACCESS_KEY_ID: z.string().optional().default(""),
   BACKUP_OFFSITE_SECRET_ACCESS_KEY: z.string().optional().default(""),
   BACKUP_OFFSITE_PREFIX: z.string().optional().default("limo-backups"),
+  RATE_LIMIT_TRUST_PROXY: optionalBooleanFromString,
   MAX_REGISTRATION_FILE_MB: optionalNumberFromString.default("10"),
   MAX_MATERIAL_FILE_MB: optionalNumberFromString.default("25"),
   MAX_RPP_FILE_MB: optionalNumberFromString.default("20"),

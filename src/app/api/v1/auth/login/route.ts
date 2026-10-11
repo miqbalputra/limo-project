@@ -3,6 +3,7 @@ import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
 import { getEnv } from "@/server/env";
 import { assertSameOrigin } from "@/server/security/origin";
+import { getClientAddress } from "@/server/security/rate-limit";
 import { getSessionCookieOptions } from "@/server/auth/session";
 import { login } from "@/server/services/auth-service";
 
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
 
     const result = await login(await request.json(), {
       userAgent: request.headers.get("user-agent"),
-      ipAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
+      ipAddress: getClientAddress(request.headers),
     });
 
     const cookieStore = await cookies();

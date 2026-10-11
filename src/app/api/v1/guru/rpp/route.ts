@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     assertSameOrigin(request.headers, env.APP_URL);
     const actor = await requireActor();
     requireRole(actor, ["ADMIN", "GURU"]);
-    assertRateLimit({ key: `rpp-create:${actor.id}:${getClientAddress(request.headers)}`, limit: 30, windowMs: 15 * 60 * 1000, message: "Terlalu banyak RPP dibuat. Coba lagi nanti" });
+    await assertRateLimit({ key: `rpp-create:${actor.id}:${getClientAddress(request.headers)}`, limit: 30, windowMs: 15 * 60 * 1000, message: "Terlalu banyak RPP dibuat. Coba lagi nanti" });
     const contentLength = Number(request.headers.get("content-length") || 0);
     const maxRequestBytes = env.MAX_RPP_FILE_MB * 1024 * 1024 + 128 * 1024;
     if (Number.isFinite(contentLength) && contentLength > maxRequestBytes) throw new ValidationError(`Ukuran upload maksimal ${env.MAX_RPP_FILE_MB} MB`);

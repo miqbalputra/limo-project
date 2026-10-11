@@ -62,7 +62,8 @@
     "mayar:reconcile": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/reconcile-mayar-payments.ts",
     "pakasir:reconcile": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/reconcile-pakasir-payments.ts",
     "backup:create": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/backup.ts",
-    "backup:restore": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/restore.ts"
+    "backup:restore": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/restore.ts",
+    "test:integration": "node scripts/run-integration-suite.mjs"
   },
   "prisma": {
     "seed": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/seed.ts"
@@ -74,8 +75,8 @@
     "argon2": "^0.45.0",
     "bidi-js": "^1.1.0",
     "exceljs": "^4.4.0",
-    "next": "^16.0.0",
-    "nodemailer": "^9.0.3",
+    "next": "^16.4.0",
+    "nodemailer": "^10.1.0",
     "pdfkit": "^0.19.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -96,5 +97,8 @@
     "tailwindcss": "^4.1.11",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }

@@ -31,7 +31,7 @@ export async function login(input: unknown, context: { userAgent?: string | null
   const identifier = parsed.data.identifier || parsed.data.email || "";
   const normalizedIdentifier = identifier.includes("@") ? normalizeEmail(identifier) : identifier.trim().toLowerCase();
   const throttleKey = `login:${context.ipAddress || "unknown"}:${normalizedIdentifier}`;
-  assertRateLimit({
+  await assertRateLimit({
     key: throttleKey,
     limit: 5,
     windowMs: 15 * 60 * 1000,
@@ -93,7 +93,7 @@ export async function login(input: unknown, context: { userAgent?: string | null
     });
   });
 
-  clearRateLimit(throttleKey);
+  await clearRateLimit(throttleKey);
 
   return {
     session,

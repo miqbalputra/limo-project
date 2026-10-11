@@ -553,7 +553,7 @@ async function persistAttemptViolation(scope: AttemptScope, attemptId: string, i
     throw new NotFoundError("Attempt ujian tidak ditemukan");
   }
 
-  assertRateLimit({ key: `exam-violation:${attempt.id}`, limit: 120, windowMs: 60 * 60 * 1000, message: "Terlalu banyak laporan pelanggaran." });
+  await assertRateLimit({ key: `exam-violation:${attempt.id}`, limit: 120, windowMs: 60 * 60 * 1000, message: "Terlalu banyak laporan pelanggaran." });
 
   const updated = await prisma.ujianAttempt.update({
     where: { id: attempt.id },
@@ -595,7 +595,7 @@ async function persistAttemptFile(scope: AttemptScope, attemptId: string, file: 
     throw new ConflictError("Waktu pengerjaan ujian sudah habis");
   }
 
-  assertRateLimit({ key: `exam-upload:${attempt.id}`, limit: 60, windowMs: 60 * 60 * 1000, message: "Terlalu banyak unggahan. Coba lagi nanti." });
+  await assertRateLimit({ key: `exam-upload:${attempt.id}`, limit: 60, windowMs: 60 * 60 * 1000, message: "Terlalu banyak unggahan. Coba lagi nanti." });
 
   const uploadConfig = await readQuestionUploadConfig(ujianSoalId, attempt.ujianId);
   const stored = await storeQuizSubmissionFile(file, "quiz-submission", uploadConfig);

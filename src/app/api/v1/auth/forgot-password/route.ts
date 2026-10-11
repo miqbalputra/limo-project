@@ -12,7 +12,7 @@ export async function POST(request: Request) {
 
   try {
     assertSameOrigin(request.headers, getEnv().APP_URL);
-    assertRateLimit({
+    await assertRateLimit({
       key: `forgot-password:${getClientAddress(request.headers)}`,
       limit: 5,
       windowMs: 15 * 60 * 1000,

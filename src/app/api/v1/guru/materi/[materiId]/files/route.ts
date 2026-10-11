@@ -17,7 +17,7 @@ export async function POST(request: Request, context: { params: Promise<{ materi
     assertSameOrigin(request.headers, env.APP_URL);
     const actor = await requireActor();
     requireRole(actor, ["GURU"]);
-    assertRateLimit({
+    await assertRateLimit({
       key: `materi-upload:${actor.id}:${getClientAddress(request.headers)}`,
       limit: 20,
       windowMs: 15 * 60 * 1000,

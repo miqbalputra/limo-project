@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   try {
     assertSameOrigin(request.headers, getEnv().APP_URL);
     const actor = await requireActor();
-    assertRateLimit({ key: `pengumuman-create:${actor.id}:${getClientAddress(request.headers)}`, limit: 30, windowMs: 15 * 60 * 1000, message: "Terlalu banyak pengumuman dibuat. Coba lagi nanti" });
+    await assertRateLimit({ key: `pengumuman-create:${actor.id}:${getClientAddress(request.headers)}`, limit: 30, windowMs: 15 * 60 * 1000, message: "Terlalu banyak pengumuman dibuat. Coba lagi nanti" });
     return apiOk(await createPengumuman(actor, await request.json()), { requestId }, { status: 201 });
   } catch (error) {
     return apiError(error, { requestId });

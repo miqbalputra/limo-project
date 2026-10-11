@@ -103,8 +103,8 @@ async function recountThread(tx: Prisma.TransactionClient, threadId: string) {
   await tx.diskusiThread.update({ where: { id: threadId }, data: { replyCount: count, lastReplyAt: latest?.createdAt ?? null } });
 }
 
-function assertRateLimited(actor: Actor) {
-  assertRateLimit({ key: `diskusi-post:${actor.id}`, limit: 30, windowMs: 15 * 60 * 1000, message: "Terlalu banyak postingan. Coba lagi nanti" });
+async function assertRateLimited(actor: Actor) {
+  await assertRateLimit({ key: `diskusi-post:${actor.id}`, limit: 30, windowMs: 15 * 60 * 1000, message: "Terlalu banyak postingan. Coba lagi nanti" });
 }
 
 export async function listDiskusiThreads(actor: Actor, kelasId: string, paginationInput: PaginationInput = {}) {
@@ -148,7 +148,7 @@ export async function createDiskusiThread(actor: Actor, input: unknown) {
     await requirePermission(actor, "guru.discussion.manage");
   }
   await assertViewKelasForum(actor, parsed.data.kelasId);
-  assertRateLimited(actor);
+  await assertRateLimited(actor);
 
   const thread = await prisma.$transaction(async (tx) => {
     const created = await tx.diskusiThread.create({
@@ -264,7 +264,7 @@ export async function createDiskusiBalasan(actor: Actor, threadId: string, input
   if (!thread || thread.deletedAt) throw new NotFoundError("Diskusi tidak ditemukan");
 
   await assertViewKelasForum(actor, thread.kelasId);
-  assertRateLimited(actor);
+  await assertRateLimited(actor);
 
   if (thread.status === "HIDDEN") throw new NotFoundError("Diskusi tidak ditemukan");
   if (thread.status === "LOCKED") {
@@ -476,7 +476,7 @@ export async function attachDiskusiFile(actor: Actor, threadId: string, file: Fi
   if (!file) throw new ValidationError("File lampiran wajib dipilih");
 
   const thread = await assertCanAttach(actor, threadId);
-  assertRateLimit({ key: `diskusi-upload:${actor.id}`, limit: 20, windowMs: 60 * 60 * 1000, message: "Terlalu banyak unggahan lampiran. Coba lagi nanti" });
+  await assertRateLimit({ key: `diskusi-upload:${actor.id}`, limit: 20, windowMs: 60 * 60 * 1000, message: "Terlalu banyak unggahan lampiran. Coba lagi nanti" });
 
   const stored = await storeMaterialFile(file, "diskusi");
   const asset = await prisma.fileAsset.create({
@@ -575,7 +575,7 @@ export async function attachDiskusiReplyFile(actor: Actor, replyId: string, file
   if (!file) throw new ValidationError("File lampiran wajib dipilih");
 
   const { reply } = await assertCanAttachReply(actor, replyId);
-  assertRateLimit({ key: `diskusi-reply-upload:${actor.id}`, limit: 20, windowMs: 60 * 60 * 1000, message: "Terlalu banyak unggahan lampiran. Coba lagi nanti" });
+  await assertRateLimit({ key: `diskusi-reply-upload:${actor.id}`, limit: 20, windowMs: 60 * 60 * 1000, message: "Terlalu banyak unggahan lampiran. Coba lagi nanti" });
 
   const stored = await storeMaterialFile(file, "diskusi-balasan");
   const asset = await prisma.fileAsset.create({
@@ -672,7 +672,7 @@ export async function reportDiskusiContent(actor: Actor, input: unknown) {
     if (!reply) throw new ValidationError("Balasan yang dilaporkan tidak ditemukan", { replyId: ["Balasan tidak ditemukan"] });
   }
 
-  assertRateLimit({ key: `diskusi-report:${actor.id}`, limit: 10, windowMs: 60 * 60 * 1000, message: "Terlalu banyak laporan. Coba lagi nanti" });
+  await assertRateLimit({ key: `diskusi-report:${actor.id}`, limit: 10, windowMs: 60 * 60 * 1000, message: "Terlalu banyak laporan. Coba lagi nanti" });
 
   const existing = await prisma.diskusiLaporan.findFirst({
     where: { threadId: thread.id, replyId, reporterId: actor.id, status: "OPEN" },
