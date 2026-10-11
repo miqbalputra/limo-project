@@ -89,6 +89,13 @@ for (const [index, specFile] of specFiles.entries()) {
     run(npmCommand, ["run", "sqlite:setup"], env);
     run(npxCommand, ["playwright", "test", `tests/e2e/${specFile}`, ...playwrightArgs], env);
   } finally {
+    if (process.platform !== "win32") {
+      // next dev mati perlahan (shutdown graceful) — webServer spec sebelumnya
+      // bisa tersisa sebagai proses yatim dan menumpuk memori hingga spec
+      // tengah kehabisan ruang. Bersihkan sisa sebelum spec berikutnya.
+      spawnSync("pkill", ["-f", "next dev"], { stdio: "ignore" });
+      spawnSync("pkill", ["-f", "start-server.js"], { stdio: "ignore" });
+    }
     // DEBUG-SEMENTARA: DB tidak dihapus agar bisa diperiksa setelah gagal.
     if (process.env.E2E_KEEP_DB !== "true") {
       await Promise.all([
