@@ -285,8 +285,20 @@ export async function createInvoicePayment(actor: Actor, tagihanId: string, inpu
     rawPayload = transaction.rawPayload;
   }
 
-  await prisma.$transaction([
-    prisma.pembayaran.upsert({
+  // Guard status: webhook bisa menandai tagihan PAID selama panggilan API provider
+  // berjalan — re-check di dalam transaksi agar status PAID tidak pernah ditimpa.
+  await prisma.$transaction(async (tx) => {
+    const currentTagihan = await tx.tagihan.findUnique({ where: { id: tagihan.id }, select: { status: true } });
+    if (!currentTagihan || ["PAID", "CANCELLED", "REFUNDED"].includes(currentTagihan.status)) {
+      throw new ConflictError("Status tagihan berubah saat membuat instruksi pembayaran. Muat ulang halaman tagihan");
+    }
+
+    const existingForReference = await tx.pembayaran.findUnique({ where: { providerReference }, select: { status: true } });
+    if (existingForReference?.status === "PAID") {
+      throw new ConflictError("Pembayaran untuk tagihan ini sudah diterima");
+    }
+
+    await tx.pembayaran.upsert({
       where: { providerReference },
       update: {
         amount: tagihan.amount,
@@ -303,9 +315,15 @@ export async function createInvoicePayment(actor: Actor, tagihanId: string, inpu
         paymentMethod,
         rawPayload,
       },
-    }),
-    prisma.tagihan.update({ where: { id: tagihan.id }, data: { status: "PENDING" } }),
-  ]);
+    });
+    const tagihanUpdated = await tx.tagihan.updateMany({
+      where: { id: tagihan.id, status: { in: ["UNPAID", "PENDING", "OVERDUE"] } },
+      data: { status: "PENDING" },
+    });
+    if (tagihanUpdated.count === 0) {
+      throw new ConflictError("Status tagihan berubah saat membuat instruksi pembayaran. Muat ulang halaman tagihan");
+    }
+  });
 
   await notifyWaliForStudents({
     siswaIds: [tagihan.siswa.id],

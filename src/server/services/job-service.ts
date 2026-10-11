@@ -19,7 +19,7 @@ export async function markOverdueInvoices(input: { dryRun?: boolean; now?: Date 
 
   if (!input.dryRun && candidates.length > 0) {
     await prisma.tagihan.updateMany({
-      where: { id: { in: candidates.map((item) => item.id) } },
+      where: { id: { in: candidates.map((item) => item.id) }, status: "UNPAID" },
       data: { status: "OVERDUE" },
     });
   }
@@ -118,15 +118,29 @@ export async function reconcilePendingMayarPayments(input: { dryRun?: boolean; l
           const payloadHash = createHash("sha256").update(JSON.stringify(rawPayload)).digest("hex");
           const paidAt = new Date();
 
-          await prisma.$transaction([
-            prisma.webhookEvent.upsert({
+          // Guard status: webhook/instance lain bisa mengubah pembayaran/tagihan
+          // setelah daftar PENDING dibaca — jangan pernah menimpanya paksa.
+          const applied = await prisma.$transaction(async (tx) => {
+            const current = await tx.pembayaran.findUnique({ where: { id: payment.id }, select: { status: true } });
+            if (current?.status !== "PENDING") return false;
+
+            await tx.webhookEvent.upsert({
               where: { provider_providerEventId: { provider: "mayar", providerEventId: eventId } },
               update: { payload: rawPayload, payloadHash, processedAt: paidAt },
               create: { provider: "mayar", providerEventId: eventId, payloadHash, payload: rawPayload, processedAt: paidAt },
-            }),
-            prisma.pembayaran.update({ where: { id: payment.id }, data: { status: "PAID", amount: payment.tagihan.amount, paidAt, rawPayload } }),
-            prisma.tagihan.update({ where: { id: payment.tagihanId }, data: { status: "PAID", paidAt } }),
-          ]);
+            });
+            await tx.pembayaran.updateMany({ where: { id: payment.id, status: "PENDING" }, data: { status: "PAID", amount: payment.tagihan.amount, paidAt, rawPayload } });
+            await tx.tagihan.updateMany({
+              where: { id: payment.tagihanId, status: { in: ["UNPAID", "PENDING", "OVERDUE"] } },
+              data: { status: "PAID", paidAt },
+            });
+            return true;
+          });
+
+          if (!applied) {
+            skipped += 1;
+            continue;
+          }
 
            await enqueuePaymentSuccessNotifications(payment.tagihan.siswaId, payment.tagihanId, "mayar");
            await notifyAdmins({
@@ -142,8 +156,8 @@ export async function reconcilePendingMayarPayments(input: { dryRun?: boolean; l
         const paymentStatus = status === "cancelled" ? "CANCELLED" : "EXPIRED";
         if (!input.dryRun) {
           await prisma.$transaction([
-            prisma.pembayaran.update({ where: { id: payment.id }, data: { status: paymentStatus, rawPayload: invoice.rawPayload as object } }),
-            ...(payment.tagihan.status === "PENDING" ? [prisma.tagihan.update({ where: { id: payment.tagihanId }, data: { status: "UNPAID" } })] : []),
+            prisma.pembayaran.updateMany({ where: { id: payment.id, status: "PENDING" }, data: { status: paymentStatus, rawPayload: invoice.rawPayload as object } }),
+            prisma.tagihan.updateMany({ where: { id: payment.tagihanId, status: "PENDING" }, data: { status: "UNPAID" } }),
           ]);
         }
 
@@ -201,10 +215,25 @@ export async function reconcilePendingPakasirPayments(input: { dryRun?: boolean;
         if (Number(payment.tagihan.amount) !== Number(transaction.amount)) throw new Error(`Nominal transaksi ${payment.providerReference} tidak sesuai tagihan`);
         if (!input.dryRun) {
           const paidAt = transaction.completed_at ? new Date(transaction.completed_at) : new Date();
-          await prisma.$transaction([
-            prisma.pembayaran.update({ where: { id: payment.id }, data: { status: "PAID", paidAt, paymentMethod: transaction.payment_method, rawPayload: transaction.rawPayload as object } }),
-            prisma.tagihan.update({ where: { id: payment.tagihanId }, data: { status: "PAID", paidAt } }),
-          ]);
+          // Guard status: webhook/instance lain bisa mengubah pembayaran/tagihan
+          // setelah daftar PENDING dibaca — jangan pernah menimpanya paksa.
+          const applied = await prisma.$transaction(async (tx) => {
+            const current = await tx.pembayaran.findUnique({ where: { id: payment.id }, select: { status: true } });
+            if (current?.status !== "PENDING") return false;
+
+            await tx.pembayaran.updateMany({ where: { id: payment.id, status: "PENDING" }, data: { status: "PAID", paidAt, paymentMethod: transaction.payment_method, rawPayload: transaction.rawPayload as object } });
+            await tx.tagihan.updateMany({
+              where: { id: payment.tagihanId, status: { in: ["UNPAID", "PENDING", "OVERDUE"] } },
+              data: { status: "PAID", paidAt },
+            });
+            return true;
+          });
+
+          if (!applied) {
+            skipped += 1;
+            continue;
+          }
+
           await enqueuePaymentSuccessNotifications(payment.tagihan.siswaId, payment.tagihanId, "pakasir");
           await notifyAdmins({ template: "admin-payment-success", subject: "Pembayaran Pakasir diterima", body: `Pembayaran tagihan ${payment.tagihanId} telah dikonfirmasi oleh rekonsiliasi Pakasir.`, metadata: { tagihanId: payment.tagihanId, provider: "pakasir", source: "reconciliation" } });
         }
@@ -213,8 +242,8 @@ export async function reconcilePendingPakasirPayments(input: { dryRun?: boolean;
         const paymentStatus = status === "cancelled" ? "CANCELLED" : status === "failed" ? "FAILED" : "EXPIRED";
         if (!input.dryRun) {
           await prisma.$transaction([
-            prisma.pembayaran.update({ where: { id: payment.id }, data: { status: paymentStatus, rawPayload: transaction.rawPayload as object } }),
-            ...(payment.tagihan.status === "PENDING" && paymentStatus !== "FAILED" ? [prisma.tagihan.update({ where: { id: payment.tagihanId }, data: { status: "UNPAID" } })] : []),
+            prisma.pembayaran.updateMany({ where: { id: payment.id, status: "PENDING" }, data: { status: paymentStatus, rawPayload: transaction.rawPayload as object } }),
+            ...(paymentStatus !== "FAILED" ? [prisma.tagihan.updateMany({ where: { id: payment.tagihanId, status: "PENDING" }, data: { status: "UNPAID" } })] : []),
           ]);
         }
         expired += 1;
