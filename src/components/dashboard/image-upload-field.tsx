@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useId, useRef, useState } from "react";
 
 export function ImageUploadField({
@@ -41,7 +42,8 @@ export function ImageUploadField({
 
       {preview ? (
         <div className="mt-2 overflow-hidden rounded-xl border border-gray-200">
-          <img src={preview} alt={`Pratinjau ${label.toLowerCase()}`} className="h-28 w-full object-cover" />
+          {/* Pratinjau blob URL lokal — optimasi server tidak relevan. */}
+          <Image src={preview} alt={`Pratinjau ${label.toLowerCase()}`} width={560} height={112} unoptimized className="h-28 w-full object-cover" />
         </div>
       ) : null}
 
