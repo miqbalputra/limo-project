@@ -23,9 +23,15 @@ RUN npm run build
 
 FROM base AS runner
 
+# LIMO_BUILD_SHA/TIME diisi --build-arg saat deploy agar /api/health bisa
+# membuktikan commit yang berjalan (deteksi build stale).
+ARG LIMO_BUILD_SHA=""
+ARG LIMO_BUILD_TIME=""
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+ENV LIMO_BUILD_SHA=${LIMO_BUILD_SHA}
+ENV LIMO_BUILD_TIME=${LIMO_BUILD_TIME}
 ENV DOKPLOY_SQLITE_DEMO=false
 ENV DOKPLOY_SEED_ON_START=false
 

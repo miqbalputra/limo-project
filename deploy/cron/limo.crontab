@@ -1,0 +1,48 @@
+# LIMO — jadwal job terjadwal (timezone Asia/Jakarta)
+#
+# Dua cara pemasangan — pilih SATU dan jangan dobel:
+#   A. Host/VPS (app berjalan langsung via npm/PM2):
+#      crontab -u <user-app> deploy/cron/limo.crontab
+#      Lalu sesuaikan APP_DIR di bawah.
+#   B. Docker/Dokploy: jangan pakai file ini. Daftarkan tiap perintah di fitur
+#      Schedules Dokploy (atau `docker exec -w /app <container> npm run ...`
+#      dari crontab host) dengan jadwal yang sama persis seperti tabel di
+#      docs/DEPLOYMENT.md bagian "Cron/Systemd Timer".
+#
+# Aturan: semua job idempoten + flock anti-dobel; NOTIFIKASI dan tagihan
+# bergantung pada job ini — tanpa pemasangan, fitur tersebut SENYAP tanpa error.
+
+CRON_TZ=Asia/Jakarta
+APP_DIR=/opt/limo
+
+# ── Setiap menit ─────────────────────────────────────────────────────────
+# Retry notifikasi PENDING/FAILED (idempoten, klaim atomik PROCESSING).
+* * * * * cd "$APP_DIR" && flock -n /var/lock/limo-notification-retry.lock npm run --silent notifications:retry -- --limit=50 >> /var/log/limo-notif.log 2>&1
+# Terbitkan pengumuman kelas berjadwal yang waktunya tiba (klaim atomik notifiedAt).
+* * * * * cd "$APP_DIR" && flock -n /var/lock/limo-pengumuman-publish.lock npm run --silent pengumuman:publish >> /var/log/limo-pengumuman.log 2>&1
+# Finalisasi respons kuis kedaluwarsa yang ditinggalkan tanpa submit (grace 20 dtk).
+* * * * * cd "$APP_DIR" && flock -n /var/lock/limo-quiz-finalize.lock npm run --silent quiz:finalize >> /var/log/limo-quiz-finalize.log 2>&1
+
+# ── Rekonsiliasi payment gateway (tiap 30 menit, di-stagger) ─────────────
+# Cek invoice Mayar berstatus PENDING langsung ke API Mayar.
+*/30 * * * * cd "$APP_DIR" && flock -n /var/lock/limo-mayar-reconcile.lock npm run --silent mayar:reconcile -- --limit=50 >> /var/log/limo-reconcile.log 2>&1
+# Cek transaksi Pakasir berstatus PENDING langsung ke API Pakasir.
+7,37 * * * * cd "$APP_DIR" && flock -n /var/lock/limo-pakasir-reconcile.lock npm run --silent pakasir:reconcile -- --limit=50 >> /var/log/limo-reconcile.log 2>&1
+
+# ── Harian ───────────────────────────────────────────────────────────────
+# Backup database + storage privat + unggah off-site (wajib BACKUP_OFFSITE_*).
+0 2 * * *  cd "$APP_DIR" && flock -n /var/lock/limo-backup.lock npm run --silent backup:create >> /var/log/limo-backup.log 2>&1
+# Bersihkan sesi kedaluwarsa/revoked.
+15 3 * * * cd "$APP_DIR" && flock -n /var/lock/limo-session-cleanup.lock npm run --silent sessions:cleanup >> /var/log/limo-sessions.log 2>&1
+# Tandai tagihan UNPAID yang melewati jatuh tempo menjadi OVERDUE (guard status).
+0 6 * * *  cd "$APP_DIR" && flock -n /var/lock/limo-overdue.lock npm run --silent billing:mark-overdue >> /var/log/limo-billing.log 2>&1
+# Reminder deadline tugas/ujian (H-3/H-1/jatuh tempo/terlambat).
+0 7 * * *  cd "$APP_DIR" && flock -n /var/lock/limo-deadline-reminders.lock npm run --silent reminders:send >> /var/log/limo-reminders.log 2>&1
+# Reminder tagihan (H-3/H-1/jatuh tempo/terlambat) ke wali.
+10 7 * * * cd "$APP_DIR" && flock -n /var/lock/limo-invoice-reminders.lock npm run --silent reminders:invoices >> /var/log/limo-reminders.log 2>&1
+
+# ── Bulanan ──────────────────────────────────────────────────────────────
+# Generate tagihan bulanan tanggal 1 pukul 00:30 WIB, jatuh tempo tgl 10.
+# Idempoten (dedup unik per siswa+periode+jenis) — aman ter-cron ulang.
+# Catatan: \`%\` di-escape sebagai \`\\%\` karena cron memotong perintah pada %.
+30 0 1 * * cd "$APP_DIR" && flock -n /var/lock/limo-invoice.lock npm run --silent billing:generate -- --period="$(date +\%Y-\%m)" --due-date="$(date +\%Y-\%m-10)" >> /var/log/limo-billing.log 2>&1

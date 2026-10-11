@@ -44,7 +44,7 @@ Catatan:
 ## 3. Langkah redeploy (Dokploy)
 
 1. Pastikan env di dashboard Dokploy sudah memuat nilai bagian (2) di atas.
-2. **Redeploy** service `web` (build ulang image) — jangan sekadar restart.
+2. **Redeploy** service `web` (build ulang image) — jangan sekadar restart. Bila Dokploy mendukung build args, teruskan `LIMO_BUILD_SHA=$(git rev-parse HEAD)` dan `LIMO_BUILD_TIME=$(date -u +%FT%TZ)` agar `/api/health` menampilkan versi build (bila tidak diteruskan, `build.sha` = `null`).
 3. Tunggu log startup. Cari penanda migrasi berikut di log container:
    - `Menjalankan migrasi database (prisma migrate deploy)...`
    - `Migrasi database selesai (prisma migrate deploy).`
@@ -59,7 +59,7 @@ Jika penanda di langkah 3 **tidak muncul**, migrasi tidak dijalankan. Penyebab u
 
 ## 4. Verifikasi pasca-deploy (semua peran)
 
-- **Health**: `/api/health/ready` mengembalikan 200.
+- **Health + versi build**: `/api/health/ready` mengembalikan 200, dan `curl -s https://<domain>/api/health` → `build.sha` **harus sama** dengan `git rev-parse HEAD` di main. Bila `null`/beda → build stale: build arg `LIMO_BUILD_SHA` tidak diteruskan atau image lama masih jalan.
 - **Admin**: menu **Pengumuman** dan **Laporan Diskusi** muncul; buka `/admin/pengumuman` → buat pengumuman sekolah; `/admin/tagihan` → buat voucher + lihat kuitansi pada tagihan lunas.
 - **Guru**: `/guru/kuis` → buat ujian; `/guru/ujian/<id>/hasil` → tombol **Rilis nilai** ada.
 - **Siswa**: menu **Ujian** muncul → kerjakan ujian → **rekam suara** (uji mikrofon) → kirim.
@@ -69,8 +69,11 @@ Jika penanda di langkah 3 **tidak muncul**, migrasi tidak dijalankan. Penyebab u
 
 ## 5. Cron yang perlu didaftarkan
 
-- `pengumuman:publish` — **setiap menit** (idempoten). Wajib agar notifikasi pengumuman berjadwal terkirim. Tampilan pengumuman tetap muncul walau cron belum jalan (visibilitas dihitung saat query).
-- Job lain (lihat `docs/DEPLOYMENT.md`): `notifications:retry` tiap menit; `reminders:send`, `reminders:invoices` harian; `billing:generate`, `billing:mark-overdue`, `sessions:cleanup` sesuai jadwal; `quiz:finalize` untuk draf kuis kedaluwarsa.
+Cron **tidak terpasang otomatis** oleh redeploy — verifikasi justru bagian dari checklist ini:
+
+- [ ] Semua **11 job** di `deploy/cron/limo.crontab` terdaftar (Schedules Dokploy atau crontab host). Cek: job mencatat baris baru di tabel `JobRun` dalam 1× interval jadwalnya — khususnya `notifications:retry` (tiap menit), `pengumuman:publish` (tiap menit), `quiz:finalize` (tiap menit), `mayar:reconcile`/`pakasir:reconcile` (tiap 30 menit), `backup:create` (02:00 WIB), `billing:generate` (tgl 1, 00:30 WIB), `billing:mark-overdue` (06:00), `reminders:send` (07:00), `reminders:invoices` (07:10), `sessions:cleanup` (03:15).
+- [ ] `SELECT name, MAX(finishedAt) FROM JobRun GROUP BY name;` menampilkan seluruh job di atas dengan timestamp segar.
+- [ ] `BACKUP_OFFSITE_*` terisi di env produksi (backup off-site aktif) — lihat bagian (2) dan `docs/BACKUP_RESTORE.md`.
 
 ## 6. Bila container gagal start atau migrasi gagal
 

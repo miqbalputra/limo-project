@@ -6,14 +6,16 @@ Dokumen ini mencatat gap MVP saat ini agar tidak dianggap selesai diam-diam.
 
 - Migration database nyata belum dijalankan di environment ini karena Docker CLI/MariaDB belum tersedia.
 - Acceptance test SQLite dan E2E Playwright sudah tersedia; parity test MariaDB production belum dijalankan di environment ini.
-- Rate limit aplikasi masih in-process; deployment multi-instance tetap membutuhkan Redis atau rate limit di reverse proxy.
+- Rate limit kini tersimpan di database (`RateLimitCounter`, migration `20261011010000`) sehingga efektif untuk multi-instance. Bila store DB gagal sesaat, throttle **fail-open** (dilewati + warning) demi ketersediaan — reverse proxy rate limit tetap dianjurkan untuk lapisan tambahan.
+- Alamat klien throttle/audit diambil dari `x-forwarded-for`; di belakang satu proxy terpercaya set `RATE_LIMIT_TRUST_PROXY=true` agar dipakai hop terakhir (tahan spoof). Wajib memastikan proxy menimpa/menambah XFF.
 
 ## Payment
 
-- Mayar menjadi provider pembayaran resmi. Webhook dilindungi secret LIMO dan validasi merchant/nominal jika credential production sudah dikonfigurasi.
-- Reconciliation Mayar menggunakan detail invoice API melalui `npm run mayar:reconcile`.
+- Mayar menjadi provider pembayaran resmi. **Webhook secret Mayar kini wajib** — bila secret belum dikonfigurasi (DB maupun `MAYAR_WEBHOOK_SECRET`), webhook ditolak, bukan diproses tanpa verifikasi. Validasi merchant/nominal tetap berlaku.
+- Rekonsiliasi Mayar/Pakasir menggunakan detail invoice/transaksi API (`npm run mayar:reconcile` / `pakasir:reconcile`) dan kini **ber-guard status**: webhook yang mengubah pembayaran/tagihan lebih dulu tidak akan ditimpa oleh rekonsiliasi (dan sebaliknya).
 - Kredensial production Mayar dan UAT end-to-end di merchant nyata belum dilakukan di environment ini.
 - Redirect browser tidak mengubah status pembayaran, sesuai PRD.
+- `npm audit` masih melaporkan 3 temuan high pada rantai **prisma CLI** (`prisma → @prisma/config → deepmerge-ts`) — hanya alat CLI dev, tidak termasuk runtime `@prisma/client` di produksi; "perbaikan" yang tersedia justru downgrade Prisma, jadi risiko ini sengaja diterima.
 
 ## Notifikasi
 
@@ -44,7 +46,10 @@ Dokumen ini mencatat gap MVP saat ini agar tidak dianggap selesai diam-diam.
 
 ## Operasional
 
-- Backup/restore terjadwal, SQL import, ZIP checksum, dan endpoint n8n sudah tersedia; belum diuji nyata terhadap MariaDB staging serta storage off-site.
+- Backup/restore terjadwal, SQL import, ZIP checksum, dan endpoint n8n sudah tersedia; belum diuji nyata terhadap MariaDB staging serta storage off-site. Variabel `BACKUP_OFFSITE_*` kini tercantum di `.env.dokploy*.example` dan diteruskan `docker-compose.dokploy.yml` — wajib diisi di produksi agar backup tidak hanya ada di VPS yang sama dengan database.
+- Jadwal cron lengkap (11 job, termasuk `mayar:reconcile`/`pakasir:reconcile`) ada di `deploy/cron/limo.crontab` + `docs/DEPLOYMENT.md`. Cron TIDAK terpasang otomatis saat redeploy — verifikasi ada di `docs/REDEPLOY_CHECKLIST.md` bagian 5.
+- `/api/health` menampilkan `build.sha`/`build.builtAt` (dari build args `LIMO_BUILD_SHA`/`LIMO_BUILD_TIME`) untuk mendeteksi build stale; Dockerfile sudah siap, Dokploy perlu meneruskan build args.
+- Arsip siswa kini menonaktifkan akun login (User INACTIVE + sesi dicabut), selaras arsip guru/wali; arsip lewat PATCH status siswa dan pulih/restore juga menyesuaikan akun.
 - Nginx/PM2 config final belum dibuat sebagai file deploy siap pakai.
 - Domain/staging/credential provider masih open decision.
 

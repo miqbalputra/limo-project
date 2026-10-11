@@ -12,6 +12,10 @@ export function GET(request: Request) {
         status: "ok",
         service: "limo-web",
         timestamp: new Date().toISOString(),
+        build: {
+          sha: process.env.LIMO_BUILD_SHA || null,
+          builtAt: process.env.LIMO_BUILD_TIME || null,
+        },
       },
       {
         requestId,

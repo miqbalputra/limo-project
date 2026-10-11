@@ -49,27 +49,41 @@ Prinsip konfigurasi:
 
 ## Cron/Systemd Timer
 
-Gunakan lock eksternal:
+**File jadwal lengkap siap-pakai: `deploy/cron/limo.crontab`** — memuat SELURUH 11 job dengan jadwal WIB konkret. Cron **tidak terpasang otomatis** oleh redeploy Dokploy; pemasangan adalah langkah manual wajib (lihat juga `docs/REDEPLOY_CHECKLIST.md`). Pilih SATU model:
 
-```text
-flock -n /var/lock/limo-invoice.lock npm run billing:generate -- --period=YYYY-MM --due-date=YYYY-MM-10
-flock -n /var/lock/limo-overdue.lock npm run billing:mark-overdue
-flock -n /var/lock/limo-session-cleanup.lock npm run sessions:cleanup
-flock -n /var/lock/limo-notification-retry.lock npm run --silent notifications:retry -- --limit=50
-flock -n /var/lock/limo-deadline-reminders.lock npm run reminders:send
-flock -n /var/lock/limo-invoice-reminders.lock npm run reminders:invoices
-flock -n /var/lock/limo-pengumuman-publish.lock npm run pengumuman:publish
-flock -n /var/lock/limo-quiz-finalize.lock npm run quiz:finalize
-flock -n /var/lock/limo-backup.lock npm run backup:create
+**Model A — Host/VPS (app berjalan langsung via npm/PM2):**
+
+```bash
+crontab -u <user-app> deploy/cron/limo.crontab   # sesuaikan APP_DIR di file
+crontab -l -u <user-app>                          # verifikasi
 ```
 
-Jadwalkan `notifications:retry` **setiap menit** (senyap saat idle). Jadwalkan `reminders:send` dan `reminders:invoices` **harian** (mis. pagi hari WIB) untuk reminder deadline tugas/ujian dan tagihan (H-3/H-1/jatuh tempo/terlambat) lewat email + WhatsApp ke wali. Jadwal final mengikuti timezone operasional `Asia/Jakarta`.
+**Model B — Docker/Dokploy:** daftarkan tiap perintah di fitur **Schedules** Dokploy (dieksekusi dalam container), atau dari crontab host via `docker exec -w /app <container> npm run ...`. Jadwalnya sama persis dengan file crontab.
 
-Jadwalkan `pengumuman:publish` **setiap menit**: mengirim notifikasi untuk pengumuman kelas berjadwal yang sudah lewat waktu terbit. Idempoten (klaim atomik kolom `notifiedAt`); tampilan pengumuman tidak bergantung pada job karena visibilitas dihitung dari `publishAt`/`expiresAt` saat query.
+Ringkasan jadwal (semua pakai `flock -n` anti-dobel, idempoten):
 
-Jadwalkan `quiz:finalize` **setiap menit** (idempoten): menilai draf kuis publik yang ditinggalkan melewati grace window 20 detik sehingga respons kedaluwarsa terselesaikan otomatis (`NEEDS_REVIEW` bila ada jawaban manual) tanpa menunggu input.
+| Job | Jadwal (WIB) | Lock |
+|---|---|---|
+| `notifications:retry -- --limit=50` | setiap menit | `limo-notification-retry` |
+| `pengumuman:publish` | setiap menit | `limo-pengumuman-publish` |
+| `quiz:finalize` | setiap menit | `limo-quiz-finalize` |
+| `mayar:reconcile -- --limit=50` | `*/30 * * * *` | `limo-mayar-reconcile` |
+| `pakasir:reconcile -- --limit=50` | `7,37 * * * *` | `limo-pakasir-reconcile` |
+| `backup:create` | harian 02:00 | `limo-backup` |
+| `sessions:cleanup` | harian 03:15 | `limo-session-cleanup` |
+| `billing:mark-overdue` | harian 06:00 | `limo-overdue` |
+| `reminders:send` | harian 07:00 | `limo-deadline-reminders` |
+| `reminders:invoices` | harian 07:10 | `limo-invoice-reminders` |
+| `billing:generate -- --period="$(date +\%Y-\%m)" --due-date="$(date +\%Y-\%m-10)"` | bulanan tgl 1, 00:30 | `limo-invoice` |
 
-Jadwalkan `backup:create` **harian** (mis. 02:00 WIB). Isi `BACKUP_OFFSITE_*` (lihat `docs/BACKUP_RESTORE.md`) agar salinan off-site otomatis diunggah; tanpa itu backup hanya tersimpan lokal di `BACKUP_DIR` dan job tetap sukses. Uji `npm run backup:restore` ke target staging secara berkala.
+Catatan penting:
+
+- Jadwalkan `notifications:retry` **setiap menit** (senyap saat idle). `reminders:send` dan `reminders:invoices` harian pagi WIB untuk reminder deadline tugas/ujian dan tagihan (H-3/H-1/jatuh tempo/terlambat) lewat email + WhatsApp ke wali.
+- Jadwalkan `pengumuman:publish` **setiap menit**: mengirim notifikasi untuk pengumuman kelas berjadwal yang sudah lewat waktu terbit. Idempoten (klaim atomik kolom `notifiedAt`); tampilan pengumuman tidak bergantung pada job karena visibilitas dihitung dari `publishAt`/`expiresAt` saat query.
+- Jadwalkan `quiz:finalize` **setiap menit** (idempoten): menilai draf kuis publik yang ditinggalkan melewati grace window 20 detik sehingga respons kedaluwarsa terselesaikan otomatis (`NEEDS_REVIEW` bila ada jawaban manual) tanpa menunggu input.
+- Jadwalkan `mayar:reconcile` dan `pakasir:reconcile` **tiap 30 menit**: mengonfirmasi pembayaran PENDING langsung ke API provider (jaring pengaman bila webhook gagal; webhook tetap jalur utama).
+- Jadwalkan `backup:create` **harian** (02:00 WIB). Isi `BACKUP_OFFSITE_*` (lihat `docs/BACKUP_RESTORE.md`) agar salinan off-site otomatis diunggah; tanpa itu backup hanya tersimpan lokal di `BACKUP_DIR` dan job tetap sukses. Uji `npm run backup:restore` ke target staging secara berkala.
+- **Verifikasi pasca-deploy**: job mencatat jejak di tabel `JobRun` — cek baris terbaru per job (`SELECT name, status, finishedAt FROM JobRun ORDER BY finishedAt DESC LIMIT 20;`) atau periksa log `/var/log/limo-*.log`.
 
 ## Rollback
 
