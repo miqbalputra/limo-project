@@ -45,3 +45,8 @@ limo_image/
 .windsurf/
 .zcode/
 .github/prompts/
+
+# Artefak test suite & catatan lokal
+ci/
+.suite/
+masalah/

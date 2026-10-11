@@ -16,6 +16,7 @@ const createdNotificationIds = [];
 
 async function request(path, { method = "GET", body, cookie, headers = {}, skipOrigin = false } = {}) {
   const requestHeaders = new Headers(headers);
+  if (!requestHeaders.has("x-forwarded-for")) requestHeaders.set("x-forwarded-for", process.env.TEST_CLIENT_IP || "127.0.0.1");
   requestHeaders.set("x-forwarded-for", clientIp);
   if (method !== "GET" && !skipOrigin) requestHeaders.set("Origin", origin);
   if (cookie) requestHeaders.set("Cookie", cookie);

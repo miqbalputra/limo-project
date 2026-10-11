@@ -4,10 +4,17 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       APP_URL: http://127.0.0.1:3000
       DATABASE_URL: file:./dev.db
@@ -60,6 +67,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Route guard audit
+        run: npm run test:guards
+
       - name: Verify color tokens
         run: npm run check:colors
 
@@ -67,6 +77,11 @@ jobs:
         run: npm run build
         env:
           NODE_ENV: production
+
+      - name: Integration suite (SQLite, against production build)
+        run: node scripts/run-integration-suite.mjs
+        env:
+          NODE_ENV: test
 
       - name: Install Playwright Chromium and WebKit
         run: npx playwright install --with-deps chromium webkit

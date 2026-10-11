@@ -68,9 +68,10 @@ npm run lint
 npm run typecheck
 npm test
 npm run test:guards
+npm run test:integration   # 25 runner integrasi terhadap SQLite + `next dev` (juga dijalankan CI)
 ```
 
-Unit test saat ini mencakup helper keamanan, sanitasi filename, dan schema validasi penting yang tidak membutuhkan database. Integration test dan E2E membutuhkan MariaDB test yang sudah dimigrasikan; jalankan setelah Docker/MariaDB tersedia.
+Unit test saat ini mencakup helper keamanan, sanitasi filename, dan schema validasi penting yang tidak membutuhkan database. Suite integrasi (`scripts/run-integration-suite.mjs`) menjalankan seluruh runner `tests/run-*.mjs` terhadap satu SQLite segar dan server dev; E2E Playwright menambahkan cakupan browser, dan `test:e2e:pwa` menguji build produksi.
 
 Target test berikutnya sesuai `IMPLEMENTATION_PLAN.md`:
 

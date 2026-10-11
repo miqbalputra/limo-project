@@ -10,6 +10,7 @@ const runId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 async function request(path, { method = "GET", body, cookie, headers = {}, skipOrigin = false } = {}) {
   const requestHeaders = new Headers(headers);
+  if (!requestHeaders.has("x-forwarded-for")) requestHeaders.set("x-forwarded-for", process.env.TEST_CLIENT_IP || "127.0.0.1");
   if (method !== "GET" && !skipOrigin) requestHeaders.set("Origin", origin);
   if (cookie) requestHeaders.set("Cookie", cookie);
   if (body !== undefined) requestHeaders.set("Content-Type", "application/json");
