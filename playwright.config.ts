@@ -93,13 +93,18 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
+    // E2E_PRODUCTION=true menjalankan suite di atas `next start` (server
+    // produksi, tanpa kompilasi dingin per halaman) — build diambil dari
+    // `npm run build` yang sudah ada; runner e2e menyiapkannya.
+    command: process.env.E2E_PRODUCTION === "true" ? "npm run start" : "npm run dev",
     url: `${baseURL}/api/health/ready`,
     reuseExistingServer,
-    timeout: 120_000,
+    timeout: process.env.E2E_PRODUCTION === "true" ? 60_000 : 120_000,
     env: {
       APP_URL: baseURL,
-      NODE_ENV: "development",
+      NODE_ENV: process.env.E2E_PRODUCTION === "true" ? "production" : "development",
+      // Provider notifikasi eksternal tidak boleh dipanggil dari test.
+      ...(process.env.E2E_PRODUCTION === "true" ? { NOTIFICATION_PROVIDER: "console" } : {}),
     },
   },
 });

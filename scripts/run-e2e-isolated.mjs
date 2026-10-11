@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,13 +33,37 @@ const specEnvOverrides = {
 };
 
 // mobile-layout menguji geometri piksel (overflow/clipping 360-390px) yang
-// sensitif metrik font OS runner — baseline-nya dibuat di Windows (-win32).
-// guru-workspace flaky di CI: klik interaksi menggantung bermenit-menit pada
-// server dev yang mengompilasi dingin, padahal stabil di mesin dev — mode
-// perbaikan arsitekturalnya adalah e2e di atas `next start` (produksi).
-// Keduanya tetap dijalankan di mesin dev; aktifkan di CI setelah tuntas.
+// sensitif metrik font OS runner — baseline-nya dibuat di Windows (-win32),
+// dan render linux berbeda — jadi tetap dikarantina di CI.
+// guru-workspace TIDAK lagi dikarantina: akar flakenya adalah kompilasi
+// dingin `next dev` per spec, dan sejak mode E2E_PRODUCTION suite berjalan
+// di atas `next start` tanpa kompilasi runtime.
 const isCI = process.env.CI === "true";
-const ciQuarantine = new Set(["mobile-layout.spec.ts", "guru-workspace.spec.ts"]);
+const ciQuarantine = new Set(["mobile-layout.spec.ts"]);
+
+// Mode produksi: server `next start` alih-alih `next dev`. Flag fitur
+// eksplisit meniru ci.yml karena default produksi menonaktifkannya; server
+// mewarisi env ini melalui playwright.
+const production = process.env.E2E_PRODUCTION === "true";
+const productionFlagEnv = production
+  ? {
+      STUDENT_PORTAL_ENABLED: "true",
+      LEARNING_MODULES_ENABLED: "true",
+      ASSIGNMENTS_ENABLED: "true",
+      GRADEBOOK_ENABLED: "true",
+      CALENDAR_ENABLED: "true",
+      ACTIVITY_COMPLETION_ENABLED: "true",
+      REMEDIAL_ENABLED: "true",
+      PERIODIC_REPORTS_ENABLED: "true",
+      STUDENT_SELF_EXAM_ENABLED: "true",
+      CLASS_DISCUSSION_ENABLED: "true",
+      LIMO_ALLOW_DEMO_SEED: "true",
+      DOKPLOY_SQLITE_DEMO: "true",
+      NEXT_PUBLIC_LIMO_CONTACT_EMAIL: process.env.NEXT_PUBLIC_LIMO_CONTACT_EMAIL || "e2e@limo.invalid",
+      SESSION_SECRET: process.env.SESSION_SECRET || "e2e-production-session-secret-0123456789abcdef",
+      SESSION_COOKIE_NAME: process.env.SESSION_COOKIE_NAME || "limo_session_e2e",
+    }
+  : {};
 
 const specFiles = (await readdir(e2eDirectory))
   .filter((fileName) => fileName.endsWith(".spec.ts")
@@ -85,12 +110,21 @@ async function removeWithRetry(filePath, attempts = 10) {
   }
 }
 
+// Mode produksi butuh build — pakai yang sudah ada (di CI, step build
+// terpisah sudah membuatnya); bangun sendiri bila belum ada. Perhatikan
+// build lama bisa stale bila kode berubah setelah build terakhir.
+if (production && !existsSync(path.join(rootDir, ".next", "BUILD_ID"))) {
+  console.log("[e2e] mode produksi: .next/BUILD_ID tidak ada — menjalankan npm run build ...");
+  run(npmCommand, ["run", "build"], { ...process.env, ...productionFlagEnv, NODE_ENV: "production" });
+}
+
 for (const [index, specFile] of specFiles.entries()) {
   const databaseFile = `e2e-${runId}-${String(index + 1).padStart(2, "0")}.db`;
   const databaseUrl = `file:./${databaseFile}`;
   const env = {
     ...process.env,
-    NODE_ENV: "development",
+    ...productionFlagEnv,
+    NODE_ENV: production ? "production" : "development",
     DATABASE_URL: databaseUrl,
     LIMO_SQLITE_DATABASE_URL: databaseUrl,
     PLAYWRIGHT_REUSE_EXISTING_SERVER: "false",

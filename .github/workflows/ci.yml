@@ -87,6 +87,8 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
 
       - name: Run normal end-to-end tests
+        env:
+          E2E_PRODUCTION: "true"
         run: |
           npm run test:e2e 2>&1 | tee /tmp/e2e-full.log
           EXIT="${PIPESTATUS[0]}"
