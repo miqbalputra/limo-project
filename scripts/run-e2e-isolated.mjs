@@ -89,11 +89,14 @@ for (const [index, specFile] of specFiles.entries()) {
     run(npmCommand, ["run", "sqlite:setup"], env);
     run(npxCommand, ["playwright", "test", `tests/e2e/${specFile}`, ...playwrightArgs], env);
   } finally {
-    await Promise.all([
-      databaseFile,
-      `${databaseFile}-journal`,
-      `${databaseFile}-shm`,
-      `${databaseFile}-wal`,
-    ].map((fileName) => removeWithRetry(path.join(prismaDirectory, fileName))));
+    // DEBUG-SEMENTARA: DB tidak dihapus agar bisa diperiksa setelah gagal.
+    if (process.env.E2E_KEEP_DB !== "true") {
+      await Promise.all([
+        databaseFile,
+        `${databaseFile}-journal`,
+        `${databaseFile}-shm`,
+        `${databaseFile}-wal`,
+      ].map((fileName) => removeWithRetry(path.join(prismaDirectory, fileName))));
+    }
   }
 }

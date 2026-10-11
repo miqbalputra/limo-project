@@ -27,6 +27,15 @@ export function sessionCookieFrom(response: { headers(): Record<string, string> 
   return name && value ? { name, value } : null;
 }
 
+/**
+ * Tunggu hidrasi React selesai (penanda `data-hydrated` dari ToastProvider)
+ * sebelum berinteraksi dengan elemen — mencegah klik jatuh saat handler
+ * belum terpasang pada halaman dev yang baru selesai dikompilasi.
+ */
+export async function waitHydrated(page: Page, timeout = 30_000) {
+  await page.waitForSelector("html[data-hydrated='true']", { timeout }).catch(() => undefined);
+}
+
 export async function gotoLogin(page: Page) {
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "Sign In" })).toBeVisible();
@@ -58,11 +67,13 @@ export async function loginViaForm(page: Page, identifier: string, password = DE
       const destination = destinationFor(identifier);
       if (!destination) {
         await gotoLogin(page);
+        await waitHydrated(page);
         return;
       }
 
       await page.goto(destination);
       await expect(page.locator("#dashboard-content")).toBeVisible({ timeout: DASHBOARD_TIMEOUT });
+      await waitHydrated(page);
       return;
     }
 

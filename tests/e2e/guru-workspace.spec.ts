@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { loginViaForm } from "./support/auth";
+import { loginViaForm, waitHydrated } from "./support/auth";
 
 test("Guru dapat membuat, mengubah, dan membatalkan sesi kelas", async ({ page }) => {
   test.setTimeout(120_000);
@@ -7,6 +7,7 @@ test("Guru dapat membuat, mengubah, dan membatalkan sesi kelas", async ({ page }
   await expect(page).toHaveURL(/\/guru$/, { timeout: 15_000 });
 
   await page.goto("/guru/sesi");
+  await waitHydrated(page);
   await expect(page.getByRole("heading", { name: "Tambah sesi" })).toBeVisible();
 
   const topic = `Sesi E2E ${Date.now()}`;
@@ -38,6 +39,7 @@ test("Guru dapat mengoreksi esai dari antrean lalu merilis nilai", async ({ page
   await expect(page).toHaveURL(/\/guru$/, { timeout: 15_000 });
 
   await page.goto("/guru/penilaian-esai");
+  await waitHydrated(page);
   await expect(page.getByRole("heading", { name: "Antrean penilaian esai" })).toBeVisible();
   await expect(page.getByText("Mid Semester Demo English")).toBeVisible();
 
@@ -46,12 +48,18 @@ test("Guru dapat mengoreksi esai dari antrean lalu merilis nilai", async ({ page
   const ujianId = koreksiHref.split("/")[3];
 
   await page.goto(koreksiHref);
+  await waitHydrated(page);
   await expect(page.getByRole("heading", { name: /^Koreksi:/ })).toBeVisible();
   await page.getByPlaceholder("Alasan koreksi").fill("Skor esai dilengkapi saat verifikasi");
   await page.getByPlaceholder("Skor manual, kosongkan jika perlu ditinjau").first().fill("45");
+  // Tunggu POST koreksi selesai sebelum pindah halaman — goto yang mendahului
+  // commit membuat halaman hasil dirender dari status lama (flaky).
+  const koreksiResponse = page.waitForResponse((response) => response.url().includes("/correction") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Simpan Koreksi" }).click();
+  expect((await koreksiResponse).ok()).toBeTruthy();
 
   await page.goto(`/guru/ujian/${ujianId}/hasil`);
+  await waitHydrated(page);
   await expect(page.getByText(/Status Dikoreksi/)).toBeVisible({ timeout: 15_000 });
 
   const releaseButtons = page.getByRole("button", { name: "Rilis nilai ke siswa/wali" });
