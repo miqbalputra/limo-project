@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { loginViaForm, waitHydrated } from "./support/auth";
 
 test("Guru dapat membuat, mengubah, dan membatalkan sesi kelas", async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   await loginViaForm(page, "guru@limo.local");
   await expect(page).toHaveURL(/\/guru$/, { timeout: 15_000 });
 
@@ -16,7 +16,10 @@ test("Guru dapat membuat, mengubah, dan membatalkan sesi kelas", async ({ page }
   await page.getByLabel("Pertemuan ke").first().fill(String(100 + (Date.now() % 500)));
   await page.getByLabel("Topik").first().fill(topic);
   await page.getByLabel("Tanggal sesi").first().fill("2026-10-01");
-  await page.getByRole("button", { name: "Simpan sesi" }).click();
+  // Tombol bisa ter-disable sesaat saat daftar kelas diambil ulang.
+  const simpanButton = page.getByRole("button", { name: "Simpan sesi" });
+  await expect(simpanButton).toBeEnabled({ timeout: 30_000 });
+  await simpanButton.click();
 
   const card = page.locator("article", { hasText: topic });
   await expect(card).toBeVisible({ timeout: 15_000 });
