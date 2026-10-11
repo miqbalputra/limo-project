@@ -11,7 +11,7 @@ export default defineConfig({
   testIgnore: pwaProductionSpec,
   fullyParallel: false,
   forbidOnly: isCI,
-  retries: isCI ? 2 : 1,
+  retries: isCI ? 3 : 1,
   workers: 1,
   timeout: isCI ? 120_000 : 90_000,
   // Snapshot visual dipinding per-platform (berakhiran -win32, dibuat lokal);

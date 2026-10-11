@@ -3,6 +3,7 @@ import { loginViaForm, waitHydrated } from "./support/auth";
 
 test("Guru dapat membuat, mengubah, dan membatalkan sesi kelas", async ({ page }) => {
   test.setTimeout(240_000);
+  await page.request.get("/guru/sesi").catch(() => undefined);
   await loginViaForm(page, "guru@limo.local");
   await expect(page).toHaveURL(/\/guru$/, { timeout: 15_000 });
 
@@ -38,6 +39,9 @@ test("Guru dapat membuat, mengubah, dan membatalkan sesi kelas", async ({ page }
 
 test("Guru dapat mengoreksi esai dari antrean lalu merilis nilai", async ({ page }) => {
   test.setTimeout(180_000);
+  // Pre-warm kompilasi rute di CI — server dev per-spec mengompilasi setiap
+  // halaman dari nol; pancing dulu agar asersi tidak menanggung latensi.
+  await page.request.get("/guru/penilaian-esai").catch(() => undefined);
   await loginViaForm(page, "guru@limo.local");
   await expect(page).toHaveURL(/\/guru$/, { timeout: 15_000 });
 
