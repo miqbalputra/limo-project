@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { requestJson } from "@/lib/api-json-client";
+import { useDialogA11y } from "@/components/ui/use-dialog-a11y";
 import type { QuizFormState } from "@/lib/quiz-builder";
 import type { PreflightItem } from "@/components/forms-builder/form-state";
 
@@ -16,9 +17,12 @@ const THEME_COLORS = [
 ] as const;
 
 function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogA11y(dialogRef, onClose);
+
   return (
     <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-gray-950/40" role="presentation">
-      <aside role="dialog" aria-modal="true" aria-label={title} className="flex h-full w-full max-w-lg flex-col overflow-y-auto bg-white p-6 shadow-theme-xl">
+      <aside ref={dialogRef} role="dialog" aria-modal="true" aria-label={title} className="flex h-full w-full max-w-lg flex-col overflow-y-auto bg-white p-6 shadow-theme-xl">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
           <button type="button" onClick={onClose} aria-label="Tutup" className="grid size-9 place-items-center rounded-full text-gray-400 hover:bg-gray-100">✕</button>

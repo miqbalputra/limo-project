@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { formatUiLabel } from "@/lib/ui-labels";
 import { QUESTION_TYPE_VALUES, questionTypeMeta } from "@/lib/question-types";
@@ -8,6 +8,7 @@ import { CHOICE_TYPES, type QuizFormState, type QuizQuestion } from "@/lib/quiz-
 import { useFormBuilderStore } from "@/components/forms-builder/form-store";
 import { QuestionCard } from "@/components/forms-builder/question-card";
 import { BankSoalSheet, ImportSheet, PreflightSheet, SettingsSheet, ShareSheet } from "@/components/forms-builder/sheets";
+import { useDialogA11y } from "@/components/ui/use-dialog-a11y";
 import { ThemeHeaderPreview } from "@/components/forms-builder/theme";
 
 type SheetKind = null | "settings" | "preflight" | "share" | "bank" | "import";
@@ -242,9 +243,12 @@ export function FormsBuilder({ ujianId, status, shareToken, initial, kelasOption
 }
 
 function PreviewModal({ form, onClose }: { form: QuizFormState; onClose: () => void }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogA11y(dialogRef, onClose);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/50 p-4" role="presentation">
-      <section role="dialog" aria-modal="true" aria-label="Pratinjau formulir" className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-theme-xl">
+      <section ref={dialogRef} role="dialog" aria-modal="true" aria-label="Pratinjau formulir" className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-theme-xl">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
           <p className="text-theme-sm font-semibold text-gray-800">Pratinjau — seperti yang dilihat responden</p>
           <button type="button" onClick={onClose} aria-label="Tutup pratinjau" className="grid size-9 place-items-center rounded-full text-gray-400 hover:bg-gray-100">✕</button>

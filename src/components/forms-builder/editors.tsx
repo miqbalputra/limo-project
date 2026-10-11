@@ -38,6 +38,10 @@ export function OptionsEditor({ question, onPatch, onMoveOption, onUpdateOption,
           >
             {LABELS[index]}
           </span>
+          <span className="grid" aria-hidden="true">
+            <button type="button" onClick={() => onMoveOption(question.key, index, -1)} disabled={index === 0} aria-label={`Naikkan urutan opsi ${LABELS[index]}`} className="grid h-4 w-8 place-items-center rounded-t-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-25">▲</button>
+            <button type="button" onClick={() => onMoveOption(question.key, index, 1)} disabled={index === question.options.length - 1} aria-label={`Turunkan urutan opsi ${LABELS[index]}`} className="grid h-4 w-8 place-items-center rounded-b-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-25">▼</button>
+          </span>
           <input
             type={isCheckbox ? "checkbox" : "radio"}
             name={`correct-${question.key}`}
