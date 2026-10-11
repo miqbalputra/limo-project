@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-
+import { useCallback, useEffect, useRef, useState } from "react";
 export type HeroSlideData = {
   id: string;
   eyebrow?: string | null;
@@ -29,25 +28,37 @@ export function HeroCarousel({ slides }: { slides: HeroSlideData[] }) {
   const [hovering, setHovering] = useState(false);
   const regionRef = useRef<HTMLElement>(null);
   const reducedMotion = useRef(false);
+  // Hanya slide yang pernah aktif yang di-mount: browser tidak mengunduh
+  // gambar slide yang belum pernah ditampilkan (hemat kuota seluler).
+  const [mountedSlides, setMountedSlides] = useState<Set<number>>(() => new Set([0]));
+  const goTo = useCallback((next: number) => {
+    setActive(next);
+    setMountedSlides((previous) => {
+      if (previous.has(next)) return previous;
+      const updated = new Set(previous);
+      updated.add(next);
+      return updated;
+    });
+  }, []);
 
   useEffect(() => {
     reducedMotion.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "ArrowRight") setActive((value) => (value + 1) % items.length);
-      if (event.key === "ArrowLeft") setActive((value) => (value - 1 + items.length) % items.length);
-      if (event.key === "Home") setActive(0);
-      if (event.key === "End") setActive(items.length - 1);
+      if (event.key === "ArrowRight") goTo((active + 1) % items.length);
+      if (event.key === "ArrowLeft") goTo((active - 1 + items.length) % items.length);
+      if (event.key === "Home") goTo(0);
+      if (event.key === "End") goTo(items.length - 1);
     };
     const region = regionRef.current;
     region?.addEventListener("keydown", onKey);
     return () => region?.removeEventListener("keydown", onKey);
-  }, [items.length]);
+  }, [goTo, active, items.length]);
 
   useEffect(() => {
     if (paused || hovering || reducedMotion.current || items.length < 2) return;
-    const timer = window.setInterval(() => setActive((value) => (value + 1) % items.length), 7000);
+    const timer = window.setInterval(() => goTo((active + 1) % items.length), 7000);
     return () => window.clearInterval(timer);
-  }, [paused, hovering, items.length]);
+  }, [paused, hovering, items.length, goTo, active]);
 
   const activeSlide = items[active];
   const eyebrowLabel = activeSlide.eyebrow?.trim() ?? "";
@@ -70,20 +81,25 @@ export function HeroCarousel({ slides }: { slides: HeroSlideData[] }) {
     >
       {/* Gambar: band persegi di mobile (utuh, tanpa crop) → full-bleed di desktop */}
       {items.map((slide, index) => (
-        <div
-          key={slide.id}
-          aria-hidden={active !== index}
-          className={`w-full overflow-hidden aspect-square ${active === index ? "" : "hidden"} lg:absolute lg:inset-0 lg:block lg:aspect-auto lg:transition-opacity lg:duration-700 ${active === index ? "lg:opacity-100" : "lg:pointer-events-none lg:opacity-0"}`}
-        >
-          <picture>
-            <source media="(max-width: 1023px)" srcSet={slide.mobileImageUrl} />
-            <img
-              src={slide.desktopImageUrl}
-              alt=""
-              className={`h-full w-full object-cover object-center ${active === index ? "animate-hero-zoom" : ""}`}
-            />
-          </picture>
-        </div>
+        mountedSlides.has(index) ? (
+          <div
+            key={slide.id}
+            aria-hidden={active !== index}
+            className={`w-full overflow-hidden aspect-square ${active === index ? "" : "hidden"} lg:absolute lg:inset-0 lg:block lg:aspect-auto lg:transition-opacity lg:duration-700 ${active === index ? "lg:opacity-100" : "lg:pointer-events-none lg:opacity-0"}`}
+          >
+            <picture>
+              <source media="(max-width: 1023px)" srcSet={slide.mobileImageUrl} />
+              <img
+                src={slide.desktopImageUrl}
+                alt=""
+                loading={index === 0 ? "eager" : "lazy"}
+                fetchPriority={index === 0 ? "high" : undefined}
+                decoding="async"
+                className={`h-full w-full object-cover object-center ${active === index ? "animate-hero-zoom" : ""}`}
+              />
+            </picture>
+          </div>
+        ) : null
       ))}
 
       {/* Content — mobile: gambar di atas, teks ringkas di bawah | desktop: overlay kiri/kanan */}
@@ -118,14 +134,14 @@ export function HeroCarousel({ slides }: { slides: HeroSlideData[] }) {
         <div className="inline-flex w-full items-center justify-between gap-2 sm:w-auto sm:gap-3">
           <div role="group" aria-label="Pilih slide" className="flex items-center gap-1">
             {items.map((slide, index) => (
-              <button key={slide.id} type="button" aria-label={`Slide ${index + 1}: ${slide.eyebrow ?? slide.title}`} aria-current={active === index ? "true" : undefined} onClick={() => setActive(index)} className={`grid size-9 place-items-center rounded-full text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10 ${active === index ? controlActive : controlIdle}`}>{String(index + 1).padStart(2, "0")}</button>
+              <button key={slide.id} type="button" aria-label={`Slide ${index + 1}: ${slide.eyebrow ?? slide.title}`} aria-current={active === index ? "true" : undefined} onClick={() => goTo(index)} className={`grid size-9 place-items-center rounded-full text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10 ${active === index ? controlActive : controlIdle}`}>{String(index + 1).padStart(2, "0")}</button>
             ))}
           </div>
           <span className={`h-6 w-px ${controlDivider}`} aria-hidden="true" />
           <div className="flex items-center gap-1">
-            <button type="button" aria-label="Slide sebelumnya" onClick={() => setActive((value) => (value - 1 + items.length) % items.length)} className={`grid size-9 place-items-center rounded-full text-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10 ${controlIdle}`}>←</button>
+            <button type="button" aria-label="Slide sebelumnya" onClick={() => goTo((active - 1 + items.length) % items.length)} className={`grid size-9 place-items-center rounded-full text-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10 ${controlIdle}`}>←</button>
             <button type="button" aria-label={paused ? "Putar carousel" : "Jeda carousel"} onClick={() => setPaused((value) => !value)} className={`grid size-9 place-items-center rounded-full text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10 ${controlIdle}`}>{paused ? "▶" : "II"}</button>
-            <button type="button" aria-label="Slide berikutnya" onClick={() => setActive((value) => (value + 1) % items.length)} className={`grid size-9 place-items-center rounded-full text-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10 ${controlIdle}`}>→</button>
+            <button type="button" aria-label="Slide berikutnya" onClick={() => goTo((active + 1) % items.length)} className={`grid size-9 place-items-center rounded-full text-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-500 sm:size-10 ${controlIdle}`}>→</button>
           </div>
         </div>
       </div>

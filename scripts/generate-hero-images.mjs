@@ -21,8 +21,11 @@ const variants = [
   { order: 4, desktop: "landscape-4.png", mobile: "square-4.png" },
 ];
 
-const desktopSize = { width: 3520, height: 1980 };
-const mobileSize = { width: 2160, height: 2160 };
+// 2560×1440 (desktop) dan 1440×1440 (mobile) pada quality 75 memberi kualitas
+// retina dengan ukuran file ~10x lebih kecil daripada 3520×1980/2160×2160 q90
+// (dulu ~4,9 MB total per load hero — LCP mobile lambat).
+const desktopSize = { width: 2560, height: 1440 };
+const mobileSize = { width: 1440, height: 1440 };
 
 async function generate(source, target, size) {
   const sourcePath = resolve(sourceDirectory, source);
@@ -31,7 +34,7 @@ async function generate(source, target, size) {
   await sharp(sourcePath)
     .resize(size.width, size.height, { fit: "cover" })
     .sharpen({ sigma: 1.1, m1: 1, m2: 0.5, x1: 0.5, y2: 4, y3: 0 })
-    .webp({ quality: 90, effort: 6 })
+    .webp({ quality: 75, effort: 6 })
     .toFile(outputPath);
   return outputPath;
 }
