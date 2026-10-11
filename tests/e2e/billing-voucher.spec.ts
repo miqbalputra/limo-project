@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { PrismaClient } from "@prisma/client";
-import { loginViaForm } from "./support/auth";
+import { loginViaForm, sessionCookieFrom } from "./support/auth";
 
 const ORIGIN = "http://127.0.0.1:3000";
 
@@ -72,9 +72,9 @@ test("Admin membuat voucher, Wali memakainya, dan kuitansi PDF dapat diunduh", a
     headers: { Origin: ORIGIN },
   });
   expect(login.ok(), await login.text()).toBe(true);
-  const adminCookie = (login.headers()["set-cookie"] || "").match(/limo_session=([^;]+)/)?.[1];
-  expect(adminCookie).toBeTruthy();
-  await page.context().addCookies([{ name: "limo_session", value: adminCookie as string, domain: "127.0.0.1", path: "/" }]);
+  const adminSession = sessionCookieFrom(login);
+  expect(adminSession).toBeTruthy();
+  await page.context().addCookies([{ name: adminSession!.name, value: adminSession!.value, domain: "127.0.0.1", path: "/" }]);
 
   const reconcile = await page.request.post("/api/v1/admin/pembayaran/reconcile", {
     data: { tagihanId, reason: "Uji e2e kuitansi voucher" },

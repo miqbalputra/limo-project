@@ -14,6 +14,19 @@ function destinationFor(identifier: string) {
   return null;
 }
 
+/**
+ * Ekstrak cookie sesi dari respons login tanpa menebak namanya — nama
+ * mengikuti SESSION_COOKIE_NAME server (CI memakai limo_session_ci).
+ */
+export function sessionCookieFrom(response: { headers(): Record<string, string> }) {
+  const setCookie = (response.headers()["set-cookie"] || "").split("\n").find(Boolean) || "";
+  const [nameValue] = setCookie.split(";");
+  const separator = nameValue.indexOf("=");
+  const name = nameValue.slice(0, separator).trim();
+  const value = nameValue.slice(separator + 1).trim();
+  return name && value ? { name, value } : null;
+}
+
 export async function gotoLogin(page: Page) {
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "Sign In" })).toBeVisible();
@@ -38,9 +51,9 @@ export async function loginViaForm(page: Page, identifier: string, password = DE
     });
 
     if (response.ok()) {
-      const sessionCookie = (response.headers()["set-cookie"] || "").match(/limo_session=([^;]+)/)?.[1];
-      if (!sessionCookie) throw new Error(`Cookie sesi tidak diterima untuk ${identifier}`);
-      await page.context().addCookies([{ name: "limo_session", value: sessionCookie, domain: "127.0.0.1", path: "/" }]);
+      const session = sessionCookieFrom(response);
+      if (!session) throw new Error(`Cookie sesi tidak diterima untuk ${identifier}`);
+      await page.context().addCookies([{ name: session.name, value: session.value, domain: "127.0.0.1", path: "/" }]);
 
       const destination = destinationFor(identifier);
       if (!destination) {

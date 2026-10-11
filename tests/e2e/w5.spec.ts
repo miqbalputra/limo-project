@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { sessionCookieFrom } from "./support/auth";
 
 async function login(page: import("@playwright/test").Page, email: string) {
   await page.goto("/login");
@@ -7,9 +8,9 @@ async function login(page: import("@playwright/test").Page, email: string) {
     headers: { Origin: "http://127.0.0.1:3000" },
   });
   expect(response.ok(), await response.text()).toBe(true);
-  const sessionCookie = response.headers()["set-cookie"]?.match(/limo_session=([^;]+)/)?.[1];
-  expect(sessionCookie).toBeTruthy();
-  await page.context().addCookies([{ name: "limo_session", value: sessionCookie as string, domain: "127.0.0.1", path: "/" }]);
+  const session = sessionCookieFrom(response);
+  expect(session).toBeTruthy();
+  await page.context().addCookies([{ name: session!.name, value: session!.value, domain: "127.0.0.1", path: "/" }]);
   await page.goto("/wali");
 }
 
