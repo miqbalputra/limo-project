@@ -490,7 +490,9 @@ try {
   });
 
   let rateLimited = false;
-  for (let index = 0; index < 40 && !rateLimited; index += 1) {
+  // 80 iterasi (bukan 40): burst yang melintasi batas window tetap 15 menit
+  // (fixed-window) — dengan 80 percobaan, window kedua pasti mencapai limit.
+  for (let index = 0; index < 80 && !rateLimited; index += 1) {
     const response = await request("/api/v1/diskusi/threads", {
       method: "POST",
       cookie: outsiderCookie,
