@@ -365,10 +365,15 @@ async function startAttempt(params: {
       throw new ConflictError("Batas pengerjaan ujian sudah tercapai");
     }
 
+    // attemptNumber unik per (ujian, siswa) — unique constraint di DB membuat
+    // dua request paralel (double-click) tidak bisa sama-sama lolos hitungan.
+    const attemptNumber = (await tx.ujianAttempt.count({ where: { ujianId, siswaId } })) + 1;
+
     return tx.ujianAttempt.create({
       data: {
         ujianId,
         siswaId,
+        attemptNumber,
         startedByRole,
         ...(scope.kind === "WALI" ? { waliProfileId: scope.waliProfileId } : { siswaAccountId: scope.siswaAccountId }),
         status: "IN_PROGRESS",
@@ -376,6 +381,11 @@ async function startAttempt(params: {
       },
       select: { id: true },
     });
+  }).catch((error) => {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+      throw new ConflictError("Sesi pengerjaan bentrok dengan percobaan lain. Muat ulang halaman ujian");
+    }
+    throw error;
   });
 
   await prisma.auditLog.create({ data: { actorId: actor.id, action: "UJIAN_ATTEMPT_STARTED", entityType: "UjianAttempt", entityId: attempt.id } });

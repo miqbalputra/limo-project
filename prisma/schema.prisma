@@ -463,6 +463,7 @@ model Session {
   revokedById String?
 
   @@index([userId, expiresAt])
+  @@index([expiresAt])
 }
 
 model PasswordResetToken {
@@ -535,6 +536,7 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([actorId, createdAt])
+  @@index([createdAt])
 }
 
 model PaymentGatewayConfig {
@@ -1518,6 +1520,7 @@ model UjianAttempt {
   siswaAccountId String?
   siswaAccount   SiswaAccount? @relation(fields: [siswaAccountId], references: [id], onDelete: SetNull)
   startedByRole  String       @default("WALI") @db.VarChar(16)
+  attemptNumber  Int          @default(1)
   hasilUjianId   String?
   status         String       @default("IN_PROGRESS") @db.VarChar(32)
   startedAt      DateTime     @default(now())
@@ -1530,6 +1533,7 @@ model UjianAttempt {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
+  @@unique([ujianId, siswaId, attemptNumber])
   @@index([ujianId, siswaId])
   @@index([waliProfileId, status])
   @@index([siswaAccountId, status])
@@ -1685,6 +1689,7 @@ model Pembayaran {
   updatedAt         DateTime         @updatedAt
 
   @@index([tagihanId, status])
+  @@index([provider, status])
 }
 
 model WebhookEvent {
@@ -1714,6 +1719,8 @@ model Notifikasi {
   createdAt  DateTime               @default(now())
   updatedAt  DateTime               @updatedAt
   deliveries NotificationDelivery[]
+
+  @@index([status, createdAt])
 }
 
 model NotificationDelivery {
