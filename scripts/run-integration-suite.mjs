@@ -65,7 +65,10 @@ if (allRunners.length === 0) {
 // dianggap "terkonfigurasi" dan runner mengharapkan panggilan provider nyata.
 // Yang tetap diteruskan hanya MAYAR_WEBHOOK_SECRET, karena test webhook
 // mengirim secret via header.
-const { MAYAR_API_KEY, MAYAR_MERCHANT_ID, MAYAR_ENV, ...sanitizedProcessEnv } = process.env;
+const sanitizedProcessEnv = { ...process.env };
+delete sanitizedProcessEnv.MAYAR_API_KEY;
+delete sanitizedProcessEnv.MAYAR_MERCHANT_ID;
+delete sanitizedProcessEnv.MAYAR_ENV;
 const suiteEnv = {
   APP_URL: baseUrl,
   SESSION_SECRET: process.env.SESSION_SECRET || "integration-suite-session-secret-0123456789abcdef",
