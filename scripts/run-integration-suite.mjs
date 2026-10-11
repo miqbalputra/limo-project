@@ -58,11 +58,14 @@ if (allRunners.length === 0) {
 
 // Profil env mirror CI (.github/workflows/ci.yml): runner men-spawn script
 // child (reminders, billing) yang memvalidasi env secara ketat.
-// CATATAN: MAYAR_API_KEY sengaja TIDAK dipalsukan — cabang pembuatan invoice
+// CATATAN: kredensial provider Mayar (API key/merchant/env) dari operator atau
+// CI (mis. placeholder di ci.yml) SENGAJA disaring — cabang pembuatan invoice
 // Mayar pada runner memang harus skip bila kredensial nyata tidak tersedia
-// (MAYAR_BASE_URL CI adalah blackhole). Yang dipakai hanya webhook secret,
-// karena test webhook mengirim secret via header.
-// Nilai process.env tetap menang bila operator/CI sudah menyetel eksplisit.
+// (MAYAR_BASE_URL CI adalah blackhole). Tanpa penyaringan ini, placeholder
+// dianggap "terkonfigurasi" dan runner mengharapkan panggilan provider nyata.
+// Yang tetap diteruskan hanya MAYAR_WEBHOOK_SECRET, karena test webhook
+// mengirim secret via header.
+const { MAYAR_API_KEY, MAYAR_MERCHANT_ID, MAYAR_ENV, ...sanitizedProcessEnv } = process.env;
 const suiteEnv = {
   APP_URL: baseUrl,
   SESSION_SECRET: process.env.SESSION_SECRET || "integration-suite-session-secret-0123456789abcdef",
@@ -86,7 +89,7 @@ function runRunner(runnerFile, runnerIndex) {
   ], {
     cwd: rootDir,
     env: {
-      ...process.env,
+      ...sanitizedProcessEnv,
       ...suiteEnv,
       NODE_ENV: "test",
       // NODE_ENV=test membuat @next/env mengabaikan .env.local — DATABASE_URL
@@ -132,7 +135,7 @@ function startServer() {
   const child = spawn(npmCommand, ["run", "--silent", "dev", "--", "--port", port, "--hostname", "127.0.0.1"], {
     cwd: rootDir,
     env: {
-      ...process.env,
+      ...sanitizedProcessEnv,
       ...suiteEnv,
       NODE_ENV: "development",
     },
