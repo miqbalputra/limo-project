@@ -87,7 +87,22 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
 
       - name: Run normal end-to-end tests
-        run: npm run test:e2e
+        run: |
+          npm run test:e2e 2>&1 | tee /tmp/e2e-full.log
+          EXIT="${PIPESTATUS[0]}"
+          if [ "$EXIT" -ne 0 ]; then
+            tail -c 1800 /tmp/e2e-full.log | while IFS= read -r line; do echo "::error::E2E $line"; done
+          fi
+          exit "$EXIT"
+
+      - name: Diagnos webServer e2e (sementara — hapus setelah CI hijau)
+        if: ${{ failure() }}
+        run: |
+          DB="file:./e2e-debugci.db"
+          export DATABASE_URL="$DB" LIMO_SQLITE_DATABASE_URL="$DB" APP_URL="http://127.0.0.1:3000" NODE_ENV=development
+          timeout 20 npx next dev --port 3999 --hostname 127.0.0.1 > /tmp/dev-debug.log 2>&1 || true
+          grep -E "Ready|⨯|Error|EADDR|already running" /tmp/dev-debug.log | head -6 | while IFS= read -r line; do echo "::error::DEV $line"; done
+          ps aux | grep -E "next (dev|start)|next-server" | grep -v grep | head -5 | while IFS= read -r line; do echo "::error::PS $line"; done
 
       - name: Run production PWA end-to-end tests
         run: npm run test:e2e:pwa
