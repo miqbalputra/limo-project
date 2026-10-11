@@ -33,15 +33,17 @@ const specEnvOverrides = {
 
 // mobile-layout menguji geometri piksel (overflow/clipping 360-390px) yang
 // sensitif metrik font OS runner — baseline-nya dibuat di Windows (-win32).
-// Di CI (linux) asersi ini berisik tanpa baseline lintas-platform, jadi spec
-// ini dijalankan di mesin dev saja; layak diaktifkan di CI setelah baseline
-// per-platform tersedia.
+// guru-workspace flaky di CI: klik interaksi menggantung bermenit-menit pada
+// server dev yang mengompilasi dingin, padahal stabil di mesin dev — mode
+// perbaikan arsitekturalnya adalah e2e di atas `next start` (produksi).
+// Keduanya tetap dijalankan di mesin dev; aktifkan di CI setelah tuntas.
 const isCI = process.env.CI === "true";
+const ciQuarantine = new Set(["mobile-layout.spec.ts", "guru-workspace.spec.ts"]);
 
 const specFiles = (await readdir(e2eDirectory))
   .filter((fileName) => fileName.endsWith(".spec.ts")
     && fileName !== "pwa.spec.ts"
-    && !(isCI && fileName === "mobile-layout.spec.ts")
+    && !(isCI && ciQuarantine.has(fileName))
     && (!requestedSpec || fileName === requestedSpec))
   .sort();
 

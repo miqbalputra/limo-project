@@ -60,6 +60,7 @@ Dokumen ini mencatat gap MVP saat ini agar tidak dianggap selesai diam-diam.
 - **Dedup `formatDate`/`formatDateTime`** (±45 file dengan variasi tanda tangan): penyatuan buta berisiko mengubah format tampilan; butuh review per halaman.
 - **E2E browser-level untuk notifikasi/sertifikat/rapor**: modul tersebut sudah tercakup runner integrasi di CI; spec Playwright menyusul.
 - **Spec `mobile-layout.spec.ts` tidak berjalan di CI**: asersi geometri piksel (overflow 360-390px) sensitif metrik font OS — baseline snapshot-nya dibuat di Windows (-win32) dan render linux berbeda. Spec tetap lulus di mesin dev; aktifkan di CI setelah baseline snapshot per-platform tersedia (mis. generate di runner linux + cache).
+- **Spec `guru-workspace.spec.ts` dikarantina di CI (sementara)**: klik interaksinya menggantung bermenit-menit pada server dev yang mengompilasi dingin (flaky antar run; stabil di mesin dev). Dua kelas race sudah dibereskan (marker hidrasi + waitForResponse POST koreksi); perbaikan arsitektural yang tersisa adalah menjalankan e2e di atas `next start` (produksi) alih-alih `next dev`, atau server dev persisten untuk seluruh suite.
 - **Pemecahan service >1.300 baris** (quiz-builder, exam) dan dedup billing workspace admin/wali: refactor murni, jadwalkan pasca-UAT.
 - Nginx/PM2 config final belum dibuat sebagai file deploy siap pakai.
 - Domain/staging/credential provider masih open decision.
