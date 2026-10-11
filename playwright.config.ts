@@ -13,9 +13,11 @@ export default defineConfig({
   forbidOnly: isCI,
   retries: isCI ? 2 : 1,
   workers: 1,
-  timeout: 90_000,
+  timeout: isCI ? 120_000 : 90_000,
   expect: {
-    timeout: 15_000,
+    // Dev server di CI mengompilasi tiap halaman dari nol; beri anggaran
+    // lebih besar untuk toBeVisible/toHaveURL sebelum test dinyalakan.
+    timeout: isCI ? 40_000 : 15_000,
   },
   outputDir: "test-results/e2e",
   reporter: isCI

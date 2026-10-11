@@ -91,7 +91,10 @@ jobs:
           npm run test:e2e 2>&1 | tee /tmp/e2e-full.log
           EXIT="${PIPESTATUS[0]}"
           if [ "$EXIT" -ne 0 ]; then
-            grep -E "✘|[0-9]+ (failed|passed|flaky|did not run)" /tmp/e2e-full.log | tail -25 | while IFS= read -r line; do echo "::error::E2E $line"; done
+            grep -E "✘|[0-9]+ (failed|passed|flaky|did not run)" /tmp/e2e-full.log | tail -15 | while IFS= read -r line; do echo "::error::E2E $line"; done
+            for ctx in $(find test-results -name "error-context.md" | head -2); do
+              sed -n '/# Error details/,/```yaml/p' "$ctx" | head -14 | while IFS= read -r line; do echo "::error::CTX $line"; done
+            done
           fi
           exit "$EXIT"
 
