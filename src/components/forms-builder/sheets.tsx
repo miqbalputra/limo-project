@@ -4,17 +4,24 @@ import { useEffect, useRef, useState } from "react";
 import { requestJson } from "@/lib/api-json-client";
 import { useDialogA11y } from "@/components/ui/use-dialog-a11y";
 import type { QuizFormState } from "@/lib/quiz-builder";
+import { QUIZ_THEME_HEX } from "@/lib/quiz-theme";
 import type { PreflightItem } from "@/components/forms-builder/form-state";
 
-const THEME_COLORS = [
-  { value: "blue", label: "Biru", hex: "#465fff" },
-  { value: "green", label: "Hijau", hex: "#12b76a" },
-  { value: "purple", label: "Ungu", hex: "#7a5af8" },
-  { value: "orange", label: "Oranye", hex: "#f79009" },
-  { value: "red", label: "Merah", hex: "#f04438" },
-  { value: "teal", label: "Teal", hex: "#15b79e" },
-  { value: "slate", label: "Abu", hex: "#475467" },
-] as const;
+const THEME_LABELS: Record<string, string> = {
+  blue: "Biru",
+  green: "Hijau",
+  purple: "Ungu",
+  orange: "Oranye",
+  red: "Merah",
+  teal: "Teal",
+  slate: "Abu",
+};
+
+const THEME_COLORS = Object.entries(QUIZ_THEME_HEX).map(([value, hex]) => ({
+  value,
+  label: THEME_LABELS[value] ?? value,
+  hex,
+}));
 
 function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   const dialogRef = useRef<HTMLElement>(null);

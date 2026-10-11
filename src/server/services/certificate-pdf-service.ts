@@ -8,10 +8,11 @@ import type { Actor } from "@/server/auth/session";
 import { getEnv } from "@/server/env";
 import { getSertifikatForActor } from "@/server/services/certificate-service";
 import { getSchoolSetting } from "@/server/services/settings-service";
+import { LIMO_MEDIA_COLORS } from "@/lib/limo-brand";
 
-const INK = "#101828";
-const MUTED = "#667085";
-const ACCENT = "#2372B8";
+const INK = LIMO_MEDIA_COLORS.text;
+const MUTED = LIMO_MEDIA_COLORS.muted;
+const ACCENT = LIMO_MEDIA_COLORS.primary;
 const ARABIC_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 
 const bidi = bidiFactory();

@@ -6,10 +6,11 @@ import { ConflictError, ForbiddenError, NotFoundError } from "@/server/errors/ap
 import { canAccessInvoice } from "@/server/policies/access-policy";
 import { getSchoolSetting } from "@/server/services/settings-service";
 import { formatRupiah } from "@/lib/money";
+import { LIMO_MEDIA_COLORS } from "@/lib/limo-brand";
 
-const INK = "#101828";
-const MUTED = "#667085";
-const ACCENT = "#2372B8";
+const INK = LIMO_MEDIA_COLORS.text;
+const MUTED = LIMO_MEDIA_COLORS.muted;
+const ACCENT = LIMO_MEDIA_COLORS.primary;
 
 type ReceiptInput = {
   schoolName: string;
@@ -58,7 +59,7 @@ export async function buildReceiptPdf(input: ReceiptInput) {
   doc.font("Helvetica").fontSize(11).fillColor(INK).text(`${input.studentNumber} / ${input.programName}`, 210, y, { width: width - 160 });
 
   y += 30;
-  doc.rect(50, y, width, 24).fillColor("#F2F4F7").fill();
+  doc.rect(50, y, width, 24).fillColor(LIMO_MEDIA_COLORS.surfaceMuted).fill();
   doc.fillColor(MUTED).font("Helvetica-Bold").fontSize(10).text("Rincian", 58, y + 7, { width: 300 });
   doc.text("Nominal", 50, y + 7, { width: width + 42, align: "right" });
   y += 24;
@@ -67,7 +68,7 @@ export async function buildReceiptPdf(input: ReceiptInput) {
     doc.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(11).fillColor(INK).text(label, 58, y + 8, { width: 300 });
     doc.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(11).fillColor(INK).text(value, 50, y + 8, { width: width + 42, align: "right" });
     y += 24;
-    doc.moveTo(50, y).lineTo(50 + width, y).lineWidth(0.5).strokeColor("#EAECF0").stroke();
+    doc.moveTo(50, y).lineTo(50 + width, y).lineWidth(0.5).strokeColor(LIMO_MEDIA_COLORS.border).stroke();
   };
 
   writeRow(`Tagihan ${input.jenis} / ${input.periodeLabel}`, formatRupiah(input.subtotal));

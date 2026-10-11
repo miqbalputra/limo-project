@@ -4,14 +4,15 @@ import { apiError } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
 import { getInvoiceData, type InvoiceData } from "@/server/services/invoice-pdf-service";
 import { formatRupiah } from "@/lib/money";
+import { LIMO_MEDIA_COLORS } from "@/lib/limo-brand";
 
 export const runtime = "nodejs";
 
-const INK = "#101828";
-const MUTED = "#667085";
-const ACCENT = "#2372B8";
-const SUCCESS = "#027A48";
-const DANGER = "#B42318";
+const INK = LIMO_MEDIA_COLORS.text;
+const MUTED = LIMO_MEDIA_COLORS.muted;
+const ACCENT = LIMO_MEDIA_COLORS.primary;
+const SUCCESS = LIMO_MEDIA_COLORS.successText;
+const DANGER = LIMO_MEDIA_COLORS.dangerText;
 
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
@@ -24,7 +25,7 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 
 function AmountRow({ label, value, bold = false }: { label: string; value: string; bold?: boolean }) {
   return (
-    <div style={{ display: "flex", borderTop: "1px solid #EAECF0", paddingTop: 12, paddingBottom: 12 }}>
+    <div style={{ display: "flex", borderTop: `1px solid ${LIMO_MEDIA_COLORS.border}`, paddingTop: 12, paddingBottom: 12 }}>
       <div style={{ display: "flex", flex: 1, fontSize: bold ? 24 : 20, fontWeight: bold ? 700 : 400, color: INK }}>{label}</div>
       <div style={{ display: "flex", fontSize: bold ? 24 : 20, fontWeight: bold ? 700 : 400, color: INK }}>{value}</div>
     </div>
@@ -33,7 +34,7 @@ function AmountRow({ label, value, bold = false }: { label: string; value: strin
 
 function InvoiceImage({ data }: { data: InvoiceData }) {
   return (
-    <div style={{ backgroundColor: "#FFFFFF", color: INK, display: "flex", flexDirection: "column", height: "100%", padding: 64, width: "100%" }}>
+    <div style={{ backgroundColor: LIMO_MEDIA_COLORS.white, color: INK, display: "flex", flexDirection: "column", height: "100%", padding: 64, width: "100%" }}>
       <div style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ color: MUTED, display: "flex", fontSize: 20, fontWeight: 700, letterSpacing: 3 }}>{data.schoolName.toUpperCase()}</div>
         <div style={{ display: "flex", fontSize: 52, fontWeight: 800, marginTop: 8 }}>INVOICE / TAGIHAN</div>
@@ -53,7 +54,7 @@ function InvoiceImage({ data }: { data: InvoiceData }) {
         <MetaRow label="Jatuh tempo" value={data.dueDateLabel} />
         <div style={{ alignItems: "center", display: "flex", fontSize: 20, marginBottom: 8 }}>
           <div style={{ display: "flex", width: 220, color: MUTED }}>Status</div>
-          <div style={{ backgroundColor: data.isPaid ? "#D1FADF" : "#FEE4E2", borderRadius: 999, color: data.isPaid ? SUCCESS : DANGER, display: "flex", fontSize: 18, fontWeight: 700, paddingBottom: 6, paddingLeft: 16, paddingRight: 16, paddingTop: 6 }}>
+          <div style={{ backgroundColor: data.isPaid ? LIMO_MEDIA_COLORS.successPillBg : LIMO_MEDIA_COLORS.dangerPillBg, borderRadius: 999, color: data.isPaid ? SUCCESS : DANGER, display: "flex", fontSize: 18, fontWeight: 700, paddingBottom: 6, paddingLeft: 16, paddingRight: 16, paddingTop: 6 }}>
             {data.statusLabel.toUpperCase()}
           </div>
         </div>
@@ -67,13 +68,13 @@ function InvoiceImage({ data }: { data: InvoiceData }) {
 
       <div style={{ display: "flex", flexDirection: "column", marginTop: 28 }}>
         {data.isPaid ? (
-          <div style={{ backgroundColor: "#ECFDF3", borderRadius: 16, display: "flex", flexDirection: "column", padding: 20 }}>
+          <div style={{ backgroundColor: LIMO_MEDIA_COLORS.successTintBg, borderRadius: 16, display: "flex", flexDirection: "column", padding: 20 }}>
             <div style={{ color: SUCCESS, display: "flex", fontSize: 22, fontWeight: 700 }}>Sudah dibayar</div>
             {data.paidAtLabel ? <div style={{ display: "flex", fontSize: 18, marginTop: 6 }}>Dibayar pada {data.paidAtLabel}</div> : null}
             {data.paymentProvider ? <div style={{ display: "flex", fontSize: 18, marginTop: 4 }}>Metode: {data.paymentProvider.toUpperCase()}{data.paymentMethod ? ` / ${data.paymentMethod}` : ""}</div> : null}
           </div>
         ) : (
-          <div style={{ backgroundColor: "#EFF8FF", borderRadius: 16, display: "flex", flexDirection: "column", padding: 20 }}>
+          <div style={{ backgroundColor: LIMO_MEDIA_COLORS.infoTintBg, borderRadius: 16, display: "flex", flexDirection: "column", padding: 20 }}>
             <div style={{ color: ACCENT, display: "flex", fontSize: 22, fontWeight: 700 }}>Cara pembayaran</div>
             <div style={{ display: "flex", fontSize: 18, lineHeight: 1.5, marginTop: 6 }}>
               Buka halaman Tagihan di portal Wali LIMO, pilih tagihan ini, lalu lanjutkan pembayaran melalui kanal yang tersedia.

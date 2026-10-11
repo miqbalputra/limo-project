@@ -7,19 +7,11 @@ import PDFDocument from "pdfkit/js/pdfkit.standalone.js";
 import type { Actor } from "@/server/auth/session";
 import { getQuizForm } from "@/server/services/quiz-builder-service";
 import { getQuizMedia } from "@/server/services/quiz-media-service";
+import { QUIZ_THEME_HEX } from "@/lib/quiz-theme";
+import { LIMO_MEDIA_COLORS } from "@/lib/limo-brand";
 
-const THEME_HEX: Record<string, string> = {
-  blue: "#465fff",
-  green: "#12b76a",
-  purple: "#7a5af8",
-  orange: "#f79009",
-  red: "#f04438",
-  teal: "#15b79e",
-  slate: "#475467",
-};
-
-const INK = "#101828";
-const MUTED = "#667085";
+const INK = LIMO_MEDIA_COLORS.text;
+const MUTED = LIMO_MEDIA_COLORS.muted;
 const MARGIN = 50;
 const PAGE_WIDTH = 595.28;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
@@ -108,7 +100,7 @@ function drawImage(doc: PDFKit.PDFDocument, bytes: Buffer, x: number, y: number,
 
 export async function createQuizPdf(actor: Actor, ujianId: string, options: { withKey?: boolean } = {}) {
   const { item } = await getQuizForm(actor, ujianId);
-  const accent = THEME_HEX[item.themeColor] ?? THEME_HEX.blue;
+  const accent = QUIZ_THEME_HEX[item.themeColor] ?? QUIZ_THEME_HEX.blue;
 
   const doc = new PDFDocument({ size: "A4", margin: MARGIN, bufferPages: true, info: { Title: item.title, Author: "LIMO" } });
   registerFonts(doc);

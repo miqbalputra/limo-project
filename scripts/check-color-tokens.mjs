@@ -6,7 +6,10 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const sourceDir = path.join(rootDir, "src");
 const allowedFiles = new Set([
   "src/app/globals.css",
+  // Berkas palet: token UI LIMO dan palet tema kuis (fitur produk, bukan
+  // token UI) adalah satu-satunya sumber hex yang sah — konsumen wajib impor.
   "src/lib/limo-brand.ts",
+  "src/lib/quiz-theme.ts",
 ]);
 const sourceExtensions = new Set([".css", ".ts", ".tsx"]);
 const hexColor = /#[0-9a-fA-F]{3,8}\b/g;
