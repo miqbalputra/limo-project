@@ -480,6 +480,22 @@ export async function getSiswa(actor: Actor, id: string) {
   return { item };
 }
 
+// Sinkron akun login siswa dengan status profilnya: siswa yang diarsipkan
+// tidak boleh tetap bisa login (selaras archiveGuru/archiveWali).
+async function deactivateSiswaLogin(tx: Prisma.TransactionClient, siswaId: string, revokedById: string) {
+  const account = await tx.siswaAccount.findUnique({ where: { siswaId }, select: { userId: true } });
+  if (!account) return;
+  const now = new Date();
+  await tx.session.updateMany({ where: { userId: account.userId, revokedAt: null }, data: { revokedAt: now, revokedById } });
+  await tx.user.update({ where: { id: account.userId }, data: { status: "INACTIVE", deletedAt: now } });
+}
+
+async function activateSiswaLogin(tx: Prisma.TransactionClient, siswaId: string) {
+  const account = await tx.siswaAccount.findUnique({ where: { siswaId }, select: { userId: true } });
+  if (!account) return;
+  await tx.user.update({ where: { id: account.userId }, data: { status: "ACTIVE", deletedAt: null } });
+}
+
 export async function updateSiswa(actor: Actor, id: string, input: unknown) {
   await requirePermission(actor, "admin.people.manage");
   const parsed = updateSiswaSchema.safeParse(input);
@@ -488,7 +504,7 @@ export async function updateSiswa(actor: Actor, id: string, input: unknown) {
     throw new ValidationError("Data siswa belum valid", parsed.error.flatten().fieldErrors);
   }
 
-  const existing = await prisma.siswa.findUnique({ where: { id }, select: { id: true, programId: true } });
+  const existing = await prisma.siswa.findUnique({ where: { id }, select: { id: true, programId: true, status: true } });
   if (!existing) throw new NotFoundError("Siswa tidak ditemukan");
 
   const item = await prisma.$transaction(async (tx) => {
@@ -513,6 +529,11 @@ export async function updateSiswa(actor: Actor, id: string, input: unknown) {
         deletedAt: parsed.data.status === "ARCHIVED" ? new Date() : null,
       },
     });
+    if (parsed.data.status === "ARCHIVED" && existing.status !== "ARCHIVED") {
+      await deactivateSiswaLogin(tx, id, actor.id);
+    } else if (parsed.data.status === "ACTIVE" && existing.status === "ARCHIVED") {
+      await activateSiswaLogin(tx, id);
+    }
     await tx.auditLog.create({ data: { actorId: actor.id, action: "SISWA_UPDATED", entityType: "Siswa", entityId: id } });
     return updated;
   });
@@ -529,6 +550,7 @@ export async function archiveSiswa(actor: Actor, id: string) {
     if (!existing) throw new NotFoundError("Siswa tidak ditemukan");
     await tx.kelasSiswa.updateMany({ where: { siswaId: id, status: "ACTIVE" }, data: { status: "CANCELLED", endDate: now } });
     const archived = await tx.siswa.update({ where: { id }, data: { status: "ARCHIVED", deletedAt: now } });
+    await deactivateSiswaLogin(tx, id, actor.id);
     await tx.auditLog.create({ data: { actorId: actor.id, action: "SISWA_ARCHIVED", entityType: "Siswa", entityId: id } });
     return archived;
   });
@@ -538,10 +560,14 @@ export async function archiveSiswa(actor: Actor, id: string) {
 
 export async function restoreSiswa(actor: Actor, id: string) {
   await requirePermission(actor, "admin.people.manage");
-  const item = await prisma.siswa.update({ where: { id }, data: { status: "ACTIVE", deletedAt: null } }).catch(() => {
-    throw new NotFoundError("Siswa tidak ditemukan");
+  const item = await prisma.$transaction(async (tx) => {
+    const restored = await tx.siswa.update({ where: { id }, data: { status: "ACTIVE", deletedAt: null } }).catch(() => {
+      throw new NotFoundError("Siswa tidak ditemukan");
+    });
+    await activateSiswaLogin(tx, id);
+    await tx.auditLog.create({ data: { actorId: actor.id, action: "SISWA_RESTORED", entityType: "Siswa", entityId: id } });
+    return restored;
   });
-  await prisma.auditLog.create({ data: { actorId: actor.id, action: "SISWA_RESTORED", entityType: "Siswa", entityId: id } });
   return { item };
 }
 
