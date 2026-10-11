@@ -15,3 +15,17 @@ prisma/*.db
 prisma/*.db-journal
 free-react-tailwind-admin-dashboard-main/node_modules
 free-react-tailwind-admin-dashboard-main/.git
+backups/
+docs/
+masalah/
+deploy/
+limo_image/
+.github/
+tests/
+playwright-report/
+playwright-report-pwa/
+test-results/
+*.zip
+*.md
+!README.md
+free-react-tailwind-admin-dashboard-main/

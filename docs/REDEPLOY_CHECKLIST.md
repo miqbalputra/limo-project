@@ -83,7 +83,8 @@ Cron **tidak terpasang otomatis** oleh redeploy — verifikasi justru bagian dar
 
 ## 7. Rollback singkat
 
-1. Stop service web.
-2. Restore backup database terakhir.
-3. Deploy ulang image release sebelumnya.
-4. Cek `/api/health/ready`, lalu smoke test ringkas.
+1. **Tag setiap release sebelum deploy** agar rollback reproducible: `git tag release-$(date +%Y%m%d-%H%M) && git push --tags`. Catat tag di catatan deploy.
+2. Stop service web.
+3. Restore backup database terakhir (bila skema ikut bermasalah; migrasi bersifat additive sehingga biasanya cukup rollback kode).
+4. Deploy ulang dari tag release sebelumnya (Dokploy: pilih branch/commit tag di deploy settings, atau `git checkout <tag>` bila build dari source).
+5. Cek `/api/health/ready`, lalu smoke test ringkas.

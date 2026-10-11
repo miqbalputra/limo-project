@@ -46,10 +46,20 @@ Dokumen ini mencatat gap MVP saat ini agar tidak dianggap selesai diam-diam.
 
 ## Operasional
 
-- Backup/restore terjadwal, SQL import, ZIP checksum, dan endpoint n8n sudah tersedia; belum diuji nyata terhadap MariaDB staging serta storage off-site. Variabel `BACKUP_OFFSITE_*` kini tercantum di `.env.dokploy*.example` dan diteruskan `docker-compose.dokploy.yml` — wajib diisi di produksi agar backup tidak hanya ada di VPS yang sama dengan database.
+- Backup/restore terjadwal, SQL import, ZIP checksum, dan endpoint n8n sudah tersedia; belum diuji nyata terhadap MariaDB staging serta storage off-site. Variabel `BACKUP_OFFSITE_*` kini tercantum di `.env.dokploy*.example` dan diteruskan `docker-compose.dokploy.yml` — wajib diisi di produksi agar backup tidak hanya ada di VPS yang sama dengan database. Kegagalan backup kini juga memunculkan alert in-app di dashboard Admin (`docs/OBSERVABILITY.md`).
 - Jadwal cron lengkap (11 job, termasuk `mayar:reconcile`/`pakasir:reconcile`) ada di `deploy/cron/limo.crontab` + `docs/DEPLOYMENT.md`. Cron TIDAK terpasang otomatis saat redeploy — verifikasi ada di `docs/REDEPLOY_CHECKLIST.md` bagian 5.
-- `/api/health` menampilkan `build.sha`/`build.builtAt` (dari build args `LIMO_BUILD_SHA`/`LIMO_BUILD_TIME`) untuk mendeteksi build stale; Dockerfile sudah siap, Dokploy perlu meneruskan build args.
+- `/api/health` menampilkan `build.sha`/`build.builtAt` (dari build args `LIMO_BUILD_SHA`/`LIMO_BUILD_TIME`) untuk mendeteksi build stale; Dockerfile sudah siap, Dokploy perlu meneruskan build args. CMD sekarang menjalankan `next start` langsung via node agar SIGTERM sampai ke Next (graceful shutdown).
+- Runner image kini memakai `npm ci --omit=dev` (stage `prod-deps`) + `.dockerignore` mengecualikan docs/tests/zip — `prisma` CLI dipindah ke dependencies karena dipakai `migrate deploy` saat start.
 - Arsip siswa kini menonaktifkan akun login (User INACTIVE + sesi dicabut), selaras arsip guru/wali; arsip lewat PATCH status siswa dan pulih/restore juga menyesuaikan akun.
+- Index untuk tabel besar (Notifikasi, AuditLog, Session, Pembayaran) ditambahkan via migration `20261011020000`; `UjianAttempt.attemptNumber` unik per (ujian, siswa) via `20261011030000` menutup race maxAttempts.
+- Dialog builder kuis (Sheet/pratinjau) kini punya Escape + focus trap + pemulihan fokus (`useDialogA11y`); reorder opsi jawaban punya tombol naik/turun keyboard.
+
+## Backlog yang disengaja (dari audit P2, risiko > nilai sebelum UAT)
+
+- **Konversi status varchar → enum DB** (`QuizResponse.status`, `UjianAttempt.status`, `Pembayaran.provider`): menyentuh data produksi; integritas sudah dijaga layer service. Kerjakan setelah UAT dengan audit data dulu.
+- **Dedup `formatDate`/`formatDateTime`** (±45 file dengan variasi tanda tangan): penyatuan buta berisiko mengubah format tampilan; butuh review per halaman.
+- **E2E browser-level untuk notifikasi/sertifikat/rapor**: modul tersebut sudah tercakup runner integrasi di CI; spec Playwright menyusul.
+- **Pemecahan service >1.300 baris** (quiz-builder, exam) dan dedup billing workspace admin/wali: refactor murni, jadwalkan pasca-UAT.
 - Nginx/PM2 config final belum dibuat sebagai file deploy siap pakai.
 - Domain/staging/credential provider masih open decision.
 

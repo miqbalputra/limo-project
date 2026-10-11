@@ -184,6 +184,14 @@ export async function reconcilePendingMayarPayments(input: { dryRun?: boolean; l
         metadata: { dryRun: false, limit, checked, errors: errors.slice(0, 10) },
       },
     });
+    if (failed > 0) {
+      await notifyAdmins({
+        template: "job-failure",
+        subject: `Rekonsiliasi Mayar: ${failed} pembayaran gagal dicek`,
+        body: `Rekonsiliasi otomatis Mayar gagal memproses ${failed} pembayaran. Contoh: ${errors.slice(0, 3).join(" | ").slice(0, 400)}. Detail lengkap di /admin → jejak JobRun.`,
+        metadata: { source: "reconcile-mayar", failed },
+      }).catch(() => undefined);
+    }
   }
 
   return { checked, paid, expired, skipped, failed, errors, dryRun: Boolean(input.dryRun) };
@@ -253,6 +261,30 @@ export async function reconcilePendingPakasirPayments(input: { dryRun?: boolean;
     } catch (error) {
       failed += 1;
       errors.push(`${payment.tagihanId}: ${error instanceof Error ? error.message : "Gagal membaca transaksi Pakasir"}`);
+    }
+  }
+
+  if (!input.dryRun) {
+    // Paritas JobRun dengan Mayar: jejak operasional reconcile Pakasir.
+    await prisma.jobRun.create({
+      data: {
+        name: "reconcile-pakasir-payments",
+        status: failed > 0 ? "FAILED" : "SUCCESS",
+        finishedAt: new Date(),
+        successCount: paid + expired,
+        skippedCount: skipped,
+        failedCount: failed,
+        errorMessage: errors.length > 0 ? errors.slice(0, 10).join("; ").slice(0, 2000) : undefined,
+        metadata: { dryRun: false, limit, checked, errors: errors.slice(0, 10) },
+      },
+    });
+    if (failed > 0) {
+      await notifyAdmins({
+        template: "job-failure",
+        subject: `Rekonsiliasi Pakasir: ${failed} transaksi gagal dicek`,
+        body: `Rekonsiliasi otomatis Pakasir gagal memproses ${failed} transaksi. Contoh: ${errors.slice(0, 3).join(" | ").slice(0, 400)}. Detail lengkap di /admin → jejak JobRun.`,
+        metadata: { source: "reconcile-pakasir", failed },
+      }).catch(() => undefined);
     }
   }
 

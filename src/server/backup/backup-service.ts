@@ -7,6 +7,7 @@ import { chmod, cp, mkdir, readdir, readFile, rm, stat, writeFile } from "node:f
 import path from "node:path";
 import { promisify } from "node:util";
 import { getEnv } from "@/server/env";
+import { notifyAdmins } from "@/server/services/notification-service";
 import { readBackupOffsiteConfig, uploadBackupOffsite, type OffsiteUploadStatus } from "./offsite.ts";
 
 const execFileAsync = promisify(execFile);
@@ -277,6 +278,30 @@ export async function createBackup(): Promise<BackupResult> {
 }
 
 export type BackupWithOffsiteResult = BackupResult & { offsite: OffsiteUploadStatus };
+
+// Alerting in-app: backup bermasalah tidak boleh hanya hidup di log cron —
+// admin melihat peringatannya langsung di pusat notifikasi dashboard.
+// dedupeKey otomatis (template|email|body) membuat peringatan permanen
+// (mis. off-site belum dikonfigurasi) tidak menumpuk.
+export async function notifyBackupOutcome(result: BackupWithOffsiteResult) {
+  if (!result.offsite.configured) {
+    await notifyAdmins({
+      template: "backup-warning",
+      subject: "Backup harian berhasil TANPA salinan off-site",
+      body: "Backup lokal berhasil dibuat, tetapi BACKUP_OFFSITE_* belum dikonfigurasi — salinan hanya ada di VPS yang sama dengan database. Segera isi konfigurasi off-site (lihat docs/BACKUP_RESTORE.md).",
+      metadata: { source: "backup", backupId: result.id },
+    });
+    return;
+  }
+  if (!result.offsite.uploaded) {
+    await notifyAdmins({
+      template: "backup-failure",
+      subject: "Unggah backup off-site GAGAL",
+      body: `Backup lokal berhasil tetapi unggah off-site gagal: ${result.offsite.error ?? "penyebab tidak diketahui"}. Periksa kredensial BACKUP_OFFSITE_* dan jaringan.`,
+      metadata: { source: "backup", backupId: result.id },
+    });
+  }
+}
 
 export async function createBackupAndUpload(): Promise<BackupWithOffsiteResult> {
   const result = await createBackup();

@@ -11,6 +11,12 @@ FROM base AS deps
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# Dependency runtime saja (tanpa dev/test) untuk stage runner — image jauh
+# lebih kecil dan tidak membawa tooling build.
+FROM base AS prod-deps
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
 FROM base AS builder
 ENV APP_URL=http://localhost:3000
 ENV DATABASE_URL=mysql://limo:limo@localhost:3306/limo_db
@@ -39,6 +45,8 @@ RUN groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 nextjs
 
 COPY --from=builder --chown=nextjs:nodejs /app ./
+# Timpa node_modules dengan versi prod-only (tanpa dev/test dependencies).
+COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
 
 RUN chmod +x /app/docker-entrypoint.sh \
@@ -55,4 +63,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
   CMD node -e "fetch('http://127.0.0.1:3000/api/health/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["npm", "run", "start"]
+# next start langsung via node (bukan npm) agar SIGTERM dari `docker stop`
+# sampai ke Next dan request in-flight selesai dulu (graceful shutdown).
+CMD ["node", "node_modules/next/dist/bin/next", "start"]

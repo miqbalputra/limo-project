@@ -126,6 +126,7 @@ Jadwal final harus mengikuti timezone operasional `Asia/Jakarta` dan kebijakan b
 - `docs/BACKUP_RESTORE.md`
 - `docs/DEPLOYMENT_CHECKLIST.md`
 - `docs/DOKPLOY.md`
+- `docs/OBSERVABILITY.md`
 - `docs/ROLE_ACCESS_MATRIX.md`
 - `docs/UAT_SCRIPT.md`
 - `docs/KNOWN_LIMITATIONS.md`
