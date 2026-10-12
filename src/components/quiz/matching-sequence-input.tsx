@@ -119,7 +119,7 @@ export function MatchingInput({
                 }}
                 disabled={selectedRight === null}
                 aria-label={`Jodoh untuk soal ${leftIndex + 1}${matched ? ", sudah dipasangkan" : ", belum dipasangkan"}`}
-                className={`mt-2 flex w-full items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-start text-theme-sm transition ${matched ? "border-solid border-gray-200 bg-gray-50 text-gray-700" : "border-gray-300 text-gray-400"} ${selectedRight !== null ? "cursor-pointer hover:border-limo-blue-400 hover:bg-limo-blue-50" : "cursor-default"}`}
+                className={`mt-2 flex min-h-12 w-full items-center gap-2 rounded-xl border-2 border-dashed px-3 py-2.5 text-start text-theme-sm transition ${matched ? "border-solid border-gray-200 bg-gray-50 text-gray-700" : "border-gray-300 text-gray-400"} ${selectedRight !== null ? "cursor-pointer hover:border-limo-blue-400 hover:bg-limo-blue-50" : "cursor-default"}`}
               >
                 {matched ? (
                   <>
@@ -131,7 +131,7 @@ export function MatchingInput({
                     {!matched.text && !matched.mediaUrl ? <span>(kosong)</span> : null}
                   </>
                 ) : (
-                  <span>{selectedRight !== null ? "Klik untuk memasangkan jodoh terpilih" : "Tarik kartu jodoh ke sini"}</span>
+                  <span>{selectedRight !== null ? "Ketuk untuk memasangkan kartu terpilih ✓" : "Ketuk kartu jodoh di samping, lalu ketuk kotak ini"}</span>
                 )}
               </button>
               {matched ? (
@@ -170,11 +170,11 @@ export function MatchingInput({
               role="button"
               tabIndex={0}
               aria-pressed={selected}
-              aria-label={`Jodoh ${displayIndex + 1}. Tekan untuk memilih, lalu tekan kartu soal tujuan.`}
-              className={`cursor-grab rounded-xl p-3 ring-1 transition active:cursor-grabbing ${selected ? "bg-limo-blue-50 ring-limo-blue-400" : dragRight === rightIndex ? "bg-gray-50 ring-gray-300 opacity-60" : "bg-gray-50 ring-gray-200 hover:ring-gray-300"}`}
+              aria-label={`Jodoh ${displayIndex + 1}. Tekan untuk memilih, lalu tekan kotak soal tujuan.`}
+              className={`cursor-pointer rounded-xl p-3.5 ring-2 transition active:scale-[0.98] ${selected ? "bg-limo-blue-50 ring-limo-blue-400" : dragRight === rightIndex ? "bg-gray-50 ring-gray-300 opacity-60" : "bg-gray-50 ring-gray-200 hover:ring-gray-300"}`}
             >
               <div className="flex items-center gap-2">
-                <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-full bg-white text-theme-xs font-bold text-gray-600 ring-1 ring-gray-200">{displayIndex + 1}</span>
+                <span aria-hidden="true" className="grid size-7 shrink-0 place-items-center rounded-full bg-white text-theme-xs font-bold text-gray-600 ring-1 ring-gray-200">{displayIndex + 1}</span>
                 {pair.rightMediaUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={pair.rightMediaUrl} alt={`Jodoh ${displayIndex + 1}`} className="max-h-20 rounded-lg object-contain ring-1 ring-gray-100" />
@@ -265,13 +265,13 @@ export function SequenceInput({
               <option key={choiceIndex} value={items[choiceIndex]}>{items[choiceIndex] || `Item ${choiceIndex + 1}`}</option>
             ))}
           </select>
-          <div className="flex shrink-0 flex-col">
+          <div className="flex shrink-0 flex-col gap-0.5">
             <button
               type="button"
               onClick={() => move(index, index - 1)}
               disabled={index === 0}
               aria-label={`Naikkan posisi ${index + 1}`}
-              className="rounded px-1 text-theme-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30"
+              className="grid size-8 place-items-center rounded-lg text-theme-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30"
             >
               ▲
             </button>
@@ -280,7 +280,7 @@ export function SequenceInput({
               onClick={() => move(index, index + 1)}
               disabled={index === items.length - 1}
               aria-label={`Turunkan posisi ${index + 1}`}
-              className="rounded px-1 text-theme-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30"
+              className="grid size-8 place-items-center rounded-lg text-theme-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30"
             >
               ▼
             </button>

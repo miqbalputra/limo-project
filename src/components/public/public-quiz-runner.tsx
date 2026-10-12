@@ -9,6 +9,7 @@ import { ApiJsonError, requestJson } from "@/lib/api-json-client";
 import { canRecordAudio, formatFileSize, uploadAcceptAttribute } from "@/lib/quiz-upload";
 import { accentTextOn, darken, themeAccent } from "@/lib/quiz-theme";
 import { clearQueuedUploads, loadQueuedUploads, removeQueuedUpload, saveQueuedUpload } from "@/lib/upload-queue";
+import { collectReachableQuestionIds } from "@/server/services/quiz-grading";
 
 type QuizIntro = {
   title: string;
@@ -85,6 +86,7 @@ type FeedbackItem = {
   correct: boolean | null;
   correctOption: string | null;
   correctAnswer: string | null;
+  yourAnswer: string | null;
   explanation: string | null;
   feedbackText: string | null;
 };
@@ -110,6 +112,17 @@ function isAnswerFilled(answer: DraftAnswer | undefined) {
   if (answer.selectedOptions?.length) return answer.selectedOptions.includes("OTHER") ? Boolean(otherText) : true;
   if (answer.structuredAnswer) return Object.values(answer.structuredAnswer).some((value) => (Array.isArray(value) ? value.length > 0 : Boolean(value)));
   return Boolean(otherText || answer.essayAnswer?.trim());
+}
+
+function reachableQuestions(context: AttemptContext, currentAnswers: Record<string, DraftAnswer>) {
+  const hasBranching = context.questions.some((question) => question.branchRules.length > 0);
+  if (!hasBranching) return context.questions;
+  const reachable = collectReachableQuestionIds({
+    questions: context.questions.map((question) => ({ id: question.id, required: question.required, sectionIndex: question.sectionIndex, type: question.type, branchRules: question.branchRules })),
+    answers: new Map(Object.values(currentAnswers).map((answer) => [answer.ujianSoalId, answer])),
+    sectionCount: Math.max(1, context.sections.length),
+  });
+  return context.questions.filter((question) => reachable.has(question.id));
 }
 
 export function PublicQuizRunner({ token }: { token: string }) {
@@ -428,7 +441,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
   async function submit(auto = false) {
     if (!context) return;
     if (!auto) {
-      const problem = firstProblem(context.questions);
+      const problem = firstProblem(reachableQuestions(context, answers));
       if (problem) {
         setError(`Lengkapi jawaban sebelum mengumpulkan. ${problem.message}`);
         const section = context.questions.find((question) => question.id === problem.questionId)?.sectionIndex;
@@ -462,6 +475,16 @@ export function PublicQuizRunner({ token }: { token: string }) {
     setSaveState("idle");
     scheduleSave();
   }
+
+  useEffect(() => {
+    if (phase !== "quiz") return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (submitting) return;
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [phase, submitting]);
 
   useEffect(() => {
     submitRef.current = submit;
@@ -534,9 +557,10 @@ export function PublicQuizRunner({ token }: { token: string }) {
   const accent = themeAccent(intro?.themeColor ?? context?.quiz.themeColor);
 
   const progress = useMemo(() => {
-    if (!context) return 0;
-    const answered = context.questions.filter((question) => isAnswerFilled(answers[question.id])).length;
-    return Math.round((answered / context.questions.length) * 100);
+    if (!context) return { percent: 0, answered: 0, total: 0 };
+    const questions = reachableQuestions(context, answers);
+    const answered = questions.filter((question) => isAnswerFilled(answers[question.id])).length;
+    return { percent: questions.length > 0 ? Math.round((answered / questions.length) * 100) : 0, answered, total: questions.length };
   }, [answers, context]);
 
   if (phase === "loading") {
@@ -556,37 +580,38 @@ export function PublicQuizRunner({ token }: { token: string }) {
 
   if (phase === "intro" && intro) {
     return (
-      <div className="mx-auto max-w-2xl px-5 py-12 sm:py-16">
+      <div className="mx-auto max-w-2xl px-5 py-10 sm:py-16">
         <div className="tailadmin-card overflow-hidden p-6 sm:p-8">
           {intro.headerImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={intro.headerImageUrl} alt="Header kuis" className="-m-6 mb-5 h-44 w-[calc(100%+3rem)] object-cover sm:-m-8 sm:mb-6 sm:h-56 sm:w-[calc(100%+4rem)]" />
           ) : null}
-          <p className="text-theme-xs font-bold uppercase tracking-widest" style={{ color: darken(accent, 0.15) }}>{[intro.programName, intro.className].filter(Boolean).join(" / ") || "Formulir"}</p>
+          <p className="text-theme-xs font-bold uppercase tracking-widest" style={{ color: darken(accent, 0.15) }}>✨ {[intro.programName, intro.className].filter(Boolean).join(" / ") || "Kuis"}</p>
           <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-gray-900 sm:text-3xl">{intro.title}</h1>
           {intro.description ? <p className="mt-3 whitespace-pre-wrap text-theme-sm leading-7 text-gray-600">{intro.description}</p> : null}
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <InfoTile label="Soal" value={String(intro.questionCount)} />
-            <InfoTile label="Durasi" value={`${intro.durationMinutes} menit`} />
-            <InfoTile label="KKM" value={intro.passingScore === null ? "-" : String(intro.passingScore)} />
+          <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+            <InfoTile emoji="📝" label="Soal" value={String(intro.questionCount)} />
+            <InfoTile emoji="⏱️" label="Menit" value={String(intro.durationMinutes)} />
+            <InfoTile emoji="🎯" label="Nilai Lulus" value={intro.passingScore === null ? "-" : String(intro.passingScore)} />
           </div>
-          {error ? <p role="alert" className="mt-4 tailadmin-alert-error">{error}</p> : null}
+          {error ? <p role="alert" className="mt-4 tailadmin-alert-error">⚠️ {error}</p> : null}
           {intro.collectRespondentName ? (
             <label className="mt-6 block text-theme-sm font-semibold text-gray-700">
-              Nama Anda
-              <input value={respondentName} onChange={(event) => setRespondentName(event.target.value)} placeholder="Tulis nama lengkap" className="tailadmin-input mt-2" />
+              Siapa nama kamu?
+              <input value={respondentName} onChange={(event) => setRespondentName(event.target.value)} placeholder="Tulis namamu di sini" className="tailadmin-input mt-2" />
             </label>
           ) : null}
           {intro.collectRespondentEmail ? (
             <label className="mt-4 block text-theme-sm font-semibold text-gray-700">
-              Email Anda
+              Email kamu
               <input type="email" value={respondentEmail} onChange={(event) => setRespondentEmail(event.target.value)} placeholder="nama@email.com" className="tailadmin-input mt-2" />
               <span className="mt-1 block text-theme-xs font-normal text-gray-500">Dipakai untuk salinan jawaban dan mencegah respons ganda.</span>
             </label>
           ) : null}
-          <button type="button" onClick={() => void start()} disabled={(intro.collectRespondentName && respondentName.trim().length < 2) || (intro.collectRespondentEmail && !/^\S+@\S+\.\S+$/.test(respondentEmail.trim()))} className="tailadmin-button-primary mt-6 w-full py-3" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>
-            Mulai Kerjakan
+          <button type="button" onClick={() => void start()} disabled={(intro.collectRespondentName && respondentName.trim().length < 2) || (intro.collectRespondentEmail && !/^\S+@\S+\.\S+$/.test(respondentEmail.trim()))} className="tailadmin-button-primary mt-6 w-full py-3.5 text-lg" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>
+            🚀 Mulai!
           </button>
+          <p className="mt-3 text-center text-theme-xs text-gray-400">Kerjakan dengan teliti ya. Semangat! 💪</p>
         </div>
       </div>
     );
@@ -604,19 +629,19 @@ export function PublicQuizRunner({ token }: { token: string }) {
             <div className="min-w-0">
               <h1 className="truncate font-semibold text-gray-900">{context.quiz.title}</h1>
               <p className="mt-1 text-theme-xs text-gray-500">
-                {sections.length > 1 ? `Bagian ${currentSection + 1} dari ${sections.length} · ` : ""}{onePerPage ? `Soal ${questionIndex + 1} dari ${visibleQuestions.length} · ` : ""}{progress}% terisi
+                {sections.length > 1 ? `Bagian ${currentSection + 1} dari ${sections.length} · ` : ""}{onePerPage ? `Soal ${questionIndex + 1} dari ${visibleQuestions.length} · ` : ""}{progress.total > 0 ? `${progress.answered} dari ${progress.total} soal terjawab` : "Belum ada soal"}
               </p>
             </div>
             <div className="flex items-center gap-2">
-              {saveState !== "idle" ? <span className={`rounded-full px-3 py-1 text-theme-xs font-semibold ${saveState === "error" ? "bg-error-50 text-error-700" : saveState === "saving" ? "bg-warning-50 text-warning-700" : "bg-success-50 text-success-700"}`}>{saveState === "saving" ? "Menyimpan..." : saveState === "error" ? "Belum tersimpan" : "Tersimpan"}</span> : null}
+              {saveState !== "idle" ? <span className={`rounded-full px-3 py-1 text-theme-xs font-semibold ${saveState === "error" ? "bg-error-50 text-error-700" : saveState === "saving" ? "bg-warning-50 text-warning-700" : "bg-success-50 text-success-700"}`}>{saveState === "saving" ? "Menyimpan..." : saveState === "error" ? "Belum tersimpan" : "Tersimpan ✓"}</span> : null}
               {Object.keys(queuedUploads).length > 0 ? <span aria-live="polite" className="rounded-full bg-warning-50 px-3 py-1 text-theme-xs font-semibold text-warning-700">{Object.keys(queuedUploads).length} berkas menunggu koneksi</span> : null}
-              {remainingSeconds !== null ? <span aria-live="polite" className={`rounded-full px-3 py-1 text-theme-xs font-semibold ${remainingSeconds <= 60 ? "bg-error-50 text-error-700" : "bg-limo-blue-50 text-limo-blue-600"}`}>Sisa {formatDuration(remainingSeconds)}</span> : null}
+              {remainingSeconds !== null ? <span aria-live="polite" className={`rounded-full px-3 py-1 text-theme-xs font-semibold ${remainingSeconds <= 60 ? "bg-error-50 text-error-700" : "bg-limo-blue-50 text-limo-blue-600"}`}>⏰ Sisa {formatDuration(remainingSeconds)}</span> : null}
             </div>
           </div>
-          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label="Progres pengisian">
-            <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: accent }} />
+          <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-gray-100" role="progressbar" aria-valuenow={progress.percent} aria-valuemin={0} aria-valuemax={100} aria-label="Progres pengisian">
+            <div className="h-full rounded-full transition-all" style={{ width: `${progress.percent}%`, backgroundColor: accent }} />
           </div>
-          {error ? <p role="alert" className="mt-3 tailadmin-alert-error">{error}</p> : null}
+          {error ? <p role="alert" className="mt-3 tailadmin-alert-error">⚠️ {error}</p> : null}
         </section>
 
         {activeSection && (activeSection.title || activeSection.description) ? (
@@ -630,12 +655,12 @@ export function PublicQuizRunner({ token }: { token: string }) {
           {shownQuestions.map((question, index) => (
             <section key={question.id} id={`q-${question.id}`} tabIndex={-1} role="group" aria-labelledby={`q-text-${question.id}`} aria-describedby={question.helpText ? `q-help-${question.id}` : undefined} className={`tailadmin-card p-5 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-limo-blue-400 ${errorQuestionId === question.id ? "ring-2 ring-error-400" : ""}`}>
               <div className="flex items-center gap-2">
-                <span className="grid size-7 shrink-0 place-items-center rounded-full text-theme-xs font-bold text-white" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>{onePerPage ? questionIndex + 1 : index + 1}</span>
-                <span className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">{question.required ? "Wajib" : "Opsional"} · {question.weight} poin</span>
+                <span className="grid size-8 shrink-0 place-items-center rounded-full text-theme-sm font-bold text-white" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>{onePerPage ? questionIndex + 1 : index + 1}</span>
+                <span className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">{question.required ? "⭐ Wajib" : "Opsional"} · {question.weight} poin</span>
               </div>
               {question.stimulusText ? <LocalizedContent as="p" text={question.stimulusText} language={question.language} direction={question.direction} className="mt-3 rounded-2xl bg-gray-50 p-4 text-theme-sm leading-7 text-gray-700">{question.stimulusText}</LocalizedContent> : null}
               <MediaBlock type={question.type} mediaUrl={question.mediaUrl} />
-              <LocalizedContent as="p" id={`q-text-${question.id}`} text={question.question} language={question.language} direction={question.direction} className="mt-3 text-lg font-semibold leading-8 text-gray-900">{question.question}</LocalizedContent>
+              <LocalizedContent as="p" id={`q-text-${question.id}`} text={question.question} language={question.language} direction={question.direction} className="mt-3 text-lg font-semibold leading-8 text-gray-900 sm:text-xl">{question.question}</LocalizedContent>
               {question.helpText ? <LocalizedContent as="p" id={`q-help-${question.id}`} text={question.helpText} language={question.language} direction="auto" className="mt-1 text-theme-sm text-gray-500">{question.helpText}</LocalizedContent> : null}
               <AnswerInput
                 accent={accent}
@@ -651,13 +676,13 @@ export function PublicQuizRunner({ token }: { token: string }) {
 
         <div className="mt-4 flex flex-col gap-3 tailadmin-card p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" disabled={submitting || (onePerPage ? currentSection === 0 && questionIndex === 0 : currentSection === 0)} onClick={goPrevious} className="tailadmin-button-outline px-5 py-3 disabled:opacity-40">Sebelumnya</button>
-            <button type="button" disabled={submitting} onClick={clearSection} className="tailadmin-button-outline px-4 py-3 text-error-700 disabled:opacity-40">Bersihkan</button>
+            <button type="button" disabled={submitting || (onePerPage ? currentSection === 0 && questionIndex === 0 : currentSection === 0)} onClick={goPrevious} className="tailadmin-button-outline px-5 py-3 disabled:opacity-40">⬅️ Sebelumnya</button>
+            <button type="button" disabled={submitting} onClick={clearSection} className="tailadmin-button-outline px-4 py-3 text-theme-sm text-gray-500 disabled:opacity-40">Bersihkan</button>
           </div>
           {(onePerPage ? isLastSection && questionIndex >= visibleQuestions.length - 1 : isLastSection) ? (
-            <button type="button" disabled={submitting} onClick={() => void submit(false)} className="tailadmin-button-primary px-6 py-3" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>{submitting ? "Mengirim..." : "Kumpulkan Jawaban"}</button>
+            <button type="button" disabled={submitting} onClick={() => void submit(false)} className="tailadmin-button-primary px-6 py-3 text-lg" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>{submitting ? "Mengirim..." : "✅ Kumpulkan Jawaban"}</button>
           ) : (
-            <button type="button" onClick={() => (onePerPage ? goNextOnePerPage() : goNext())} className="tailadmin-button-primary px-6 py-3" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>Berikutnya</button>
+            <button type="button" onClick={() => (onePerPage ? goNextOnePerPage() : goNext())} className="tailadmin-button-primary px-6 py-3 text-lg" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>Lanjut ➜</button>
           )}
         </div>
 
@@ -675,11 +700,12 @@ export function PublicQuizRunner({ token }: { token: string }) {
         {reviewOpen && context ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/40 p-4" role="presentation">
             <section role="dialog" aria-modal="true" aria-labelledby="quiz-review-title" className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-theme-xl">
-              <h2 id="quiz-review-title" className="text-lg font-semibold text-gray-900">Tinjau jawaban</h2>
-              <p className="mt-1 text-theme-sm text-gray-500">Periksa kelengkapan sebelum mengirim. Jawaban tidak dapat diubah setelah dikirim.</p>
+              <h2 id="quiz-review-title" className="text-lg font-semibold text-gray-900">Tinjau jawaban 🧐</h2>
+              <p className="mt-1 text-theme-sm text-gray-500">Yuk cek dulu kelengkapannya sebelum dikirim. Jawaban tidak dapat diubah setelah dikirim.</p>
               <ul className="mt-4 space-y-2 text-theme-sm">
                 {context.sections.map((section, sectionIdx) => {
-                  const questions = context.questions.filter((question) => question.sectionIndex === sectionIdx);
+                  const questions = reachableQuestions(context, answers).filter((question) => question.sectionIndex === sectionIdx);
+                  if (questions.length === 0) return null;
                   const answered = questions.filter((question) => isAnswerFilled(answers[question.id])).length;
                   const unanswered = questions.length - answered;
                   return (
@@ -692,7 +718,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
               </ul>
               <div className="mt-5 flex flex-wrap justify-end gap-2">
                 <button type="button" onClick={() => setReviewOpen(false)} disabled={submitting} className="tailadmin-button-outline px-4 py-2.5">Kembali</button>
-                <button type="button" onClick={() => void sendAnswers()} disabled={submitting} className="tailadmin-button-primary px-5 py-2.5" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>{submitting ? "Mengirim..." : "Kirim sekarang"}</button>
+                <button type="button" onClick={() => void sendAnswers()} disabled={submitting} className="tailadmin-button-primary px-5 py-2.5" style={{ backgroundColor: accent, color: accentTextOn(accent) }}>{submitting ? "Mengirim..." : "🚀 Kirim sekarang"}</button>
               </div>
             </section>
           </div>
@@ -704,32 +730,51 @@ export function PublicQuizRunner({ token }: { token: string }) {
   if (phase === "result" && result) {
     const showScore = result.showScoreImmediately && !result.releasePending;
     const allowAnotherResponse = intro ? !intro.oneResponsePerEmail : true;
+    const roundedScore = result.score === null ? null : Math.round(result.score);
+    const starCount = roundedScore === null ? 0 : Math.max(1, Math.min(5, Math.round(roundedScore / 20)));
+    const celebration = result.passed === true ? "🎉" : result.passed === false ? "💪" : "🌟";
     return (
       <div className="mx-auto max-w-3xl px-5 py-12 sm:py-16">
         <div className="tailadmin-card p-6 sm:p-8">
-          <h1 className="text-center text-2xl font-extrabold tracking-tight text-gray-900">Terima kasih, {result.respondentName}!</h1>
-          <p className="mt-3 text-center text-theme-sm text-gray-600">Jawaban Anda sudah kami terima.</p>
+          <div className="text-center">
+            <span aria-hidden="true" className="text-5xl">{celebration}</span>
+            <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-gray-900">
+              {result.passed === false ? `Semangat, ${result.respondentName}!` : `Hebat, ${result.respondentName}!`}
+            </h1>
+            <p className="mt-3 text-theme-sm text-gray-600">Jawaban kamu sudah kami terima.</p>
+          </div>
           {context?.quiz.confirmationMessage ? <p className="mt-4 whitespace-pre-wrap rounded-2xl bg-gray-50 p-4 text-center text-theme-sm text-gray-700">{context.quiz.confirmationMessage}</p> : null}
           {showScore ? (
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              <InfoTile label="Skor" value={result.score === null ? "-" : String(result.score)} />
-              <InfoTile label="KKM" value={result.passingScore === null ? "-" : String(result.passingScore)} />
-              <InfoTile label="Status" value={result.passed === null ? "Menunggu peninjauan" : result.passed ? "Lulus" : "Belum lulus"} />
+            <div className="mt-6">
+              <div className="flex flex-col items-center gap-1 rounded-2xl p-5" style={{ backgroundColor: `${accent}0d` }}>
+                <p className="text-5xl font-extrabold" style={{ color: darken(accent, 0.1) }}>{roundedScore}</p>
+                <div aria-hidden="true" className="mt-1 text-2xl">
+                  {[1, 2, 3, 4, 5].map((star) => <span key={star} className={star <= starCount ? "" : "opacity-25"} style={star <= starCount ? { color: accent } : undefined}>★</span>)}
+                </div>
+                <p className="mt-2 text-theme-sm font-semibold" style={{ color: darken(accent, 0.2) }}>
+                  {result.passed === null ? "Menunggu peninjauan guru" : result.passed ? "Kerja bagus! Kamu memahami pelajaran ini. 🌟" : "Ayo pelajari lagi, kamu pasti bisa! 💪"}
+                </p>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <InfoTile emoji="🎯" label="Nilai Lulus" value={result.passingScore === null ? "-" : String(result.passingScore)} />
+                <InfoTile emoji="📌" label="Status" value={result.passed === null ? "Menunggu" : result.passed ? "Lulus 🎉" : "Belum lulus"} />
+              </div>
             </div>
           ) : (
             <p className="mt-6 rounded-2xl bg-limo-blue-50 p-4 text-center text-theme-sm text-limo-blue-700">{result.releasePending ? "Nilai akan dirilis oleh guru setelah peninjauan." : "Skor akan diinformasikan oleh guru."}</p>
           )}
           {result.showAnswersAfterSubmit && result.feedback.length > 0 ? (
             <section className="mt-8">
-              <h2 className="font-semibold text-gray-900">Pembahasan</h2>
+              <h2 className="font-semibold text-gray-900">Pembahasan 📖</h2>
               <ol className="mt-3 space-y-3">
                 {result.feedback.map((item, index) => (
-                  <li key={item.ujianSoalId} className="rounded-xl border border-gray-200 p-4 text-theme-sm">
-                    <p className="font-semibold text-gray-800">{index + 1}. {item.question}</p>
-                    <p className="mt-1 text-gray-600">Kunci: {item.correctAnswer ?? item.correctOption ?? "-"}</p>
-                    {item.correct !== null ? (
-                      <p className={`mt-1 font-semibold ${item.correct ? "text-success-700" : "text-error-700"}`}>{item.correct ? "Jawaban benar" : "Jawaban salah"}</p>
-                    ) : null}
+                  <li key={item.ujianSoalId} className="rounded-2xl border border-gray-200 p-4 text-theme-sm">
+                    <p className="font-semibold text-gray-800">
+                      <span aria-hidden="true" className={`me-1.5 inline-grid size-5 place-items-center rounded-full text-xs font-bold text-white ${item.correct === false ? "bg-error-500" : item.correct === true ? "bg-success-500" : "bg-gray-400"}`}>{item.correct === false ? "✕" : item.correct === true ? "✓" : "?"}</span>
+                      {index + 1}. {item.question}
+                    </p>
+                    {item.yourAnswer ? <p className="mt-1.5 text-gray-700">Jawabanmu: <span className="font-semibold">{item.yourAnswer}</span></p> : <p className="mt-1.5 text-gray-400">Tidak dijawab</p>}
+                    {item.correct === false && item.correctAnswer ? <p className="mt-1 text-gray-700">Kunci: <span className="font-semibold text-success-700">{item.correctAnswer}</span></p> : null}
                     {item.feedbackText ? <p className="mt-1 text-gray-700">{item.feedbackText}</p> : null}
                     {item.explanation ? <p className="mt-1 text-gray-500">{item.explanation}</p> : null}
                   </li>
@@ -763,7 +808,7 @@ export function PublicQuizRunner({ token }: { token: string }) {
                 }}
                 className="tailadmin-button-outline px-6 py-3"
               >
-                Kirim respons lain
+                🔁 Kirim respons lain
               </button>
             </div>
           ) : null}
@@ -775,10 +820,11 @@ export function PublicQuizRunner({ token }: { token: string }) {
   return null;
 }
 
-function InfoTile({ label, value }: { label: string; value: string }) {
+function InfoTile({ label, value, emoji }: { label: string; value: string; emoji?: string }) {
   return (
-    <div className="rounded-2xl bg-gray-50 p-4 text-center">
-      <p className="text-xl font-bold text-gray-900">{value}</p>
+    <div className="rounded-2xl bg-gray-50 p-3 text-center sm:p-4">
+      {emoji ? <span aria-hidden="true" className="block text-xl">{emoji}</span> : null}
+      <p className="mt-0.5 text-xl font-bold text-gray-900">{value}</p>
       <p className="mt-1 text-theme-xs font-semibold uppercase tracking-wide text-gray-400">{label}</p>
     </div>
   );
@@ -827,17 +873,18 @@ function MediaBlock({ type, mediaUrl }: { type: string; mediaUrl: string | null 
 function AnswerInput({ question, answer, onChange, accent, onUploadFile, uploading }: { question: PublicQuestion; answer?: DraftAnswer; onChange: (_patch: Partial<DraftAnswer>) => void; accent: string; onUploadFile: (_file: File) => void; uploading: boolean }) {
   if (question.type === "PILIHAN_GANDA") {
     return (
-      <div className="mt-3 grid gap-2">
+      <div className="mt-3 grid gap-2.5">
         {question.options.map((option) => {
           const selected = answer?.selectedOption === option.label;
           return (
             <label
               key={option.label}
               style={selected ? { borderColor: accent, backgroundColor: `${accent}0d` } : undefined}
-              className={`flex cursor-pointer gap-3 rounded-xl border bg-white p-3 text-theme-sm text-gray-700 transition ${selected ? "" : "border-gray-200 hover:border-gray-300"}`}
+              className={`flex cursor-pointer items-center gap-3 rounded-2xl border-2 bg-white p-3.5 text-base text-gray-700 transition ${selected ? "shadow-theme-sm" : "border-gray-200 hover:border-gray-300"}`}
             >
-              <input type="radio" name={`q-${question.id}`} value={option.label} checked={selected} onChange={() => onChange({ selectedOption: option.label })} className="mt-1 accent-limo-blue-500" />
-              <span className="flex-1"><b>{option.label}.</b> <LocalizedContent text={option.content} language={question.language} direction="auto">{option.content}</LocalizedContent></span>
+              <input type="radio" name={`q-${question.id}`} value={option.label} checked={selected} onChange={() => onChange({ selectedOption: option.label })} className="size-5 shrink-0 cursor-pointer" style={{ accentColor: accent }} />
+              <span className="min-w-0 flex-1"><b>{option.label}.</b> <LocalizedContent text={option.content} language={question.language} direction="auto">{option.content}</LocalizedContent></span>
+              {selected ? <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: accent }}>✓</span> : null}
               {option.mediaUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={option.mediaUrl} alt={`Opsi ${option.label}`} className="h-16 w-24 shrink-0 rounded-lg object-cover ring-1 ring-gray-100" />
@@ -848,9 +895,9 @@ function AnswerInput({ question, answer, onChange, accent, onUploadFile, uploadi
         {question.allowOther ? (
           <label
             style={answer?.selectedOption === "OTHER" ? { borderColor: accent, backgroundColor: `${accent}0d` } : undefined}
-            className={`flex cursor-pointer items-center gap-3 rounded-xl border bg-white p-3 text-theme-sm text-gray-700 ${answer?.selectedOption === "OTHER" ? "" : "border-gray-200"}`}
+            className={`flex cursor-pointer items-center gap-3 rounded-2xl border-2 bg-white p-3.5 text-base text-gray-700 ${answer?.selectedOption === "OTHER" ? "" : "border-gray-200"}`}
           >
-            <input type="radio" name={`q-${question.id}`} value="OTHER" checked={answer?.selectedOption === "OTHER"} onChange={() => onChange({ selectedOption: "OTHER" })} className="accent-limo-blue-500" />
+            <input type="radio" name={`q-${question.id}`} value="OTHER" checked={answer?.selectedOption === "OTHER"} onChange={() => onChange({ selectedOption: "OTHER" })} className="size-5 shrink-0 cursor-pointer" style={{ accentColor: accent }} />
             <span className="shrink-0 font-semibold">Lainnya:</span>
             <input type="text" value={answer?.selectedOption === "OTHER" ? answer?.shortAnswer ?? "" : ""} onChange={(event) => onChange({ selectedOption: "OTHER", shortAnswer: event.target.value })} disabled={answer?.selectedOption !== "OTHER"} placeholder="Tulis jawaban" dir="auto" className="tailadmin-input flex-1 py-1.5" />
           </label>
@@ -862,23 +909,25 @@ function AnswerInput({ question, answer, onChange, accent, onUploadFile, uploadi
   if (question.type === "MULTI_SELECT") {
     const selected = answer?.selectedOptions ?? [];
     return (
-      <div className="mt-3 grid gap-2">
+      <div className="mt-3 grid gap-2.5">
         {question.options.map((option) => {
           const isChecked = selected.includes(option.label);
           return (
             <label
               key={option.label}
               style={isChecked ? { borderColor: accent, backgroundColor: `${accent}0d` } : undefined}
-              className={`flex cursor-pointer gap-3 rounded-xl border bg-white p-3 text-theme-sm text-gray-700 transition ${isChecked ? "" : "border-gray-200 hover:border-gray-300"}`}
+              className={`flex cursor-pointer items-center gap-3 rounded-2xl border-2 bg-white p-3.5 text-base text-gray-700 transition ${isChecked ? "shadow-theme-sm" : "border-gray-200 hover:border-gray-300"}`}
             >
               <input
                 type="checkbox"
                 value={option.label}
                 checked={isChecked}
                 onChange={() => onChange({ selectedOptions: isChecked ? selected.filter((item) => item !== option.label) : [...selected, option.label] })}
-                className="mt-1 accent-limo-blue-500"
+                className="size-5 shrink-0 cursor-pointer"
+                style={{ accentColor: accent }}
               />
-              <span className="flex-1"><b>{option.label}.</b> <LocalizedContent text={option.content} language={question.language} direction="auto">{option.content}</LocalizedContent></span>
+              <span className="min-w-0 flex-1"><b>{option.label}.</b> <LocalizedContent text={option.content} language={question.language} direction="auto">{option.content}</LocalizedContent></span>
+              {isChecked ? <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: accent }}>✓</span> : null}
               {option.mediaUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={option.mediaUrl} alt={`Opsi ${option.label}`} className="h-16 w-24 shrink-0 rounded-lg object-cover ring-1 ring-gray-100" />
@@ -887,8 +936,8 @@ function AnswerInput({ question, answer, onChange, accent, onUploadFile, uploadi
           );
         })}
         {question.allowOther ? (
-          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-theme-sm text-gray-700">
-            <input type="checkbox" value="OTHER" checked={selected.includes("OTHER")} onChange={() => onChange({ selectedOptions: selected.includes("OTHER") ? selected.filter((item) => item !== "OTHER") : [...selected, "OTHER"] })} className="accent-limo-blue-500" />
+          <label className="flex cursor-pointer items-center gap-3 rounded-2xl border-2 border-gray-200 bg-white p-3.5 text-base text-gray-700">
+            <input type="checkbox" value="OTHER" checked={selected.includes("OTHER")} onChange={() => onChange({ selectedOptions: selected.includes("OTHER") ? selected.filter((item) => item !== "OTHER") : [...selected, "OTHER"] })} className="size-5 shrink-0 cursor-pointer" style={{ accentColor: accent }} />
             <span className="shrink-0 font-semibold">Lainnya:</span>
             <input type="text" value={selected.includes("OTHER") ? answer?.shortAnswer ?? "" : ""} onChange={(event) => onChange({ selectedOptions: selected.includes("OTHER") ? selected : [...selected, "OTHER"], shortAnswer: event.target.value })} disabled={!selected.includes("OTHER")} placeholder="Tulis jawaban" dir="auto" className="tailadmin-input flex-1 py-1.5" />
           </label>
@@ -914,24 +963,29 @@ function AnswerInput({ question, answer, onChange, accent, onUploadFile, uploadi
   if (question.type === "SKALA" || question.type === "RATING") {
     const values = question.options;
     if (question.type === "RATING") {
+      const selectedIndex = values.findIndex((option) => option.label === answer?.selectedOption);
       return (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {values.map((option) => {
-            const active = answer?.selectedOption === option.label;
-            return (
-              <button
-                key={option.label}
-                type="button"
-                onClick={() => onChange({ selectedOption: option.label })}
-                aria-label={`Beri ${option.content} bintang`}
-                className={`grid size-11 place-items-center rounded-xl border text-xl transition ${active ? "" : "border-gray-200 bg-white hover:bg-gray-50"}`}
-                style={active ? { borderColor: accent, backgroundColor: `${accent}0d` } : undefined}
-              >
-                {active ? "★" : "☆"}
-              </button>
-            );
-          })}
-          {answer?.selectedOption ? <span className="text-theme-sm font-semibold text-gray-600">{values.find((option) => option.label === answer.selectedOption)?.content} bintang</span> : null}
+        <div className="mt-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {values.map((option, index) => {
+              const active = answer?.selectedOption === option.label;
+              const filled = selectedIndex >= 0 && index <= selectedIndex;
+              return (
+                <button
+                  key={option.label}
+                  type="button"
+                  onClick={() => onChange({ selectedOption: option.label })}
+                  aria-label={`Beri ${option.content} bintang`}
+                  aria-pressed={active}
+                  className={`grid size-12 place-items-center rounded-2xl border-2 text-2xl transition ${active ? "shadow-theme-sm" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+                  style={active ? { borderColor: accent, backgroundColor: `${accent}0d` } : undefined}
+                >
+                  <span aria-hidden="true" style={filled && !active ? { color: accent } : undefined}>{filled ? "★" : "☆"}</span>
+                </button>
+              );
+            })}
+          </div>
+          {answer?.selectedOption ? <p className="mt-2 text-theme-sm font-semibold text-gray-600">Kamu memilih {values.find((option) => option.label === answer.selectedOption)?.content} dari {values.length} bintang ⭐</p> : null}
         </div>
       );
     }
@@ -946,7 +1000,8 @@ function AnswerInput({ question, answer, onChange, accent, onUploadFile, uploadi
               type="button"
               onClick={() => onChange({ selectedOption: option.label })}
               aria-label={`Pilih nilai ${option.content}`}
-              className={`grid size-11 place-items-center rounded-xl border font-semibold transition ${active ? "" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}
+              aria-pressed={active}
+              className={`grid size-12 place-items-center rounded-2xl border-2 text-lg font-bold transition ${active ? "" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}
               style={active ? { borderColor: accent, backgroundColor: `${accent}0d`, color: accent } : undefined}
             >
               {option.content}
@@ -1083,16 +1138,16 @@ function AnswerInput({ question, answer, onChange, accent, onUploadFile, uploadi
 
   if (question.type === "BENAR_SALAH") {
     return (
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        {[{ value: "benar", label: "Benar" }, { value: "salah", label: "Salah" }].map((item) => {
+      <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+        {[{ value: "benar", label: "Benar ✔️" }, { value: "salah", label: "Salah ✖️" }].map((item) => {
           const selected = answer?.selectedOption === item.value;
           return (
             <label
               key={item.value}
               style={selected ? { borderColor: accent, backgroundColor: `${accent}0d` } : undefined}
-              className={`cursor-pointer rounded-2xl border p-4 text-theme-sm font-semibold text-gray-700 transition ${selected ? "" : "border-transparent bg-gray-50 hover:bg-gray-100"}`}
+              className={`flex cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 p-4 text-base font-semibold text-gray-700 transition ${selected ? "shadow-theme-sm" : "border-transparent bg-gray-50 hover:bg-gray-100"}`}
             >
-              <input type="radio" name={`q-${question.id}`} value={item.value} checked={selected} onChange={() => onChange({ selectedOption: item.value })} className="me-2 accent-limo-blue-500" />
+              <input type="radio" name={`q-${question.id}`} value={item.value} checked={selected} onChange={() => onChange({ selectedOption: item.value })} className="size-5 cursor-pointer" style={{ accentColor: accent }} />
               {item.label}
             </label>
           );

@@ -7,6 +7,7 @@ import { assertRateLimit } from "@/server/security/rate-limit";
 import { storeQuizSubmissionFile } from "@/server/providers/storage/local-storage";
 import { createNotificationIfMissing } from "@/server/services/notification-service";
 import { publicQuizDraftSchema, startPublicQuizSchema, submitPublicQuizSchema } from "@/server/validation/exam";
+import { pairLeftAnchor, pairRightAnchor } from "@/lib/quiz-builder";
 import {
   answerValidationProblem,
   findMissingRequiredAnswers,
@@ -582,6 +583,84 @@ export async function uploadPublicQuizFile(token: string, responseId: string, fi
   return { item: { id: media.id, name: media.originalName, size: Number(media.sizeBytes), mimeType: media.mimeType } };
 }
 
+type StructuredQuizPayload = {
+  rows?: string[];
+  multiple?: boolean;
+  correct?: Record<string, string>;
+  pairs?: Array<{ left?: string; right?: string; leftMediaUrl?: string | null; rightMediaUrl?: string | null }>;
+  items?: string[];
+};
+
+function pairingAnswerKey(type: string, payload: StructuredQuizPayload | null, optionContent: (_label: string) => string) {
+  if (type === "MENJODOHKAN" && Array.isArray(payload?.pairs)) {
+    return payload!.pairs
+      .map((pair, index) => `${pair.left?.trim() || `Soal ${index + 1}`} → ${pair.right?.trim() || `Jodoh ${index + 1}`}`)
+      .join(" · ");
+  }
+  if (type === "URUTAN" && Array.isArray(payload?.items)) {
+    return payload!.items.map((item, index) => `${index + 1}. ${item}`).join("  ");
+  }
+  if (type === "GRID" && Array.isArray(payload?.rows) && payload!.correct) {
+    return payload!.rows
+      .map((row, index) => {
+        const label = payload!.correct?.[String(index)];
+        return label ? `${row}: ${optionContent(label)}` : null;
+      })
+      .filter((value): value is string => Boolean(value))
+      .join(" · ");
+  }
+  return null;
+}
+
+function describeStudentAnswer(
+  question: { bankSoal: { type: string; options: { label: string; content: string }[]; structuredPayload: unknown } },
+  answer: GradableAnswer | undefined,
+) {
+  if (!answer) return null;
+  const optionContent = (label: string) => question.bankSoal.options.find((option) => option.label === label)?.content ?? label;
+
+  if (answer.selectedOption) {
+    if (answer.selectedOption === "OTHER") return answer.shortAnswer?.trim() || "Lainnya";
+    if (answer.selectedOption === "benar" || answer.selectedOption === "salah") {
+      return answer.selectedOption === "benar" ? "Benar" : "Salah";
+    }
+    return optionContent(answer.selectedOption);
+  }
+  if (answer.selectedOptions?.length) {
+    return answer.selectedOptions.map(optionContent).join(", ");
+  }
+
+  const payload = (question.bankSoal.structuredPayload ?? null) as StructuredQuizPayload | null;
+
+  if (question.bankSoal.type === "MENJODOHKAN" && answer.structuredAnswer && typeof answer.structuredAnswer === "object" && !Array.isArray(answer.structuredAnswer)) {
+    const pairs = Array.isArray(payload?.pairs) ? payload!.pairs : [];
+    const described = Object.entries(answer.structuredAnswer as Record<string, unknown>).map(([leftAnchor, rightAnchor]) => {
+      const leftIndex = typeof leftAnchor === "string" ? pairs.findIndex((pair, index) => pairLeftAnchor(pair.left ?? "", index) === leftAnchor) : -1;
+      const rightIndex = typeof rightAnchor === "string" ? pairs.findIndex((pair, index) => pairRightAnchor(pair.right ?? "", index) === rightAnchor) : -1;
+      const left = typeof leftAnchor === "string" && !leftAnchor.startsWith("#L-") ? leftAnchor : pairs[leftIndex]?.left;
+      const right = typeof rightAnchor === "string" && !rightAnchor.startsWith("#R-") ? rightAnchor : pairs[rightIndex]?.right;
+      return `${left || "?"} → ${right || "?"}`;
+    });
+    if (described.length > 0) return described.join(" · ");
+  }
+
+  if (question.bankSoal.type === "URUTAN" && Array.isArray(answer.structuredAnswer)) {
+    return answer.structuredAnswer.map((item, index) => `${index + 1}. ${String(item)}`).join("  ");
+  }
+
+  if (answer.structuredAnswer && typeof answer.structuredAnswer === "object" && !Array.isArray(answer.structuredAnswer)) {
+    const rows = Array.isArray(payload?.rows) ? payload!.rows : [];
+    const described = Object.entries(answer.structuredAnswer as Record<string, unknown>).map(([key, value]) => {
+      const row = rows[Number(key)] ?? `Baris ${Number(key) + 1}`;
+      const labels = Array.isArray(value) ? value : [String(value ?? "")];
+      return `${row}: ${labels.map(optionContent).join(", ")}`;
+    });
+    if (described.length > 0) return described.join(" · ");
+  }
+
+  return answer.shortAnswer?.trim() || answer.essayAnswer?.trim() || null;
+}
+
 export async function getPublicQuizResult(token: string, responseId: string) {
   const response = await loadResponseContext(responseId);
   if (response.shareToken !== token) {
@@ -600,6 +679,7 @@ export async function getPublicQuizResult(token: string, responseId: string) {
     correct: boolean | null;
     correctOption: string | null;
     correctAnswer: string | null;
+    yourAnswer: string | null;
     explanation: string | null;
     feedbackText: string | null;
   }> = [];
@@ -624,13 +704,16 @@ export async function getPublicQuizResult(token: string, responseId: string) {
         answer: finalByQuestion.get(question.id),
       });
       const primaryAnswer = question.bankSoal.expectedAnswer ?? (correctOptions.length > 0 ? correctOptions.map((option) => option.content).join(", ") : null);
+      const payloadForQuestion = (question.bankSoal.structuredPayload ?? null) as StructuredQuizPayload | null;
+      const optionContent = (label: string) => question.bankSoal.options.find((option) => option.label === label)?.content ?? label;
 
       feedback.push({
         ujianSoalId: question.id,
         question: question.bankSoal.question,
         correct: graded.correct,
         correctOption: correctOptions[0]?.label ?? null,
-        correctAnswer: [primaryAnswer, ...alternatives].filter((value): value is string => Boolean(value)).join(" / ") || null,
+        correctAnswer: [primaryAnswer ?? pairingAnswerKey(question.bankSoal.type, payloadForQuestion, optionContent), ...alternatives].filter((value): value is string => Boolean(value)).join(" / ") || null,
+        yourAnswer: describeStudentAnswer(question, finalByQuestion.get(question.id)),
         explanation: question.bankSoal.explanation,
         feedbackText: resolveFeedbackText({ correct: graded.correct, feedbackCorrect: question.bankSoal.feedbackCorrect, feedbackIncorrect: question.bankSoal.feedbackIncorrect }),
       });
