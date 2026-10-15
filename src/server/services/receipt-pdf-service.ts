@@ -5,12 +5,15 @@ import { prisma } from "@/server/db/prisma";
 import { ConflictError, ForbiddenError, NotFoundError } from "@/server/errors/application-error";
 import { canAccessInvoice } from "@/server/policies/access-policy";
 import { getSchoolSetting } from "@/server/services/settings-service";
+import { getBrandLogoDataUrl } from "@/server/services/brand-media";
 import { formatRupiah } from "@/lib/money";
-import { LIMO_MEDIA_COLORS } from "@/lib/limo-brand";
+import { LIMO_COLORS, LIMO_MEDIA_COLORS } from "@/lib/limo-brand";
 
 const INK = LIMO_MEDIA_COLORS.text;
 const MUTED = LIMO_MEDIA_COLORS.muted;
-const ACCENT = LIMO_MEDIA_COLORS.primary;
+const PRIMARY = LIMO_MEDIA_COLORS.primary;
+const PRIMARY_DARK = LIMO_MEDIA_COLORS.primaryDark;
+const SUCCESS_TEXT = LIMO_MEDIA_COLORS.successText;
 
 type ReceiptInput = {
   schoolName: string;
@@ -43,47 +46,77 @@ export async function buildReceiptPdf(input: ReceiptInput) {
   });
 
   const width = doc.page.width - 100;
+  const pageWidth = doc.page.width;
+  const logo = await getBrandLogoDataUrl();
 
-  doc.font("Helvetica-Bold").fontSize(12).fillColor(MUTED).text(input.schoolName.toUpperCase(), { width, align: "left" });
-  doc.font("Helvetica-Bold").fontSize(24).fillColor(INK).text("KUITANSI PEMBAYARAN", { width });
-  doc.moveTo(50, 118).lineTo(50 + width, 118).lineWidth(1).strokeColor(ACCENT).stroke();
+  // ── Band header brand (selaras dengan invoice) ────────────────────
+  doc.rect(0, 0, pageWidth, 108).fillColor(PRIMARY_DARK).fill();
+  doc.save();
+  doc.roundedRect(36, 17, 74, 74, 16).clip();
+  doc.image(logo, 36, 17, { width: 74, height: 74 });
+  doc.restore();
+  doc.font("Helvetica-Bold").fontSize(13).fillColor(LIMO_MEDIA_COLORS.white).text(input.schoolName.toUpperCase(), 126, 30, { width: 300 });
+  doc.font("Helvetica").fontSize(9).fillColor(LIMO_COLORS.sky[200]).text("Bridging The World, Benefiting The Ummah", 126, 52, { width: 320 });
+  doc.font("Helvetica-Bold").fontSize(16).fillColor(LIMO_MEDIA_COLORS.white).text("KUITANSI PEMBAYARAN", 60, 72, { width: pageWidth - 110, align: "right", lineBreak: false });
 
-  doc.font("Helvetica").fontSize(10).fillColor(MUTED).text(`Nomor: ${input.reference}`, 50, 132, { width, align: "right" });
-  doc.text(`Tanggal: ${formatDateTime(input.paidAt)}`, 50, 146, { width, align: "right" });
+  // Meta kanan di bawah band
+  const metaY = 126;
+  doc.font("Helvetica").fontSize(9.5).fillColor(MUTED).text(`Nomor: ${input.reference}`, 50, metaY, { width, align: "right" });
+  doc.text(`Tanggal: ${formatDateTime(input.paidAt)}`, 50, metaY + 13, { width, align: "right" });
 
-  let y = 176;
-  doc.font("Helvetica-Bold").fontSize(11).fillColor(INK).text("Diterima dari", 50, y, { width: 160 });
-  doc.font("Helvetica").fontSize(11).fillColor(INK).text(input.studentName, 210, y, { width: width - 160 });
-  y += 18;
-  doc.font("Helvetica-Bold").fontSize(11).fillColor(INK).text("Nomor induk", 50, y, { width: 160 });
-  doc.font("Helvetica").fontSize(11).fillColor(INK).text(`${input.studentNumber} / ${input.programName}`, 210, y, { width: width - 160 });
+  // ── Kartu informasi penerima ─────────────────────────────────────
+  let y = 178;
+  const cardH = 124;
+  doc.roundedRect(50, y, width, cardH, 10).fillColor(LIMO_MEDIA_COLORS.white).fill();
+  doc.roundedRect(50, y, width, cardH, 10).lineWidth(1).strokeColor(LIMO_MEDIA_COLORS.border).stroke();
 
-  y += 30;
-  doc.rect(50, y, width, 24).fillColor(LIMO_MEDIA_COLORS.surfaceMuted).fill();
-  doc.fillColor(MUTED).font("Helvetica-Bold").fontSize(10).text("Rincian", 58, y + 7, { width: 300 });
-  doc.text("Nominal", 50, y + 7, { width: width + 42, align: "right" });
-  y += 24;
-
-  const writeRow = (label: string, value: string, bold = false) => {
-    doc.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(11).fillColor(INK).text(label, 58, y + 8, { width: 300 });
-    doc.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(11).fillColor(INK).text(value, 50, y + 8, { width: width + 42, align: "right" });
-    y += 24;
-    doc.moveTo(50, y).lineTo(50 + width, y).lineWidth(0.5).strokeColor(LIMO_MEDIA_COLORS.border).stroke();
+  const infoRow = (label: string, value: string, rowY: number, bold = false) => {
+    doc.font("Helvetica").fontSize(10).fillColor(MUTED).text(label, 66, rowY, { width: 140 });
+    doc.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(10.5).fillColor(INK).text(value, 214, rowY - 1, { width: width - 180 });
   };
+  infoRow("Diterima dari", input.studentName, y + 16, true);
+  infoRow("Nomor induk", input.studentNumber, y + 36);
+  infoRow("Program", input.programName, y + 56);
+  infoRow("Tagihan", `${input.jenis} / ${input.periodeLabel}`, y + 76);
 
-  writeRow(`Tagihan ${input.jenis} / ${input.periodeLabel}`, formatRupiah(input.subtotal));
-  if (input.discount > 0) writeRow(`Diskon${input.voucherCode ? ` (${input.voucherCode})` : ""}`, `- ${formatRupiah(input.discount)}`);
-  writeRow("Total dibayar", formatRupiah(input.amount), true);
+  doc.roundedRect(214, y + 96, 130, 22, 11).fillColor(LIMO_MEDIA_COLORS.successPillBg).fill();
+  doc.font("Helvetica-Bold").fontSize(9.5).fillColor(LIMO_MEDIA_COLORS.successText).text("LUNAS", 214, y + 102, { width: 130, align: "center" });
 
-  y += 12;
-  doc.font("Helvetica-Bold").fontSize(11).fillColor(INK).text("Metode pembayaran", 50, y, { width: 170 });
-  doc.font("Helvetica").fontSize(11).fillColor(INK).text(`${input.provider.toUpperCase()}${input.paymentMethod ? ` / ${input.paymentMethod}` : ""}`, 220, y, { width: width - 170 });
-  y += 18;
-  doc.font("Helvetica-Bold").fontSize(11).fillColor(INK).text("Referensi", 50, y, { width: 170 });
-  doc.font("Helvetica").fontSize(11).fillColor(INK).text(input.reference, 220, y, { width: width - 170 });
+  // ── Rincian pembayaran ────────────────────────────────────────────
+  y += cardH + 26;
+  doc.font("Helvetica-Bold").fontSize(8).fillColor(MUTED).text("RINCIAN PEMBAYARAN", 50, y);
+  y += 16;
+  const detailRows: Array<[string, string]> = [[`Tagihan ${input.jenis} / ${input.periodeLabel}`, formatRupiah(input.subtotal)]];
+  if (input.discount > 0) detailRows.push([`Diskon${input.voucherCode ? ` (${input.voucherCode})` : ""}`, `- ${formatRupiah(input.discount)}`]);
+  const detailH = detailRows.length * 22 + 62;
+  doc.roundedRect(50, y, width, detailH, 10).fillColor(LIMO_MEDIA_COLORS.white).fill();
+  doc.roundedRect(50, y, width, detailH, 10).lineWidth(1).strokeColor(LIMO_MEDIA_COLORS.border).stroke();
 
-  doc.font("Helvetica").fontSize(9).fillColor(MUTED).text(`Kuitansi ini dibuat otomatis oleh sistem ${input.schoolName} dan sah tanpa tanda tangan basah.`, 50, doc.page.height - 110, { width });
-  doc.font("Helvetica-Bold").fontSize(10).fillColor(INK).text(`${input.schoolName} / Admin Keuangan`, 50, doc.page.height - 82, { width, align: "right" });
+  let rowY = y + 16;
+  for (const [label, value] of detailRows) {
+    doc.font("Helvetica").fontSize(10.5).fillColor(INK).text(label, 66, rowY, { width: 300 });
+    doc.font("Helvetica-Bold").fontSize(10.5).fillColor(INK).text(value, 50, rowY, { width: width - 32, align: "right" });
+    rowY += 22;
+  }
+  const totalY = y + detailH - 50;
+  doc.roundedRect(62, totalY, width - 24, 38, 8).fillColor(LIMO_MEDIA_COLORS.primarySoft).fill();
+  doc.font("Helvetica-Bold").fontSize(11).fillColor(PRIMARY_DARK).text("TOTAL DIBAYAR", 78, totalY + 13, { width: 240 });
+  doc.font("Helvetica-Bold").fontSize(14).fillColor(PRIMARY_DARK).text(formatRupiah(input.amount), 62, totalY + 12, { width: width - 56, align: "right" });
+
+  // ── Panel pembayaran terverifikasi ────────────────────────────────
+  y = totalY + 38 + 22;
+  doc.roundedRect(50, y, width, 78, 10).fillColor(LIMO_MEDIA_COLORS.successTintBg).fill();
+  doc.font("Helvetica-Bold").fontSize(11).fillColor(SUCCESS_TEXT).text("Pembayaran terverifikasi", 66, y + 12, { width });
+  doc.font("Helvetica").fontSize(10).fillColor(INK).text(`Metode: ${input.provider.toUpperCase()}${input.paymentMethod ? ` / ${input.paymentMethod}` : ""}`, 66, y + 32, { width: width - 32 });
+  doc.font("Helvetica").fontSize(10).fillColor(INK).text(`Referensi: ${input.reference}`, 66, y + 50, { width: width - 32 });
+
+  // ── Footer brand ──────────────────────────────────────────────────
+  // Jaga semua elemen footer di atas 791.89 (841.89 - margin 50) agar pdfkit tidak menambah halaman baru.
+  const footerY = doc.page.height - 112;
+  doc.rect(50, footerY, 120, 3).fillColor(PRIMARY).fill();
+  doc.font("Helvetica").fontSize(8).fillColor(MUTED).text(`Kuitansi ini dibuat otomatis oleh sistem ${input.schoolName} dan sah tanpa tanda tangan basah.`, 50, footerY + 12, { width: 330 });
+  doc.font("Helvetica-Bold").fontSize(10).fillColor(PRIMARY_DARK).text("limoedu.id", 50, footerY + 12, { width, align: "right" });
+  doc.font("Helvetica-Bold").fontSize(9).fillColor(INK).text(`${input.schoolName} / Admin Keuangan`, 50, footerY + 44, { width, align: "right" });
 
   doc.end();
   return done;

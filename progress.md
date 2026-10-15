@@ -1,5 +1,25 @@
 # Progress Implementasi LIMO
 
+Terakhir diperbarui: 15 Oktober 2026
+
+## Resume Point (15 Okt 2026, lanjutan — kuitansi selaras brand)
+
+**Selesai (belum di-commit):** kuitansi PDF mengikuti desain brand invoice.
+
+- **Helper logo dipusatkan**: modul baru `src/server/services/brand-media.ts` (`getBrandLogoDataUrl()`, cache modul) — dipakai invoice PDF, invoice PNG, dan kuitansi PDF. Jangan ekspor helper non-handler dari file `route.ts` (validator tipe Next menolak).
+- **Kuitansi** (`receipt-pdf-service.ts`): band header biru + logo + tagline, heading "KUITANSI PEMBAYARAN" putih kanan, kartu info (Diterima dari/Nomor induk/Program/Tagihan) + pill **LUNAS** hijau, kartu RINCIAN PEMBAYARAN dengan band **TOTAL DIBAYAR** `primarySoft`, panel hijau "Pembayaran terverifikasi" (metode + referensi), footer `limoedu.id` (footer dikunci ≤ `height-112` — pelajaran dari invoice).
+- **Lint**: tambahkan `alt="Logo LIMO"` + eslint-disable `@next/next/no-img-element` (dengan alasan) pada `<img>` Satori — `next/image` tidak berlaku di `next/og`.
+- **Verifikasi (hijau)**: `typecheck` ✓ · `lint` 0 problem ✓ · `check:colors` ✓ · `test:billing-voucher` **14/14** ✓ · kuitansi PAID: 200, `%PDF-` ~60KB, **1 halaman** (Kids tunggal), logo DCTDecode ter-embed & digambar 1×, band 108pt + warna `primaryDark` terverifikasi di content stream.
+- Artefak tinjauan di root repo (hapus setelah disetujui): `invoice-unpaid.png`, `invoice-paid.png`, `invoice-paid.pdf`, `kuitansi-paid.pdf`.
+
+
+**Selesai (belum di-commit):** redesain invoice tagihan (`GET /api/v1/tagihan/[id]/invoice` PDF + `invoice.png`) agar sesuai branding LimoEdu.
+
+- **PNG** (`src/app/api/v1/tagihan/[id]/invoice.png/route.tsx`, `next/og`): band header biru brand (`primaryDark`) + logo `public/logo.jpg` (data URL, cache modul) dalam kartu putih rounded + nama sekolah + tagline "Bridging The World, Benefiting The Ummah"; heading besar + status pill (LUNAS hijau / BELUM DIBAYAR merah); kartu meta (label 250px — memperbaiki tabrakan label "Nomor induk / program" pada versi lama); kartu RINCIAN dengan band TOTAL TAGIHAN `primarySoft`; panel cara pembayaran/pelunasan; footer `limoedu.id`.
+- **PDF** (`src/server/services/invoice-pdf-service.ts`, pdfkit): layout senada — band biru + logo (sebagai **data URL**; `doc.image(path)` gagal di build standalone pdfkit karena shim `fs`, dan Buffer Node tidak dikenali `Buffer.isBuffer` shim browserify → wajib data URL), kartu info rounded, status pill, band total, panel pembayaran, footer brand. **Jebakan terverifikasi:** teks dengan `y > page.height - margin bawah` (>791.89pt pada A4 margin 50) membuat pdfkit menambah halaman baru — footer dikunci ≤ `height-112`.
+- **Verifikasi (hijau):** `typecheck` ✓ · `lint` 0 error ✓ · `check:colors` ✓ · `test:billing-voucher` **14/14** ✓ · PDF 1 halaman `%PDF-` ~60KB + logo DCTDecode ter-embed · PNG 1000×1414 diperiksa visual (UNPAID/PAID/OVERDUE).
+- Artefak contoh untuk tinjauan: `invoice-unpaid.png`, `invoice-paid.png`, `invoice-paid.pdf` (root repo, belum di-commit — hapus setelah disetujui).
+
 Terakhir diperbarui: 8 Oktober 2026
 
 ## Resume Point (8 Okt 2026, lanjutan 2 — backup off-site + UAT payment)
