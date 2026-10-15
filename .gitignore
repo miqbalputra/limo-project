@@ -50,3 +50,10 @@ limo_image/
 ci/
 .suite/
 masalah/
+.ci/
+
+# Artefak tinjauan PDF/PNG invoice & kuitansi yang dihasilkan saat testing manual
+/invoice-*.png
+/invoice-*.pdf
+/kuitansi-*.pdf
+/kuitansi-*.png

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --blue-50:#F6FBFF; --blue-100:#E5F2FF; --blue-200:#C2E0FF;
+    --blue-500:#2372B8; --blue-600:#0E5D9D; --blue-700:#044980; --blue-800:#033761; --blue-900:#042847;
+    --sky-600:#00769D; --sky-100:#E0F4FE; --sky-300:#94D3F2;
+    --green-600:#009D51; --green-100:#E1F7E6;
+    --yellow-400:#E3BE1F; --yellow-100:#F8F3D1;
+    --neutral-50:#FAFAFA; --neutral-100:#F3F3F3; --neutral-300:#CACACA; --neutral-500:#9E9E9E; --neutral-700:#616161; --neutral-900:#212121;
+    --red-600:#C92326;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    width:1080px;
+    font-family:'Outfit',system-ui,-apple-system,'Segoe UI',sans-serif;
+    background:var(--neutral-50);
+    color:var(--neutral-900);
+    -webkit-font-smoothing:antialiased;
+  }
+  .poster{width:1080px;}
+
+  /* ---------- Header ---------- */
+  .header{
+    background:var(--blue-700);
+    padding:56px 72px 48px;
+    position:relative;
+  }
+  .header-top{display:flex;align-items:center;gap:24px;}
+  .logo-chip{
+    background:#fff;border-radius:20px;padding:12px 18px;
+    display:flex;align-items:center;flex-shrink:0;
+  }
+  .logo-chip img{height:52px;display:block;}
+  .brand-block{display:flex;flex-direction:column;gap:2px;}
+  .brand-name{color:#fff;font-size:30px;font-weight:700;letter-spacing:.2px;}
+  .brand-sub{color:var(--sky-300);font-size:17px;font-weight:500;}
+  .period-chip{
+    margin-left:auto;background:var(--blue-800);border:1.5px solid rgba(148,211,242,.45);
+    color:#fff;border-radius:999px;padding:10px 22px;font-size:16.5px;font-weight:600;
+    display:flex;align-items:center;gap:8px;white-space:nowrap;
+  }
+  .period-chip .dot{width:8px;height:8px;border-radius:50%;background:var(--yellow-400);}
+  .header-main{margin-top:34px;}
+  .eyebrow{
+    display:inline-block;color:#fff;background:rgba(148,211,242,.16);
+    border:1.5px solid rgba(148,211,242,.4);border-radius:8px;
+    font-size:15px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;
+    padding:7px 14px;margin-bottom:18px;
+  }
+  h1{color:#fff;font-size:58px;line-height:1.12;font-weight:800;letter-spacing:-.5px;}
+  h1 .accent{color:var(--sky-300);}
+  .header-lede{
+    margin-top:18px;color:var(--blue-200);font-size:21px;line-height:1.5;font-weight:400;max-width:820px;
+  }
+
+  /* ---------- Body ---------- */
+  .body{padding:52px 72px 8px;}
+  .section{margin-bottom:44px;}
+  .section-head{display:flex;align-items:center;gap:18px;margin-bottom:20px;}
+  .icon-chip{
+    width:58px;height:58px;border-radius:16px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .icon-chip svg{width:30px;height:30px;}
+  .section-title-wrap{display:flex;flex-direction:column;gap:2px;}
+  .section-title{font-size:27px;font-weight:700;color:var(--blue-900);letter-spacing:-.2px;}
+  .section-sub{font-size:16.5px;color:var(--neutral-700);font-weight:500;}
+  .card{
+    background:#fff;border:1.5px solid var(--neutral-100);border-radius:20px;
+    padding:26px 30px;display:flex;flex-direction:column;gap:14px;
+    box-shadow:0 2px 10px rgba(4,40,71,.05);
+  }
+  .item{display:flex;gap:14px;align-items:flex-start;}
+  .bullet{
+    width:24px;height:24px;border-radius:8px;flex-shrink:0;margin-top:2px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .bullet svg{width:13px;height:13px;}
+  .item p{font-size:18.5px;line-height:1.5;color:var(--neutral-700);}
+  .item p b{color:var(--neutral-900);font-weight:600;}
+
+  .c-blue  {background:var(--blue-500);}   .c-blue  .bullet{background:var(--blue-100);}
+  .c-green {background:var(--green-600);}  .c-green .bullet{background:var(--green-100);}
+  .c-sky   {background:var(--sky-600);}    .c-sky   .bullet{background:var(--sky-100);}
+  .c-slate {background:var(--blue-800);}   .c-slate .bullet{background:var(--blue-100);}
+
+  /* stat strip */
+  .stat-strip{
+    margin:6px 72px 48px;background:var(--blue-100);border-radius:20px;
+    padding:24px 34px;display:flex;align-items:center;gap:22px;
+  }
+  .stat-icon{
+    width:54px;height:54px;border-radius:14px;background:var(--blue-500);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .stat-icon svg{width:28px;height:28px;}
+  .stat-text{font-size:18.5px;line-height:1.5;color:var(--blue-800);}
+  .stat-text b{font-weight:700;}
+
+  /* ---------- Footer ---------- */
+  .footer{
+    background:var(--blue-900);padding:30px 72px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .footer-left{display:flex;align-items:center;gap:14px;}
+  .footer-mark{width:38px;height:38px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;padding:5px;}
+  .footer-mark img{width:100%;height:100%;object-fit:contain;}
+  .footer-name{color:#fff;font-size:17px;font-weight:600;}
+  .footer-domain{color:var(--sky-300);font-size:15.5px;font-weight:500;}
+  .footer-right{color:var(--blue-200);font-size:15.5px;font-weight:500;}
+</style>
+</head>
+<body>
+<div class="poster">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-top">
+      <div class="logo-chip"><img src="../../../public/logo.jpg" alt="LIMO"></div>
+      <div class="brand-block">
+        <div class="brand-name">LIMO</div>
+        <div class="brand-sub">Little Moslems Academy</div>
+      </div>
+      <div class="period-chip"><span class="dot"></span> 27 Sep – 11 Okt 2026</div>
+    </div>
+    <div class="header-main">
+      <span class="eyebrow">Catatan Rilis untuk Mitra</span>
+      <h1>Update Aplikasi LIMO:<br>Ujian &amp; Kuis, Tagihan,<br>dan <span class="accent">Keamanan</span></h1>
+      <p class="header-lede">Dua pekan terakhir kami menuntaskan tiga hal besar: fitur ujian &amp; kuis untuk guru, penyempurnaan sistem tagihan, dan penguatan keamanan &amp; keandalan aplikasi.</p>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="body">
+
+    <!-- 1. UJIAN & KUIS -->
+    <div class="section">
+      <div class="section-head">
+        <div class="icon-chip c-blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg>
+        </div>
+        <div class="section-title-wrap">
+          <div class="section-title">1 · Ujian &amp; Kuis untuk Guru</div>
+          <div class="section-sub">Fitur terbesar pada periode ini</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="item"><div class="bullet c-blue"><svg viewBox="0 0 24 24" fill="none" stroke="#0E5D9D" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div><p><b>Pembuat soal baru ala Google Forms</b> — guru dapat menyusun kuis/ujian tanpa pelatihan khusus, lengkap dengan Pustaka Soal yang bisa dipakai ulang antar-ujian.</p></div>
+        <div class="item"><div class="bullet c-blue"><svg viewBox="0 0 24 24" fill="none" stroke="#0E5D9D" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div><p><b>Jenis soal baru:</b> menjodohkan teks &amp; gambar dengan drag &amp; drop, urutan, tabel, skala, isian, dan unggah berkas — plus pengacakan urutan saat ujian berjalan.</p></div>
+        <div class="item"><div class="bullet c-blue"><svg viewBox="0 0 24 24" fill="none" stroke="#0E5D9D" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div><p><b>Penilaian lebih lengkap:</b> poin parsial per jawaban, batas percobaan ujian, dan KKM langsung tampil di hasil ujian.</p></div>
+        <div class="item"><div class="bullet c-blue"><svg viewBox="0 0 24 24" fill="none" stroke="#0E5D9D" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div><p><b>Kuis bisa ditutup/dibuka kapan saja</b>, dan tersedia formulir ujian publik tanpa perlu kelas — cocok untuk ujian try-out.</p></div>
+      </div>
+    </div>
+
+    <!-- 2. TAGIHAN -->
+    <div class="section">
+      <div class="section-head">
+        <div class="icon-chip c-green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+        </div>
+        <div class="section-title-wrap">
+          <div class="section-title">2 · Tagihan &amp; Pembayaran</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="item"><div class="bullet c-green"><svg viewBox="0 0 24 24" fill="none" stroke="#009D51" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div><p><b>Invoice tagihan kini bisa diunduh</b> dalam bentuk PDF dan gambar, tersedia untuk admin maupun wali murid.</p></div>
+        <div class="item"><div class="bullet c-green"><svg viewBox="0 0 24 24" fill="none" stroke="#009D51" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div><p><b>Tarif SPP bisa dibuat per siswa</b> — tidak hanya per kelas — termasuk nominal khusus dan biaya tambahan; tarif lama bisa diarsipkan tanpa menghilangkan riwayat.</p></div>
+        <div class="item"><div class="bullet c-green"><svg viewBox="0 0 24 24" fill="none" stroke="#009D51" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div><p><b>Status tagihan lebih akurat</b> — status "terlambat"/"lunas" kini selalu selaras dengan data payment gateway.</p></div>
+      </div>
+    </div>
+
+    <!-- 3. DASHBOARD -->
+    <div class="section">
+      <div class="section-head">
+        <div class="icon-chip c-sky">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        </div>
+        <div class="section-title-wrap">
+          <div class="section-title">3 · Dashboard Admin &amp; Guru</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="item"><div class="bullet c-sky"><svg viewBox="0 0 24 24" fill="none" stroke="#00769D" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div><p><b>Manajemen pengguna lebih lengkap</b> — admin bisa mengatur peran, mengatur password langsung, dan mengelola data guru dari satu halaman.</p></div>
+        <div class="item"><div class="bullet c-sky"><svg viewBox="0 0 24 24" fill="none" stroke="#00769D" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div><p><b>Halaman audit untuk memantau aktivitas</b>, izin guru yang lebih ketat, serta tampilan dan notifikasi yang lebih rapi di seluruh dashboard.</p></div>
+        <div class="item"><div class="bullet c-sky"><svg viewBox="0 0 24 24" fill="none" stroke="#00769D" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div><p><b>Laporan perkembangan siswa berkala</b> kini tersedia.</p></div>
+      </div>
+    </div>
+
+    <!-- 4. KEAMANAN -->
+    <div class="section" style="margin-bottom:12px;">
+      <div class="section-head">
+        <div class="icon-chip c-slate">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="section-title-wrap">
+          <div class="section-title">4 · Keamanan &amp; Keandalan</div>
+          <div class="section-sub">Di balik layar, tapi sama pentingnya</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="item"><div class="bullet c-slate"><svg viewBox="0 0 24 24" fill="none" stroke="#033761" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div><p><b>Patch celah keamanan</b> pada framework aplikasi (Next.js) sesuai advisory resmi.</p></div>
+        <div class="item"><div class="bullet c-slate"><svg viewBox="0 0 24 24" fill="none" stroke="#033761" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div><p><b>Backup database otomatis tersimpan juga di luar server</b> (off-site), dengan notifikasi jika backup gagal.</p></div>
+        <div class="item"><div class="bullet c-slate"><svg viewBox="0 0 24 24" fill="none" stroke="#033761" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div><p><b>Siswa yang diarsipkan otomatis tidak bisa lagi login</b> — sesi aktif langsung dicabut.</p></div>
+        <div class="item"><div class="bullet c-slate"><svg viewBox="0 0 24 24" fill="none" stroke="#033761" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div><p><b>Perlindungan spam/penyalahgunaan</b> (rate limiting) dan validasi webhook pembayaran.</p></div>
+        <div class="item"><div class="bullet c-slate"><svg viewBox="0 0 24 24" fill="none" stroke="#033761" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div><p><b>25 skenario pengujian otomatis</b> kini berjalan di setiap proses rilis untuk mencegah regresi.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAT STRIP -->
+  <div class="stat-strip">
+    <div class="stat-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+    </div>
+    <p class="stat-text"><b>Halaman landing kini 5× lebih ringan</b> — ukuran unduhan hero diperkecil dari 4,9 MB menjadi 1,05 MB, lebih hemat kuota pengunjung.</p>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="footer-left">
+      <div class="footer-mark"><img src="../../../public/icon.svg" alt=""></div>
+      <div>
+        <div class="footer-name">LIMO · Little Moslems Academy</div>
+        <div class="footer-domain">limoedu.id</div>
+      </div>
+    </div>
+    <div class="footer-right">Rilis 27 Sep – 11 Okt 2026</div>
+  </div>
+
+</div>
+</body>
+</html>

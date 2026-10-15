@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Invoice SF-INV-2026-10-001 · SistemFlow.com untuk LimoEdu.id</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { margin: 0; padding: 0; background: #ffffff; }
+  body { font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: #1f2937; }
+
+  :root {
+    --blue: #1d4ed8;
+    --blue-dark: #1e3a8a;
+    --ink: #1f2937;
+    --muted: #64748b;
+    --surface: #f7f9fd;
+    --line: #dbe3ef;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    margin: 0 auto; background: #ffffff;
+    overflow: hidden; position: relative;
+    display: flex; flex-direction: column;
+  }
+  .accent-top { height: 6px; background: var(--blue); }
+  .inner { padding: 12mm 14mm 8mm; flex: 1; display: flex; flex-direction: column; }
+
+  /* ── Header ── */
+  .hdr { display: flex; justify-content: space-between; align-items: flex-start; }
+  .brand-name { font-size: 19pt; font-weight: 700; letter-spacing: -0.3px; }
+  .brand-name .com { color: var(--blue); font-weight: 600; }
+  .brand-tag { font-size: 9.5pt; color: var(--muted); margin-top: 3px; }
+  .brand-web { font-size: 8.5pt; color: var(--blue); font-weight: 600; margin-top: 1px; letter-spacing: 0.4px; }
+  .inv-title { font-size: 24pt; font-weight: 800; color: var(--blue-dark); letter-spacing: 3px; text-align: right; line-height: 1; }
+  .inv-meta { margin-top: 8px; font-size: 9pt; text-align: right; line-height: 1.7; }
+  .inv-meta .lbl { color: var(--muted); }
+  .inv-meta .val { font-weight: 600; }
+  .inv-meta .no { font-size: 10pt; }
+
+  .rule { border: 0; border-top: 1px solid var(--line); margin: 16px 0 14px; }
+
+  /* ── Parties ── */
+  .parties { display: flex; justify-content: space-between; gap: 10mm; }
+  .plabel { font-size: 7.5pt; font-weight: 700; letter-spacing: 1.2px; color: var(--muted); text-transform: uppercase; margin-bottom: 5px; }
+  .p-name { font-size: 12.5pt; font-weight: 700; }
+  .p-sub { font-size: 9.5pt; color: var(--muted); margin-top: 2px; }
+  .p-right { text-align: right; }
+  .p-right .p-name { font-size: 11pt; }
+
+  /* ── Items ── */
+  table.items { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  .items thead th {
+    background: var(--blue); color: #ffffff;
+    font-size: 8pt; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    padding: 7px 10px; text-align: left;
+  }
+  .items thead th.c-no { width: 9mm; text-align: center; }
+  .items tbody td { padding: 10px 10px 11px; border-bottom: 1px solid #e8edf5; vertical-align: top; }
+  .items tbody tr:nth-child(even) { background: var(--surface); }
+  .td-no { text-align: center; color: var(--muted); font-size: 9.5pt; font-weight: 600; padding-top: 13px !important; }
+  .svc-name { font-size: 10pt; font-weight: 700; }
+  .mini { list-style: none; margin: 4px 0 0; padding: 0; }
+  .mini li {
+    font-size: 8pt; line-height: 1.5; color: #475569;
+    padding-left: 12px; position: relative; margin-bottom: 2px;
+  }
+  .mini li::before { content: "•"; position: absolute; left: 2px; color: var(--blue); font-weight: 700; }
+  .mini li b { color: var(--ink); }
+
+  /* ── Totals ── */
+  .totals-wrap { margin-left: auto; margin-top: 14px; width: 96mm; }
+  table.totals { width: 100%; border-collapse: collapse; }
+  .totals tr.grand td { background: var(--blue); color: #ffffff; padding: 10px 10px; }
+  .totals tr.grand .lbl { color: #ffffff; font-weight: 700; font-size: 10pt; letter-spacing: 0.8px; }
+  .totals tr.grand .val { font-size: 15pt; font-weight: 800; text-align: right; white-space: nowrap; }
+  .terbilang { font-size: 9pt; color: var(--muted); font-style: italic; text-align: right; margin-top: 6px; }
+  .terbilang b { color: var(--ink); font-style: normal; }
+
+  /* ── Bottom band ── */
+  .band { display: flex; gap: 8mm; margin-top: 18px; }
+  .box { flex: 1; border: 1px solid var(--line); border-top: 3px solid var(--blue); padding: 12px 14px 13px; }
+  .box .plabel { color: var(--blue-dark); }
+  .pay-line { font-size: 9.5pt; line-height: 1.7; }
+  .pay-line b { font-size: 10pt; }
+  .pay-num { font-size: 12.5pt; font-weight: 700; letter-spacing: 0.8px; }
+  .notes { list-style: none; margin: 0; padding: 0; font-size: 8.5pt; color: var(--muted); line-height: 1.6; }
+  .notes li { margin-bottom: 5px; padding-left: 14px; position: relative; }
+  .notes li::before { content: "•"; position: absolute; left: 2px; color: var(--blue); }
+
+  .thanks { margin-top: auto; text-align: center; font-size: 9.5pt; color: var(--muted); font-style: italic; padding-bottom: 14px; }
+  .thanks b { color: var(--blue-dark); font-style: normal; }
+
+  /* ── Footer ── */
+  .foot {
+    margin-top: 0; border-top: 1px solid var(--line); padding-top: 8px;
+    display: flex; justify-content: space-between; font-size: 8pt; color: var(--muted);
+  }
+
+  /* Screen preview scaling */
+  @media screen {
+    html { background: #e8ecf3; }
+    body { padding: 24px 0; }
+    .page { box-shadow: 0 4px 24px rgba(31, 41, 55, 0.18); }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="accent-top"></div>
+  <div class="inner">
+
+    <div class="hdr">
+      <div>
+        <div class="brand-name">SistemFlow<span class="com">.com</span></div>
+        <div class="brand-tag">Sistem Manajemen Lembaga Pendidikan</div>
+        <div class="brand-web">sistemflow.com</div>
+      </div>
+      <div>
+        <div class="inv-title">INVOICE</div>
+        <div class="inv-meta">
+          <div><span class="lbl">No. Invoice&nbsp;&nbsp;</span><span class="val no">SF-INV-2026-10-001</span></div>
+          <div><span class="lbl">Tanggal&nbsp;&nbsp;</span><span class="val">11 Oktober 2026</span></div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="rule">
+
+    <div class="parties">
+      <div>
+        <div class="plabel">Kepada</div>
+        <div class="p-name">LimoEdu.id</div>
+        <div class="p-sub">LIMO &middot; Little Moslems Academy</div>
+      </div>
+      <div class="p-right">
+        <div class="plabel">Periode Layanan</div>
+        <div class="p-name">27 September &ndash; 11 Oktober 2026</div>
+        <div class="p-sub">Metode Pembayaran: Transfer Bank</div>
+      </div>
+    </div>
+
+    <table class="items">
+      <thead>
+        <tr>
+          <th class="c-no">No</th>
+          <th>Ringkasan Fitur</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-no">1</td>
+          <td>
+            <div class="svc-name">Ujian &amp; Kuis untuk Guru</div>
+            <ul class="mini">
+              <li><b>Pembuat soal ala Google Forms</b> + Pustaka Soal yang bisa dipakai ulang antar-ujian.</li>
+              <li><b>Jenis soal baru:</b> menjodohkan teks &amp; gambar (drag &amp; drop), urutan, tabel, skala, isian, unggah berkas + pengacakan urutan.</li>
+              <li><b>Penilaian lengkap:</b> poin parsial per jawaban, batas percobaan, dan KKM tampil di hasil ujian.</li>
+              <li>Kuis bisa ditutup/dibuka kapan saja + formulir ujian publik tanpa kelas untuk try-out.</li>
+            </ul>
+          </td>
+        </tr>
+        <tr>
+          <td class="td-no">2</td>
+          <td>
+            <div class="svc-name">Tagihan &amp; Pembayaran</div>
+            <ul class="mini">
+              <li><b>Invoice tagihan PDF/PNG</b> untuk admin maupun wali murid.</li>
+              <li><b>Tarif SPP per siswa:</b> nominal khusus &amp; biaya tambahan; tarif lama terarsip tanpa menghilangkan riwayat.</li>
+              <li><b>Status tagihan akurat</b> &mdash; "terlambat"/"lunas" selalu selaras data payment gateway.</li>
+            </ul>
+          </td>
+        </tr>
+        <tr>
+          <td class="td-no">3</td>
+          <td>
+            <div class="svc-name">Dashboard Admin &amp; Guru</div>
+            <ul class="mini">
+              <li><b>Manajemen pengguna lebih lengkap:</b> atur peran, set password langsung, kelola data guru satu halaman.</li>
+              <li><b>Halaman audit aktivitas</b> + izin guru lebih ketat + tampilan &amp; notifikasi lebih rapi.</li>
+              <li><b>Laporan perkembangan siswa berkala</b> kini tersedia.</li>
+            </ul>
+          </td>
+        </tr>
+        <tr>
+          <td class="td-no">4</td>
+          <td>
+            <div class="svc-name">Keamanan &amp; Keandalan</div>
+            <ul class="mini">
+              <li><b>Patch celah keamanan</b> framework aplikasi (Next.js) sesuai advisory resmi.</li>
+              <li><b>Backup database otomatis off-site</b> + notifikasi jika backup gagal.</li>
+              <li><b>Proteksi spam/penyalahgunaan</b> (rate limiting) + validasi webhook pembayaran; arsip siswa langsung mencabut akses login.</li>
+              <li><b>25 skenario pengujian otomatis</b> di setiap rilis + halaman landing 5&times; lebih ringan (4,9 MB &rarr; 1,05 MB).</li>
+            </ul>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="totals-wrap">
+      <table class="totals">
+        <tr class="grand">
+          <td class="lbl">TOTAL TAGIHAN</td>
+          <td class="val">Rp 200.000</td>
+        </tr>
+      </table>
+      <div class="terbilang">Terbilang: <b>Dua Ratus Ribu Rupiah</b></div>
+    </div>
+
+    <div class="band">
+      <div class="box">
+        <div class="plabel">Pembayaran</div>
+        <div class="pay-line"><b>Bank Syariah Indonesia (BSI)</b></div>
+        <div class="pay-line">No. Rekening <span class="pay-num">7315985611</span></div>
+        <div class="pay-line">a.n. <b>Muhammad Iqbal Putra</b></div>
+      </div>
+      <div class="box">
+        <div class="plabel">Catatan</div>
+        <ul class="notes">
+          <li>Harga update fitur terbaru (sudah mencakup <b>seluruh fitur pada ringkasan di atas</b>) sampai dengan rilis resmi aplikasi.</li>
+          <li>Mohon konfirmasi beserta bukti transfer setelah pembayaran.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="thanks">Terima kasih atas kepercayaan <b>LimoEdu.id</b> &mdash; senang bisa terus menemani perjalanan sistem Anda.</div>
+
+    <div class="foot">
+      <div>SistemFlow.com &mdash; Invoice ini dibuat secara elektronik dan sah tanpa tanda tangan basah.</div>
+      <div>SF-INV-2026-10-001</div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
