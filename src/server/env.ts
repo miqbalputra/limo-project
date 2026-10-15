@@ -95,6 +95,7 @@ const envSchema = z.object({
   GUARDIAN_ASSISTED_SUBMISSION_ENABLED: optionalFeatureFlagFromString,
   STUDENT_SELF_EXAM_ENABLED: optionalFeatureFlagFromString,
   CLASS_DISCUSSION_ENABLED: optionalFeatureFlagFromString,
+  RADAR_INTEL_ENABLED: optionalFeatureFlagFromString,
 }).superRefine((env, ctx) => {
   const enforceProductionSecrets = env.NODE_ENV === "production"
     && process.env.NEXT_PHASE !== "phase-production-build"

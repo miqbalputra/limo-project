@@ -14,7 +14,8 @@ export type FeatureFlagKey =
   | "periodicReportsEnabled"
   | "guardianAssistedSubmissionEnabled"
   | "studentSelfExamEnabled"
-  | "classDiscussionEnabled";
+  | "classDiscussionEnabled"
+  | "radarIntelEnabled";
 
 export type FeatureFlags = Record<FeatureFlagKey, boolean>;
 
@@ -30,6 +31,7 @@ const developmentDefaults: FeatureFlags = {
   guardianAssistedSubmissionEnabled: false,
   studentSelfExamEnabled: true,
   classDiscussionEnabled: true,
+  radarIntelEnabled: true,
 };
 
 const productionDefaults: FeatureFlags = {
@@ -44,6 +46,7 @@ const productionDefaults: FeatureFlags = {
   guardianAssistedSubmissionEnabled: false,
   studentSelfExamEnabled: false,
   classDiscussionEnabled: false,
+  radarIntelEnabled: false,
 };
 
 export function getFeatureFlags(): FeatureFlags {
@@ -62,6 +65,7 @@ export function getFeatureFlags(): FeatureFlags {
     guardianAssistedSubmissionEnabled: env.GUARDIAN_ASSISTED_SUBMISSION_ENABLED ?? defaults.guardianAssistedSubmissionEnabled,
     studentSelfExamEnabled: env.STUDENT_SELF_EXAM_ENABLED ?? defaults.studentSelfExamEnabled,
     classDiscussionEnabled: env.CLASS_DISCUSSION_ENABLED ?? defaults.classDiscussionEnabled,
+    radarIntelEnabled: env.RADAR_INTEL_ENABLED ?? defaults.radarIntelEnabled,
   };
 }
 

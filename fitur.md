@@ -904,3 +904,38 @@ Dokumen pendukung:
 - `docs/BACKUP_RESTORE.md`
 - `docs/UAT_SCRIPT.md`
 - `docs/KNOWN_LIMITATIONS.md`
+
+## 26. Radar Intelijen (Pusat Intelijen Retensi)
+
+### Deskripsi
+
+Fitur analitik eksekutif untuk Admin pemilik lembaga. Sistem menghitung skor risiko 0-100 per siswa aktif dari data pembelajaran dan administrasi yang sudah ada, lalu mengklasifikasikan siswa menjadi level AMAN, WASPADA, RISIKO, atau KRITIS untuk mendukung tindak lanjut cepat sebelum siswa berhenti belajar.
+
+### Indikator risiko
+
+- Kehadiran rendah: presensi di bawah 75% pada 30 hari terakhir.
+- Kehadiran menurun: tren kehadiran 30 hari terakhir turun lebih dari 15 poin dibanding 30 hari sebelumnya.
+- Nilai di bawah standar: rata-rata nilai ujian final di bawah 70.
+- Nilai menurun: nilai ujian terakhir lebih dari 10 poin di bawah rata-rata.
+- Progres belajar stagnan: tidak ada catatan progres dalam 30-90 hari.
+- Tunggakan tagihan: tagihan UNPAID/PENDING/OVERDUE yang melewati jatuh tempo.
+
+### Ringkasan eksekutif
+
+- Skor Kesehatan Retensi lembaga (0-100).
+- Jumlah siswa per level risiko.
+- Pendapatan berisiko: total tunggakan milik siswa RISIKO/KRITIS.
+- Hotspot kelas: kelas dengan konsentrasi siswa berisiko terbanyak.
+- Sebaran faktor risiko di seluruh siswa.
+
+### Intervensi
+
+- Daftar 20 siswa dengan skor risiko tertinggi beserta detail indikator.
+- Aksi satu klik "Hubungi Wali" mengirim notifikasi Email dan WhatsApp ke wali siswa berisiko dengan isi ringkasan indikator, idempoten per siswa per hari (dedupe).
+- Tautan ke halaman detail siswa untuk penindaklanjutan lanjutan.
+
+### Halaman akses dan API
+
+- `/admin/radar` (izin `admin.radar.view`, feature flag `RADAR_INTEL_ENABLED`).
+- `GET /api/v1/admin/radar`.
+- `POST /api/v1/admin/radar/intervensi`.

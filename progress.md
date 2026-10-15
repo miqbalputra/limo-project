@@ -672,3 +672,10 @@ Dibangun 3 fase sesuai `rencana.md` FASE 9, di balik flag **`CLASS_DISCUSSION_EN
 `npm run typecheck` · `npm run lint` · `npm test` · `npm run test:guards` · `E2E_SPEC=<spec> npm run test:e2e` · `npm run test:quiz-builder` (butuh dev server `NODE_ENV=development`).
 
 **Catatan**: `masalah/` (screenshot pengguna) sengaja dibiarkan untracked, tidak pernah ikut commit.
+
+## Fitur Baru — Radar Intelijen (Pusat Intelijen Retensi) (15 Okt 2026)
+
+- **Fitur**: dashboard eksekutif `/admin/radar` untuk pemilik lembaga — skor risiko 0–100 per siswa aktif dari kehadiran (rate + tren 30 vs 30 hari), nilai ujian final (rata-rata + tren), stagnasi progres belajar, dan tunggakan tagihan; level AMAN/WASPADA/RISIKO/KRITIS, Skor Kesehatan Retensi, pendapatan berisiko, hotspot kelas, sebaran faktor risiko, dan aksi **"Hubungi Wali"** 1-klik (notifikasi email + WhatsApp via `notifyWaliForStudents`, dedupe per siswa per hari).
+- **File baru**: `src/server/services/radar-intelijen-service.ts`, `src/server/validation/radar.ts`, `src/app/api/v1/admin/radar/route.ts`, `src/app/api/v1/admin/radar/intervensi/route.ts`, `src/app/(dashboard)/admin/radar/page.tsx`, `src/components/dashboard/radar-intervention-button.tsx`.
+- **Perubahan**: izin baru `admin.radar.view`, feature flag `radarIntelEnabled` (`RADAR_INTEL_ENABLED`, default dev on / prod off), menu Admin "Radar Intelijen" (section Ringkasan), `.env.example`, `fitur.md` (bagian 26).
+- Tanpa migrasi database — seluruh komputasi memakai agregasi model yang sudah ada (Presensi, ProgresBelajar, HasilUjian, Tagihan, KelasSiswa).
