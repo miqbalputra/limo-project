@@ -58,7 +58,7 @@ function resolveReportPeriod(startValue: string, endValue: string) {
   return { from, to };
 }
 
-async function buildSnapshot(studentId: string, kelasId: string, from: Date, to: Date) {
+export async function buildSnapshot(studentId: string, kelasId: string, from: Date, to: Date) {
   const [presensi, progres, exams, submissions, requiredItems, completedItems, finalGrade] = await Promise.all([
     prisma.presensi.findMany({
       where: { siswaId: studentId, sesiKelas: { kelasId, sessionDate: { gte: from, lt: to } } },
@@ -128,7 +128,7 @@ async function buildSnapshot(studentId: string, kelasId: string, from: Date, to:
 
 type Snapshot = Awaited<ReturnType<typeof buildSnapshot>>;
 
-function buildDraftSummary(snapshot: Snapshot, reportType: string) {
+export function buildDraftSummary(snapshot: Snapshot, reportType: string) {
   const parts: string[] = [];
   parts.push(`Ringkasan otomatis laporan ${REPORT_TYPE_LABEL[reportType] ?? reportType}.`);
   if (snapshot.attendance.rate !== null) {

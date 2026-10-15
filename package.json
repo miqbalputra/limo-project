@@ -59,6 +59,7 @@
     "notifications:retry": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/retry-notifications.ts",
     "reminders:send": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/send-deadline-reminders.ts",
     "reminders:invoices": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/send-invoice-reminders.ts",
+    "reports:autodraft": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/generate-monthly-report-drafts.ts",
     "mayar:reconcile": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/reconcile-mayar-payments.ts",
     "pakasir:reconcile": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/reconcile-pakasir-payments.ts",
     "backup:create": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/backup.ts",

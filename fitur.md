@@ -939,3 +939,23 @@ Fitur analitik eksekutif untuk Admin pemilik lembaga. Sistem menghitung skor ris
 - `/admin/radar` (izin `admin.radar.view`, feature flag `RADAR_INTEL_ENABLED`).
 - `GET /api/v1/admin/radar`.
 - `POST /api/v1/admin/radar/intervensi`.
+
+## 27. Generator Laporan Otomatis & Peluang Kenaikan Level
+
+### Generator Laporan Bulanan Otomatis
+
+- Sistem membuat DRAFT laporan perkembangan MONTHLY untuk seluruh siswa aktif pada kelas aktif untuk periode tertentu, lengkap dengan snapshot presensi, progres, ujian, tugas, modul, dan nilai akhir serta ringkasan naratif otomatis.
+- Idempoten: siswa yang sudah memiliki laporan MONTHLY pada periode tersebut dilewati.
+- Guru cukup memeriksa, melengkapi catatan, dan menerbitkan; penerbitan otomatis mengirim notifikasi ke Wali dan Siswa (alur laporan yang sudah ada).
+- Tersedia panel "Generator Laporan Bulanan Otomatis" pada `/admin/laporan-perkembangan` (izin `admin.reports.view`, feature flag `REPORT_AUTOPILOT_ENABLED`) dengan metrik cakupan: siswa aktif, draf tersedia, terbit, dan belum ada laporan, plus mode simulasi (dry-run).
+- API: `GET /api/v1/admin/reports/autopilot?period=YYYY-MM` dan `POST /api/v1/admin/reports/autopilot`.
+- Job terjadwal: `npm run reports:autodraft [-- --period=YYYY-MM] [--dry-run]` untuk dijalankan lewat cron awal bulan.
+
+### Peluang Kenaikan Level (Upsell)
+
+- Sistem menghitung skor kesiapan per pendaftaran aktif: progres modul terbit (bobot 40%), rata-rata nilai ujian final (40%), dan kehadiran (20%).
+- Siswa dianggap siap bila progres modul >= 75%, nilai rata-rata >= 70 (bila ada data), dan kehadiran >= 80% (bila ada data).
+- Level berikutnya diambil dari level aktif pada program yang sama berdasarkan urutan; bila sudah level terakhir, ditandai sebagai tahap akhir (sertifikat kelulusan).
+- Halaman `/admin/upsell` (izin `admin.upsell.view`, feature flag `UPSELL_ENABLED`) menampilkan daftar siswa siap naik level dengan rincian kesiapan.
+- Aksi "Tawarkan ke Wali" mengirim notifikasi Email dan WhatsApp berisi ringkasan pencapaian dan tawaran level berikutnya, idempoten maksimal satu kali per siswa per kelas per bulan (dedupe).
+- API: `GET /api/v1/admin/upsell` dan `POST /api/v1/admin/upsell/tawarkan`.
