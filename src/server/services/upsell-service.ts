@@ -3,7 +3,7 @@ import "server-only";
 import { requirePermission } from "@/server/auth/permissions";
 import type { Actor } from "@/server/auth/session";
 import { prisma } from "@/server/db/prisma";
-import { NotFoundError, ValidationError } from "@/server/errors/application-error";
+import { NotFoundError } from "@/server/errors/application-error";
 import { notifyWaliForStudents } from "./notification-service";
 
 export type UpsellReadiness = {

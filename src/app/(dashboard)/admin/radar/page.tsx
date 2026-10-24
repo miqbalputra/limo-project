@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireActor } from "@/server/auth/session";
 import { requirePermission } from "@/server/auth/permissions";
 import { isFeatureEnabled } from "@/server/features/feature-flags";
-import { getRadarIntel, type RadarRiskLevel, type RadarStudentRow } from "@/server/services/radar-intelijen-service";
+import { getRadarIntel, type RadarRiskLevel } from "@/server/services/radar-intelijen-service";
 import { DashboardHero, EmptyState, MetricCard, ProgressBar, SectionHeader } from "@/components/dashboard/dashboard-widgets";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import { RadarInterventionButton } from "@/components/dashboard/radar-intervention-button";
