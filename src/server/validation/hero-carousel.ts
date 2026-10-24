@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { partialWithoutDefaults } from "@/server/validation/common";
 
 export const heroSlidePayloadSchema = z.object({
   sortOrder: z.coerce.number().int().min(0).max(1000).default(0),
@@ -16,4 +17,4 @@ export const heroSlidePayloadSchema = z.object({
   altText: z.string().trim().min(2).max(255),
 });
 
-export const heroSlideUpdateSchema = heroSlidePayloadSchema.partial();
+export const heroSlideUpdateSchema = partialWithoutDefaults(heroSlidePayloadSchema);

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateSchema } from "@/server/validation/common";
+import { isoDateSchema, partialWithoutDefaults } from "@/server/validation/common";
 
 export const updateSchoolSettingSchema = z.object({
   name: z.string().trim().min(2).max(200),
@@ -17,4 +17,4 @@ export const createAcademicYearSchema = z.object({
   endDate: isoDateSchema,
 });
 
-export const updateAcademicYearSchema = createAcademicYearSchema.partial();
+export const updateAcademicYearSchema = partialWithoutDefaults(createAcademicYearSchema);

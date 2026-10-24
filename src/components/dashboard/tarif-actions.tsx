@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { useConfirmDialog } from "@/components/dashboard/use-confirm-dialog";
+import { StudentSearchSelect } from "@/components/dashboard/student-search-select";
 import { useToast } from "@/components/ui/toast-provider";
 import { requestJson } from "@/lib/api-json-client";
 
@@ -18,9 +19,10 @@ export type TarifRow = {
   programId: string | null;
   kelasId: string | null;
   siswaId: string | null;
+  siswaName?: string | null;
 };
 
-export function TarifActions({ tarif, programs, kelas, siswa }: { tarif: TarifRow; programs: Option[]; kelas: Option[]; siswa: Option[] }) {
+export function TarifActions({ tarif, programs, kelas, siswa, totalSiswa }: { tarif: TarifRow; programs: Option[]; kelas: Option[]; siswa: Option[]; totalSiswa?: number }) {
   const router = useRouter();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
@@ -102,10 +104,7 @@ export function TarifActions({ tarif, programs, kelas, siswa }: { tarif: TarifRo
             </select>
           </div>
           <input name="amount" required type="number" min={1} defaultValue={tarif.amount} aria-label="Nominal tarif" className="tailadmin-input min-h-11" />
-          <select name="siswaId" defaultValue={tarif.siswaId || ""} aria-label="Siswa tarif" className="tailadmin-input min-h-11">
-            <option value="">Tanpa siswa (berlaku per program/kelas)</option>
-            {siswa.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </select>
+          <StudentSearchSelect name="siswaId" options={siswa} totalOptions={totalSiswa} defaultValue={tarif.siswaId || ""} selectedLabel={tarif.siswaName} emptyLabel="Tanpa siswa (berlaku per program/kelas)" ariaLabel="Siswa tarif" />
           <div className="grid gap-2 sm:grid-cols-2">
             <input name="effectiveFrom" required type="date" defaultValue={tarif.effectiveFrom} aria-label="Berlaku dari" className="tailadmin-input min-h-11" />
             <input name="effectiveTo" type="date" defaultValue={tarif.effectiveTo ?? ""} aria-label="Berlaku sampai" className="tailadmin-input min-h-11" />

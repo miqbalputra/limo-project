@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { StudentSearchSelect } from "@/components/dashboard/student-search-select";
 import { requestJson } from "@/lib/api-json-client";
 import { formatRupiah } from "@/lib/money";
 
@@ -14,7 +15,7 @@ async function postJson(path: string, body: Record<string, string | number | boo
   await requestJson(path, { method: "POST", body, fallbackMessage: "Data gagal diproses" });
 }
 
-export function TarifForm({ programs, kelas, siswa }: { programs: Option[]; kelas: Option[]; siswa: Option[] }) {
+export function TarifForm({ programs, kelas, siswa, totalSiswa }: { programs: Option[]; kelas: Option[]; siswa: Option[]; totalSiswa?: number }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,13 +71,12 @@ export function TarifForm({ programs, kelas, siswa }: { programs: Option[]; kela
           </select>
         </label>
       </div>
-      <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
+      <div className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
         Siswa (opsional)
-        <select name="siswaId" className="mt-1 tailadmin-input">
-          <option value="">Opsional siswa spesifik (khusus anak ini)</option>
-          {siswa.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
-      </label>
+        <div className="mt-1">
+          <StudentSearchSelect name="siswaId" options={siswa} totalOptions={totalSiswa} emptyLabel="Opsional siswa spesifik (khusus anak ini)" ariaLabel="Siswa tarif" />
+        </div>
+      </div>
       <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
         Nominal
         <input name="amount" required type="number" min={1} placeholder="Nominal" className="mt-1 tailadmin-input" />

@@ -1,5 +1,6 @@
 import { requireActor, requireRole } from "@/server/auth/session";
 import { getEnv } from "@/server/env";
+import { ValidationError } from "@/server/errors/application-error";
 import { apiError, apiOk } from "@/server/http/api-response";
 import { getRequestId } from "@/server/http/request-id";
 import { assertSameOrigin } from "@/server/security/origin";
@@ -24,9 +25,12 @@ export async function POST(request: Request) {
     assertSameOrigin(request.headers, getEnv().APP_URL);
     const actor = await requireActor();
     requireRole(actor, ["ADMIN"]);
-    const parsed = autopilotPeriodSchema.parse(await request.json());
-    const period = parsed.period || currentAutopilotPeriod();
-    return apiOk(await generateMonthlyReportDrafts(actor, { period, dryRun: parsed.dryRun }), { requestId });
+    const parsed = autopilotPeriodSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      throw new ValidationError("Periode autopilot belum valid", parsed.error.flatten().fieldErrors);
+    }
+    const period = parsed.data.period || currentAutopilotPeriod();
+    return apiOk(await generateMonthlyReportDrafts(actor, { period, dryRun: parsed.data.dryRun }), { requestId });
   } catch (error) {
     return apiError(error, { requestId });
   }

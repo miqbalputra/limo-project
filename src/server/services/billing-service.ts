@@ -37,7 +37,7 @@ const tarifSelect = {
   isActive: true,
   program: { select: { id: true, name: true } },
   kelas: { select: { id: true, name: true } },
-  siswa: { select: { id: true, name: true } },
+  siswa: { select: { id: true, name: true, nomorInduk: true } },
 } as const;
 
 export async function listTarif(actor: Actor) {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { partialWithoutDefaults } from "@/server/validation/common";
 
 const dateTimeInput = z.string().trim().min(1).max(64);
 
@@ -28,7 +29,7 @@ function validateCalendarEvent(value: z.infer<typeof calendarEventFields>, conte
 
 export const createCalendarEventSchema = calendarEventFields.superRefine(validateCalendarEvent);
 
-export const updateCalendarEventSchema = calendarEventFields.partial().superRefine((value, context) => {
+export const updateCalendarEventSchema = partialWithoutDefaults(calendarEventFields).superRefine((value, context) => {
   if (value.startAt || value.endAt) {
     const startAt = parseInputDate(value.startAt);
     const endAt = value.endAt ? parseInputDate(value.endAt) : null;

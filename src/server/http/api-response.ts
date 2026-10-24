@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ZodError } from "zod";
 import { ApplicationError } from "@/server/errors/application-error";
 import { logger } from "@/server/logging/logger";
 
@@ -23,6 +24,20 @@ export function apiOk<TData>(data: TData, meta: ResponseMeta, init?: ResponseIni
 }
 
 export function apiError(error: unknown, meta: ResponseMeta) {
+  if (error instanceof ZodError) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Data yang dikirim belum valid",
+          fields: error.flatten().fieldErrors,
+        },
+        meta,
+      },
+      { status: 400 },
+    );
+  }
+
   if (error instanceof ApplicationError) {
     return NextResponse.json(
       {

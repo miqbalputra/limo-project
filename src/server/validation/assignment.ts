@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { partialWithoutDefaults } from "./common.ts";
 
 const optionalDateTime = z.string().trim().max(64).optional().or(z.literal(""));
 const optionalHttpUrl = z.string().trim().max(2000).url().refine((value) => /^https?:\/\//i.test(value), "Link harus menggunakan HTTP atau HTTPS").optional().or(z.literal(""));
@@ -20,7 +21,7 @@ export const createAssignmentSchema = z.object({
   allowResubmission: z.boolean().default(false),
 });
 
-export const updateAssignmentSchema = createAssignmentSchema.partial().extend({
+export const updateAssignmentSchema = partialWithoutDefaults(createAssignmentSchema).extend({
   status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional(),
 });
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { partialWithoutDefaults } from "@/server/validation/common";
 
 const optionalDateTime = z.string().trim().max(64).optional().or(z.literal(""));
 const optionalDecimal = z.preprocess((value) => value === "" || value === null || value === undefined ? undefined : Number(value), z.number().finite().min(0).optional());
@@ -10,7 +11,7 @@ export const gradeCategorySchema = z.object({
   dropLowestCount: z.coerce.number().int().min(0).max(20).default(0),
 });
 
-export const updateGradeCategorySchema = gradeCategorySchema.partial().extend({ confirmPublishedChange: z.boolean().optional() });
+export const updateGradeCategorySchema = partialWithoutDefaults(gradeCategorySchema).extend({ confirmPublishedChange: z.boolean().optional() });
 export const updateGradeCategoryStatusSchema = z.object({ status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]), confirmPublishedChange: z.boolean().optional() });
 
 export const gradeItemSchema = z.object({
