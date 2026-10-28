@@ -693,3 +693,9 @@ Dibangun 3 fase sesuai `rencana.md` FASE 9, di balik flag **`CLASS_DISCUSSION_EN
 - **Kompatibilitas data historis**: baris `PaymentGatewayConfig` provider `PAKASIR` otomatis dinonaktifkan saat menyimpan pengaturan (updateMany notIn MAYAR); baris `Pembayaran` lama dengan provider `pakasir` tetap tersimpan & tampil di riwayat, tetapi tidak lagi direkonsiliasi/diproses webhook-nya (endpoint webhook Pakasir 404).
 - **Simplifikasi**: `PaymentProviderName = "mayar"`, skor reuse `canReusePayment` hanya Mayar, `createInvoicePayment` langsung create Mayar invoice tanpa cabang provider.
 - Validasi: `typecheck` ✓ · `test:payment` ✓ · `test:guards` ✓ · lint 0 error ✓ · `npm test` hijau ✓.
+
+## Prioritas 1 Go-Live — Cron Diperbarui + Nginx Siap-Pakai (15 Okt 2026)
+
+- **`deploy/cron/limo.crontab`**: hapus `pakasir:reconcile`; tambah `reports:autodraft` (tgl 1 pukul 01:00 WIB, periode bulan sebelumnya — snapshot data lengkap, idempoten) → tetap 11 job.
+- **`deploy/nginx/limo.conf` (BARU)**: config produksi siap-pakai — HTTPS + certbot placeholder, redirect HTTP→HTTPS, rate limit 2 zone (umum 20r/s burst 40; auth/webhook 5r/s), `client_max_body_size 64m`, `X-Forwarded-For` untuk throttle LIMO, proxy keepalive ke 127.0.0.1:3000. Header keamanan aplikasi tidak diduplikasi (sudah di next.config.ts).
+- **Dokumen**: `DEPLOYMENT.md` (bagian Nginx kini merujuk file siap-pakai + langkah certbot; cron table di-update), `REDEPLOY_CHECKLIST.md` (env flag RADAR_INTEL/REPORT_AUTOPILOT/UPSELL, cron 11 job tanpa pakasir, verifikasi pasca-deploy Mayar-only + fitur intelijen), `PAYMENT_GATEWAYS.md` (ditulis ulang Mayar-only, UAT skenario disesuaikan), `DOKPLOY.md`, `ENVIRONMENT.md`, `OBSERVABILITY.md`, `CLIENT_SCOPE_COVERAGE.md`, `KNOWN_LIMITATIONS.md` — semua referensi Pakasir dibersihkan/diperbarui.

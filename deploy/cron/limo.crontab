@@ -23,11 +23,9 @@ APP_DIR=/opt/limo
 # Finalisasi respons kuis kedaluwarsa yang ditinggalkan tanpa submit (grace 20 dtk).
 * * * * * cd "$APP_DIR" && flock -n /var/lock/limo-quiz-finalize.lock npm run --silent quiz:finalize >> /var/log/limo-quiz-finalize.log 2>&1
 
-# ── Rekonsiliasi payment gateway (tiap 30 menit, di-stagger) ─────────────
+# ── Rekonsiliasi payment gateway (tiap 30 menit) ────────────────────────
 # Cek invoice Mayar berstatus PENDING langsung ke API Mayar.
 */30 * * * * cd "$APP_DIR" && flock -n /var/lock/limo-mayar-reconcile.lock npm run --silent mayar:reconcile -- --limit=50 >> /var/log/limo-reconcile.log 2>&1
-# Cek transaksi Pakasir berstatus PENDING langsung ke API Pakasir.
-7,37 * * * * cd "$APP_DIR" && flock -n /var/lock/limo-pakasir-reconcile.lock npm run --silent pakasir:reconcile -- --limit=50 >> /var/log/limo-reconcile.log 2>&1
 
 # ── Harian ───────────────────────────────────────────────────────────────
 # Backup database + storage privat + unggah off-site (wajib BACKUP_OFFSITE_*).
@@ -46,3 +44,7 @@ APP_DIR=/opt/limo
 # Idempoten (dedup unik per siswa+periode+jenis) — aman ter-cron ulang.
 # Catatan: \`%\` di-escape sebagai \`\\%\` karena cron memotong perintah pada %.
 30 0 1 * * cd "$APP_DIR" && flock -n /var/lock/limo-invoice.lock npm run --silent billing:generate -- --period="$(date +\%Y-\%m)" --due-date="$(date +\%Y-\%m-10)" >> /var/log/limo-billing.log 2>&1
+# Generator draf laporan perkembangan bulanan, tanggal 1 pukul 01:00 WIB,
+# untuk bulan SEBELUMNYA (snapshot data lengkap). Idempoten — siswa yang sudah
+# punya laporan untuk periode tersebut dilewati. Guru tinggal review → publish.
+0 1 1 * *  cd "$APP_DIR" && flock -n /var/lock/limo-report-autodraft.lock npm run --silent reports:autodraft -- --period="$(date -d "1 month ago" +\%Y-\%m)" >> /var/log/limo-reports.log 2>&1

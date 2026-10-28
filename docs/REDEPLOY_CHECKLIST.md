@@ -20,7 +20,7 @@ Tujuan: setelah redeploy, seluruh fitur (termasuk yang baru) langsung aktif tanp
 - Database: `DATABASE_URL` **atau** `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASS`.
 - `PRIVATE_STORAGE_PATH`, `BACKUP_DIR` (di volume persistent).
 - Notifikasi: `NOTIFICATION_PROVIDER=email` **atau** `n8n`, beserta variabelnya (SMTP_* atau N8N_*). Bila tidak lengkap, aplikasi **gagal start** (validasi env).
-- Mayar produksi: `MAYAR_ENV=production`, `MAYAR_API_KEY`, `MAYAR_MERCHANT_ID`, `MAYAR_WEBHOOK_SECRET`.
+- Mayar produksi (satu-satunya payment gateway — Pakasir sudah dihapus dari kode): `MAYAR_ENV=production`, `MAYAR_API_KEY`, `MAYAR_MERCHANT_ID`, `MAYAR_WEBHOOK_SECRET`. Pastikan dashboard Mayar mengarah ke `https://<domain>/api/v1/webhooks/mayar?secret=...`.
 - `DOKPLOY_SEED_ON_START=false` dan `DOKPLOY_DB_PUSH_ON_START=false` (nilai `true` akan ditolak/di-bypass migrasi dan berbahaya di produksi).
 
 ## 2. Env khusus fitur baru (delta yang paling sering terlewat)
@@ -32,6 +32,12 @@ Tanpa ini, fitur baru akan tampak "hilang" (menu tidak muncul / 404) walau koden
 STUDENT_SELF_EXAM_ENABLED=true
 # Pengumuman (kelas & sekolah) + diskusi kelas (+ menu /admin/pengumuman, /admin/diskusi-laporan)
 CLASS_DISCUSSION_ENABLED=true
+# Radar Intelijen (menu /admin/radar — pusat komando retensi pemilik lembaga)
+RADAR_INTEL_ENABLED=true
+# Generator laporan bulanan otomatis (panel di /admin/laporan-perkembangan + cron reports:autodraft)
+REPORT_AUTOPILOT_ENABLED=true
+# Peluang kenaikan level (menu /admin/upsell — mesin pendapatan upsell)
+UPSELL_ENABLED=true
 # Batas unggahan jawaban kuis (MB). 0 = tanpa batas (tidak disarankan)
 MAX_QUIZ_UPLOAD_MB=25
 ```
@@ -71,7 +77,9 @@ Jika penanda di langkah 3 **tidak muncul**, migrasi tidak dijalankan. Penyebab u
 - **Admin**: menu **Pengumuman** dan **Laporan Diskusi** muncul; buka `/admin/pengumuman` → buat pengumuman sekolah; `/admin/tagihan` → buat voucher + lihat kuitansi pada tagihan lunas.
 - **Guru**: `/guru/kuis` → buat ujian; `/guru/ujian/<id>/hasil` → tombol **Rilis nilai** ada.
 - **Siswa**: menu **Ujian** muncul → kerjakan ujian → **rekam suara** (uji mikrofon) → kirim.
-- **Wali**: `/wali/pengumuman`, `/wali/diskusi` (balas thread), `/wali/tagihan` (pakai voucher → rekonsiliasi admin → unduh kuitansi PDF).
+- **Wali**: `/wali/pengumuman`, `/wali/diskusi` (balas thread), `/wali/tagihan` (pakai voucher → rekonsiliasi admin → unduh kuitansi PDF) → **buat link pembayaran via Mayar** → bayar di sandbox → webhook mengubah status menjadi PAID.
+- **Payment (Mayar-only)**: `/admin/pembayaran/pengaturan` → konfigurasi Mayar → **Simpan** (baris gateway lama `PAKASIR` otomatis dinonaktifkan) → **Uji koneksi** → salin URL webhook.
+- **Fitur intelijen (bila flag aktif)**: menu **Radar Intelijen** (`/admin/radar`) menampilkan skor risiko siswa; **Peluang Lanjutan** (`/admin/upsell`) menampilkan siswa siap naik level; panel **Generator Laporan Bulanan** di `/admin/laporan-perkembangan` — jalankan **Simulasi** lalu **Generate Draf**.
 - **Migrasi**: di dalam container, `npx prisma migrate status` → "Database schema is up to date!".
 - (Opsional) parity: `npm run db:parity` → harus `N/N pemeriksaan lulus`.
 
@@ -79,7 +87,7 @@ Jika penanda di langkah 3 **tidak muncul**, migrasi tidak dijalankan. Penyebab u
 
 Cron **tidak terpasang otomatis** oleh redeploy — verifikasi justru bagian dari checklist ini:
 
-- [ ] Semua **11 job** di `deploy/cron/limo.crontab` terdaftar (Schedules Dokploy atau crontab host). Cek: job mencatat baris baru di tabel `JobRun` dalam 1× interval jadwalnya — khususnya `notifications:retry` (tiap menit), `pengumuman:publish` (tiap menit), `quiz:finalize` (tiap menit), `mayar:reconcile`/`pakasir:reconcile` (tiap 30 menit), `backup:create` (02:00 WIB), `billing:generate` (tgl 1, 00:30 WIB), `billing:mark-overdue` (06:00), `reminders:send` (07:00), `reminders:invoices` (07:10), `sessions:cleanup` (03:15).
+- [ ] Semua **11 job** di `deploy/cron/limo.crontab` terdaftar (Schedules Dokploy atau crontab host). Cek: job mencatat baris baru di tabel `JobRun` dalam 1× interval jadwalnya — khususnya `notifications:retry` (tiap menit), `pengumuman:publish` (tiap menit), `quiz:finalize` (tiap menit), `mayar:reconcile` (tiap 30 menit), `backup:create` (02:00 WIB), `billing:generate` (tgl 1, 00:30 WIB), `reports:autodraft` (tgl 1, 01:00 WIB — periode bulan sebelumnya), `billing:mark-overdue` (06:00), `reminders:send` (07:00), `reminders:invoices` (07:10), `sessions:cleanup` (03:15). **Job `pakasir:reconcile` sudah dihapus — hapus juga baris cron lamanya bila pernah terdaftar.**
 - [ ] `SELECT name, MAX(finishedAt) FROM JobRun GROUP BY name;` menampilkan seluruh job di atas dengan timestamp segar.
 - [ ] `BACKUP_OFFSITE_*` terisi di env produksi (backup off-site aktif) — lihat bagian (2) dan `docs/BACKUP_RESTORE.md`.
 

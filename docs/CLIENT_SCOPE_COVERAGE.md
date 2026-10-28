@@ -1,6 +1,6 @@
 # Client Scope Coverage
 
-This matrix maps the 10 modules in the June 2026 SistemFlow proposal plus the requested RPP module to the current LIMO implementation. Payment gateway references to Pakasir in the proposal are replaced by Mayar V2.
+This matrix maps the 10 modules in the June 2026 SistemFlow proposal plus the requested RPP module to the current LIMO implementation. Payment gateway: Mayar is the sole provider (Pakasir shut down by its provider and removed from the codebase).
 
 | Proposal module | Current implementation | Main entry points | Status |
 | --- | --- | --- | --- |

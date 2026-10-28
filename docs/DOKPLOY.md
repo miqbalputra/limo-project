@@ -156,11 +156,7 @@ Atur webhook Mayar ke endpoint:
 https://limo.example.com/api/v1/webhooks/mayar
 ```
 
-Setelah deploy, konfigurasi Mayar dan/atau Pakasir melalui menu Admin → Pembayaran → Integrasi Pembayaran. `PAYMENT_CONFIG_ENCRYPTION_KEY` wajib stabil karena digunakan untuk membuka credential yang disimpan dari dashboard. URL webhook Pakasir tersedia pada halaman yang sama:
-
-```text
-https://limo.example.com/api/v1/webhooks/pakasir?secret=<PAKASIR_WEBHOOK_SECRET>
-```
+Setelah deploy, konfigurasi Mayar melalui menu Admin → Pembayaran → Integrasi Pembayaran. `PAYMENT_CONFIG_ENCRYPTION_KEY` wajib stabil karena digunakan untuk membuka credential yang disimpan dari dashboard. Mayar adalah satu-satunya payment gateway (Pakasir sudah ditutup providernya dan dihapus dari kode).
 
 ### 5.4 Notifikasi
 

@@ -38,7 +38,18 @@ Gunakan satu instance terlebih dahulu untuk MVP.
 
 ## Nginx
 
-Prinsip konfigurasi:
+**File konfigurasi siap-pakai: `deploy/nginx/limo.conf`** — reverse proxy HTTPS lengkap dengan rate limit dua zone (umum 20r/s, auth/webhook lebih ketat), redirect HTTP→HTTPS, `client_max_body_size 64m` untuk upload, `X-Forwarded-For` untuk throttle LIMO, dan placeholder certbot. Ganti `limo.example.com` dengan domain asli lalu:
+
+```bash
+sudo cp deploy/nginx/limo.conf /etc/nginx/sites-available/limo.conf
+sudo ln -s /etc/nginx/sites-available/limo.conf /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d <domain>   # terbitkan/memperbarui sertifikat TLS
+```
+
+Set juga `RATE_LIMIT_TRUST_PROXY=true` di env aplikasi agar throttle LIMO memakai `X-Forwarded-For` dari Nginx.
+
+Prinsip konfigurasi (sudah diterapkan di file di atas):
 
 - Redirect HTTP ke HTTPS.
 - Proxy hanya ke `127.0.0.1:3000`.
@@ -49,7 +60,7 @@ Prinsip konfigurasi:
 
 ## Cron/Systemd Timer
 
-**File jadwal lengkap siap-pakai: `deploy/cron/limo.crontab`** — memuat SELURUH 11 job dengan jadwal WIB konkret. Cron **tidak terpasang otomatis** oleh redeploy Dokploy; pemasangan adalah langkah manual wajib (lihat juga `docs/REDEPLOY_CHECKLIST.md`). Pilih SATU model:
+**File jadwal lengkap siap-pakai: `deploy/cron/limo.crontab`** — memuat SELURUH 11 job dengan jadwal WIB konkret (termasuk `reports:autodraft` untuk generator laporan bulanan, tanggal 1 pukul 01:00 WIB untuk periode bulan sebelumnya). Cron **tidak terpasang otomatis** oleh redeploy Dokploy; pemasangan adalah langkah manual wajib (lihat juga `docs/REDEPLOY_CHECKLIST.md`). Pilih SATU model:
 
 **Model A — Host/VPS (app berjalan langsung via npm/PM2):**
 
@@ -68,7 +79,6 @@ Ringkasan jadwal (semua pakai `flock -n` anti-dobel, idempoten):
 | `pengumuman:publish` | setiap menit | `limo-pengumuman-publish` |
 | `quiz:finalize` | setiap menit | `limo-quiz-finalize` |
 | `mayar:reconcile -- --limit=50` | `*/30 * * * *` | `limo-mayar-reconcile` |
-| `pakasir:reconcile -- --limit=50` | `7,37 * * * *` | `limo-pakasir-reconcile` |
 | `backup:create` | harian 02:00 | `limo-backup` |
 | `sessions:cleanup` | harian 03:15 | `limo-session-cleanup` |
 | `billing:mark-overdue` | harian 06:00 | `limo-overdue` |
@@ -81,7 +91,7 @@ Catatan penting:
 - Jadwalkan `notifications:retry` **setiap menit** (senyap saat idle). `reminders:send` dan `reminders:invoices` harian pagi WIB untuk reminder deadline tugas/ujian dan tagihan (H-3/H-1/jatuh tempo/terlambat) lewat email + WhatsApp ke wali.
 - Jadwalkan `pengumuman:publish` **setiap menit**: mengirim notifikasi untuk pengumuman kelas berjadwal yang sudah lewat waktu terbit. Idempoten (klaim atomik kolom `notifiedAt`); tampilan pengumuman tidak bergantung pada job karena visibilitas dihitung dari `publishAt`/`expiresAt` saat query.
 - Jadwalkan `quiz:finalize` **setiap menit** (idempoten): menilai draf kuis publik yang ditinggalkan melewati grace window 20 detik sehingga respons kedaluwarsa terselesaikan otomatis (`NEEDS_REVIEW` bila ada jawaban manual) tanpa menunggu input.
-- Jadwalkan `mayar:reconcile` dan `pakasir:reconcile` **tiap 30 menit**: mengonfirmasi pembayaran PENDING langsung ke API provider (jaring pengaman bila webhook gagal; webhook tetap jalur utama).
+- Jadwalkan `mayar:reconcile` **tiap 30 menit**: mengonfirmasi pembayaran PENDING langsung ke API Mayar (jaring pengaman bila webhook gagal; webhook tetap jalur utama).
 - Jadwalkan `backup:create` **harian** (02:00 WIB). Isi `BACKUP_OFFSITE_*` (lihat `docs/BACKUP_RESTORE.md`) agar salinan off-site otomatis diunggah; tanpa itu backup hanya tersimpan lokal di `BACKUP_DIR` dan job tetap sukses. Uji `npm run backup:restore` ke target staging secara berkala.
 - **Verifikasi pasca-deploy**: job mencatat jejak di tabel `JobRun` — cek baris terbaru per job (`SELECT name, status, finishedAt FROM JobRun ORDER BY finishedAt DESC LIMIT 20;`) atau periksa log `/var/log/limo-*.log`.
 

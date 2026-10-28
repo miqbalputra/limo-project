@@ -6,7 +6,7 @@ Prinsip LIMO: logging terstruktur sudah ada (JSON + requestId ke stdout, field s
 
 1. **Alert in-app ke admin** — kegagalan berikut otomatis muncul di pusat notifikasi dashboard Admin (template `backup-failure` / `backup-warning` / `job-failure`):
    - Backup harian gagal berjalan, unggah off-site gagal, atau backup jalan **tanpa** `BACKUP_OFFSITE_*` (`scripts/backup.ts` → `notifyBackupOutcome`).
-   - Rekonsiliasi Mayar/Pakasir gagal memproses pembayaran (`job-service.ts`, ditulis juga ke tabel `JobRun`).
+   - Rekonsiliasi Mayar gagal memproses pembayaran (`job-service.ts`, ditulis juga ke tabel `JobRun`).
    - dedupeKey otomatis membuat peringatan permanen tidak menumpuk.
 2. **Health endpoint** — `/api/health` (liveness + `build.sha`), `/api/health/ready` (env + DB + storage privat, 503 bila tidak siap). Jadikan probe utama monitoring.
 3. **Jejak job** — tabel `JobRun` mencatat setiap job terjadwal (nama, status, jumlah, error). Cek cepat: `SELECT name, status, MAX(finishedAt) FROM JobRun GROUP BY name;`
