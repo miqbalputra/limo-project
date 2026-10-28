@@ -3,6 +3,7 @@ import { requirePermission } from "@/server/auth/permissions";
 import { listMyKelas } from "@/server/services/lms-service";
 import { listGuruRpp } from "@/server/services/rpp-service";
 import { DashboardHero, EmptyState } from "@/components/dashboard/dashboard-widgets";
+import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { RppForm } from "@/components/dashboard/rpp-form";
 import { RppActions } from "@/components/dashboard/rpp-actions";
 import { RppStatusActions } from "@/components/dashboard/rpp-status-actions";
@@ -10,18 +11,20 @@ import { formatUiLabel, getUiToneClass } from "@/lib/ui-labels";
 
 export const metadata = { title: "RPP" };
 
-export default async function GuruRppPage() {
+export default async function GuruRppPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const actor = await requireActor();
   await requirePermission(actor, "guru.rpp.manage");
-  const [{ items: classes }, { items }] = await Promise.all([listMyKelas(actor), listGuruRpp(actor)]);
+  const { page: pageParam } = await searchParams;
+  const [{ items: classes }, { items, pagination }] = await Promise.all([listMyKelas(actor), listGuruRpp(actor, { page: Number(pageParam) || 1 })]);
 
   return (
     <main className="space-y-6">
       <DashboardHero eyebrow="Perencanaan Pembelajaran" title="RPP" description="Susun rancangan pembelajaran langsung atau bagikan dokumen RPP Word/PDF kepada Wali murid dari kelas yang Anda ampu." />
       <RppForm classes={classes.map((item) => ({ id: item.id, name: `${item.program.name} / ${item.level.name} / ${item.name}` }))} />
       <section className="space-y-4">
-        <div><h2 className="text-lg font-semibold text-gray-900">RPP Saya</h2><p className="mt-1 text-theme-sm text-gray-500">RPP draf belum terlihat oleh Wali. Terbitkan setelah rancangan siap dibagikan.</p></div>
+        <div><h2 className="text-lg font-semibold text-gray-900">RPP Saya</h2><p className="mt-1 text-theme-sm text-gray-500">{pagination.totalItems} RPP ditemukan. RPP draf belum terlihat oleh Wali — terbitkan setelah rancangan siap dibagikan.</p></div>
         {items.length > 0 ? items.map((item) => <RppCard key={item.id} item={item} />) : <EmptyState icon="materials" title="Belum ada RPP" description="Buat RPP pertama untuk kelas yang Anda ampu." />}
+        <PaginationControls basePath="/guru/rpp" page={pagination.page} totalPages={pagination.totalPages} />
       </section>
     </main>
   );

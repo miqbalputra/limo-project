@@ -6,6 +6,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/
 import { canManageClass } from "@/server/policies/access-policy";
 import { readPrivateFile, removePrivateFile, storeRppFile } from "@/server/providers/storage/local-storage";
 import { notifyWaliForStudents } from "@/server/services/notification-service";
+import { createPaginationMeta, resolvePagination, type PaginationInput } from "@/server/pagination";
 import { createRppSchema, updateRppSchema, updateRppStatusSchema } from "@/server/validation/rpp";
 
 function parseDate(value: string) {
@@ -81,11 +82,15 @@ export async function createRpp(actor: Actor, input: { data: unknown; file?: Fil
   return { item };
 }
 
-export async function listGuruRpp(actor: Actor) {
+export async function listGuruRpp(actor: Actor, paginationInput: PaginationInput = {}) {
   if (actor.role !== "GURU") throw new ForbiddenError();
+  const pagination = resolvePagination(paginationInput, 20);
+  const totalItems = await prisma.rpp.count({ where: { kelas: { status: "ACTIVE", guruProfile: { userId: actor.id } } } });
   const items = await prisma.rpp.findMany({
     where: { kelas: { status: "ACTIVE", guruProfile: { userId: actor.id } } },
     orderBy: [{ planDate: "desc" }, { createdAt: "desc" }],
+    skip: pagination.skip,
+    take: pagination.take,
     select: {
       id: true,
       mode: true,
@@ -106,7 +111,10 @@ export async function listGuruRpp(actor: Actor) {
     },
   });
 
-  return { items: items.map((item) => ({ ...item, files: item.files.map((file) => ({ ...file, sizeBytes: file.sizeBytes.toString() })) })) };
+  return {
+    items: items.map((item) => ({ ...item, files: item.files.map((file) => ({ ...file, sizeBytes: file.sizeBytes.toString() })) })),
+    pagination: createPaginationMeta(pagination.page, pagination.pageSize, totalItems),
+  };
 }
 
 export async function updateRppStatus(actor: Actor, rppId: string, input: unknown) {
@@ -182,16 +190,25 @@ async function getAllowedStudentIds(actor: Actor, selectedStudentId: string | nu
   return relations.map((relation) => relation.siswaId);
 }
 
-export async function listWaliRpp(actor: Actor, selectedStudentId: string | null = null) {
+export async function listWaliRpp(actor: Actor, selectedStudentId: string | null = null, paginationInput: PaginationInput = {}) {
   const studentIds = await getAllowedStudentIds(actor, selectedStudentId);
-  if (studentIds.length === 0) return { items: [] };
+  if (studentIds.length === 0) return { items: [], pagination: createPaginationMeta(1, 20, 0) };
 
+  const pagination = resolvePagination(paginationInput, 20);
+  const totalItems = await prisma.rpp.count({
+    where: {
+      status: "PUBLISHED",
+      kelas: { status: "ACTIVE", enrollments: { some: { status: "ACTIVE", siswaId: { in: studentIds }, siswa: { status: "ACTIVE", deletedAt: null } } } },
+    },
+  });
   const items = await prisma.rpp.findMany({
     where: {
       status: "PUBLISHED",
       kelas: { status: "ACTIVE", enrollments: { some: { status: "ACTIVE", siswaId: { in: studentIds }, siswa: { status: "ACTIVE", deletedAt: null } } } },
     },
     orderBy: [{ planDate: "desc" }, { createdAt: "desc" }],
+    skip: pagination.skip,
+    take: pagination.take,
     select: {
       id: true,
       mode: true,
@@ -212,7 +229,10 @@ export async function listWaliRpp(actor: Actor, selectedStudentId: string | null
     },
   });
 
-  return { items: items.map((item) => ({ ...item, files: item.files.map((file) => ({ ...file, sizeBytes: file.sizeBytes.toString() })) })) };
+  return {
+    items: items.map((item) => ({ ...item, files: item.files.map((file) => ({ ...file, sizeBytes: file.sizeBytes.toString() })) })),
+    pagination: createPaginationMeta(pagination.page, pagination.pageSize, totalItems),
+  };
 }
 
 export async function getWaliRppFile(actor: Actor, rppId: string, fileId: string) {

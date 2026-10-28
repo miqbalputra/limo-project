@@ -694,6 +694,23 @@ Dibangun 3 fase sesuai `rencana.md` FASE 9, di balik flag **`CLASS_DISCUSSION_EN
 - **Simplifikasi**: `PaymentProviderName = "mayar"`, skor reuse `canReusePayment` hanya Mayar, `createInvoicePayment` langsung create Mayar invoice tanpa cabang provider.
 - Validasi: `typecheck` ✓ · `test:payment` ✓ · `test:guards` ✓ · lint 0 error ✓ · `npm test` hijau ✓.
 
+## Prioritas 2 — Validasi Client-Side Tarif/Voucher/Users (15 Okt 2026)
+
+- **TarifForm** (`billing-forms.tsx`): validasi `createTarifSchema` di klien — error per-field (nama, nominal, periode) dengan `FormFieldError` + aria-invalid/describedby.
+- **VoucherForm & VoucherEditButton** (`voucher-forms.tsx`): validasi `createVoucherSchema` / `updateVoucherSchema` — termasuk pesan refine "Diskon persen maksimal 100" (formErrors) tampil sebagai pesan umum.
+- **AdminUserForm & AdminUserProfileForm** (`user-forms.tsx`): hook `useSubmit` diperluas menerima schema zod; error per-field untuk nama/email/role/phone/address/password.
+- **Bug fix server**: `updateVoucherSchema.maxUses` kini menerima `0` (sebelumnya `positive()` menolak) dan `updateVoucher` menyimpan `maxUses > 0 ? value : null` — mengosongkan kuota voucher ("0 = tanpa batas") kini berfungsi; sebelumnya selalu gagal 400.
+- Skema diimpor langsung dari `src/server/validation/*` (client-safe, hanya zod) — satu sumber kebenaran klien+server.
+- Validasi: `typecheck` ✓ · lint 0 error ✓ · `test:guards` 238 route ✓ · `npm test` hijau ✓.
+
+## Prioritas 2 (lanjutan) — Pagination RPP Guru/Wali & Materi Wali (15 Okt 2026)
+
+- **Inventarisasi**: admin/siswa ternyata sudah punya pagination inline; audit, tagihan, pembayaran, users, pendaftaran, bank soal, materi guru, dll. sudah memakai `PaginationControls`. Gap nyata: **RPP guru & RPP wali** (query `findMany` tanpa batas — tumbuh seiring waktu) dan **materi wali** (idem).
+- **`listGuruRpp` / `listWaliRpp`** (`rpp-service.ts`): menerima `PaginationInput` (default 20/halaman), `count` + `skip/take`, mengembalikan `pagination` meta; halaman `/guru/rpp` & `/wali/rpp` merender `PaginationControls` (param `anak` dipertahankan pada link wali).
+- **`listWaliMateri`** (`wali-materi-service.ts`): pagination 20/halaman + `stats` agregat terpisah (count by type + jumlah berkas via `fileAsset`) sehingga kartu statistik hero tetap akurat lintas halaman; `/wali/materi` merender `PaginationControls`.
+- Presensi guru dianalisis: dashboard agregat + cap 100 sesi/kelas ditilang navigasi drill-down ke Jadwal/Ringkasan kelas — tidak diubah (desain memang ringkasan).
+- Validasi: `typecheck` ✓ · lint 0 error ✓ · `test:guards` ✓ · `npm test` hijau ✓.
+
 ## Prioritas 1 Go-Live — Cron Diperbarui + Nginx Siap-Pakai (15 Okt 2026)
 
 - **`deploy/cron/limo.crontab`**: hapus `pakasir:reconcile`; tambah `reports:autodraft` (tgl 1 pukul 01:00 WIB, periode bulan sebelumnya — snapshot data lengkap, idempoten) → tetap 11 job.

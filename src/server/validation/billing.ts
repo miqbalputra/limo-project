@@ -84,7 +84,7 @@ export const updateVoucherSchema = z.object({
   discountType: voucherDiscountTypeSchema.optional(),
   discountValue: z.coerce.number().positive().max(100000000).optional(),
   minAmount: z.coerce.number().nonnegative().max(100000000).optional(),
-  maxUses: z.preprocess((value) => (value === "" || value === null ? undefined : value), z.coerce.number().int().positive().max(100000).optional()),
+  maxUses: z.coerce.number().int().min(0).max(100000).optional(),
   programId: optionalIdSchema,
   kelasId: optionalIdSchema,
   validFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isValidDate, "Tanggal mulai tidak valid").optional().or(z.literal("")),

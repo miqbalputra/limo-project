@@ -3,20 +3,18 @@ import { requirePermission } from "@/server/auth/permissions";
 import { listWaliMateri } from "@/server/services/wali-materi-service";
 import { resolveWaliChildId } from "@/server/dal/wali-selector-dal";
 import { DashboardHero, EmptyState } from "@/components/dashboard/dashboard-widgets";
+import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { DashboardIcon } from "@/components/dashboard/dashboard-icon";
 import { LocalizedContent } from "@/components/localized-content";
 import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "Materi Pembelajaran" };
 
-export default async function WaliMateriPage({ searchParams }: { searchParams: Promise<{ anak?: string }> }) {
+export default async function WaliMateriPage({ searchParams }: { searchParams: Promise<{ anak?: string; page?: string }> }) {
   const actor = await requireActor();
   await requirePermission(actor, "wali.materi.view");
-  const { anak } = await searchParams;
-  const { items } = await listWaliMateri(actor, await resolveWaliChildId(actor, anak));
-  const textCount = items.filter((item) => item.type === "TEXT").length;
-  const videoCount = items.filter((item) => item.type === "VIDEO_LINK").length;
-  const fileCount = items.reduce((sum, item) => sum + item.files.length, 0);
+  const { anak, page: pageParam } = await searchParams;
+  const { items, pagination, stats } = await listWaliMateri(actor, await resolveWaliChildId(actor, anak), { page: Number(pageParam) || 1 });
 
   return (
     <main className="space-y-6">
@@ -24,13 +22,16 @@ export default async function WaliMateriPage({ searchParams }: { searchParams: P
         eyebrow="Belajar di Rumah"
         title="Materi Pembelajaran"
         description="Baca materi yang sudah diterbitkan Guru untuk anak terpilih. Pilihan anak dapat diubah dari pemilih anak di header."
-        aside={<div className="grid w-full min-w-0 grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs lg:w-auto lg:min-w-72"><MiniStat label="Materi" value={items.length} /><MiniStat label="Teks" value={textCount} /><MiniStat label="Video/Berkas" value={videoCount + fileCount} /></div>}
+        aside={<div className="grid w-full min-w-0 grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/80 p-3 shadow-theme-xs lg:w-auto lg:min-w-72"><MiniStat label="Materi" value={stats.total} /><MiniStat label="Teks" value={stats.text} /><MiniStat label="Video/Berkas" value={stats.video + stats.files} /></div>}
       />
 
       {items.length > 0 ? (
-        <section className="grid gap-4 xl:grid-cols-2">
-          {items.map((item) => <MaterialCard key={item.id} item={item} />)}
-        </section>
+        <>
+          <section className="grid gap-4 xl:grid-cols-2">
+            {items.map((item) => <MaterialCard key={item.id} item={item} />)}
+          </section>
+          <PaginationControls basePath="/wali/materi" page={pagination.page} totalPages={pagination.totalPages} params={anak ? { anak } : {}} />
+        </>
       ) : (
         <EmptyState icon="materials" title="Belum ada materi publik" description="Materi akan tampil setelah guru mempublikasikan bahan belajar untuk kelas anak yang terhubung." />
       )}

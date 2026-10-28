@@ -2,8 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { FormFieldError } from "@/components/dashboard/form-field-error";
+import { validateWithSchema, hasFieldErrors, type FieldErrors } from "@/lib/client-validation";
 import { requestJson } from "@/lib/api-json-client";
 import { formatRupiah } from "@/lib/money";
+import { createVoucherSchema, updateVoucherSchema } from "@/server/validation/billing";
 
 async function sendJson(path: string, method: "POST" | "PATCH" | "DELETE", body?: Record<string, unknown>) {
   return requestJson(path, { method, body, fallbackMessage: "Data voucher gagal diproses" });
@@ -12,6 +15,7 @@ async function sendJson(path: string, method: "POST" | "PATCH" | "DELETE", body?
 export function VoucherForm({ programs, kelas }: { programs: { id: string; name: string }[]; kelas: { id: string; name: string }[] }) {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -38,6 +42,13 @@ export function VoucherForm({ programs, kelas }: { programs: { id: string; name:
 
     setError("");
     setSuccess("");
+    const errors = validateWithSchema(createVoucherSchema, body);
+    setFieldErrors(errors);
+    if (hasFieldErrors(errors)) {
+      setError(errors.formErrors?.[0] ?? "Periksa kembali data voucher.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await sendJson("/api/v1/admin/voucher", "POST", body);
@@ -59,32 +70,40 @@ export function VoucherForm({ programs, kelas }: { programs: { id: string; name:
       </div>
       {error ? <p role="alert" className="tailadmin-alert-error">{error}</p> : null}
       {success ? <p role="status" className="rounded-xl border border-success-100 bg-success-50 px-4 py-3 text-theme-sm text-success-800">{success}</p> : null}
-      <input name="code" required placeholder="Kode voucher (mis. AWAL25)" className="tailadmin-input uppercase" />
-      <input name="description" placeholder="Keterangan (opsional)" className="tailadmin-input" />
+      <input name="code" required aria-invalid={Boolean(fieldErrors.code)} aria-describedby="voucher-code-error" placeholder="Kode voucher (mis. AWAL25)" className="tailadmin-input uppercase" />
+      <FormFieldError id="voucher-code-error" errors={fieldErrors.code} />
+      <input name="description" aria-invalid={Boolean(fieldErrors.description)} aria-describedby="voucher-description-error" placeholder="Keterangan (opsional)" className="tailadmin-input" />
+      <FormFieldError id="voucher-description-error" errors={fieldErrors.description} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <select name="programId" aria-label="Cakupan program" className="tailadmin-input">
+        <select name="programId" aria-label="Cakupan program" aria-invalid={Boolean(fieldErrors.programId)} aria-describedby="voucher-program-error" className="tailadmin-input">
           <option value="">Semua program</option>
           {programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
         </select>
-        <select name="kelasId" aria-label="Cakupan kelas" className="tailadmin-input">
+        <select name="kelasId" aria-label="Cakupan kelas" aria-invalid={Boolean(fieldErrors.kelasId)} aria-describedby="voucher-kelas-error" className="tailadmin-input">
           <option value="">Semua kelas</option>
           {kelas.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
       </div>
+      <FormFieldError id="voucher-program-error" errors={fieldErrors.programId} />
+      <FormFieldError id="voucher-kelas-error" errors={fieldErrors.kelasId} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <select name="discountType" className="tailadmin-input" aria-label="Jenis diskon">
+        <select name="discountType" className="tailadmin-input" aria-label="Jenis diskon" aria-invalid={Boolean(fieldErrors.discountType)} aria-describedby="voucher-discounttype-error">
           <option value="PERCENT">Persen (%)</option>
           <option value="FIXED">Nominal (Rp)</option>
         </select>
-        <input name="discountValue" required type="number" min={1} step="any" placeholder="Nilai diskon" className="tailadmin-input" />
+        <input name="discountValue" required type="number" min={1} step="any" aria-invalid={Boolean(fieldErrors.discountValue)} aria-describedby="voucher-discountvalue-error" placeholder="Nilai diskon" className="tailadmin-input" />
       </div>
+      <FormFieldError id="voucher-discounttype-error" errors={fieldErrors.discountType} />
+      <FormFieldError id="voucher-discountvalue-error" errors={fieldErrors.discountValue} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <input name="minAmount" type="number" min={0} placeholder="Minimal tagihan (opsional)" className="tailadmin-input" />
-        <input name="maxUses" type="number" min={1} placeholder="Kuota pemakaian (opsional)" className="tailadmin-input" />
+        <input name="minAmount" type="number" min={0} aria-invalid={Boolean(fieldErrors.minAmount)} aria-describedby="voucher-minamount-error" placeholder="Minimal tagihan (opsional)" className="tailadmin-input" />
+        <input name="maxUses" type="number" min={1} aria-invalid={Boolean(fieldErrors.maxUses)} aria-describedby="voucher-maxuses-error" placeholder="Kuota pemakaian (opsional)" className="tailadmin-input" />
       </div>
+      <FormFieldError id="voucher-minamount-error" errors={fieldErrors.minAmount} />
+      <FormFieldError id="voucher-maxuses-error" errors={fieldErrors.maxUses} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1 text-theme-xs font-medium text-gray-500">Berlaku dari<input name="validFrom" type="date" className="tailadmin-input mt-1" /></label>
-        <label className="grid gap-1 text-theme-xs font-medium text-gray-500">Berlaku sampai<input name="validUntil" type="date" className="tailadmin-input mt-1" /></label>
+        <label className="grid gap-1 text-theme-xs font-medium text-gray-500">Berlaku dari<input name="validFrom" type="date" aria-invalid={Boolean(fieldErrors.validFrom)} aria-describedby="voucher-validfrom-error" className="tailadmin-input mt-1" /><FormFieldError id="voucher-validfrom-error" errors={fieldErrors.validFrom} /></label>
+        <label className="grid gap-1 text-theme-xs font-medium text-gray-500">Berlaku sampai<input name="validUntil" type="date" aria-invalid={Boolean(fieldErrors.validUntil)} aria-describedby="voucher-validuntil-error" className="tailadmin-input mt-1" /><FormFieldError id="voucher-validuntil-error" errors={fieldErrors.validUntil} /></label>
       </div>
       <button disabled={isSubmitting} className="tailadmin-button-primary">{isSubmitting ? "Menyimpan..." : "Simpan Voucher"}</button>
     </form>
@@ -135,6 +154,12 @@ export function VoucherEditButton({ voucher, programs, kelas }: { voucher: Vouch
     body.validFrom = validFrom;
     const validUntil = String(data.get("validUntil") || "");
     body.validUntil = validUntil;
+
+    const errors = validateWithSchema(updateVoucherSchema, body);
+    if (hasFieldErrors(errors)) {
+      setError(errors.formErrors?.[0] ?? Object.values(errors).find((messages) => Array.isArray(messages) && messages.length > 0)?.[0] ?? "Periksa kembali data voucher.");
+      return;
+    }
 
     setError("");
     setSuccess("");

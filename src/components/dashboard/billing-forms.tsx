@@ -3,9 +3,12 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { FormFieldError } from "@/components/dashboard/form-field-error";
 import { StudentSearchSelect } from "@/components/dashboard/student-search-select";
+import { validateWithSchema, hasFieldErrors, type FieldErrors } from "@/lib/client-validation";
 import { requestJson } from "@/lib/api-json-client";
 import { formatRupiah } from "@/lib/money";
+import { createTarifSchema } from "@/server/validation/billing";
 
 type Option = { id: string; name: string };
 type InvoiceGenerationInput = { period: string; dueDate: string; jenis: string; dryRun: boolean; amountOverride?: number; extraFee?: number };
@@ -18,25 +21,35 @@ async function postJson(path: string, body: Record<string, string | number | boo
 export function TarifForm({ programs, kelas, siswa, totalSiswa }: { programs: Option[]; kelas: Option[]; siswa: Option[]; totalSiswa?: number }) {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    setIsSubmitting(true);
+    setFieldErrors({});
     const form = event.currentTarget;
     const data = new FormData(form);
+    const body = {
+      name: String(data.get("name") || ""),
+      programId: String(data.get("programId") || ""),
+      kelasId: String(data.get("kelasId") || ""),
+      siswaId: String(data.get("siswaId") || ""),
+      amount: Number(data.get("amount") || 0),
+      effectiveFrom: String(data.get("effectiveFrom") || ""),
+      effectiveTo: String(data.get("effectiveTo") || ""),
+    };
 
+    const errors = validateWithSchema(createTarifSchema, body);
+    setFieldErrors(errors);
+    if (hasFieldErrors(errors)) {
+      setError(errors.formErrors?.[0] ?? "Periksa kembali data tarif.");
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      await postJson("/api/v1/admin/tarif", {
-        name: String(data.get("name") || ""),
-        programId: String(data.get("programId") || ""),
-        kelasId: String(data.get("kelasId") || ""),
-        siswaId: String(data.get("siswaId") || ""),
-        amount: Number(data.get("amount") || 0),
-        effectiveFrom: String(data.get("effectiveFrom") || ""),
-        effectiveTo: String(data.get("effectiveTo") || ""),
-      });
+      await postJson("/api/v1/admin/tarif", body);
       form.reset();
       router.refresh();
     } catch (caught) {
@@ -53,22 +66,25 @@ export function TarifForm({ programs, kelas, siswa, totalSiswa }: { programs: Op
       {error ? <p role="alert" className="tailadmin-alert-error">{error}</p> : null}
       <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
         Nama tarif
-        <input name="name" required placeholder="Nama tarif" className="mt-1 tailadmin-input" />
+        <input name="name" required aria-invalid={Boolean(fieldErrors.name)} aria-describedby="tarif-name-error" placeholder="Nama tarif" className="mt-1 tailadmin-input" />
+        <FormFieldError id="tarif-name-error" errors={fieldErrors.name} />
       </label>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
           Program
-          <select name="programId" className="mt-1 tailadmin-input">
+          <select name="programId" aria-invalid={Boolean(fieldErrors.programId)} aria-describedby="tarif-program-error" className="mt-1 tailadmin-input">
             <option value="">Pilih program</option>
             {programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
           </select>
+          <FormFieldError id="tarif-program-error" errors={fieldErrors.programId} />
         </label>
         <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
           Kelas (opsional)
-          <select name="kelasId" className="mt-1 tailadmin-input">
+          <select name="kelasId" aria-invalid={Boolean(fieldErrors.kelasId)} aria-describedby="tarif-kelas-error" className="mt-1 tailadmin-input">
             <option value="">Opsional kelas spesifik</option>
             {kelas.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
+          <FormFieldError id="tarif-kelas-error" errors={fieldErrors.kelasId} />
         </label>
       </div>
       <div className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -76,19 +92,23 @@ export function TarifForm({ programs, kelas, siswa, totalSiswa }: { programs: Op
         <div className="mt-1">
           <StudentSearchSelect name="siswaId" options={siswa} totalOptions={totalSiswa} emptyLabel="Opsional siswa spesifik (khusus anak ini)" ariaLabel="Siswa tarif" />
         </div>
+        <FormFieldError id="tarif-siswa-error" errors={fieldErrors.siswaId} />
       </div>
       <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
         Nominal
-        <input name="amount" required type="number" min={1} placeholder="Nominal" className="mt-1 tailadmin-input" />
+        <input name="amount" required type="number" min={1} aria-invalid={Boolean(fieldErrors.amount)} aria-describedby="tarif-amount-error" placeholder="Nominal" className="mt-1 tailadmin-input" />
+        <FormFieldError id="tarif-amount-error" errors={fieldErrors.amount} />
       </label>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
           Berlaku dari
-          <input name="effectiveFrom" required type="date" className="mt-1 tailadmin-input" />
+          <input name="effectiveFrom" required type="date" aria-invalid={Boolean(fieldErrors.effectiveFrom)} aria-describedby="tarif-from-error" className="mt-1 tailadmin-input" />
+          <FormFieldError id="tarif-from-error" errors={fieldErrors.effectiveFrom} />
         </label>
         <label className="text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
           Berlaku sampai (opsional)
-          <input name="effectiveTo" type="date" className="mt-1 tailadmin-input" />
+          <input name="effectiveTo" type="date" aria-invalid={Boolean(fieldErrors.effectiveTo)} aria-describedby="tarif-to-error" className="mt-1 tailadmin-input" />
+          <FormFieldError id="tarif-to-error" errors={fieldErrors.effectiveTo} />
         </label>
       </div>
       <button disabled={isSubmitting} className="tailadmin-button-primary">

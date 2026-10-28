@@ -3,17 +3,28 @@ import { requirePermission } from "@/server/auth/permissions";
 import { listWaliRpp } from "@/server/services/rpp-service";
 import { resolveWaliChildId } from "@/server/dal/wali-selector-dal";
 import { DashboardHero, EmptyState } from "@/components/dashboard/dashboard-widgets";
+import { PaginationControls } from "@/components/dashboard/pagination-controls";
 import { formatUiLabel } from "@/lib/ui-labels";
 
 export const metadata = { title: "RPP Kelas Anak" };
 
-export default async function WaliRppPage({ searchParams }: { searchParams: Promise<{ anak?: string }> }) {
+export default async function WaliRppPage({ searchParams }: { searchParams: Promise<{ anak?: string; page?: string }> }) {
   const actor = await requireActor();
   await requirePermission(actor, "wali.rpp.view");
-  const { anak } = await searchParams;
-  const { items } = await listWaliRpp(actor, await resolveWaliChildId(actor, anak));
+  const { anak, page: pageParam } = await searchParams;
+  const { items, pagination } = await listWaliRpp(actor, await resolveWaliChildId(actor, anak), { page: Number(pageParam) || 1 });
 
-  return <main className="space-y-6"><DashboardHero eyebrow="Perencanaan Pembelajaran" title="RPP Kelas Anak" description="Lihat rancangan pembelajaran yang sudah dibagikan Guru untuk kelas anak yang terhubung dengan akun Anda." />{items.length > 0 ? <section className="grid gap-4 xl:grid-cols-2">{items.map((item) => <RppCard key={item.id} item={item} />)}</section> : <EmptyState icon="materials" title="Belum ada RPP yang dibagikan" description="RPP akan tampil setelah Guru mempublikasikan rancangan pembelajaran untuk kelas anak Anda." />}</main>;
+  return (
+    <main className="space-y-6">
+      <DashboardHero eyebrow="Perencanaan Pembelajaran" title="RPP Kelas Anak" description="Lihat rancangan pembelajaran yang sudah dibagikan Guru untuk kelas anak yang terhubung dengan akun Anda." />
+      {items.length > 0 ? (
+        <>
+          <section className="grid gap-4 xl:grid-cols-2">{items.map((item) => <RppCard key={item.id} item={item} />)}</section>
+          <PaginationControls basePath="/wali/rpp" page={pagination.page} totalPages={pagination.totalPages} params={anak ? { anak } : {}} />
+        </>
+      ) : <EmptyState icon="materials" title="Belum ada RPP yang dibagikan" description="RPP akan tampil setelah Guru mempublikasikan rancangan pembelajaran untuk kelas anak Anda." />}
+    </main>
+  );
 }
 
 type RppItem = Awaited<ReturnType<typeof listWaliRpp>>["items"][number];

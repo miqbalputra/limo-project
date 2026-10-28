@@ -140,7 +140,7 @@ export async function updateVoucher(actor: Actor, id: string, input: unknown) {
       ...(data.discountType !== undefined ? { discountType: data.discountType } : {}),
       ...(data.discountValue !== undefined ? { discountValue: data.discountValue } : {}),
       ...(data.minAmount !== undefined ? { minAmount: data.minAmount > 0 ? data.minAmount : null } : {}),
-      ...(data.maxUses !== undefined ? { maxUses: data.maxUses } : {}),
+      ...(data.maxUses !== undefined ? { maxUses: data.maxUses > 0 ? data.maxUses : null } : {}),
       ...(data.programId !== undefined ? { programId: data.programId || null } : {}),
       ...(data.kelasId !== undefined ? { kelasId: data.kelasId || null } : {}),
       ...(data.validFrom !== undefined ? { validFrom: data.validFrom ? parseDayStart(data.validFrom) : null } : {}),
