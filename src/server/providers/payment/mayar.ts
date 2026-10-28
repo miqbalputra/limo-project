@@ -185,7 +185,7 @@ export type VerifiedMayarEvent = {
 };
 
 export function verifyMayarWebhook(input: { rawBody: string; secret: string | null }, config?: PaymentGatewayRuntimeConfig) {
-  // Secret wajib seperti Pakasir: tanpa secret yang dikonfigurasi, siapa pun yang
+  // Secret wajib: tanpa secret yang dikonfigurasi, siapa pun yang
   // mengetahui tagihanId + nominal dapat memalsukan event pembayaran — webhook DITOLAK.
   const expectedSecret = config?.webhookSecret || getEnv().MAYAR_WEBHOOK_SECRET;
   if (!expectedSecret) {

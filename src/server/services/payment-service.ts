@@ -8,9 +8,8 @@ import { getEnv } from "@/server/env";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors/application-error";
 import { canAccessInvoice } from "@/server/policies/access-policy";
 import { createMayarInvoice, isPaidMayarEvent, verifyMayarWebhook } from "@/server/providers/payment/mayar";
-import { createPakasirPayment, isPaidPakasirEvent, verifyPakasirWebhook } from "@/server/providers/payment/pakasir";
+import { getPaymentGatewayRuntimeConfig, getPrimaryPaymentGateway } from "@/server/services/payment-gateway-service";
 import type { PaymentProviderName } from "@/server/providers/payment/types";
-import { getPaymentGatewayRuntimeConfig, getPrimaryPaymentGateway, newPakasirOrderId } from "@/server/services/payment-gateway-service";
 import { notifyAdmins, notifyWaliForStudents } from "@/server/services/notification-service";
 import { formatRupiah } from "@/lib/money";
 
@@ -111,53 +110,6 @@ export async function processMayarWebhook(input: { rawBody: string; secret: stri
   return { duplicate: Boolean(existing), processed: true, paid };
 }
 
-export async function processPakasirWebhook(input: { rawBody: string; secret: string | null }) {
-  const config = await getPaymentGatewayRuntimeConfig("pakasir");
-  if (!config) throw new ValidationError("Konfigurasi Pakasir belum tersedia");
-  const event = verifyPakasirWebhook(input, config);
-  const payloadHash = createHash("sha256").update(input.rawBody).digest("hex");
-  const existingByPayload = await prisma.webhookEvent.findUnique({ where: { payloadHash }, select: { id: true, processedAt: true } });
-  const existingByEvent = await prisma.webhookEvent.findUnique({ where: { provider_providerEventId: { provider: "pakasir", providerEventId: event.eventId } }, select: { id: true, processedAt: true } });
-  const existing = existingByPayload || existingByEvent;
-  if (existing?.processedAt) return { duplicate: true, processed: true };
-
-  const existingPayment = await prisma.pembayaran.findFirst({ where: { provider: "pakasir", providerReference: event.orderId }, select: { providerReference: true, tagihanId: true, amount: true, status: true } });
-  if (!existingPayment) throw new NotFoundError("Transaksi Pakasir tidak ditemukan");
-  const tagihan = await prisma.tagihan.findUnique({ where: { id: existingPayment.tagihanId }, select: { id: true, siswaId: true, amount: true, status: true } });
-  if (!tagihan) throw new NotFoundError("Tagihan webhook Pakasir tidak ditemukan");
-  if (Number(tagihan.amount) !== Number(event.amount)) throw new ConflictError("Nominal webhook Pakasir tidak sesuai tagihan");
-  const paid = isPaidPakasirEvent(event.status);
-  const duplicatePaid = paid && tagihan.status === "PAID" && existingPayment.status !== "PAID";
-  const rawPayload = JSON.parse(input.rawBody) as object;
-  const paidAt = event.completedAt && !Number.isNaN(event.completedAt.getTime()) ? event.completedAt : new Date();
-
-  await prisma.$transaction(async (tx) => {
-    const webhook = existing
-      ? await tx.webhookEvent.update({ where: { id: existing.id }, data: { processedAt: new Date(), payload: rawPayload } })
-      : await tx.webhookEvent.create({ data: { provider: "pakasir", providerEventId: event.eventId, payloadHash, payload: rawPayload, processedAt: new Date() } });
-    if (paid) {
-      await tx.pembayaran.update({ where: { providerReference: event.orderId }, data: { status: "PAID", amount: tagihan.amount, paidAt, paymentMethod: event.paymentMethod, rawPayload } });
-      if (tagihan.status !== "PAID") await tx.tagihan.update({ where: { id: tagihan.id }, data: { status: "PAID", paidAt } });
-    } else if (existingPayment.status !== "PAID") {
-      const normalized = event.status.toLowerCase();
-      const status = normalized === "expired" ? "EXPIRED" : normalized === "cancelled" ? "CANCELLED" : normalized === "failed" ? "FAILED" : null;
-      if (status) {
-        await tx.pembayaran.update({ where: { providerReference: event.orderId }, data: { status, rawPayload } });
-        if (tagihan.status === "PENDING" && status !== "FAILED") await tx.tagihan.update({ where: { id: tagihan.id }, data: { status: "UNPAID" } });
-      }
-    }
-    if (!webhook.id) throw new Error("Webhook Pakasir gagal disimpan");
-  });
-
-  if (paid && !duplicatePaid) {
-    await notifyWaliForStudents({ siswaIds: [tagihan.siswaId], template: "payment-success", subject: "Pembayaran tagihan diterima", body: `Pembayaran tagihan ${tagihan.id} telah diterima melalui Pakasir.`, metadata: { tagihanId: tagihan.id, provider: "pakasir" }, channels: ["email", "whatsapp"] });
-  }
-  if (paid) {
-    await notifyAdmins({ template: duplicatePaid ? "admin-payment-duplicate" : "admin-payment-success", subject: duplicatePaid ? "Peringatan pembayaran ganda Pakasir" : "Pembayaran Pakasir diterima", body: duplicatePaid ? `Pembayaran tambahan melalui Pakasir untuk tagihan ${tagihan.id} terdeteksi setelah tagihan sudah lunas. Periksa transaksi ini.` : `Pembayaran tagihan ${tagihan.id} sebesar ${formatRupiah(Number(tagihan.amount))} telah diterima melalui Pakasir.`, metadata: { tagihanId: tagihan.id, provider: "pakasir", siswaId: tagihan.siswaId, duplicate: duplicatePaid } });
-  }
-  return { duplicate: Boolean(existing), processed: true, paid };
-}
-
 export async function createInvoicePayment(actor: Actor, tagihanId: string, input: unknown) {
   const allowed = actor.role === "ADMIN" || (await canAccessInvoice(actor, tagihanId));
 
@@ -175,7 +127,7 @@ export async function createInvoicePayment(actor: Actor, tagihanId: string, inpu
   const providerConfig = requestedProvider
     ? await getPaymentGatewayRuntimeConfig(requestedProvider, { requireEnabled: true })
     : await getPrimaryPaymentGateway();
-  if (!providerConfig) throw new ValidationError("Belum ada payment gateway aktif. Minta Admin mengatur Mayar atau Pakasir terlebih dahulu.");
+  if (!providerConfig) throw new ValidationError("Belum ada payment gateway aktif. Minta Admin mengatur Mayar terlebih dahulu.");
   const provider = providerConfig.provider;
 
   const tagihan = await prisma.tagihan.findUnique({
@@ -211,7 +163,7 @@ export async function createInvoicePayment(actor: Actor, tagihanId: string, inpu
   }
 
   if (!["UNPAID", "PENDING", "OVERDUE"].includes(tagihan.status)) {
-    throw new ConflictError(`Status tagihan belum dapat dibayar melalui ${provider === "mayar" ? "Mayar" : "Pakasir"}`);
+    throw new ConflictError(`Status tagihan belum dapat dibayar melalui Mayar`);
   }
 
   const wali = tagihan.siswa.waliRelations[0]?.waliProfile;
@@ -260,30 +212,14 @@ export async function createInvoicePayment(actor: Actor, tagihanId: string, inpu
     paymentMethod: parsed.data.method,
     redirectUrl: `${getEnv().APP_URL.replace(/\/$/, "")}/wali/tagihan/success?tagihanId=${encodeURIComponent(tagihan.id)}`,
   };
-  let providerReference: string;
-  let paymentUrl: string;
-  let paymentMethod: string;
-  let expiresAt: Date | null;
-  let rawPayload: object;
-  let invoiceId: string | undefined;
-  let transactionId: string | undefined;
-  if (provider === "mayar") {
-    const transaction = await createMayarInvoice(paymentInput, providerConfig);
-    providerReference = transaction.transactionId;
-    paymentUrl = transaction.paymentUrl;
-    paymentMethod = transaction.paymentMethod;
-    expiresAt = transaction.expiresAt;
-    invoiceId = transaction.invoiceId;
-    transactionId = transaction.transactionId;
-    rawPayload = JSON.parse(JSON.stringify(createMayarPaymentPayload(transaction, parsed.data.method))) as object;
-  } else {
-    const transaction = createPakasirPayment({ ...paymentInput, orderId: newPakasirOrderId(tagihan.id) }, providerConfig);
-    providerReference = transaction.providerReference;
-    paymentUrl = transaction.paymentUrl;
-    paymentMethod = transaction.paymentMethod;
-    expiresAt = transaction.expiresAt;
-    rawPayload = transaction.rawPayload;
-  }
+  const transaction = await createMayarInvoice(paymentInput, providerConfig);
+  const providerReference = transaction.transactionId;
+  const paymentUrl = transaction.paymentUrl;
+  const paymentMethod = transaction.paymentMethod;
+  const expiresAt = transaction.expiresAt;
+  const invoiceId = transaction.invoiceId;
+  const transactionId = transaction.transactionId;
+  const rawPayload = JSON.parse(JSON.stringify(createMayarPaymentPayload(transaction, parsed.data.method))) as object;
 
   // Guard status: webhook bisa menandai tagihan PAID selama panggilan API provider
   // berjalan — re-check di dalam transaksi agar status PAID tidak pernah ditimpa.
@@ -329,7 +265,7 @@ export async function createInvoicePayment(actor: Actor, tagihanId: string, inpu
     siswaIds: [tagihan.siswa.id],
     template: "payment-created",
     subject: "Instruksi Pembayaran LIMO",
-    body: `Link pembayaran ${provider === "mayar" ? "Mayar" : "Pakasir"} untuk tagihan ${tagihan.id} telah dibuat: ${paymentUrl}`,
+    body: `Link pembayaran Mayar untuk tagihan ${tagihan.id} telah dibuat: ${paymentUrl}`,
     metadata: { tagihanId: tagihan.id, method: paymentMethod, provider },
     channels: ["email", "whatsapp"],
   });
@@ -412,7 +348,7 @@ const zManualReconcile = z.object({
 });
 
 const zCreateInvoicePayment = z.object({
-  provider: z.enum(["mayar", "pakasir"]).optional(),
+  provider: z.enum(["mayar"]).optional(),
   method: z.string().trim().min(1).max(64).default("all"),
 });
 
@@ -444,7 +380,7 @@ function readPaymentPayload(payload: unknown): {
 }
 
 function canReusePayment(payload: { paymentMethod?: string }, requestedMethod: string, provider: PaymentProviderName) {
-  if (provider === "pakasir") return requestedMethod === "all" || payload.paymentMethod === requestedMethod || payload.paymentMethod === "all";
+  if (provider !== "mayar") return false;
   return !payload.paymentMethod || requestedMethod === "all" || payload.paymentMethod === "all" || payload.paymentMethod === requestedMethod;
 }
 

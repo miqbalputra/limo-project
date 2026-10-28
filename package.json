@@ -61,7 +61,6 @@
     "reminders:invoices": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/send-invoice-reminders.ts",
     "reports:autodraft": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/generate-monthly-report-drafts.ts",
     "mayar:reconcile": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/reconcile-mayar-payments.ts",
-    "pakasir:reconcile": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/reconcile-pakasir-payments.ts",
     "backup:create": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/backup.ts",
     "backup:restore": "node --import ./scripts/register-node-module-hooks.mjs --experimental-strip-types scripts/restore.ts",
     "test:integration": "node scripts/run-integration-suite.mjs"

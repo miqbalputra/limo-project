@@ -9,7 +9,7 @@ import { testPaymentGateway } from "@/server/services/payment-gateway-service";
 
 export const runtime = "nodejs";
 
-const providerSchema = z.enum(["mayar", "pakasir"]);
+const providerSchema = z.enum(["mayar"]);
 
 export async function POST(request: Request, context: { params: Promise<{ provider: string }> }) {
   const requestId = getRequestId(request.headers);

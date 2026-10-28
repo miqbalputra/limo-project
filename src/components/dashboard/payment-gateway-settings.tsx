@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { requestJson } from "@/lib/api-json-client";
 
-type Provider = "mayar" | "pakasir";
+type Provider = "mayar";
 
 type GatewaySetting = {
   provider: Provider;
@@ -12,7 +12,6 @@ type GatewaySetting = {
   isPrimary: boolean;
   environment: string;
   merchantId: string;
-  projectSlug: string;
   baseUrl: string;
   apiKeyConfigured: boolean;
   webhookSecretConfigured: boolean;
@@ -32,19 +31,11 @@ type FormState = {
     webhookSecret: string;
     baseUrl: string;
   };
-  pakasir: {
-    enabled: boolean;
-    environment: string;
-    apiKey: string;
-    projectSlug: string;
-    webhookSecret: string;
-  };
   primaryProvider: Provider | null;
 };
 
 function initialForm(items: GatewaySetting[]): FormState {
   const mayar = items.find((item) => item.provider === "mayar");
-  const pakasir = items.find((item) => item.provider === "pakasir");
   return {
     mayar: {
       enabled: mayar?.enabled ?? false,
@@ -53,13 +44,6 @@ function initialForm(items: GatewaySetting[]): FormState {
       merchantId: mayar?.merchantId ?? "",
       webhookSecret: "",
       baseUrl: mayar?.baseUrl ?? "",
-    },
-    pakasir: {
-      enabled: pakasir?.enabled ?? false,
-      environment: pakasir?.environment || "sandbox",
-      apiKey: "",
-      projectSlug: pakasir?.projectSlug ?? "",
-      webhookSecret: "",
     },
     primaryProvider: items.find((item) => item.isPrimary)?.provider ?? null,
   };
@@ -121,7 +105,6 @@ export function PaymentGatewaySettings({ items }: { items: GatewaySetting[] }) {
   }
 
   const mayar = currentItems.find((item) => item.provider === "mayar");
-  const pakasir = currentItems.find((item) => item.provider === "pakasir");
 
   return (
     <div className="space-y-6">
@@ -132,14 +115,13 @@ export function PaymentGatewaySettings({ items }: { items: GatewaySetting[] }) {
           <div>
             <p className="text-theme-xs font-semibold uppercase tracking-[0.16em] text-limo-blue-700">Pilihan pembayaran</p>
             <h2 className="mt-1 text-lg font-semibold text-gray-900">Provider yang ditawarkan ke Wali</h2>
-            <p className="mt-1 max-w-2xl text-theme-sm leading-6 text-gray-500">Aktifkan satu atau dua provider. Provider utama akan terpilih otomatis, tetapi Wali tetap dapat memilih provider lain jika keduanya aktif.</p>
+            <p className="mt-1 max-w-2xl text-theme-sm leading-6 text-gray-500">Mayar adalah payment gateway utama LIMO. Aktifkan provider, uji koneksi, dan pasang URL webhook pada dashboard Mayar.</p>
           </div>
           <label className="block min-w-56 text-theme-sm font-medium text-gray-700">
             Provider utama
             <select value={form.primaryProvider || ""} onChange={(event) => setForm((current) => ({ ...current, primaryProvider: (event.target.value || null) as Provider | null }))} className="tailadmin-input mt-2">
               <option value="">Otomatis</option>
               <option value="mayar" disabled={!form.mayar.enabled}>Mayar</option>
-              <option value="pakasir" disabled={!form.pakasir.enabled}>Pakasir</option>
             </select>
           </label>
         </div>
@@ -152,13 +134,6 @@ export function PaymentGatewaySettings({ items }: { items: GatewaySetting[] }) {
           <label className="text-theme-sm font-medium text-gray-700">Merchant ID<input value={form.mayar.merchantId} onChange={(event) => updateProvider("mayar", "merchantId", event.target.value)} placeholder="Merchant/user ID Mayar" className="tailadmin-input mt-2" /></label>
           <label className="text-theme-sm font-medium text-gray-700">Webhook secret<input type="password" value={form.mayar.webhookSecret} onChange={(event) => updateProvider("mayar", "webhookSecret", event.target.value)} placeholder={mayar?.webhookSecretConfigured ? "Tersimpan, kosongkan jika tidak diubah" : "Secret webhook Mayar"} autoComplete="new-password" className="tailadmin-input mt-2" /></label>
           <label className="text-theme-sm font-medium text-gray-700">Base URL <span className="font-normal text-gray-400">(opsional)</span><input value={form.mayar.baseUrl} onChange={(event) => updateProvider("mayar", "baseUrl", event.target.value)} placeholder="Otomatis sesuai environment" className="tailadmin-input mt-2" /></label>
-        </GatewayCard>
-
-        <GatewayCard provider="pakasir" item={pakasir} enabled={form.pakasir.enabled} onEnabledChange={(value) => updateProvider("pakasir", "enabled", value)} onTest={() => void test("pakasir")} isTesting={testing === "pakasir"} onCopy={() => void copyWebhook("pakasir")} copied={copied === "pakasir"}>
-          <label className="text-theme-sm font-medium text-gray-700">Project slug<input value={form.pakasir.projectSlug} onChange={(event) => updateProvider("pakasir", "projectSlug", event.target.value)} placeholder="Slug proyek Pakasir" className="tailadmin-input mt-2" /></label>
-          <label className="text-theme-sm font-medium text-gray-700">API key<input type="password" value={form.pakasir.apiKey} onChange={(event) => updateProvider("pakasir", "apiKey", event.target.value)} placeholder={pakasir?.apiKeyConfigured ? "Tersimpan, kosongkan jika tidak diubah" : "Masukkan API key Pakasir"} autoComplete="new-password" className="tailadmin-input mt-2" /></label>
-          <label className="text-theme-sm font-medium text-gray-700">Webhook secret LIMO<input type="password" value={form.pakasir.webhookSecret} onChange={(event) => updateProvider("pakasir", "webhookSecret", event.target.value)} placeholder={pakasir?.webhookSecretConfigured ? "Tersimpan, kosongkan jika tidak diubah" : "Buat secret khusus untuk URL webhook"} autoComplete="new-password" className="tailadmin-input mt-2" /></label>
-          <p className="rounded-xl bg-gray-50 p-3 text-theme-xs leading-5 text-gray-500">Pakasir menggunakan hosted checkout. Pilihan semua metode atau QRIS akan muncul saat Wali membuat instruksi pembayaran.</p>
         </GatewayCard>
       </div>
 
@@ -176,7 +151,7 @@ export function PaymentGatewaySettings({ items }: { items: GatewaySetting[] }) {
 }
 
 function GatewayCard({ provider, item, enabled, onEnabledChange, onTest, isTesting, onCopy, copied, children }: { provider: Provider; item?: GatewaySetting; enabled: boolean; onEnabledChange: (_value: boolean) => void; onTest: () => void; isTesting: boolean; onCopy: () => void; copied: boolean; children: ReactNode }) {
-  const label = provider === "mayar" ? "Mayar" : "Pakasir";
+  const label = "Mayar";
   return (
     <section className="tailadmin-card overflow-hidden">
       <div className="flex items-start justify-between gap-4 border-b border-gray-100 p-5 sm:p-6">

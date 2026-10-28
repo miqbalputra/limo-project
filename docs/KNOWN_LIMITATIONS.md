@@ -12,7 +12,7 @@ Dokumen ini mencatat gap MVP saat ini agar tidak dianggap selesai diam-diam.
 ## Payment
 
 - Mayar menjadi provider pembayaran resmi. **Webhook secret Mayar kini wajib** — bila secret belum dikonfigurasi (DB maupun `MAYAR_WEBHOOK_SECRET`), webhook ditolak, bukan diproses tanpa verifikasi. Validasi merchant/nominal tetap berlaku.
-- Rekonsiliasi Mayar/Pakasir menggunakan detail invoice/transaksi API (`npm run mayar:reconcile` / `pakasir:reconcile`) dan kini **ber-guard status**: webhook yang mengubah pembayaran/tagihan lebih dulu tidak akan ditimpa oleh rekonsiliasi (dan sebaliknya).
+- Rekonsiliasi Mayar menggunakan detail invoice/transaksi API (`npm run mayar:reconcile`) dan kini **ber-guard status**: webhook yang mengubah pembayaran/tagihan lebih dulu tidak akan ditimpa oleh rekonsiliasi (dan sebaliknya). Pakasir sudah dihentikan oleh providernya dan **dihapus dari kode** — Mayar menjadi satu-satunya payment gateway; transaksi Pakasir historis tetap tersimpan di database tetapi tidak lagi direkonsiliasi.
 - Kredensial production Mayar dan UAT end-to-end di merchant nyata belum dilakukan di environment ini.
 - Redirect browser tidak mengubah status pembayaran, sesuai PRD.
 - `npm audit` tinggal melaporkan 3 temuan high pada rantai **prisma CLI** (`prisma → @prisma/config → deepmerge-ts`) — hanya alat CLI dev, tidak termasuk runtime `@prisma/client` di produksi; "perbaikan" yang tersedia justru downgrade Prisma, jadi risiko ini sengaja diterima. Temuan high **zod** sudah ditutup dengan migrasi **zod v4.6.7** (oktober 2026): skema di 36 file sudah kompatibel, default numerik `env.ts` diubah ke tipe output, dan `apiError` kini memetakan `ZodError` ke 400 `VALIDATION_ERROR` sebagai jaring pengaman.

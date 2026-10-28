@@ -40,7 +40,7 @@ export default async function AdminTagihanPage({ searchParams }: { searchParams:
     listSiswa(actor, { page: 1, pageSize: 100 }),
   ]);
   const activeGatewaySettings = gatewaySettings.filter((item) => item.enabled && item.apiKeyConfigured);
-  const gatewayLabel = activeGatewaySettings.length > 0 ? activeGatewaySettings.map((item) => item.provider === "mayar" ? "Mayar" : "Pakasir").join(" + ") : "Belum dikonfigurasi";
+  const gatewayLabel = activeGatewaySettings.length > 0 ? activeGatewaySettings.map((item) => item.provider === "mayar" ? "Mayar" : item.provider).join(" + ") : "Belum dikonfigurasi";
   const siswaOptions = siswaList.map((item) => ({ id: item.id, name: `${item.name} (${item.nomorInduk})` }));
   const totalSiswa = siswaPagination?.total;
   const activeYear = await getActiveAcademicYear();

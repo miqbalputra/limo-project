@@ -58,7 +58,7 @@ try {
   // Salinan halaman saat ini: aside "Gerbang pembayaran" + nilai gateway terpisah.
   assert.match(String(adminBilling.payload), /Gerbang pembayaran/);
   if (String(adminBilling.payload).includes("Pembayaran siap digunakan")) {
-    assert.match(String(adminBilling.payload), /Mayar|Pakasir/);
+    assert.match(String(adminBilling.payload), /Mayar/);
   } else {
     assert.match(String(adminBilling.payload), /Belum ada gateway aktif|Belum dikonfigurasi/);
     ok("Gateway belum dikonfigurasi di environment ini — status aside tetap dirender");

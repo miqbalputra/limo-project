@@ -1,5 +1,4 @@
 import "server-only";
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Actor } from "@/server/auth/session";
 import { requirePermission } from "@/server/auth/permissions";
@@ -9,9 +8,8 @@ import { NotFoundError, ValidationError } from "@/server/errors/application-erro
 import { encryptPaymentCredentials, decryptPaymentCredentials } from "@/server/security/payment-config";
 import type { PaymentGatewayRuntimeConfig, PaymentProviderName } from "@/server/providers/payment/types";
 import { testMayarConnection } from "@/server/providers/payment/mayar";
-import { testPakasirConnection } from "@/server/providers/payment/pakasir";
 
-const providerSchema = z.enum(["mayar", "pakasir"]);
+const providerSchema = z.enum(["mayar"]);
 const settingsSchema = z.object({
   mayar: z.object({
     enabled: z.boolean().default(false),
@@ -21,13 +19,6 @@ const settingsSchema = z.object({
     webhookSecret: z.string().trim().max(500).optional().default(""),
     baseUrl: z.string().trim().url().or(z.literal("")).optional().default(""),
   }).optional(),
-  pakasir: z.object({
-    enabled: z.boolean().default(false),
-    environment: z.string().trim().max(32).default("sandbox"),
-    apiKey: z.string().trim().max(500).optional().default(""),
-    projectSlug: z.string().trim().min(2).max(191).optional().default(""),
-    webhookSecret: z.string().trim().max(500).optional().default(""),
-  }).optional(),
   primaryProvider: providerSchema.nullable().optional(),
 });
 
@@ -35,11 +26,7 @@ type SettingsInput = z.infer<typeof settingsSchema>;
 type PublicConfig = Record<string, unknown>;
 
 function enumProvider(provider: PaymentProviderName) {
-  return provider.toUpperCase() as "MAYAR" | "PAKASIR";
-}
-
-function lowerProvider(provider: "MAYAR" | "PAKASIR"): PaymentProviderName {
-  return provider.toLowerCase() as PaymentProviderName;
+  return provider.toUpperCase() as "MAYAR";
 }
 
 function readPublicConfig(value: unknown): PublicConfig {
@@ -67,11 +54,13 @@ async function getRows() {
   return prisma.paymentGatewayConfig.findMany({ orderBy: { provider: "asc" } });
 }
 
-async function rowToRuntime(row: Awaited<ReturnType<typeof getRows>>[number]): Promise<PaymentGatewayRuntimeConfig> {
+function rowToRuntime(row: Awaited<ReturnType<typeof getRows>>[number]): PaymentGatewayRuntimeConfig | null {
+  // Baris provider lain (mis. PAKASIR dari data lama) diabaikan — hanya MAYAR aktif.
+  if (row.provider !== "MAYAR") return null;
   const publicConfig = readPublicConfig(row.publicConfig);
   const credentials = row.encryptedCredentials ? decryptPaymentCredentials(row.encryptedCredentials) : {};
   return {
-    provider: lowerProvider(row.provider),
+    provider: "mayar",
     enabled: row.enabled,
     isPrimary: row.isPrimary,
     environment: row.environment,
@@ -86,7 +75,7 @@ async function rowToRuntime(row: Awaited<ReturnType<typeof getRows>>[number]): P
 
 export async function getPaymentGatewayRuntimeConfig(provider: PaymentProviderName, options: { requireEnabled?: boolean } = {}) {
   const row = await prisma.paymentGatewayConfig.findUnique({ where: { provider: enumProvider(provider) } });
-  const runtime = row ? await rowToRuntime(row) : provider === "mayar" ? legacyMayarConfig() : null;
+  const runtime = row ? rowToRuntime(row) : provider === "mayar" ? legacyMayarConfig() : null;
   if (!runtime || !runtime.apiKey || (options.requireEnabled && !runtime.enabled)) return null;
   return runtime;
 }
@@ -94,14 +83,14 @@ export async function getPaymentGatewayRuntimeConfig(provider: PaymentProviderNa
 export async function listPaymentGatewaySettings(actor: Actor) {
   await requirePermission(actor, "admin.billing.manage");
   const rows = await getRows();
-  const byProvider = new Map(rows.map((row) => [lowerProvider(row.provider), row]));
-  const legacy = rows.length === 0 ? legacyMayarConfig() : null;
+  const mayarRow = rows.find((row) => row.provider === "MAYAR") ?? null;
+  const legacy = mayarRow ? null : legacyMayarConfig();
   const appUrl = getEnv().APP_URL.replace(/\/$/, "");
 
-  return ["mayar", "pakasir"].map((provider) => {
-    const name = provider as PaymentProviderName;
-    const row = byProvider.get(name);
-    const runtime = row ? null : name === "mayar" ? legacy : null;
+  return (["mayar"] as PaymentProviderName[]).map((provider) => {
+    const name = provider;
+    const row = mayarRow;
+    const runtime = row ? null : legacy;
     const publicConfig = readPublicConfig(row?.publicConfig);
     const rowCredentials = row?.encryptedCredentials ? decryptPaymentCredentials(row.encryptedCredentials) : null;
     const credentialsConfigured = Boolean(rowCredentials?.apiKey || runtime?.apiKey);
@@ -128,7 +117,7 @@ export async function listPaymentGatewaySettings(actor: Actor) {
 export async function getPaymentGatewayWebhookUrl(actor: Actor, provider: PaymentProviderName) {
   await requirePermission(actor, "admin.billing.manage");
   const config = await getPaymentGatewayRuntimeConfig(provider);
-  if (!config?.webhookSecret) throw new ValidationError(`Webhook secret ${provider === "mayar" ? "Mayar" : "Pakasir"} belum tersedia`);
+  if (!config?.webhookSecret) throw new ValidationError("Webhook secret Mayar belum tersedia");
   const appUrl = getEnv().APP_URL.replace(/\/$/, "");
   return `${appUrl}/api/v1/webhooks/${provider}?secret=${encodeURIComponent(config.webhookSecret)}`;
 }
@@ -139,8 +128,7 @@ export async function getActivePaymentGateways() {
     const legacy = legacyMayarConfig();
     return legacy ? [legacy] : [];
   }
-  const values = await Promise.all(rows.filter((row) => row.enabled).map(rowToRuntime));
-  return values.filter((item) => item.apiKey);
+  return rows.filter((row) => row.enabled).map(rowToRuntime).filter((item): item is PaymentGatewayRuntimeConfig => item !== null && Boolean(item.apiKey));
 }
 
 export async function getPrimaryPaymentGateway() {
@@ -154,14 +142,13 @@ export async function savePaymentGatewaySettings(actor: Actor, input: unknown) {
   if (!parsed.success) throw new ValidationError("Pengaturan payment gateway belum valid", parsed.error.flatten().fieldErrors);
   const data = parsed.data;
   const existingRows = await getRows();
-  const existing = new Map(existingRows.map((row) => [lowerProvider(row.provider), row]));
-  const definitions: { provider: PaymentProviderName; input: NonNullable<SettingsInput["mayar"]> | NonNullable<SettingsInput["pakasir"]>; }[] = [];
+  const existing = new Map(existingRows.map((row) => [row.provider as "MAYAR", row]));
+  const definitions: { provider: PaymentProviderName; input: NonNullable<SettingsInput["mayar"]>; }[] = [];
   if (data.mayar) definitions.push({ provider: "mayar", input: data.mayar });
-  if (data.pakasir) definitions.push({ provider: "pakasir", input: data.pakasir });
   if (definitions.length === 0) throw new ValidationError("Minimal satu blok konfigurasi provider harus dikirim");
 
   const rowsToSave = definitions.map(({ provider, input: definition }) => {
-    const previousRow = existing.get(provider);
+    const previousRow = existing.get("MAYAR");
     const previousRuntime = previousRow ? undefined : provider === "mayar" ? legacyMayarConfig() : null;
     const previousCredentials = previousRow?.encryptedCredentials ? decryptPaymentCredentials(previousRow.encryptedCredentials) : {
       apiKey: previousRuntime?.apiKey || "",
@@ -169,13 +156,10 @@ export async function savePaymentGatewaySettings(actor: Actor, input: unknown) {
     };
     const apiKey = definition.apiKey || previousCredentials.apiKey || "";
     const webhookSecret = definition.webhookSecret || previousCredentials.webhookSecret || "";
-    const publicConfig = provider === "mayar"
-      ? { merchantId: "merchantId" in definition ? definition.merchantId : "", baseUrl: "baseUrl" in definition ? definition.baseUrl : "" }
-      : { projectSlug: "projectSlug" in definition ? definition.projectSlug : "" };
-    if (definition.enabled && !apiKey) throw new ValidationError(`API key ${provider === "mayar" ? "Mayar" : "Pakasir"} wajib diisi saat provider diaktifkan`);
-    if (definition.enabled && !webhookSecret) throw new ValidationError(`Webhook secret ${provider === "mayar" ? "Mayar" : "Pakasir"} wajib diisi saat provider diaktifkan`);
-    if (definition.enabled && provider === "mayar" && definition.environment === "production" && !publicConfig.merchantId) throw new ValidationError("Merchant ID Mayar wajib diisi untuk environment production");
-    if (definition.enabled && provider === "pakasir" && !publicConfig.projectSlug) throw new ValidationError("Project slug Pakasir wajib diisi saat provider diaktifkan");
+    const publicConfig = { merchantId: definition.merchantId, baseUrl: definition.baseUrl };
+    if (definition.enabled && !apiKey) throw new ValidationError("API key Mayar wajib diisi saat provider diaktifkan");
+    if (definition.enabled && !webhookSecret) throw new ValidationError("Webhook secret Mayar wajib diisi saat provider diaktifkan");
+    if (definition.enabled && definition.environment === "production" && !publicConfig.merchantId) throw new ValidationError("Merchant ID Mayar wajib diisi untuk environment production");
     return {
       provider,
       enabled: definition.enabled,
@@ -189,7 +173,7 @@ export async function savePaymentGatewaySettings(actor: Actor, input: unknown) {
   const enabledProviders = rowsToSave.filter((row) => row.enabled).map((row) => row.provider);
   if (requestedPrimary && !enabledProviders.includes(requestedPrimary)) throw new ValidationError("Provider utama harus dalam keadaan aktif");
   const previousPrimary = existingRows.find((row) => row.isPrimary && row.enabled);
-  const previousPrimaryProvider = previousPrimary ? lowerProvider(previousPrimary.provider) : null;
+  const previousPrimaryProvider = previousPrimary?.provider === "MAYAR" ? ("mayar" as PaymentProviderName) : null;
   const primary = requestedPrimary || (previousPrimaryProvider && enabledProviders.includes(previousPrimaryProvider) ? previousPrimaryProvider : enabledProviders[0] || null);
 
   await prisma.$transaction(async (tx) => {
@@ -211,13 +195,9 @@ export async function testPaymentGateway(actor: Actor, provider: PaymentProvider
   await requirePermission(actor, "admin.billing.manage");
   const config = await getPaymentGatewayRuntimeConfig(provider);
   if (!config) throw new NotFoundError(`Konfigurasi ${provider} belum tersedia`);
-  const result = provider === "mayar" ? await testMayarConnection(config) : await testPakasirConnection(config);
+  const result = await testMayarConnection(config);
   await prisma.paymentGatewayConfig.updateMany({ where: { provider: enumProvider(provider) }, data: { lastTestedAt: new Date(), lastTestStatus: "SUCCESS", lastTestMessage: result.message } });
   await prisma.auditLog.create({ data: { actorId: actor.id, action: "PAYMENT_GATEWAY_TESTED", entityType: "PaymentGatewayConfig", entityId: provider, metadata: { provider, success: true } } });
   return result;
 }
 
-
-export function newPakasirOrderId(tagihanId: string) {
-  return `LIMO-${tagihanId}-${randomUUID().slice(0, 8)}`;
-}

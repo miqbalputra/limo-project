@@ -1,4 +1,4 @@
-export type PaymentProviderName = "mayar" | "pakasir";
+export type PaymentProviderName = "mayar";
 
 export type PaymentGatewayRuntimeConfig = {
   provider: PaymentProviderName;

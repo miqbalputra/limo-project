@@ -13,7 +13,7 @@ export default async function PaymentGatewaySettingsPage() {
   const items = await listPaymentGatewaySettings(actor);
   return (
     <main className="space-y-6">
-      <DashboardHero eyebrow="Administrasi / Keuangan" title="Pengaturan Payment Gateway" description="Hubungkan Mayar dan Pakasir dari satu tempat, tentukan provider utama, dan salin URL webhook tanpa mengubah kode aplikasi." actions={<Link href="/admin/pembayaran" className="tailadmin-button-outline px-4 py-2.5">Kembali ke pembayaran</Link>} />
+      <DashboardHero eyebrow="Administrasi / Keuangan" title="Pengaturan Payment Gateway" description="Kelola Mayar sebagai payment gateway utama LIMO: aktifkan provider, tentukan konfigurasi, dan salin URL webhook tanpa mengubah kode aplikasi." actions={<Link href="/admin/pembayaran" className="tailadmin-button-outline px-4 py-2.5">Kembali ke pembayaran</Link>} />
       <PaymentGatewaySettings items={items} />
     </main>
   );
