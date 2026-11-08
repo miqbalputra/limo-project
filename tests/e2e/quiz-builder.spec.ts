@@ -114,7 +114,7 @@ test("Builder punya handle urut, dan pemutar publik mode satu soal per halaman r
 
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto(sharePath);
-  await page.getByRole("button", { name: "Mulai Kerjakan" }).click();
+  await page.getByRole("button", { name: /Mulai/ }).click();
 
   await expect(page.getByText(/Soal 1 dari 2/)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("progressbar", { name: "Progres pengisian" })).toBeVisible();
@@ -124,7 +124,7 @@ test("Builder punya handle urut, dan pemutar publik mode satu soal per halaman r
   expect(axeResults.violations, axeResults.violations.map((violation) => `${violation.id}: ${violation.help}`).join("\n")).toEqual([]);
 
   // Lanjut ke soal terakhir lalu buka dialog tinjau jawaban.
-  await page.getByRole("button", { name: "Berikutnya" }).click();
+  await page.getByRole("button", { name: /Lanjut/ }).click();
   await expect(page.getByText(/Soal 2 dari 2/)).toBeVisible();
   await page.getByRole("button", { name: "Kumpulkan Jawaban" }).click();
   const review = page.getByRole("dialog", { name: "Tinjau jawaban" });

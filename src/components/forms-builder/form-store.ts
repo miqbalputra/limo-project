@@ -244,7 +244,9 @@ export function useFormBuilderStore({ ujianId, status, initial }: { ujianId?: st
       await requestJson(`/api/v1/kuis/${idRef.current}/publish`, { method: "POST", body: {}, fallbackMessage: "Gagal mempublikasikan" });
       setCurrentStatus("PUBLISHED");
       setNotice("Formulir berhasil dipublikasikan. Tautan kini aktif untuk diisi.");
-      router.refresh();
+      // router.refresh() di sini meremount builder (Next 16) dan menutup
+      // ShareSheet yang baru saja dibuka pemanggil — badge "Sudah publish"
+      // sudah diperbarui lewat setCurrentStatus, jadi refresh tak diperlukan.
       return true;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Gagal mempublikasikan");
