@@ -128,7 +128,7 @@ export function PaymentGatewaySettings({ items }: { items: GatewaySetting[] }) {
       </section>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <GatewayCard provider="mayar" item={mayar} enabled={form.mayar.enabled} onEnabledChange={(value) => updateProvider("mayar", "enabled", value)} onTest={() => void test("mayar")} isTesting={testing === "mayar"} onCopy={() => void copyWebhook("mayar")} copied={copied === "mayar"}>
+        <GatewayCard item={mayar} enabled={form.mayar.enabled} onEnabledChange={(value) => updateProvider("mayar", "enabled", value)} onTest={() => void test("mayar")} isTesting={testing === "mayar"} onCopy={() => void copyWebhook("mayar")} copied={copied === "mayar"}>
           <label className="text-theme-sm font-medium text-gray-700">Environment<select value={form.mayar.environment} onChange={(event) => updateProvider("mayar", "environment", event.target.value)} className="tailadmin-input mt-2"><option value="sandbox">Sandbox</option><option value="production">Production</option></select></label>
           <label className="text-theme-sm font-medium text-gray-700">API key<input type="password" value={form.mayar.apiKey} onChange={(event) => updateProvider("mayar", "apiKey", event.target.value)} placeholder={mayar?.apiKeyConfigured ? "Tersimpan, kosongkan jika tidak diubah" : "Masukkan API key Mayar"} autoComplete="new-password" className="tailadmin-input mt-2" /></label>
           <label className="text-theme-sm font-medium text-gray-700">Merchant ID<input value={form.mayar.merchantId} onChange={(event) => updateProvider("mayar", "merchantId", event.target.value)} placeholder="Merchant/user ID Mayar" className="tailadmin-input mt-2" /></label>
