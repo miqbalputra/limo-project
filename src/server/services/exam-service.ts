@@ -1362,6 +1362,7 @@ export async function submitHasilUjian(actor: Actor, input: unknown, options: Su
     template: "exam-result-updated",
     subject: needsReview ? "Jawaban ujian menunggu review" : options.allowCorrection ? "Nilai ujian dikoreksi" : "Nilai ujian tersedia",
     body: needsReview ? `Jawaban ujian ${ujian.title} sudah diterima dan menunggu review guru.` : options.allowCorrection ? `Nilai ujian ${ujian.title} telah dikoreksi guru. Buka menu Nilai untuk melihat hasil terbaru.` : `Nilai ujian ${ujian.title} sudah final. Buka menu Nilai untuk melihat hasilnya.`,
+    channels: ["email", "whatsapp"],
     metadata: { ujianId: ujian.id, hasilUjianId: item.id },
   });
   await syncGradebookForSource("EXAM", ujian.id);

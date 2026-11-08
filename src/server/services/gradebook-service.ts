@@ -466,7 +466,7 @@ export async function publishFinalGrades(actor: Actor, classId: string, input: u
   });
   const studentIds = published.map((item) => item.studentId);
   const notificationKey = published.map((item) => `${item.id}:${item.status}:${item.publishedScore?.toString() ?? ""}`).join(",");
-  await notifyWaliForStudents({ siswaIds: studentIds, template: "gradebook-final-published", subject: "Nilai akhir tersedia", body: "Nilai akhir gradebook anak sudah tersedia di menu Nilai.", dedupeKey: notificationKey, metadata: { classId, count: published.length } });
+  await notifyWaliForStudents({ siswaIds: studentIds, template: "gradebook-final-published", subject: "Nilai akhir tersedia", body: "Nilai akhir gradebook anak sudah tersedia di menu Nilai.", dedupeKey: notificationKey, channels: ["email", "whatsapp"], metadata: { classId, count: published.length } });
   for (const item of published) await notifyStudentFinalGrade(item.studentId, classId, item.id, Number(item.publishedScore), `${item.status}:${item.publishedScore?.toString() ?? ""}`);
   return { items: published.map((item) => ({ ...item, calculatedScore: toNumber(item.calculatedScore), publishedScore: toNumber(item.publishedScore) })) };
 }

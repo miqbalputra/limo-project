@@ -205,7 +205,7 @@ export async function publishSubmissionGrade(actor: Actor, submissionId: string,
     return item;
   });
   await notifyStudentGrade(submission.studentId, submission.assignment.title, published.id, published.score);
-  await notifyWaliForStudents({ siswaIds: [submission.studentId], template: "assignment-grade-published", subject: `Feedback tugas: ${submission.assignment.title}`, body: `Nilai dan feedback tugas ${submission.assignment.title} sudah tersedia untuk anak.`, dedupeKey: published.id, metadata: { gradeId: published.id, assignmentId: submission.assignment.id } });
+  await notifyWaliForStudents({ siswaIds: [submission.studentId], template: "assignment-grade-published", subject: `Feedback tugas: ${submission.assignment.title}`, body: `Nilai dan feedback tugas ${submission.assignment.title} sudah tersedia untuk anak.`, dedupeKey: published.id, channels: ["email", "whatsapp"], metadata: { gradeId: published.id, assignmentId: submission.assignment.id } });
   if (submission.revisionRequestId && isFeatureEnabled("remedialEnabled")) await markRevisionCompleted(submission.revisionRequestId, actor.id);
   if (isFeatureEnabled("remedialEnabled")) await syncRemedialResultsForAssignment(submission.assignment.id, submission.studentId, actor.id);
   await syncGradebookForSource("ASSIGNMENT", submission.assignment.id);
