@@ -150,7 +150,7 @@ export function PaymentGatewaySettings({ items }: { items: GatewaySetting[] }) {
   );
 }
 
-function GatewayCard({ provider, item, enabled, onEnabledChange, onTest, isTesting, onCopy, copied, children }: { provider: Provider; item?: GatewaySetting; enabled: boolean; onEnabledChange: (_value: boolean) => void; onTest: () => void; isTesting: boolean; onCopy: () => void; copied: boolean; children: ReactNode }) {
+function GatewayCard({ item, enabled, onEnabledChange, onTest, isTesting, onCopy, copied, children }: { item?: GatewaySetting; enabled: boolean; onEnabledChange: (_value: boolean) => void; onTest: () => void; isTesting: boolean; onCopy: () => void; copied: boolean; children: ReactNode }) {
   const label = "Mayar";
   return (
     <section className="tailadmin-card overflow-hidden">
