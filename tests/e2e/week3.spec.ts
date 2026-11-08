@@ -281,6 +281,7 @@ test("Wali help center explains common LMS flows", async ({ page }) => {
   await expect(question).toBeVisible();
   await question.click();
   await expect(page.getByText(/Buka menu Tugas Anak, pilih anak/)).toBeVisible();
-  await expect(page.getByRole("link", { name: "admin@limo.local" })).toHaveAttribute("href", "mailto:admin@limo.local");
+  const contactEmail = process.env.NEXT_PUBLIC_LIMO_CONTACT_EMAIL || "e2e@limo.invalid";
+  await expect(page.getByRole("link", { name: contactEmail })).toHaveAttribute("href", `mailto:${contactEmail}`);
   await expectNoHorizontalOverflow(page);
 });
