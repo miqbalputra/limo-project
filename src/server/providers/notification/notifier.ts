@@ -13,7 +13,7 @@ async function resolveSchoolName() {
   }
 }
 
-type NotificationPayload = Pick<Notifikasi, "id" | "channel" | "recipient" | "subject" | "body" | "metadata">;
+type NotificationPayload = Pick<Notifikasi, "id" | "channel" | "recipient" | "subject" | "body" | "template" | "metadata">;
 
 export type DeliveryResult = {
   provider: string;
@@ -80,6 +80,7 @@ async function sendN8nNotification(notification: NotificationPayload): Promise<D
         recipient: notification.recipient,
         subject: notification.subject,
         body: notification.body,
+        template: notification.template,
         metadata: notification.metadata,
       }),
       signal: AbortSignal.timeout(10_000),
